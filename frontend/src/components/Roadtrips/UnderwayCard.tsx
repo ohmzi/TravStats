@@ -14,7 +14,7 @@ import {
   spanDays,
 } from "../../lib/roadtrip/roadtripView";
 import type { RoadtripDetail, RoadtripSummary } from "../../types/roadtrip";
-import RoadtripSketch from "./RoadtripSketch";
+import CardMap from "../map/CardMap";
 import { useRoadtripSpan } from "./RoadtripCard";
 
 /**
@@ -64,7 +64,11 @@ export default function UnderwayCard({
         border: "1px solid color-mix(in srgb, var(--domain-roadtrip) 45%, transparent)",
       }}
     >
-      <RoadtripSketch path={r.path} points={r.points} height={170} />
+      <CardMap
+        lines={[{ coords: r.path && r.path.length >= 2 ? r.path : r.points }]}
+        stops={(r.points ?? []).map((coord) => ({ coord }))}
+        height={170}
+      />
       <div
         className="flex flex-col"
         style={{ padding: "var(--ts-space-lg)", gap: "var(--ts-space-sm)" }}

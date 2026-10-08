@@ -31,6 +31,7 @@ import { logger } from "../lib/logger";
 import { priceCellState } from "../lib/flightPriceCell";
 import { FlightRow, FLIGHT_COLUMN_LAYOUT } from "../components/flightsTable/FlightRow";
 import { FlightsFilterBar } from "../components/flightsTable/FlightsFilterBar";
+import FlightJourneyGrid from "../components/flightsTable/FlightJourneyGrid";
 import { LoyaltyFilterNotice, useLoyaltyListFilter } from "../components/Loyalty/LoyaltyListFilter";
 import { Table, type TableColumn } from "../components/ui/Table";
 import { formatAmount } from "../lib/units";
@@ -122,6 +123,14 @@ export default function FlightsTablePage(): JSX.Element {
     next.delete("import");
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
+
+  // `?trip=` — how the journey cards open this table. The param IS the filter
+  // rather than a hint beside it, so the link is shareable and a reload lands
+  // on the same journey's flights.
+  useEffect(() => {
+    const trip = searchParams.get("trip");
+    if (trip !== null) setTripFilter(trip);
+  }, [searchParams]);
 
   const closeAddFlight = (): void => {
     setShowAddFlight(false);
@@ -440,12 +449,32 @@ export default function FlightsTablePage(): JSX.Element {
     duration: t("flights:table.sort.duration"),
   };
 
+  // No `?trip` is the front door: the journeys as cards, each with its flying
+  // drawn on a map. A card opens THIS page's table filtered to that journey,
+  // and a row in it opens the flight itself.
+  if (searchParams.get("trip") === null) {
+    return (
+      <AppShell width="table">
+        <LogbookTabs />
+        <div className="w-full">
+          <h1 className="t-screen-title mb-4">{t("dashboard:flightsTitle")}</h1>
+          <FlightJourneyGrid />
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell width="table">
       <LogbookTabs />
       <div className="w-full">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h1 className="t-screen-title">{t("dashboard:flightsTitle")}</h1>
+          {/* Filtered to one journey: the way back to the grid, and the only
+              one — the heading is not a link. */}
+          <Link to="/flights" className="t-caption underline mr-auto ml-4">
+            {t("flights:journeyCard.allJourneys")}
+          </Link>
           <div className="flex items-center gap-2">
             <ColumnPicker
               columns={FLIGHT_COLUMN_IDS.map((id) => ({

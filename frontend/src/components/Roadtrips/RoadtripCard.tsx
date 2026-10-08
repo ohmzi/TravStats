@@ -6,7 +6,7 @@ import { useTranslation } from "../../hooks/useTranslation";
 import { useDisplayFormat } from "../../lib/displayFormat";
 import type { RoadtripPhase } from "../../lib/roadtrip/roadtripView";
 import type { RoadtripSummary } from "../../types/roadtrip";
-import RoadtripSketch from "./RoadtripSketch";
+import CardMap from "../map/CardMap";
 
 /** "18.09. – 28.09.2026", or the undated word. */
 export function useRoadtripSpan(): (r: Pick<RoadtripSummary, "startDate" | "endDate">) => string {
@@ -86,7 +86,18 @@ export default function RoadtripCard({
       }}
     >
       <div className="relative">
-        <RoadtripSketch path={r.path} points={r.points} planned={phase === "planned"} />
+        {/* The map, not just the line: the sketch above drew the route on a
+            blank background, so a trip had no land to sit against. The routed
+            path when there is one, the stations alone until then. */}
+        <CardMap
+          lines={[
+            {
+              coords: r.path && r.path.length >= 2 ? r.path : r.points,
+              dashed: phase === "planned",
+            },
+          ]}
+          stops={(r.points ?? []).map((coord) => ({ coord }))}
+        />
         {phase === "planned" && (
           <span className="absolute" style={{ top: 10, left: 10 }}>
             <Pill color="var(--ts-info)">{t("roadtrips:phase.planned")}</Pill>

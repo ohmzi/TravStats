@@ -242,6 +242,14 @@
     "sortBy": "Sort by {{col}}",
     "loadError": "The flights could not be loaded."
   },
+  "journeyCard": {
+    "flights_one": "{{count}} flight",
+    "flights_other": "{{count}} flights",
+    "airports": "airports",
+    "km": "km",
+    "allJourneys": "All journeys",
+    "untripped": "Flights without a journey"
+  },
   "review": {
     "duplicate": {
       "message": "Flight {{flightNumber}} ({{route}}) is already in your logbook — nothing was created twice.",
