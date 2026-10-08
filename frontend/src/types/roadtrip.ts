@@ -41,6 +41,12 @@ export interface RoadtripSummary extends RoadtripNights {
   startOdometerKm: number | null;
   endOdometerKm: number | null;
   stationCount: number;
+  /**
+   * Road legs only — one per distinct consecutive stop pair, a via point
+   * included as an endpoint. The strip's drives figure reads this; a ferry,
+   * rail, foot or bike leg is not a drive (`drivenLegs`, tourDistance).
+   */
+  driveCount: number;
   trackCount: number;
   tourCount: number;
   /** ISO alpha-2 codes of the countries its stations stand in. */

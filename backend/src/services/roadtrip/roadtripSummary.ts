@@ -4,7 +4,7 @@ import {
   stationState,
   type RoadtripNights,
 } from "../../shared/tour/roadtrip";
-import { drivenKm, travelledKm } from "../tour/tourDistance";
+import { drivenKm, drivenLegs, travelledKm } from "../tour/tourDistance";
 import type { CountryResolver } from "../geo/countryFromCoordinates";
 import { toCountryCode } from "../../shared/countryEvidence";
 import { stayTimes } from "../lodging/timesDto";
@@ -280,6 +280,17 @@ export function toRoadtripSummary(
     startOdometerKm: row.startOdometerKm,
     endOdometerKm: row.endOdometerKm,
     stationCount: stations.length,
+    // The drives the list summary counts (owner, 2026-10-08): the same road
+    // legs `drivenKm` sums, never a ferry, rail, foot or bike leg — a "drive"
+    // is a road stretch. `drivenLegs` is that ONE allow-list rule, shared with
+    // `drivenKm`, so the two figures cannot disagree.
+    //
+    // Legs are keyed by ENDPOINT PAIR (`shared/tour/legPlan.ts`), never by
+    // position, so a repeated ordered pair — an out-and-back — is ONE drive,
+    // not two. This is therefore the count of DISTINCT consecutive pairs, which
+    // the no-duplicate-station-id rule in `replaceStations` keeps at `stops - 1`
+    // for a straight route; a via point is an endpoint too and adds one pair.
+    driveCount: drivenLegs(row.legs).length,
     // `[lon, lat]` in travel order, for the list's route sketch; a station
     // without a point has nothing to draw and is left out, and so is a route
     // correction — the sketch marks stations.

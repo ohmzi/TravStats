@@ -9,12 +9,14 @@ import { Icon } from "../components/ui/Icon";
 import { SectionLabel } from "../components/ui/StatTile";
 import LogbookTabs from "../components/table/LogbookTabs";
 import ListFilterBar, { FilterField, PANEL_SELECT_CLASS } from "../components/table/ListFilterBar";
+import ListSummaryStrip from "../components/table/ListSummaryStrip";
 import KindReviewNotice from "../components/Roadtrips/KindReviewNotice";
 import NewRoadtripDialog from "../components/Roadtrips/NewRoadtripDialog";
 import RoadtripCard from "../components/Roadtrips/RoadtripCard";
 import UnderwayCard from "../components/Roadtrips/UnderwayCard";
 import { useTranslation } from "../hooks/useTranslation";
 import { roadtripsApi } from "../lib/api/roadtrips";
+import { roadtripSummaryFigures } from "../lib/roadtrip/roadtripSummaryFigures";
 import { groupRoadtrips, roadtripPhase } from "../lib/roadtrip/roadtripView";
 import { useTodayZone } from "../hooks/useTodayZone";
 import { todayIn } from "../shared/time";
@@ -50,7 +52,7 @@ function matches(r: RoadtripSummary, query: string): boolean {
  * look identical as an empty grid.
  */
 export default function RoadtripsPage(): JSX.Element {
-  const { t } = useTranslation(["roadtrips", "common"]);
+  const { t, i18n } = useTranslation(["roadtrips", "common"]);
   const navigate = useNavigate();
   const todayZone = useTodayZone();
   const today = useMemo(() => todayIn(todayZone), [todayZone]);
@@ -96,6 +98,27 @@ export default function RoadtripsPage(): JSX.Element {
   );
   const groups = useMemo(() => groupRoadtrips(shown, today), [shown, today]);
 
+  // A whitespace-only search narrows nothing — `matches` trims before it looks
+  // — so the strip and the bar must judge "filtered" the same way `matches`
+  // does, or a lone space would show every row under a "gefiltert" chip. The
+  // places page trims its own `hasActiveFilter` the same way.
+  const narrowing = query.trim().length > 0 || vehicle !== "";
+
+  // The three figures, folded from `shown` — the same filtered rows the
+  // sections render and the bar counts on `resultLabel`.
+  const summaryFigures = useMemo(() => {
+    const nf = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 });
+    return roadtripSummaryFigures(
+      shown,
+      {
+        roadtrips: (count) => t("roadtrips:list.figRoadtrips", { count }),
+        drives: (count) => t("roadtrips:list.figDrives", { count }),
+        stations: (count) => t("roadtrips:list.figStations", { count }),
+      },
+      (n) => nf.format(n)
+    );
+  }, [shown, t, i18n.language]);
+
   const card = (r: RoadtripSummary): JSX.Element => (
     <RoadtripCard key={r.id} roadtrip={r} phase={roadtripPhase(r.startDate, r.endDate, today)} />
   );
@@ -128,6 +151,23 @@ export default function RoadtripsPage(): JSX.Element {
 
       <KindReviewNotice onChanged={() => void load()} />
 
+      {/* Read straight off the shown rows; nothing over an unknown or an
+          error. The `shown.length > 0` gate is what suppresses loading, a
+          failed load, the empty list and the no-match state — each renders
+          nothing rather than a row of zeros — and it already implies
+          `rows !== null`, so `unknown` can never be true here. It is passed
+          anyway, as the sibling pages pass it, so a later edit that loosens
+          the gate still cannot draw zeros over an unknown list. Carries its
+          own spacing and mono font — do not wrap it. */}
+      {shown.length > 0 && (
+        <ListSummaryStrip
+          figures={summaryFigures}
+          filtered={narrowing}
+          filteredLabel={t("common:filters.filtered")}
+          unknown={rows === null}
+        />
+      )}
+
       {rows !== null && rows.length > 0 && (
         <ListFilterBar
           search={{ value: query, onChange: setQuery, placeholder: t("roadtrips:list.search") }}
@@ -150,7 +190,7 @@ export default function RoadtripsPage(): JSX.Element {
               </FilterField>
             ) : undefined
           }
-          hasActiveFilter={query.length > 0 || vehicle !== ""}
+          hasActiveFilter={narrowing}
           onReset={resetFilters}
           resultLabel={t("common:filters.matching", { count: shown.length })}
         />

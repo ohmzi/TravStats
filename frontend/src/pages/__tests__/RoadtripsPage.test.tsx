@@ -38,6 +38,7 @@ function summary(over: Partial<RoadtripSummary>): RoadtripSummary {
     startOdometerKm: null,
     endOdometerKm: null,
     stationCount: 3,
+    driveCount: 2,
     stayNights: 1,
     freeNights: 1,
     nights: 2,
@@ -167,5 +168,66 @@ describe("RoadtripsPage", () => {
     expect(screen.queryByText("Bretagne")).not.toBeInTheDocument();
     expect(screen.getByText("Toskana")).toBeInTheDocument();
     expect(screen.getByTestId("list-filter-badge")).toHaveTextContent("1");
+  });
+
+  // The summary strip's promise (ListSummaryStrip): computed from exactly the
+  // rows on screen. `roadtrips:list.figDrives` is unique to the strip — a card
+  // prints km, nights, stations and tours, never drives — so it is the one
+  // string safe to query by (bare numbers would match the cards too).
+  it("summarises the shown rows and marks itself filtered", async () => {
+    vi.mocked(roadtripsApi.list).mockResolvedValue([
+      summary({ id: "a", name: "Bretagne", startDate: at("2023-06-02") }),
+      summary({ id: "b", name: "Toskana", startDate: at("2024-09-03") }),
+    ]);
+    renderPage();
+    await screen.findByText("Bretagne");
+    expect(screen.getByText("roadtrips:list.figDrives")).toBeInTheDocument();
+    // At rest the chip is mounted but hidden — it must BECOME visible when the
+    // list is narrowed, which a textContent-only assertion would not catch.
+    expect(screen.getByTestId("list-summary-filtered")).toHaveStyle({ visibility: "hidden" });
+    fireEvent.change(screen.getByLabelText("roadtrips:list.search"), {
+      target: { value: "Bretagne" },
+    });
+    const chip = screen.getByTestId("list-summary-filtered");
+    expect(chip).toHaveTextContent("common:filters.filtered");
+    expect(chip).toHaveStyle({ visibility: "visible" });
+    expect(chip).toHaveAttribute("aria-hidden", "false");
+  });
+
+  // A whitespace-only search narrows nothing (`matches` trims), so the strip
+  // must not claim a filter — the same rule the places page's bar follows.
+  it("does not call a whitespace-only search a filter", async () => {
+    vi.mocked(roadtripsApi.list).mockResolvedValue([
+      summary({ id: "a", name: "Bretagne", startDate: at("2023-06-02") }),
+    ]);
+    renderPage();
+    await screen.findByText("Bretagne");
+    fireEvent.change(screen.getByLabelText("roadtrips:list.search"), { target: { value: "  " } });
+    expect(screen.getByText("Bretagne")).toBeInTheDocument();
+    expect(screen.getByTestId("list-summary-filtered")).toHaveStyle({ visibility: "hidden" });
+  });
+
+  it("renders no summary strip when nothing matches", async () => {
+    vi.mocked(roadtripsApi.list).mockResolvedValue([
+      summary({ id: "a", name: "Bretagne", startDate: at("2023-06-02") }),
+    ]);
+    renderPage();
+    await screen.findByText("Bretagne");
+    fireEvent.change(screen.getByLabelText("roadtrips:list.search"), { target: { value: "zzz" } });
+    expect(screen.getByText("roadtrips:list.noMatch")).toBeInTheDocument();
+    expect(screen.queryByText("roadtrips:list.figDrives")).not.toBeInTheDocument();
+  });
+
+  it("renders no summary strip over a failed load", async () => {
+    vi.mocked(roadtripsApi.list).mockRejectedValueOnce(new Error("down"));
+    renderPage();
+    expect(await screen.findByText("roadtrips:loadError")).toBeInTheDocument();
+    expect(screen.queryByText("roadtrips:list.figDrives")).not.toBeInTheDocument();
+  });
+
+  it("renders no summary strip while the list is still loading", () => {
+    vi.mocked(roadtripsApi.list).mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(screen.queryByText("roadtrips:list.figDrives")).not.toBeInTheDocument();
   });
 });

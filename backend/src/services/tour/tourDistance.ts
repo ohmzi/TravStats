@@ -63,8 +63,18 @@ export function legDistanceKm(input: LegDistanceInput): number {
   return measured > 0 ? measured : chord;
 }
 
+/**
+ * The legs a vehicle's odometer sees — the ONE allow-list rule, kept beside
+ * `drivenKm` so the distance and the list summary's drive count cannot drift
+ * apart. A mode added later is excluded from both until someone decides
+ * otherwise.
+ */
+export function drivenLegs<T extends { mode: string }>(legs: readonly T[]): T[] {
+  return legs.filter((l) => DRIVEN_MODES.has(l.mode));
+}
+
 export function drivenKm(legs: readonly { mode: string; distanceKm: number }[]): number {
-  return legs.reduce((sum, l) => (DRIVEN_MODES.has(l.mode) ? sum + l.distanceKm : sum), 0);
+  return drivenLegs(legs).reduce((sum, l) => sum + l.distanceKm, 0);
 }
 
 export function travelledKm(legs: readonly { distanceKm: number }[]): number {

@@ -65,6 +65,12 @@ const roadtripSummary = registry.register(
       startOdometerKm: z.number().int().nullable(),
       endOdometerKm: z.number().int().nullable(),
       stationCount: z.number().int(),
+      driveCount: z
+        .number()
+        .int()
+        .describe(
+          "Road legs the route records — one per distinct consecutive stop pair (a ferry, rail, foot or bike leg is not a drive)"
+        ),
       points: z
         .array(z.tuple([z.number(), z.number()]))
         .describe("Station coordinates as [lon, lat], in travel order"),
