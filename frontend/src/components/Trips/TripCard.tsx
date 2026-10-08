@@ -101,7 +101,14 @@ export default function TripCard({ trip, onOpen }: TripCardProps): JSX.Element {
   const costTotals = sumByCurrency(
     tripCostSources(trip.bookings ?? [], trip.flights ?? [], cruises, stays)
   );
-  const distanceKm = estimateTripDistanceKm(trip.flights ?? [], cruises);
+  // The trip's own route sections contribute the distance the list endpoint
+  // summed for them (`drivenKm`); `estimateTripDistanceKm` can only see
+  // flights and cruises, so a driving trip used to sit at "—" here while its
+  // sections showed the real figure on the trip page. Gated on the roadtrip
+  // domain like every other segment: the card must not advertise the
+  // kilometres of a domain the reader cannot see.
+  const routeKm = isEnabled("roadtrip") ? (trip.drivenKm ?? 0) : 0;
+  const distanceKm = estimateTripDistanceKm(trip.flights ?? [], cruises) + routeKm;
   const entries = tripEntryTotal(counts);
 
   const areas: IconName[] = [

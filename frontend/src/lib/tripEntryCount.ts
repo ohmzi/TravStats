@@ -18,7 +18,12 @@ const COUNT_OF: Record<DomainKey, ((trip: Trip) => number) | null> = {
   cruise: (t) => t._count?.cruises ?? t.cruises?.length ?? 0,
   lodging: (t) => t._count?.lodgingStays ?? t.lodgingStays?.length ?? 0,
   poi: null,
-  roadtrip: (t) => t._count?.roadtrips ?? 0,
+  // `_count.routes` is EVERY section the trip page lists, tours included;
+  // `_count.roadtrips` is only the kind='roadtrip' subset of it. Counting the
+  // latter alone gave a trip whose content is day tours "0 Einträge" while
+  // the page listed them — the same shape of bug forgejo#169 fixed for rail
+  // and rentals. Fall back to `roadtrips` for a payload without `routes`.
+  roadtrip: (t) => t._count?.routes ?? t._count?.roadtrips ?? 0,
   rail: (t) => t._count?.railJourneys ?? t.railJourneys?.length ?? 0,
   rental: (t) => t._count?.rentalBookings ?? t.rentalBookings?.length ?? 0,
 };

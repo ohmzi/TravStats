@@ -216,6 +216,15 @@ export interface Trip {
   countries: string[];
   times?: TripTimes;
 
+  /**
+   * The summed distance of this trip's route sections, from `GET /trips`
+   * (services/trip/tripListFigures.ts). Absent on payloads that do not come
+   * through that endpoint — the trip detail page reads its sections instead.
+   * The card needs it because its own estimate can only see flights and
+   * cruises, so a driving trip showed a blank distance.
+   */
+  drivenKm?: number;
+
   _count?: import("./tripCounts").TripCounts;
   bookings?: Booking[];
   flights?: Pick<

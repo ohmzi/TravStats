@@ -78,7 +78,7 @@ export const TRIPS_LIST_INCLUDE = {
       // The other areas the trip page lists as entries, so the card can count
       // them too: "Bahn – 1 Fahrt" on the page sat over "0 Einträge" on the
       // card (forgejo#169). A cancelled rental never happened, as on the page
-      // (TRIP_DETAIL_RENTALS). Roadtrips: services/trip/tripRoadtripCounts.ts.
+      // (TRIP_DETAIL_RENTALS). Roadtrips: services/trip/tripListFigures.ts.
       railJourneys: true,
       rentalBookings: { where: { status: { not: "cancelled" } } },
     },
