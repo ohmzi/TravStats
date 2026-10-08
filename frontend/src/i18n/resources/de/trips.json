@@ -142,7 +142,8 @@
       "companions": "Reisende",
       "tags": "Tags",
       "rail": "Bahn",
-      "rental": "Mietwagen"
+      "rental": "Mietwagen",
+      "albums": "Alben"
     },
     "tabs": {
       "overview": "Übersicht",
@@ -202,7 +203,11 @@
     "railCount_one": "{{count}} Fahrt",
     "railCount_other": "{{count}} Fahrten",
     "rentalCount_one": "{{count}} Miete",
-    "rentalCount_other": "{{count}} Mieten"
+    "rentalCount_other": "{{count}} Mieten",
+    "albumsCount_one": "{{count}} Album",
+    "albumsCount_other": "{{count}} Alben",
+    "albumPhotos_one": "{{count}} Foto",
+    "albumPhotos_other": "{{count}} Fotos"
   },
   "journalModal": {
     "createTitle": "Tagebuch-Eintrag",

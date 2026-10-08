@@ -176,7 +176,23 @@ router.get(
       const [route, stations, legs, tours, routing, expenseRows] = await Promise.all([
         prisma.tripRoute.findUniqueOrThrow({
           where: { id },
-          include: { ...ROUTE_SELECT, trip: { select: { id: true, name: true } } },
+          include: {
+            ...ROUTE_SELECT,
+            trip: {
+              select: {
+                id: true,
+                name: true,
+                // The journey's Immich albums, so the roadtrip page can offer
+                // an entry point to them. The album belongs to the TRIP, not to
+                // this section — a roadtrip can move between trips — so it is
+                // read through the trip rather than linked here.
+                immichAlbums: {
+                  select: { id: true, albumName: true, immichAlbumId: true, assetCount: true },
+                  orderBy: { sortIdx: "asc" },
+                },
+              },
+            },
+          },
         }),
         prisma.tripStop.findMany({
           where: { routeId: id },

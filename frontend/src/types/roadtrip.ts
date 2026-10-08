@@ -110,7 +110,21 @@ export interface RoadtripDayTour {
 export interface RoadtripDetail {
   roadtrip: TourRoute;
   countries: string[];
-  trip: { id: string; name: string } | null;
+  /**
+   * The journey this roadtrip belongs to, with the Immich albums linked to it.
+   * The album hangs off the TRIP, not off this section — a roadtrip can move
+   * between trips — so the roadtrip page reads it through the trip.
+   */
+  trip: {
+    id: string;
+    name: string;
+    immichAlbums?: Array<{
+      id: string;
+      albumName: string;
+      immichAlbumId: string;
+      assetCount: number;
+    }>;
+  } | null;
   startDate: string | null;
   endDate: string | null;
   nights: RoadtripNights;

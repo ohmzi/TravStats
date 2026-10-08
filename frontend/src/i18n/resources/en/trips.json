@@ -142,7 +142,8 @@
       "companions": "Companions",
       "tags": "Tags",
       "rail": "Rail",
-      "rental": "Rental cars"
+      "rental": "Rental cars",
+      "albums": "Albums"
     },
     "tabs": {
       "overview": "Overview",
@@ -202,7 +203,11 @@
     "railCount_one": "{{count}} ride",
     "railCount_other": "{{count}} rides",
     "rentalCount_one": "{{count}} rental",
-    "rentalCount_other": "{{count}} rentals"
+    "rentalCount_other": "{{count}} rentals",
+    "albumsCount_one": "{{count}} album",
+    "albumsCount_other": "{{count}} albums",
+    "albumPhotos_one": "{{count}} photo",
+    "albumPhotos_other": "{{count}} photos"
   },
   "journalModal": {
     "createTitle": "Journal Entry",

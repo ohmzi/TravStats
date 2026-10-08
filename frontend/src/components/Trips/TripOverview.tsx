@@ -171,6 +171,7 @@ export default function TripOverview({
   const cruiseEnabled = isEnabled("cruise");
   const lodgingEnabled = isEnabled("lodging");
   const flights = trip.flights ?? [];
+  const albums = trip.immichAlbums ?? [];
   const cruises = cruiseEnabled ? (trip.cruises ?? []) : [];
   const stays = lodgingEnabled ? (trip.lodgingStays ?? []) : [];
   const railJourneys = useRailVisible() ? (trip.railJourneys ?? []) : [];
@@ -337,6 +338,26 @@ export default function TripOverview({
                   ]
                     .filter(Boolean)
                     .join(" · ")}
+                />
+              ))}
+            </EntryList>
+          )}
+
+          {/* The journey's photos, listed beside its other areas rather than
+              only behind the Gallery tab: an Immich album is something the
+              journey holds, and the overview is where its contents are counted. */}
+          {albums.length > 0 && (
+            <EntryList
+              title={t("trips:detail.stats.albums")}
+              count={t("trips:detail.albumsCount", { count: albums.length })}
+            >
+              {albums.map((a) => (
+                <EntryRow
+                  key={a.id}
+                  to={`/trips/${trip.id}?tab=gallery`}
+                  icon="image"
+                  title={a.albumName}
+                  sub={t("trips:detail.albumPhotos", { count: a.assetCount })}
                 />
               ))}
             </EntryList>

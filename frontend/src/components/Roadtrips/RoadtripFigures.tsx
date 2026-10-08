@@ -1,4 +1,5 @@
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 import { Icon } from "../ui/Icon";
 import { useTranslation } from "../../hooks/useTranslation";
@@ -8,7 +9,8 @@ import type { RoadtripDetail } from "../../types/roadtrip";
 interface Figure {
   key: string;
   label: string;
-  value: string;
+  /** A figure may be a LINK — the journey it belongs to, its album. */
+  value: ReactNode;
   sub?: string;
   title?: string;
   hue?: string;
@@ -17,8 +19,12 @@ interface Figure {
 /**
  * The figures band of a roadtrip (board 2): driven, days, nights, places
  * slept, countries, day tours — each with the line that says what it is made
- * of. Fixed columns (6 / 3 / 2), so the cells never reflow into an odd last
- * row. A figure that cannot be derived is left out, never drawn as zero.
+ * of — then the journey it belongs to and that journey's Immich album as entry
+ * points. Fixed columns (8 / 4 / 2), so the cells never reflow into an odd last
+ * row. A figure that cannot be derived is left out, never drawn as zero; a cell
+ * that is an ENTRY POINT is always drawn, saying "N/A" when there is nothing to
+ * point at, because an absent entry point and a hidden one read the same
+ * otherwise.
  */
 export default function RoadtripFigures({
   detail,
@@ -34,6 +40,8 @@ export default function RoadtripFigures({
   const days = spanDays(detail.startDate, detail.endDate);
   const ahead = daysAhead(detail.startDate, detail.endDate, today);
   const approx = n.nightsKnown ? "" : "≈ ";
+  const journey = detail.trip;
+  const album = journey?.immichAlbums?.[0] ?? null;
 
   // The km figure is the length of ALL legs, whatever their date. It may be
   // called driven only once the roadtrip is over; before that it is the
@@ -91,12 +99,38 @@ export default function RoadtripFigures({
       value: nf.format(detail.tours.length),
       hue: "var(--domain-tour)",
     },
+    // The journey and its album, as ENTRY POINTS rather than figures: a
+    // roadtrip is reached from its journey, and the way back — plus the way to
+    // the photos of the journey itself — belongs on this band. Either can be
+    // absent (a standalone section, a journey with no album), and an absent
+    // one says so rather than vanishing, so the reader can tell "none" from
+    // "not shown".
+    {
+      key: "journey",
+      label: t("roadtrips:detail.figJourney"),
+      value: journey ? (
+        <Link to={`/trips/${journey.id}`}>{journey.name}</Link>
+      ) : (
+        t("common:labels.notAvailable")
+      ),
+    },
+    {
+      key: "album",
+      label: t("roadtrips:detail.figAlbum"),
+      value:
+        album && journey ? (
+          <Link to={`/trips/${journey.id}?tab=gallery`}>{album.albumName}</Link>
+        ) : (
+          t("common:labels.notAvailable")
+        ),
+      sub: album ? t("roadtrips:detail.figAlbumSub", { count: album.assetCount }) : undefined,
+    },
   ];
 
   return (
     <div className="flex flex-col" style={{ gap: "var(--ts-space-sm)" }}>
       <dl
-        className="grid grid-cols-2 overflow-hidden sm:grid-cols-3 xl:grid-cols-6"
+        className="grid grid-cols-2 overflow-hidden sm:grid-cols-4 xl:grid-cols-8"
         style={{
           gap: 1,
           background: "var(--ts-border)",
