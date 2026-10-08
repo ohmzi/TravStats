@@ -47,6 +47,12 @@ export interface RoadtripSummary extends RoadtripNights {
   countries: string[];
   /** Station points as `[lon, lat]`, in travel order — the list's route sketch. */
   points: Array<[number, number]>;
+  /**
+   * The travelled line as `[lon, lat]`, simplified — the routed way between
+   * the stations, which the sketch draws behind `points`. A roadtrip whose
+   * legs were never routed falls back to the chords `points` would give.
+   */
+  path: Array<[number, number]>;
   /** The placed stations in travel order, for map markers; never a route correction. */
   stations?: Array<{
     id: string;

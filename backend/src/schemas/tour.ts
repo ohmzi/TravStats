@@ -147,6 +147,23 @@ export const createRouteSchema = z.object({
   endOdometerKm: z.number().int().min(0).max(10_000_000).optional(),
 });
 
+/**
+ * A section created ON A TRIP. Its `name` is optional because the section may
+ * take the trip's own: a roadtrip created without a name is that journey's
+ * roadtrip, and naming it after the journey is what keeps the two from reading
+ * as disconnected entries in the logbook. `POST /trips/:id/routes` fills the
+ * name in, so a stored section always has one.
+ *
+ * Deliberately NOT `createRouteSchema` itself: a standalone tour has no trip to
+ * take a name from, so its name stays required — which is also why this is a
+ * separate schema rather than a widening of the shared one, whose `extend`ed
+ * `createTourSchema` would otherwise have gone optional too.
+ */
+export const createTripRouteSchema = createRouteSchema.extend({
+  /** Blank counts as absent, exactly as omitted does. */
+  name: z.string().trim().max(200).optional(),
+});
+
 export const updateRouteSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   mode: z.enum(LEG_MODES).optional(),

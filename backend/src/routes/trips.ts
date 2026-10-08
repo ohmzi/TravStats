@@ -590,6 +590,18 @@ router.patch(
           }
         }
 
+        // A journey and its roadtrips read as one thing while their names
+        // agree, so renaming the trip carries the new name to the sections
+        // that are still carrying the trip's OLD one. A section named anything
+        // else was named deliberately — a second section, an outbound and a
+        // return — and must keep its own name.
+        if (body.name !== undefined && body.name !== existing.name) {
+          await tx.tripRoute.updateMany({
+            where: { tripId: existing.id, name: existing.name },
+            data: { name: body.name },
+          });
+        }
+
         return tx.trip.update({
           where: { id: req.params.id },
           data: {

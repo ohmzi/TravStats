@@ -355,6 +355,86 @@ function legDay(f: FlightLite): string {
   return f.departureTime ? toYmd(f.departureTime) : "";
 }
 
+/** A trip's span in whole days — "the narrowest one wins" below. */
+function spanOfTrip(t: { startDay: Date | null; endDay: Date | null }): number {
+  if (!t.startDay || !t.endDay) return Number.MAX_SAFE_INTEGER;
+  return Math.round((t.endDay.getTime() - t.startDay.getTime()) / 86_400_000);
+}
+
+/**
+ * File a flight with the JOURNEY it happened inside.
+ *
+ * A flight imported for dates an existing trip already covered stayed
+ * unlinked, so a journey could hold the roadtrip that drove it and not the
+ * flight that began it, the two reading as unrelated entries in the logbook.
+ * This attaches such a flight to the trip whose DATE SPAN contains its
+ * departure day.
+ *
+ * DAYS, never instants: a flight leaving at 20:00 local on the trip's first
+ * day belongs to that trip, and comparing raw timestamps puts it a day out for
+ * every airport east or west of the server. `withLocalDay` resolves the day
+ * exactly as the detector does, so the two cannot disagree about when a leg
+ * left.
+ *
+ * Only flights carrying NO trip are touched — one the user filed, or the
+ * detector did, is never moved. Where several trips could claim the day the
+ * NARROWEST span wins, a two-day trip inside a three-week one being the
+ * specific journey; two equally narrow candidates leave the flight unlinked
+ * rather than guessing at it.
+ *
+ * Returns what it attached, so a caller that has already built its response
+ * from the pre-attach row can say where the flight went instead of answering
+ * "no journey" about a flight that now has one.
+ */
+export async function attachFlightsToJourneys(
+  userId: string,
+  flightIds: readonly string[]
+): Promise<Array<{ flightId: string; tripId: string }>> {
+  if (flightIds.length === 0) return [];
+
+  const candidates = await prisma.flight.findMany({
+    where: { id: { in: [...flightIds] }, userId, tripId: null },
+    select: {
+      id: true,
+      departureTime: true,
+      depIata: true,
+      depIcao: true,
+      depTimeSemantics: true,
+    },
+  });
+  if (candidates.length === 0) return [];
+
+  const trips = await prisma.trip.findMany({
+    where: { userId, startDay: { not: null }, endDay: { not: null } },
+    select: { id: true, startDay: true, endDay: true },
+  });
+  if (trips.length === 0) return [];
+
+  const dated = await withLocalDay(candidates);
+  const attached: Array<{ flightId: string; tripId: string }> = [];
+  for (const flight of dated) {
+    const day = flight.localDay ?? (flight.departureTime ? toYmd(flight.departureTime) : null);
+    if (!day) continue;
+
+    const spanning = trips
+      .filter((t) => toYmd(t.startDay as Date) <= day && day <= toYmd(t.endDay as Date))
+      .sort((a, b) => spanOfTrip(a) - spanOfTrip(b));
+
+    if (spanning.length === 0) continue;
+    if (spanning.length > 1 && spanOfTrip(spanning[0]) === spanOfTrip(spanning[1])) continue;
+
+    await prisma.flight.update({ where: { id: flight.id }, data: { tripId: spanning[0].id } });
+    logger.info({
+      operation: "flight.attach_to_journey",
+      flightId: flight.id,
+      tripId: spanning[0].id,
+      day,
+    });
+    attached.push({ flightId: flight.id, tripId: spanning[0].id });
+  }
+  return attached;
+}
+
 /**
  * Find sequences of flights that start AND end at one of the user's home
  * airports (the set active at the first flight's date — so historical

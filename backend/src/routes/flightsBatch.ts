@@ -11,6 +11,7 @@ import {
   tripNameMonth,
 } from "../services/trip/tripGrouping";
 import logger from "../utils/logger";
+import { attachFlightsToJourneys } from "../services/tripDetectionService";
 import { enrichFlightAirports } from "../services/airportLookup";
 import { calculateCo2Kg, haversineKm, toSeatClass } from "../services/co2Calculator";
 import { resolveAirlineCodes } from "../utils/airlineNormalize";
@@ -478,6 +479,23 @@ router.post(
 
       for (const tripId of createdTripIds) {
         await recomputeTripStatus(tripId);
+      }
+
+      // A flight whose departure day falls inside a journey the user already
+      // has belongs to that journey — see attachFlightsToJourneys. Only the
+      // ones this batch left unfiled are offered: a shared-PNR group above has
+      // already claimed its own, and a flight the user filed is never moved.
+      // Best-effort, so filing cannot fail the import that created the flight.
+      try {
+        await attachFlightsToJourneys(
+          userId,
+          createdFlights.filter((f) => f.tripId === null).map((f) => f.id)
+        );
+      } catch (err: unknown) {
+        logger.warn({
+          type: "flight_attach_to_journey_failed",
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
       }
 
       // Check achievements after batch creation (outside transaction — non-critical)

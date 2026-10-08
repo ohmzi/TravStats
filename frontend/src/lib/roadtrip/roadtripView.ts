@@ -155,18 +155,21 @@ export function nextStation(
 }
 
 /**
- * The list's route sketch: station points fitted into a w×h box, as an SVG
- * path. Longitude is shrunk by cos(latitude) so Norway does not come out as
- * wide as it is tall. Null when fewer than two points exist — one dot is not
- * a route, and an empty sketch reads as "no route" honestly.
+ * The card's projection: a plate-carrée fit of `points` into a w×h box.
+ * Longitude is shrunk by cos(latitude) so Norway does not come out as wide as
+ * it is tall.
+ *
+ * A FUNCTION rather than a path, because the sketch now draws two series — the
+ * travelled line and the stations standing on it — and they have to share one
+ * fit. Projecting them separately would scale the stations to their own bounds
+ * and float them off the line they belong to.
  */
-export function sketchPath(
+export function sketchProjector(
   points: ReadonlyArray<readonly [number, number]>,
   w: number,
   h: number,
   pad = 14
-): string | null {
-  if (points.length < 2) return null;
+): (p: readonly [number, number]) => [number, number] {
   const meanLat = points.reduce((s, p) => s + p[1], 0) / points.length;
   const k = Math.cos((meanLat * Math.PI) / 180);
   const xs = points.map((p) => p[0] * k);
@@ -178,13 +181,37 @@ export function sketchPath(
   const scale = Math.min((w - 2 * pad) / spanX, (h - 2 * pad) / spanY);
   const offX = (w - spanX * scale) / 2;
   const offY = (h - spanY * scale) / 2;
-  return xs
-    .map((x, i) => {
-      const px = (offX + (x - minX) * scale).toFixed(1);
-      const py = (offY + (ys[i] - minY) * scale).toFixed(1);
-      return `${i === 0 ? "M" : "L"}${px} ${py}`;
+  return (p) => [offX + (p[0] * k - minX) * scale, offY + (-p[1] - minY) * scale];
+}
+
+/** One series, as an SVG path through a projection shared with its siblings. */
+export function sketchPathThrough(
+  project: (p: readonly [number, number]) => [number, number],
+  points: ReadonlyArray<readonly [number, number]>
+): string | null {
+  if (points.length < 2) return null;
+  return points
+    .map((p, i) => {
+      const [px, py] = project(p);
+      return `${i === 0 ? "M" : "L"}${px.toFixed(1)} ${py.toFixed(1)}`;
     })
     .join(" ");
+}
+
+/**
+ * The list's route sketch as a path over its own bounds. Null when fewer than
+ * two points exist — one dot is not a route, and an empty sketch reads as "no
+ * route" honestly. Callers with more than one series want
+ * `sketchProjector` + `sketchPathThrough` instead.
+ */
+export function sketchPath(
+  points: ReadonlyArray<readonly [number, number]>,
+  w: number,
+  h: number,
+  pad = 14
+): string | null {
+  if (points.length < 2) return null;
+  return sketchPathThrough(sketchProjector(points, w, h, pad), points);
 }
 
 /**

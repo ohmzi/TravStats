@@ -8,7 +8,7 @@ import {
   handExpensesToTrips,
   standaloneExpenseCount,
 } from "../../services/expenses/sectionRemoval";
-import { assignStopsSchema, createRouteSchema, updateRouteSchema } from "../../schemas/tour";
+import { assignStopsSchema, createTripRouteSchema, updateRouteSchema } from "../../schemas/tour";
 import { kindFieldsSchema } from "../../schemas/roadtrip";
 import { tourDayColumns, tourDayDto } from "../../services/tour/tourDay";
 import { drivenKm, travelledKm } from "../../services/tour/tourDistance";
@@ -269,7 +269,7 @@ router.post(
     try {
       const userId = req.userId!;
       const trip = await resolveTrip(userId, req.params.id);
-      const body = createRouteSchema.parse(req.body);
+      const body = createTripRouteSchema.parse(req.body);
 
       const last = await prisma.tripRoute.findFirst({
         where: { tripId: trip.id },
@@ -281,7 +281,10 @@ router.post(
         data: {
           userId,
           tripId: trip.id,
-          name: body.name,
+          // No name of its own means it IS the journey's roadtrip, so it takes
+          // the journey's name — which is what keeps the two from reading as
+          // unrelated entries in the logbook.
+          name: body.name?.trim() ? body.name : trip.name,
           mode: body.mode,
           color: body.color,
           notes: body.notes,

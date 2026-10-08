@@ -9,6 +9,7 @@ import type { CountryResolver } from "../geo/countryFromCoordinates";
 import { toCountryCode } from "../../shared/countryEvidence";
 import { stayTimes } from "../lodging/timesDto";
 import { stationTimes } from "./timesDto";
+import { roadtripSketchPath } from "./routeSketch";
 import { NOT_A_COVER } from "../trips/photoStation";
 
 /**
@@ -216,7 +217,14 @@ export interface RoadtripListRow {
   startOdometerKm: number | null;
   endOdometerKm: number | null;
   trip: { name: string } | null;
-  legs: Array<{ mode: string; distanceKm: number }>;
+  /** `fromStopId`/`toStopId`/`waypoints` are read only by the route sketch. */
+  legs: Array<{
+    mode: string;
+    distanceKm: number;
+    fromStopId: string;
+    toStopId: string;
+    waypoints: unknown;
+  }>;
   stops: StationRow[];
   _count: { tracks: number };
 }
@@ -276,6 +284,10 @@ export function toRoadtripSummary(
     // without a point has nothing to draw and is left out, and so is a route
     // correction — the sketch marks stations.
     points: stations.flatMap((s) => (s.lat !== null && s.lon !== null ? [[s.lon, s.lat]] : [])),
+    // The line the card actually draws: the routed way between the stations,
+    // simplified. `points` above stays the stations themselves — the sketch
+    // marks those on top of this line, and other readers may still want them.
+    path: roadtripSketchPath(stations, row.legs),
     // The stations themselves, for the dashboard map's markers (tester
     // 2026-09-26): placed ones only, never a route correction.
     stations: stations.flatMap((s) =>

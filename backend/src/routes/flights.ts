@@ -9,6 +9,7 @@ import { flightFacetsHandler } from "./flights/facets";
 import { nextFlightHandler } from "./flights/next";
 import { createFlightSchema, updateFlightSchema, flightQuerySchema } from "../schemas/flight";
 import logger from "../utils/logger";
+import { attachFlightsToJourneys } from "../services/tripDetectionService";
 import { AppError } from "../middleware/errorHandler";
 import {
   applyDepartureTimesAndDelay,
@@ -411,6 +412,22 @@ router.post(
       });
       await linkDocuments(userId, documentIds, { type: "flight", id: flight.id });
 
+      // A flight whose departure day falls inside a journey the user already
+      // has belongs to that journey, not to nothing — see
+      // attachFlightsToJourneys. Best-effort on purpose: a failure to FILE the
+      // flight must not fail the import that created it.
+      let filedTripId: string | null = null;
+      try {
+        const [filed] = await attachFlightsToJourneys(userId, [flight.id]);
+        filedTripId = filed?.tripId ?? null;
+      } catch (err: unknown) {
+        logger.warn({
+          type: "flight_attach_to_journey_failed",
+          flightId: flight.id,
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+
       // Check achievements after creating a flight and return newly unlocked ones
       let newAchievements: Awaited<ReturnType<typeof checkAndUpdateAchievements>> = [];
       if (flight) {
@@ -426,7 +443,13 @@ router.post(
       }
 
       res.status(201).json({
-        flight: flight ? await withAirportFacts(flight) : flight,
+        // `filedTripId` is written over the row's own `tripId`: the copy above
+        // was read before the flight was filed with its journey, and answering
+        // "no journey" about a flight that now has one would send the client
+        // looking for it somewhere it is not.
+        flight: flight
+          ? await withAirportFacts(filedTripId ? { ...flight, tripId: filedTripId } : flight)
+          : flight,
         newAchievements: newAchievements.length > 0 ? newAchievements : undefined,
       });
     } catch (error) {

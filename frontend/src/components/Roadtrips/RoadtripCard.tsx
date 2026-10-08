@@ -1,5 +1,5 @@
 import type { JSX, ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import Pill from "../ui/Pill";
 import { useTranslation } from "../../hooks/useTranslation";
@@ -58,6 +58,7 @@ export default function RoadtripCard({
   phase: RoadtripPhase;
 }): JSX.Element {
   const { t, i18n } = useTranslation(["roadtrips"]);
+  const navigate = useNavigate();
   const span = useRoadtripSpan();
   const nf = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 });
   const vehicle = [
@@ -69,6 +70,8 @@ export default function RoadtripCard({
   // Legs are measured when a save creates them, so a distance exists as soon
   // as there are two stations; before that there is nothing to measure.
   const kmKnown = r.stationCount >= 2;
+  /** When and where, without the journey — that gets its own element below. */
+  const meta = [span(r), r.countries.join(" · ") || null].filter(Boolean).join(" · ");
 
   return (
     <Link
@@ -83,7 +86,7 @@ export default function RoadtripCard({
       }}
     >
       <div className="relative">
-        <RoadtripSketch points={r.points} planned={phase === "planned"} />
+        <RoadtripSketch path={r.path} points={r.points} planned={phase === "planned"} />
         {phase === "planned" && (
           <span className="absolute" style={{ top: 10, left: 10 }}>
             <Pill color="var(--ts-info)">{t("roadtrips:phase.planned")}</Pill>
@@ -100,8 +103,35 @@ export default function RoadtripCard({
         <span style={{ fontSize: 17, fontWeight: 800, color: "var(--ts-text-bright)" }}>
           {r.name}
         </span>
+        {/* The journey is a LINK, not one more word in the meta line: a
+            roadtrip is reached from its trip and the way back has to exist
+            too. It cannot be an `<a>` — the whole card already is one, and a
+            link inside a link is invalid HTML whose click fires twice — so it
+            is a span that stops the card's navigation and goes where it says. */}
         <span className="t-caption">
-          {[span(r), r.countries.join(" · ") || null, r.tripName].filter(Boolean).join(" · ")}
+          {meta}
+          {meta && r.tripId && r.tripName ? " · " : ""}
+          {r.tripId && r.tripName && (
+            <span
+              role="link"
+              tabIndex={0}
+              style={{ color: "var(--domain-roadtrip)", textDecoration: "underline" }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                navigate(`/trips/${r.tripId}`);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate(`/trips/${r.tripId}`);
+                }
+              }}
+            >
+              {r.tripName}
+            </span>
+          )}
         </span>
         <div
           className="grid grid-cols-4"

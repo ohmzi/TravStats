@@ -52,7 +52,12 @@ const LIST_SELECT = {
   startOdometerKm: true,
   endOdometerKm: true,
   trip: { select: { name: true } },
-  legs: { select: { mode: true, distanceKm: true } },
+  // The leg endpoints and geometry are for the card's route sketch, which
+  // draws the travelled line rather than chords between the stations — see
+  // services/roadtrip/routeSketch.ts.
+  legs: {
+    select: { mode: true, distanceKm: true, fromStopId: true, toStopId: true, waypoints: true },
+  },
   stops: { select: STATION_SELECT, orderBy: { routeOrderIdx: "asc" } },
   _count: { select: { tracks: true } },
 } as const;
