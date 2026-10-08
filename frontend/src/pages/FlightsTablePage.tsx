@@ -32,6 +32,7 @@ import { priceCellState } from "../lib/flightPriceCell";
 import { FlightRow, FLIGHT_COLUMN_LAYOUT } from "../components/flightsTable/FlightRow";
 import { FlightsFilterBar } from "../components/flightsTable/FlightsFilterBar";
 import FlightJourneyGrid from "../components/flightsTable/FlightJourneyGrid";
+import ListFilterBar from "../components/table/ListFilterBar";
 import { LoyaltyFilterNotice, useLoyaltyListFilter } from "../components/Loyalty/LoyaltyListFilter";
 import { Table, type TableColumn } from "../components/ui/Table";
 import { formatAmount } from "../lib/units";
@@ -68,6 +69,11 @@ export default function FlightsTablePage(): JSX.Element {
     "settings",
   ]);
   const tableHints = useTableHints();
+  // The card view's own search, separate from the table's filters below: the
+  // two views ask different questions of the same data, and one's query must
+  // not survive into the other.
+  const [journeyQuery, setJourneyQuery] = useState("");
+  const [journeyMatches, setJourneyMatches] = useState(0);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [facets, setFacets] = useState<FlightFacets | null>(null);
@@ -457,8 +463,31 @@ export default function FlightsTablePage(): JSX.Element {
       <AppShell width="table">
         <LogbookTabs />
         <div className="w-full">
-          <h1 className="t-screen-title mb-4">{t("dashboard:flightsTitle")}</h1>
-          <FlightJourneyGrid />
+          {/* The same furniture the roadtrip list wears: the title, the way to
+              add one, and a search over what the cards hold. */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h1 className="t-screen-title">{t("dashboard:flightsTitle")}</h1>
+            <button
+              className="btn-primary flex items-center gap-2 whitespace-nowrap"
+              onClick={() => setShowAddFlight(true)}
+            >
+              <span>+</span>
+              <span>{t("dashboard:addFlight")}</span>
+            </button>
+          </div>
+          <ListFilterBar
+            search={{
+              value: journeyQuery,
+              onChange: setJourneyQuery,
+              placeholder: t("flights:journeyCard.search"),
+            }}
+            hasActiveFilter={journeyQuery.length > 0}
+            onReset={() => setJourneyQuery("")}
+            resultLabel={t("common:filters.matching", { count: journeyMatches })}
+          />
+          <div style={{ marginTop: "var(--ts-space-lg)" }}>
+            <FlightJourneyGrid query={journeyQuery} onMatchesChange={setJourneyMatches} />
+          </div>
         </div>
       </AppShell>
     );

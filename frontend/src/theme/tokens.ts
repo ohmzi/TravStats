@@ -40,8 +40,8 @@ export const tokens = {
     "cruise": "#4aa6b0",
     "hotel": "#5ec2b2",
     "poi": "#e7e3dc",
-    "tour": "#a9c46a",
-    "roadtrip": "#a9c46a",
+    "tour": "#f0a947",
+    "roadtrip": "#f0a947",
     "rail": "#a597e8",
     "rental": "#d98cb3"
   },

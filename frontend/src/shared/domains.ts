@@ -73,7 +73,12 @@ export const DOMAINS: Record<DomainKey, DomainDescriptor> = {
     available: true,
     i18nKey: "domain.roadtrip",
     icon: "🚐",
-    color: "#a9c46a",
+    // The accent since 2026-10-08 (owner), where it was moss: the colour a
+    // roadtrip is drawn in has to be the same one the journey is DRAWN with —
+    // the line on the map, the label above it, the figure beside it — and the
+    // owner asked for the primary action's yellow everywhere a travelled way
+    // appears. A reader can still override it; this is only the default.
+    color: "#f0a947",
     routePrefix: "/roadtrips",
   },
   // Train journeys (spec 2026-09-25-rail-domain). Available, so shared code
@@ -117,8 +122,15 @@ export const DOMAINS: Record<DomainKey, DomainDescriptor> = {
  * `--ts-domain-tour` in the generated theme. Since round 29 (2026-09-26) it
  * equals the roadtrip default — one "road" hue; the map tells a tour from a
  * roadtrip by its thinner line (`tourMapOverlay.tsx`).
+ *
+ * Since 2026-10-08 it is the ACCENT rather than the moss it was (owner): the
+ * travelled line is the same yellow as the primary action, on the trip map and
+ * on the cards alike, so one colour says "this is the way the journey went"
+ * wherever it is drawn. `design/tokens.json` still carries the moss as
+ * `domainColor.tour`; that is a design-system edit this change does not make on
+ * its own, and the two would need reconciling there.
  */
-export const TOUR_COLOR = "#a9c46a";
+export const TOUR_COLOR = "#f0a947";
 
 /**
  * Defaults a domain has carried and no longer does. Frontend only — the

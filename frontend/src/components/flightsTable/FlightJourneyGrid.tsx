@@ -2,12 +2,33 @@ import { useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { Link } from "react-router-dom";
 
-import FlightJourneyCard, { type FlightJourneyGroup } from "./FlightJourneyCard";
+import FlightJourneyCard, {
+  countriesOfFlights,
+  type FlightJourneyGroup,
+} from "./FlightJourneyCard";
 import { SkeletonStatCards } from "../SkeletonLoader";
 import { flightsApi } from "../../lib/api/flights";
 import { useTranslation } from "../../hooks/useTranslation";
 import { logger } from "../../lib/logger";
 import type { Flight } from "../../types";
+
+/**
+ * A loose match over what a reader remembers a journey by — the same idea as
+ * the roadtrip list's own search, which matches name, country and vehicle.
+ * Here it is the journey's name, a country any of its flights touched, or an
+ * airport, airline or flight number, because "the Lufthansa one" is as good a
+ * way to look for a journey as its name.
+ */
+function matchesJourney(group: FlightJourneyGroup, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (group.title.toLowerCase().includes(q)) return true;
+  if (group.countries.some((c) => c.toLowerCase().includes(q))) return true;
+  return group.flights.some((f) =>
+    [f.depIata, f.arrIata, f.depName, f.arrName, f.airline, f.flightNumber, f.trip?.name]
+      .some((v) => (v ?? "").toLowerCase().includes(q))
+  );
+}
 
 /** "YUL → YYZ", for a flight that belongs to no journey and stands alone. */
 function legLabel(flight: Flight): string {
@@ -38,6 +59,7 @@ export function groupFlightsByJourney(flights: Flight[]): FlightJourneyGroup[] {
         title: legLabel(flight),
         href: `/flights/${flight.id}`,
         flights: [flight],
+        countries: [],
       });
       continue;
     }
@@ -52,7 +74,14 @@ export function groupFlightsByJourney(flights: Flight[]): FlightJourneyGroup[] {
       color: flight.trip?.color ?? null,
       href: `/flights?trip=${flight.tripId}`,
       flights: [flight],
+      countries: [],
     });
+  }
+
+  // Filled after the loop rather than at each push: a journey's countries are
+  // a property of all its flights, and they are not known until it has them.
+  for (const group of groups.values()) {
+    group.countries = countriesOfFlights(group.flights);
   }
 
   // Newest journey first, matching the table's own default order; a single
@@ -74,7 +103,14 @@ export function groupFlightsByJourney(flights: Flight[]): FlightJourneyGroup[] {
  * legs it took — had to be assembled by reading rows. The table is still there,
  * one click in, because that is where a flight is edited.
  */
-export default function FlightJourneyGrid(): JSX.Element {
+export default function FlightJourneyGrid({
+  query = "",
+  onMatchesChange,
+}: {
+  query?: string;
+  /** How many journeys survived the search, for the bar's "N of M". */
+  onMatchesChange?: (count: number) => void;
+}): JSX.Element {
   const { t, i18n } = useTranslation(["flights", "common"]);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,7 +132,16 @@ export default function FlightJourneyGrid(): JSX.Element {
     };
   }, []);
 
-  const groups = useMemo(() => groupFlightsByJourney(flights), [flights]);
+  const groups = useMemo(
+    () => groupFlightsByJourney(flights).filter((g) => matchesJourney(g, query)),
+    [flights, query]
+  );
+
+  // Reported rather than lifted: the cards own the flights and the filtering,
+  // so the page can only learn the count by being told it.
+  useEffect(() => {
+    onMatchesChange?.(groups.length);
+  }, [groups.length, onMatchesChange]);
 
   if (loading) {
     return <SkeletonStatCards />;
@@ -115,7 +160,12 @@ export default function FlightJourneyGrid(): JSX.Element {
         </Link>
       </div>
       {groups.length === 0 ? (
-        <p className="t-caption">{t("flights:table.noFlights")}</p>
+        // Two different nothings: no flights at all, or none matching what was
+        // typed. Saying "no flights" to a search that found none is a lie the
+        // reader cannot see through.
+        <p className="t-caption">
+          {query.trim() ? t("flights:journeyCard.noMatch") : t("flights:table.noFlights")}
+        </p>
       ) : (
         <div
           className="grid"

@@ -21,6 +21,22 @@ export interface FlightJourneyGroup {
   /** Where the card opens — the table filtered to this journey. */
   href: string;
   flights: Flight[];
+  /**
+   * ISO alpha-2 codes the journey touches. Computed by the grouping rather
+   * than here so the page's search can match a country without opening every
+   * card to find out what it holds.
+   */
+  countries: string[];
+}
+
+/** The countries a set of flights touches — departure and arrival alike. */
+export function countriesOfFlights(flights: Flight[]): string[] {
+  const out = new Set<string>();
+  for (const f of flights) {
+    if (f.depCountry) out.add(f.depCountry);
+    if (f.arrCountry) out.add(f.arrCountry);
+  }
+  return [...out].sort();
 }
 
 /** The great circle between a flight's two airports, as `[lon, lat]`. */
@@ -71,7 +87,6 @@ export default function FlightJourneyCard({
 
   const lines: CardMapLine[] = group.flights.map((f) => ({
     coords: arcOf(f),
-    color: group.color ?? "var(--domain-flight)",
     width: 1.6,
   }));
 
@@ -81,12 +96,6 @@ export default function FlightJourneyCard({
   for (const f of group.flights) {
     airports.set(f.depIata ?? f.depIcao ?? f.depName ?? "?", [f.depLon, f.depLat]);
     airports.set(f.arrIata ?? f.arrIcao ?? f.arrName ?? "?", [f.arrLon, f.arrLat]);
-  }
-
-  const countries = new Set<string>();
-  for (const f of group.flights) {
-    if (f.depCountry) countries.add(f.depCountry);
-    if (f.arrCountry) countries.add(f.arrCountry);
   }
 
   const km = group.flights.reduce((sum, f) => sum + flightDistanceKm(f), 0);
@@ -117,13 +126,7 @@ export default function FlightJourneyCard({
     >
       <CardMap
         lines={lines}
-        stops={[...airports.values()].map((coord) => ({
-          coord,
-          color: "var(--domain-flight)",
-          radius: 2.4,
-        }))}
-        stopColor="var(--domain-flight)"
-        lineColor="var(--domain-flight)"
+        stops={[...airports.values()].map((coord) => ({ coord, radius: 2.4 }))}
       />
       <div
         className="flex flex-col"

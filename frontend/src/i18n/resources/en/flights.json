@@ -248,7 +248,9 @@
     "airports": "airports",
     "km": "km",
     "allJourneys": "All journeys",
-    "untripped": "Flights without a journey"
+    "untripped": "Flights without a journey",
+    "search": "Journey, airport or country",
+    "noMatch": "No journey matches that."
   },
   "review": {
     "duplicate": {

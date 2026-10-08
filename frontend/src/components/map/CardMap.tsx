@@ -30,19 +30,17 @@ import { resolveFlatStyle } from "./basemapStyles";
 /**
  * Cards draw on OSM.
  *
- * The dark basemaps — what the trip map and the flight-track map hardcode —
- * draw land and water in almost the same near-black, which is fine at the
- * regional zoom a road trip lives at and useless at the zoom a flight needs:
- * a long-haul flight is most of a hemisphere, so the card came out a line on
- * nothing. OSM is legible at every zoom and is the one basemap that needs no
- * key, and a card is small enough that its brighter palette does not fight the
- * page.
+ * The trip detail's own basemap (owner, 2026-10-08): a card and the page it
+ * stands for should show the same world in the same colours.
  *
- * The credit below is bound to this choice: OSM's own tiles, so OSM's own
- * attribution — not CARTO's, which the vector styles carry.
+ * It is a VECTOR style, and that is what fixes the quality — the pixelated
+ * card was OSM's 256px RASTER tiles, which carry one fixed level
+ * of detail per zoom and are stretched across a card that fits a continent.
+ * Vector tiles are drawn at the screen's resolution, so they stay sharp at
+ * whatever zoom a card lands on.
  */
-const CARD_MAP_STYLE = resolveFlatStyle("osm");
-const CARD_MAP_CREDIT = "© OpenStreetMap contributors";
+const CARD_MAP_STYLE = resolveFlatStyle("dark");
+const CARD_MAP_CREDIT = "© OpenStreetMap © CARTO";
 /**
  * MapLibre's world is `512 * 2^zoom` CSS pixels, and every transform of its is
  * built on that. 256 is a RASTER TILE's own pixel size and has nothing to do
@@ -92,8 +90,12 @@ export default function CardMap({
   stops = [],
   height = 120,
   padding = 14,
-  stopColor = "var(--domain-roadtrip)",
-  lineColor = "var(--domain-roadtrip)",
+  // The accent — the same yellow the primary button wears. A card's line is
+  // the thing the card is ABOUT, and painting it in the domain colour made two
+  // cards of the same domain indistinguishable at a glance while the shape was
+  // the only thing telling them apart.
+  stopColor = "var(--accent)",
+  lineColor = "var(--accent)",
 }: {
   lines: ReadonlyArray<CardMapLine>;
   stops?: ReadonlyArray<CardMapStop>;

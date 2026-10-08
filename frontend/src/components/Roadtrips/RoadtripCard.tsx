@@ -109,7 +109,7 @@ export default function RoadtripCard({
         style={{ padding: "var(--ts-space-lg)", gap: "var(--ts-space-sm)" }}
       >
         {vehicle && (
-          <span style={{ fontSize: 12, color: "var(--domain-roadtrip)" }}>{vehicle}</span>
+          <span style={{ fontSize: 12, color: "var(--accent)" }}>{vehicle}</span>
         )}
         <span style={{ fontSize: 17, fontWeight: 800, color: "var(--ts-text-bright)" }}>
           {r.name}
@@ -126,7 +126,7 @@ export default function RoadtripCard({
             <span
               role="link"
               tabIndex={0}
-              style={{ color: "var(--domain-roadtrip)", textDecoration: "underline" }}
+              style={{ color: "var(--accent)", textDecoration: "underline" }}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -167,7 +167,7 @@ export default function RoadtripCard({
             label={t("roadtrips:list.figStations", { count: r.stationCount })}
           />
           <Figure
-            value={<span style={{ color: "var(--domain-tour)" }}>{nf.format(r.tourCount)}</span>}
+            value={<span style={{ color: "var(--accent)" }}>{nf.format(r.tourCount)}</span>}
             label={t("roadtrips:list.figTours", { count: r.tourCount })}
           />
         </div>

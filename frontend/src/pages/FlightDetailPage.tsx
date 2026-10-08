@@ -6,6 +6,13 @@ import DetailHeader from "../components/ui/DetailHeader";
 import DetailSection from "../components/ui/DetailSection";
 import PeopleList from "../components/ui/PeopleList";
 import FlightRouteHero from "../components/flightsTable/FlightRouteHero";
+import CardMap from "../components/map/CardMap";
+import {
+  calculateDistance,
+  getArcPeakAltitudeMeters,
+  getArcSteps,
+  greatCircleWaypoints,
+} from "../components/Globe/arcUtils";
 import { resolveAirlineIata } from "../lib/airlineUtils";
 import { formatTimeValueShown } from "../lib/displayFormat";
 import {
@@ -195,6 +202,21 @@ export default function FlightDetailPage(): JSX.Element {
         )} ${getDistanceLabel(distanceUnit, t)}`
       : null;
   /**
+   * The flight's own great circle, for the map above the distance — the same
+   * maths and the same shape the journey cards draw, so a flight looks like
+   * itself wherever it appears.
+   */
+  const routeDistanceKm =
+    flight.routeDistance ??
+    calculateDistance(flight.depLat, flight.depLon, flight.arrLat, flight.arrLon);
+  const routeArc: Array<[number, number]> = greatCircleWaypoints(
+    [flight.depLon, flight.depLat],
+    [flight.arrLon, flight.arrLat],
+    getArcPeakAltitudeMeters(routeDistanceKm),
+    getArcSteps(routeDistanceKm, false)
+  ).map(([lon, lat]) => [lon, lat]);
+
+  /**
    * A time in the detail grid: the airport's day and clock as the server read
    * it (`times.*.local`, ADR 0002), cut to its precision, "UTC" where the
    * airport has no known zone, and the user's own clock as a hint (Q2).
@@ -293,6 +315,17 @@ export default function FlightDetailPage(): JSX.Element {
 
           <DetailSection
             title={t("flights:detail.route")}
+            lead={
+              // The way the flight went, drawn whether or not a GPS recording
+              // exists. The section below states the distance; this is the
+              // shape that distance describes, and without it a flight whose
+              // phone never recorded a track had no map anywhere on its page.
+              <CardMap
+                lines={[{ coords: routeArc }]}
+                stops={[{ coord: [flight.depLon, flight.depLat] }, { coord: [flight.arrLon, flight.arrLat] }]}
+                height={180}
+              />
+            }
             facts={[
               { label: t("flights:detail.distance"), value: distance, mono: true },
               {
