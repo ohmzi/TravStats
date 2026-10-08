@@ -52,12 +52,24 @@ describe("ListSummaryStrip", () => {
       />
     );
     expect(screen.getByText("22")).toBeInTheDocument();
-    expect(screen.queryByTestId("list-summary-filtered")).not.toBeInTheDocument();
+    // The chip is always mounted now — it merely hides when nothing is
+    // filtered. Letting it come and go grew the line and moved every row
+    // below it the moment a filter was applied (owner, 2026-10-08).
+    const chip = screen.getByTestId("list-summary-filtered");
+    expect(chip).toHaveAttribute("aria-hidden", "true");
+    expect(chip).toHaveStyle({ visibility: "hidden" });
   });
 
   it("marks itself as filtered, because then it counts something narrower", () => {
     render(<ListSummaryStrip figures={figures} filtered filteredLabel="gefiltert" />);
-    expect(screen.getByTestId("list-summary-filtered").textContent).toBe("gefiltert");
+    const chip = screen.getByTestId("list-summary-filtered");
+    expect(chip).toHaveTextContent("gefiltert");
+    // Not only the word: the chip must actually be SHOWN while a filter is on.
+    // Asserting textContent alone passed even with the chip invisible, so a
+    // regression that pinned `visibility: hidden` would ship a "gefiltert" chip
+    // nobody ever sees and leave the suite green.
+    expect(chip).toHaveStyle({ visibility: "visible" });
+    expect(chip).toHaveAttribute("aria-hidden", "false");
   });
 
   it("renders NOTHING while the list is unknown — no zeros over an error", () => {

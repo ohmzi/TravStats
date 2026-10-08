@@ -227,16 +227,30 @@ export default function FlightJourneyGrid(): JSX.Element {
           className={CONTROL_CLASS}
         >
           {t("flights:journeyCard.moreFilters")}
-          {activeFilters > 0 && (
-            <span
-              className="ml-2 rounded-full px-1.5 text-xs"
-              style={{ background: "var(--accent)", color: "#0d1117" }}
-            >
-              {activeFilters}
-            </span>
-          )}
+          {/* Always drawn, merely invisible at zero: a badge that appears
+              resizes the button, and a row that resizes moves everything under
+              it (owner: "ui should stay pivot as ui moved"). */}
+          <span
+            aria-hidden={activeFilters === 0}
+            className="ml-2 rounded-full px-1.5 text-xs"
+            style={{
+              background: "var(--accent)",
+              color: "#0d1117",
+              visibility: activeFilters > 0 ? "visible" : "hidden",
+            }}
+          >
+            {activeFilters > 0 ? activeFilters : 0}
+          </span>
         </button>
-        <span className="t-caption ml-auto">
+        {/* Only while filtering (owner, 2026-10-08): "12 match" beside an
+            unfiltered list says nothing, and the summary line above already
+            answered how many there are. Kept in the flow so its arrival does
+            not move anything. */}
+        <span
+          className="t-caption ml-auto"
+          aria-hidden={activeFilters === 0}
+          style={{ visibility: activeFilters > 0 ? "visible" : "hidden" }}
+        >
           {t("common:filters.matching", { count: groups.length })}
         </span>
       </div>
@@ -277,19 +291,22 @@ export default function FlightJourneyGrid(): JSX.Element {
               </option>
             ))}
           </select>
-          {activeFilters > 0 && (
-            <button
-              type="button"
-              className="t-caption underline"
-              onClick={() => {
-                setQuery("");
-                setStatus("all");
-                setYear("all");
-              }}
-            >
-              {t("common:filters.reset")}
-            </button>
-          )}
+          {/* Present but faded at rest, for the same reason as the badge. */}
+          <button
+            type="button"
+            className="t-caption underline"
+            disabled={activeFilters === 0}
+            onClick={() => {
+              setQuery("");
+              setStatus("all");
+              setYear("all");
+            }}
+            style={{
+              visibility: activeFilters > 0 ? "visible" : "hidden",
+            }}
+          >
+            {t("common:filters.reset")}
+          </button>
         </div>
       </div>
 

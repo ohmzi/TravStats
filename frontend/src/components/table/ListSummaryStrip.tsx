@@ -91,19 +91,23 @@ export default function ListSummaryStrip({
           {f.note && <span style={{ opacity: 0.8 }}> {f.note}</span>}
         </span>
       ))}
-      {filtered && (
-        <span
-          data-testid="list-summary-filtered"
-          className="rounded-full border px-2 py-0.5 text-[11px]"
-          style={{
-            borderColor: "var(--ts-border)",
-            color: "var(--ts-muted)",
-            fontFamily: "var(--ts-font-ui)",
-          }}
-        >
-          {filteredLabel}
-        </span>
-      )}
+      {/* Always drawn, merely invisible when nothing is filtered. The chip is
+          taller than the line it sits on, so letting it come and go grew the
+          strip by a few pixels and moved every row under it — the layout
+          jumping the moment a filter is applied (owner, 2026-10-08). */}
+      <span
+        data-testid="list-summary-filtered"
+        aria-hidden={!filtered}
+        className="rounded-full border px-2 py-0.5 text-[11px]"
+        style={{
+          borderColor: "var(--ts-border)",
+          color: "var(--ts-muted)",
+          fontFamily: "var(--ts-font-ui)",
+          visibility: filtered ? "visible" : "hidden",
+        }}
+      >
+        {filteredLabel}
+      </span>
     </p>
   );
 }
