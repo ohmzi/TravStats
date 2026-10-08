@@ -32,7 +32,6 @@ import { priceCellState } from "../lib/flightPriceCell";
 import { FlightRow, FLIGHT_COLUMN_LAYOUT } from "../components/flightsTable/FlightRow";
 import { FlightsFilterBar } from "../components/flightsTable/FlightsFilterBar";
 import FlightJourneyGrid from "../components/flightsTable/FlightJourneyGrid";
-import ListFilterBar from "../components/table/ListFilterBar";
 import { LoyaltyFilterNotice, useLoyaltyListFilter } from "../components/Loyalty/LoyaltyListFilter";
 import { Table, type TableColumn } from "../components/ui/Table";
 import { formatAmount } from "../lib/units";
@@ -72,8 +71,6 @@ export default function FlightsTablePage(): JSX.Element {
   // The card view's own search, separate from the table's filters below: the
   // two views ask different questions of the same data, and one's query must
   // not survive into the other.
-  const [journeyQuery, setJourneyQuery] = useState("");
-  const [journeyMatches, setJourneyMatches] = useState(0);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [facets, setFacets] = useState<FlightFacets | null>(null);
@@ -458,7 +455,7 @@ export default function FlightsTablePage(): JSX.Element {
   // No `?trip` is the front door: the journeys as cards, each with its flying
   // drawn on a map. A card opens THIS page's table filtered to that journey,
   // and a row in it opens the flight itself.
-  if (searchParams.get("trip") === null) {
+  if (searchParams.get("view") !== "table") {
     return (
       <AppShell width="table">
         <LogbookTabs />
@@ -475,19 +472,7 @@ export default function FlightsTablePage(): JSX.Element {
               <span>{t("dashboard:addFlight")}</span>
             </button>
           </div>
-          <ListFilterBar
-            search={{
-              value: journeyQuery,
-              onChange: setJourneyQuery,
-              placeholder: t("flights:journeyCard.search"),
-            }}
-            hasActiveFilter={journeyQuery.length > 0}
-            onReset={() => setJourneyQuery("")}
-            resultLabel={t("common:filters.matching", { count: journeyMatches })}
-          />
-          <div style={{ marginTop: "var(--ts-space-lg)" }}>
-            <FlightJourneyGrid query={journeyQuery} onMatchesChange={setJourneyMatches} />
-          </div>
+          <FlightJourneyGrid />
         </div>
       </AppShell>
     );
@@ -537,16 +522,6 @@ export default function FlightsTablePage(): JSX.Element {
           filteredLabel={t("common:filters.filtered")}
           unknown={loading || loadError}
         />
-
-        <p className="mb-4 text-xs text-(--text-muted)">
-          {t("flights:list.wholeListHint")}{" "}
-          <Link
-            to="/settings/data?section=import"
-            className="underline underline-offset-4 hover:text-(--text-primary)"
-          >
-            {t("settings:import.openHub")}
-          </Link>
-        </p>
 
         {loyaltyFilter.membershipId !== null && (
           <div className="mb-3">
@@ -674,6 +649,22 @@ export default function FlightsTablePage(): JSX.Element {
                 })}
               </p>
             )}
+            {/* The same footer the card view wears, in the same place: the two
+                views are one page shown two ways, so the way across sits at the
+                foot of both rather than only on the side that had it. */}
+            <p className="mt-4 text-xs text-(--text-muted)">
+              {t("flights:list.wholeListHint")}{" "}
+              <Link
+                to="/settings/data?section=import"
+                className="underline underline-offset-4 hover:text-(--text-primary)"
+              >
+                {t("settings:import.openHub")}
+              </Link>
+              {" · "}
+              <Link to="/flights" className="underline underline-offset-4">
+                {t("flights:journeyCard.viewCards")}
+              </Link>
+            </p>
           </>
         )}
       </div>

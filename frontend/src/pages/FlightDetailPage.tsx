@@ -333,7 +333,7 @@ export default function FlightDetailPage(): JSX.Element {
           {t("flights:detail.overviewTab")}
         </span>
         <Link
-          to={flight.tripId ? `/flights?trip=${flight.tripId}` : "/flights?trip=all"}
+          to={flight.tripId ? `/flights?view=table&trip=${flight.tripId}` : "/flights?view=table"}
           className="t-label-mono"
           style={{ padding: "8px 0", color: "var(--ts-muted)", textDecoration: "none" }}
         >

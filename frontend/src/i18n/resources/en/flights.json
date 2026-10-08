@@ -250,7 +250,11 @@
     "allJourneys": "All journeys",
     "untripped": "Flights without a journey",
     "search": "Journey, airport or country",
-    "noMatch": "No journey matches that."
+    "noMatch": "No journey matches that.",
+    "searchLong": "Airline, flight number, airport or country",
+    "viewTable": "Table view",
+    "viewCards": "Card view",
+    "moreFilters": "Filters"
   },
   "review": {
     "duplicate": {

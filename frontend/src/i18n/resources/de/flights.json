@@ -250,7 +250,11 @@
     "allJourneys": "Alle Reisen",
     "untripped": "Flüge ohne Reise",
     "search": "Reise, Flughafen oder Land",
-    "noMatch": "Keine Reise passt dazu."
+    "noMatch": "Keine Reise passt dazu.",
+    "searchLong": "Airline, Flugnummer, Flughafen oder Land",
+    "viewTable": "Tabellenansicht",
+    "viewCards": "Kartenansicht",
+    "moreFilters": "Filter"
   },
   "review": {
     "duplicate": {
