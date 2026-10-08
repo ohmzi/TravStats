@@ -43,7 +43,19 @@ import { resolveFlatStyle } from "./basemapStyles";
  */
 const CARD_MAP_STYLE = resolveFlatStyle("osm");
 const CARD_MAP_CREDIT = "© OpenStreetMap contributors";
-const TILE = 256;
+/**
+ * MapLibre's world is `512 * 2^zoom` CSS pixels, and every transform of its is
+ * built on that. 256 is a RASTER TILE's own pixel size and has nothing to do
+ * with it: a style can declare `tileSize: 256` and MapLibre still draws that
+ * tile across its 512-based world, scaled 2×.
+ *
+ * This was 256 for both the fit and the overlay, and the symptom was exact: the
+ * drawn line came out HALF the size of the same coordinates on the map beneath
+ * it, so a flight's endpoints sat nowhere near its airports and every route
+ * looked too short. The fit and the projection have to use the same number, or
+ * they disagree by that factor.
+ */
+const WORLD_TILE = 512;
 /** Web Mercator's own limit, so a polar coordinate cannot make the world infinite. */
 const MAX_LAT = 85.05112878;
 
@@ -149,7 +161,7 @@ export default function CardMap({
 
     const innerW = Math.max(1, width - 2 * padding);
     const innerH = Math.max(1, height - 2 * padding);
-    const zoom = Math.log2(Math.min(innerW / (spanX * TILE), innerH / (spanY * TILE)));
+    const zoom = Math.log2(Math.min(innerW / (spanX * WORLD_TILE), innerH / (spanY * WORLD_TILE)));
 
     const centreX = (minX + maxX) / 2;
     const centreY = (minY + maxY) / 2;
@@ -164,7 +176,7 @@ export default function CardMap({
   /** `[lon, lat]` → pixels in the box, through the SAME fit as the map above. */
   const project = useMemo(() => {
     if (!view || width <= 0) return null;
-    const world = TILE * Math.pow(2, view.zoom);
+    const world = WORLD_TILE * Math.pow(2, view.zoom);
     const centreX = ((view.longitude + 180) / 360) * world;
     const centreY = mercatorY(view.latitude) * world;
     return ([lon, lat]: readonly [number, number]): [number, number] => [

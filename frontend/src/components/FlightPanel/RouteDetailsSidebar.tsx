@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useLocale } from "../../hooks/useLocale";
 import { useTranslation } from "../../hooks/useTranslation";
 import { calculateDistance } from "../../lib/geo";
@@ -129,11 +130,18 @@ export function RouteDetailsSidebar({ flights, onBack }: RouteDetailsSidebarProp
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        {/* One row per flight, each a LINK to that flight. These were inert
+            divs, so a route flown several times listed its flights and gave no
+            way to reach any particular one — the reader could see that the
+            route had four legs and not open the one they meant. A real link
+            rather than a click handler: it is a navigation, and it should
+            behave like one (middle-click, new tab, copy address). */}
         {sorted.map((f) => (
-          <div
+          <Link
             key={f.id}
-            className="px-3 py-2 text-xs flex items-center gap-2"
-            style={{ borderBottom: "1px solid var(--color-border)" }}
+            to={`/flights/${f.id}`}
+            className="px-3 py-2 text-xs flex items-center gap-2 transition-colors hover:bg-[var(--color-surface-hover)]"
+            style={{ borderBottom: "1px solid var(--color-border)", color: "inherit" }}
           >
             <span className="w-20 shrink-0" style={{ color: "var(--text-muted)" }}>
               {f.departureTime ? formatDate(f.departureTime, { shortYear: true }) : "—"}
@@ -150,7 +158,7 @@ export function RouteDetailsSidebar({ flights, onBack }: RouteDetailsSidebarProp
             <span className="ml-auto" style={{ color: "var(--text-muted)" }}>
               {f.seatNumber ?? ""}
             </span>
-          </div>
+          </Link>
         ))}
       </div>
     </div>

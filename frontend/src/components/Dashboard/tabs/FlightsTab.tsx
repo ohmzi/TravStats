@@ -264,10 +264,11 @@ export function FlightsTab(): JSX.Element {
         appearanceDomains={["flight"]}
         onFlightClick={handleFlightClick}
         onRouteClick={handleRouteClick}
-        onFlightOpen={(flightId) => {
-          const f = lookup(flightId);
-          if (f) setEditingFlight(f);
-        }}
+        // "Open last flight" OPENS the flight — it used to call
+        // `setEditingFlight`, so a CTA that says "open" put the reader in the
+        // edit form instead of on the flight, which is the one thing the button
+        // promised not to do. Editing has its own action in the same card.
+        onFlightOpen={(flightId) => navigate(`/flights/${flightId}`)}
         hideInfoPill
       />
       <SidebarToggle
