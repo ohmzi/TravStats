@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Layer } from "@deck.gl/core";
@@ -18,6 +18,7 @@ import {
 } from "./tourMapOverlay";
 import { legendRow } from "./allTabLegendRows";
 import MapContainer3D from "../../MapContainer3D";
+import RoadtripCardOverlay from "../RoadtripCardOverlay";
 import { ATTRIBUTION_CLEARANCE } from "../../map/attributionClearance";
 import { SidebarToggle } from "../SidebarToggle";
 import { MapEmptyOverlay } from "./MapEmptyOverlay";
@@ -81,6 +82,12 @@ export function TourTab({ kind = "tour" }: { kind?: RouteKind } = {}): JSX.Eleme
   const dashboardTours = useDashboardTours(true, kind);
   const { colorOf } = useDomainColors();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  /**
+   * The roadtrip whose line was clicked, and the card that answers it. The tab
+   * owns it rather than the map's pinned-card store because the line it comes
+   * from is drawn HERE, as an extra layer — the map never sees these sections.
+   */
+  const [pickedTour, setPickedTour] = useState<{ id: string; name: string } | null>(null);
   const visMode = mode === "globe" ? "globe" : "routes";
 
   const tourPathData = useMemo<TourPathDatum[]>(
@@ -96,7 +103,11 @@ export function TourTab({ kind = "tour" }: { kind?: RouteKind } = {}): JSX.Eleme
   const lodgingHex = colorOf("lodging");
   const roadtripHex = colorOf("roadtrip");
   // Widths and the station size come from the map panel (forgejo#198).
-  const tourDeck = useTourDeckLayers(tourPathData, visMode === "globe");
+  const handleTourPick = useCallback(
+    (datum: TourPathDatum): void => setPickedTour({ id: datum.routeId, name: datum.name }),
+    []
+  );
+  const tourDeck = useTourDeckLayers(tourPathData, visMode === "globe", handleTourPick);
   const { roadtripStationSize } = useOverlayAppearance();
   const tourLayers = useMemo<Layer[]>(() => {
     const altitude = visMode === "globe" ? TOUR_PATH_GLOBE_ALTITUDE_M : 0;
@@ -163,6 +174,17 @@ export function TourTab({ kind = "tour" }: { kind?: RouteKind } = {}): JSX.Eleme
         showInternalCruises={false}
         hideInfoPill
       />
+
+      {/* The clicked section, answered beside the line it was clicked on. Only
+          roadtrips get one: a day tour is a walk, and its figures are already
+          on the row that opened it. */}
+      {pickedTour && isRoadtrip && (
+        <RoadtripCardOverlay
+          routeId={pickedTour.id}
+          name={pickedTour.name}
+          onClose={() => setPickedTour(null)}
+        />
+      )}
 
       <SidebarToggle
         open={sidebarOpen}

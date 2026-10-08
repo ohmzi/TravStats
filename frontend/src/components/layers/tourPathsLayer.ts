@@ -29,6 +29,13 @@ export const TOUR_RGB: [number, number, number] = [
 
 export interface TourPathDatum {
   legId: string;
+  /**
+   * The section this leg belongs to, and its name. A pick returns the LEG that
+   * was clicked, which cannot name the section it is part of — the dashboard
+   * needs that to put a card up for the roadtrip the reader actually aimed at.
+   */
+  routeId: string;
+  name: string;
   path: Array<[number, number]>;
   color: [number, number, number];
   isPlaceholder: boolean;
@@ -58,6 +65,8 @@ export function buildTourPaths(
       if (path.length < 2) continue;
       out.push({
         legId: f.properties.legId,
+        routeId: g.routeId,
+        name: g.name,
         path,
         color: g.rgb ?? TOUR_RGB,
         isPlaceholder: f.properties.source === "straight",

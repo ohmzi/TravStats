@@ -184,7 +184,8 @@ export function tourPathWidth(
 export function buildTourDeckLayers(
   pathData: readonly TourPathDatum[],
   altitudeM = 0,
-  widthScales: TourWidthScales = DEFAULT_TOUR_WIDTH_SCALES
+  widthScales: TourWidthScales = DEFAULT_TOUR_WIDTH_SCALES,
+  onPick?: (datum: TourPathDatum) => void
 ): Layer[] {
   if (pathData.length === 0) return [];
   return [
@@ -204,6 +205,9 @@ export function buildTourDeckLayers(
       pickable: true,
       autoHighlight: true,
       highlightColor: [255, 255, 255, 80],
+      // The datum carries its section, so a pick can say WHICH roadtrip was
+      // aimed at. Without this the line was pickable and nothing listened.
+      onClick: onPick ? (info) => onPick(info.object as TourPathDatum) : undefined,
     }),
   ];
 }
@@ -213,15 +217,21 @@ export function buildTourDeckLayers(
  * "Alle" map and the tour/roadtrip tab call, so the two cannot read the store
  * differently. Lifted on the globe (`TOUR_PATH_GLOBE_ALTITUDE_M`).
  */
-export function useTourDeckLayers(pathData: readonly TourPathDatum[], onGlobe: boolean): Layer[] {
+export function useTourDeckLayers(
+  pathData: readonly TourPathDatum[],
+  onGlobe: boolean,
+  onPick?: (datum: TourPathDatum) => void
+): Layer[] {
   const { tourLineWidth, roadtripLineWidth } = useOverlayAppearance();
   return useMemo(
     () =>
-      buildTourDeckLayers(pathData, onGlobe ? TOUR_PATH_GLOBE_ALTITUDE_M : 0, {
-        tour: tourLineWidth,
-        roadtrip: roadtripLineWidth,
-      }),
-    [pathData, onGlobe, tourLineWidth, roadtripLineWidth]
+      buildTourDeckLayers(
+        pathData,
+        onGlobe ? TOUR_PATH_GLOBE_ALTITUDE_M : 0,
+        { tour: tourLineWidth, roadtrip: roadtripLineWidth },
+        onPick
+      ),
+    [pathData, onGlobe, tourLineWidth, roadtripLineWidth, onPick]
   );
 }
 
