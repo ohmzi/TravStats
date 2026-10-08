@@ -90,6 +90,65 @@ breakdown — its figures, the map of every leg, and the journey's flights as
 rows, each linking to the next — with the flights table in a second tab. A flight
 belonging to no trip falls back to its own numbers and its own arc.
 
+### The flights log page is one page shown two ways
+
+The card view and the table view were two pages that happened to share a title:
+the summary line, the filters and the footer hint existed on the table side
+alone, and the card view carried a heading of its own. They are now one page with
+two middles, and that furniture is the same above and below both of them.
+
+**`?view=table` selects the table**; anything else is the cards. The presence of
+a trip used to decide, which was an accident of how the table's filter was
+reached. A card now links to `?view=table&trip=<id>` and the flight detail page's
+table tab uses the same shape, so the trip travels beside the view rather than
+implying it, and each view's footer carries the link to the other.
+
+The filters fold away behind one button that slides them open on a height
+transition, with a count when any is active and a way to reset them. They narrow
+the FLIGHTS, not the cards: a journey with no matching leg left leaves the grid
+with them — matching a card on "does any of its legs match" and then drawing it
+whole would answer a question nobody asked. The summary line — flights,
+airlines, airports — is counted over what is currently shown, on both views.
+
+### The roadtrip list says what it holds
+
+The roadtrip list was the one list in the app that answered "how many, of what"
+only by counting. It now leads with a summary line of three figures —
+**roadtrips, drives, stations** — folded from exactly the rows on screen, so the
+line and the list beneath it cannot disagree. Planned roadtrips are included: the
+strip's promise is to describe what is shown, and the Planned section is part of
+what is shown. ("A planned roadtrip counts for nothing in any statistic" governs
+the dated `/stats` rollups — a different surface.) The strip renders nothing
+rather than a row of zeros while the list is loading, failed, empty or unmatched.
+
+**What "drives" counts.** The road legs the shown rows record, one per distinct
+consecutive stop pair. It is deliberately NOT stations minus one: a via point is
+a leg endpoint too — the route bends through it and the leg writer joins it to
+both neighbours — so counting station pairs would undercount every route that
+bends. The count shares its allow-list with the card's kilometres
+(`drivenLegs`, beside `drivenKm`), so a ferry, rail, foot or bike leg is not a
+drive and the count cannot drift from the distance. Legs are keyed by endpoint
+pair, so a repeated ordered pair — an out-and-back — is one drive, not two.
+
+**Why the third figure is stations and not cities.** A station's only name is
+free text; there is no normalized city on a station. This line speaks for many
+rows at once, so a free-text count of them would inflate without the reader being
+able to see why. Stations is the one number the row and the line can agree on,
+and that is the rule this strip keeps. (A single card is a different question: it
+has room to say what it counted, and may answer it differently. The list does
+not.)
+
+**Why there is no distance headline.** A leg with no drawn line and no routing
+is stored as the great-circle chord, and routing is optional per instance, so
+summing chords and routed kilometres would present a mix of measured and
+estimated as measured. Rail, rental and flight carry the same rule, and
+`ListSummaryStrip`'s own contract forbids the alternative. A distance total keeps
+its home on `/stats`, where its wording can say what it contains.
+
+The figures live in `lib/roadtrip/roadtripSummaryFigures.ts`, beside
+`flightSummaryFigures.ts` and `railSummaryFigures.ts`, so they are testable
+without rendering a page.
+
 ### Smaller things
 
 - **One page width.** The three container widths collapse to one, so every page
@@ -97,6 +156,14 @@ belonging to no trip falls back to its own numbers and its own arc.
 - **Back goes where you came from.** The detail header returns through history
   instead of a fixed target; a page opened directly has no history and still uses
   its section's front door, and middle-click still opens that section's home.
+- **A figure that comes and goes resizes the line it sits in.** The filter
+  badge, the "N match" caption, Reset and the filtered chip were each mounted
+  only while a filter was active, so the first keystroke grew the row — the chip
+  is taller than the line it rides on — and everything under it shifted. All four
+  are drawn once and hidden with `visibility`, so the row measures the same
+  either way; the badge and the chip carry `aria-hidden` while they are down, and
+  Reset is disabled rather than absent. The "is it filtered" test trims
+  whitespace too, so a lone space narrows nothing and the chip stays down.
 
 ## How it fits with Immich
 
