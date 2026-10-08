@@ -473,7 +473,9 @@
     "arrivalActual": "Tatsächl. Landung",
     "timezones": "Zeitzonen",
     "planned": "plan",
-    "flightTime": "Flugzeit"
+    "flightTime": "Flugzeit",
+    "overviewTab": "Übersicht",
+    "tripFlightsTab": "Flüge dieser Reise"
   },
   "price": {
     "package": "Pauschal",

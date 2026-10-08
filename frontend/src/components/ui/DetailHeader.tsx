@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { JSX } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { DomainKey } from "../../shared/domains";
 import { alpha, DOMAIN_TOKEN, token } from "./tokens";
 
@@ -82,6 +82,8 @@ export default function DetailHeader({
   meta,
   hero,
 }: DetailHeaderProps): JSX.Element {
+  const location = useLocation();
+  const navigate = useNavigate();
   const hue = token(DOMAIN_TOKEN[domain]);
 
   return (
@@ -91,6 +93,33 @@ export default function DetailHeader({
           button and silently took that away. */}
       <Link
         to={backTo}
+        onClick={(event) => {
+          // Back goes where the reader CAME FROM, not to this section's front
+          // door (owner, 2026-10-08): from a roadtrip into its album and out
+          // again landed on the journey, because the link's target was fixed
+          // and the history that knew better was ignored.
+          //
+          // `location.key === "default"` is React Router's first entry — a page
+          // opened directly has nothing to go back TO, so the fixed target is
+          // right and stays.
+          //
+          // Only a plain left click is intercepted: middle click, cmd-click and
+          // "open in new tab" still get `backTo`, which is what an address
+          // typed into a fresh tab should be.
+          if (
+            event.defaultPrevented ||
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey ||
+            location.key === "default"
+          ) {
+            return;
+          }
+          event.preventDefault();
+          navigate(-1);
+        }}
         className="ts-back-link"
         style={{
           display: "inline-flex",

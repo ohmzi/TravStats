@@ -473,7 +473,9 @@
     "arrivalActual": "Actual landing",
     "timezones": "Time zones",
     "planned": "planned",
-    "flightTime": "Flight time"
+    "flightTime": "Flight time",
+    "overviewTab": "Overview",
+    "tripFlightsTab": "Flights on this trip"
   },
   "price": {
     "package": "Package",

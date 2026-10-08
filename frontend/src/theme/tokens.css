@@ -107,9 +107,18 @@
   --ts-space-xxl: 28px;
   --ts-space-screen-padding: 24px;
 
-  /* Width — the one web-only layout decision (DESIGN_SYSTEM.md §4.2) */
-  --ts-width-reading: 720px;
-  --ts-width-list: 1200px;
+  /* Width — the one web-only layout decision (DESIGN_SYSTEM.md §4.2)
+   *
+   * ONE width since 2026-10-08 (owner). The three were 720/1200/1440 and the
+   * reader's complaint was that every page seemed to be a different shape —
+   * which it was. The widest is now all three, so a page is the width of the
+   * logbook and the roadtrip list wherever you are.
+   *
+   * The names stay because `AppShell` still asks for one and a page's CHOICE
+   * is worth reading in its source. What restores the old behaviour is the
+   * numbers here, not sixty call sites. */
+  --ts-width-reading: 1440px;
+  --ts-width-list: 1440px;
   --ts-width-table: 1440px;
 
   /* Radius — no other radius exists */

@@ -7,6 +7,7 @@ import DetailSection from "../components/ui/DetailSection";
 import PeopleList from "../components/ui/PeopleList";
 import FlightRouteHero from "../components/flightsTable/FlightRouteHero";
 import CardMap from "../components/map/CardMap";
+import FlightFigures, { type FlightFigure } from "../components/flightsTable/FlightFigures";
 import {
   calculateDistance,
   getArcPeakAltitudeMeters,
@@ -216,6 +217,7 @@ export default function FlightDetailPage(): JSX.Element {
     getArcSteps(routeDistanceKm, false)
   ).map(([lon, lat]) => [lon, lat]);
 
+
   /**
    * A time in the detail grid: the airport's day and clock as the server read
    * it (`times.*.local`, ADR 0002), cut to its precision, "UTC" where the
@@ -229,6 +231,36 @@ export default function FlightDetailPage(): JSX.Element {
   };
   const departure = flightDeparture(flight);
   const arrival = flightArrival(flight);
+
+  /**
+   * The band's cells. Each one is left OUT when its value is unknown rather
+   * than shown as a dash: a dash among numbers reads as a zero, and "we do not
+   * know the price" is not "the price was nothing".
+   */
+  const figures = [
+    distance
+      ? { key: "distance", label: t("flights:detail.distance"), value: distance }
+      : null,
+    duration
+      ? {
+          key: "duration",
+          label: t("flights:detail.flightTime"),
+          value: formatDurationWithEstimate(duration.minutes, duration.estimated),
+        }
+      : null,
+    when(departure)
+      ? { key: "dep", label: t("flights:detail.departurePlanned"), value: when(departure) as string }
+      : null,
+    when(arrival)
+      ? { key: "arr", label: t("flights:detail.arrivalPlanned"), value: when(arrival) as string }
+      : null,
+    flight.seatNumber
+      ? { key: "seat", label: t("flights:form.seat"), value: flight.seatNumber }
+      : null,
+    money(flight.price)
+      ? { key: "price", label: t("flights:form.price"), value: money(flight.price) as string }
+      : null,
+  ].filter((f): f is FlightFigure => f !== null);
 
   return (
     <AppShell width="list">
@@ -273,6 +305,42 @@ export default function FlightDetailPage(): JSX.Element {
         }
       />
 
+      {/* The flight's numbers as a band, then the way it went — the roadtrip
+          page's own reading order (owner, 2026-10-08), so the two detail pages
+          are the same page with different content. */}
+      <div className="mt-6 flex flex-col" style={{ gap: "var(--ts-space-lg)" }}>
+        <FlightFigures figures={figures} />
+        <CardMap
+          lines={[{ coords: routeArc }]}
+          stops={[
+            { coord: [flight.depLon, flight.depLat] },
+            { coord: [flight.arrLon, flight.arrLat] },
+          ]}
+          height={200}
+        />
+      </div>
+
+      {/* Two doors. "Flights" opens the logbook's table — the rows as they are
+          today, filters and all — rather than a second copy of it grown here. */}
+      <div
+        className="mt-6 flex items-center"
+        style={{ gap: "var(--ts-space-lg)", borderBottom: "1px solid var(--ts-border)" }}
+      >
+        <span
+          className="t-label-mono"
+          style={{ padding: "8px 0", color: "var(--ts-text-bright)", borderBottom: "2px solid var(--accent)" }}
+        >
+          {t("flights:detail.overviewTab")}
+        </span>
+        <Link
+          to={flight.tripId ? `/flights?trip=${flight.tripId}` : "/flights?trip=all"}
+          className="t-label-mono"
+          style={{ padding: "8px 0", color: "var(--ts-muted)", textDecoration: "none" }}
+        >
+          {t("flights:detail.tripFlightsTab")}
+        </Link>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
         <div className="flex flex-col gap-6 md:col-span-3">
           <DetailSection
@@ -315,17 +383,6 @@ export default function FlightDetailPage(): JSX.Element {
 
           <DetailSection
             title={t("flights:detail.route")}
-            lead={
-              // The way the flight went, drawn whether or not a GPS recording
-              // exists. The section below states the distance; this is the
-              // shape that distance describes, and without it a flight whose
-              // phone never recorded a track had no map anywhere on its page.
-              <CardMap
-                lines={[{ coords: routeArc }]}
-                stops={[{ coord: [flight.depLon, flight.depLat] }, { coord: [flight.arrLon, flight.arrLat] }]}
-                height={180}
-              />
-            }
             facts={[
               { label: t("flights:detail.distance"), value: distance, mono: true },
               {
