@@ -85,6 +85,26 @@ export interface ImmichClient {
    * (forgejo#21).
    */
   findAssetIdByChecksum(checksum: string): Promise<string | null>;
+  /**
+   * Every photo and video taken inside a window, oldest first, with the facts the
+   * trip builder reads (`ImmichAssetDetail`).
+   *
+   * The legacy flat body, because this client is pinned to the 3.0.1 API and the
+   * structured `filter` body exists only from v3.2: no `type` (so images and
+   * videos both come back), `withExif` (an inner join, so an asset with no EXIF
+   * row is absent), `order: "asc"`. Immich leaves trashed and locked assets out
+   * on its own; hidden Live Photo halves and partners' assets DO come back and
+   * are the caller's to drop (`ownerId`, `visibility`).
+   *
+   * The range is on `fileCreatedAt`, a UTC instant, so a caller that wants whole
+   * local days pads it and trims by local day afterwards. Pages are offset based
+   * and shift if an upload lands mid-scan, so ids are de-duplicated (first sight
+   * wins). `onPage` hears `(page, collected so far)` after every page.
+   */
+  searchWindowAssets(
+    range: ImmichDateRange,
+    onPage?: (page: number, collected: number) => void
+  ): Promise<ImmichWindowPage>;
 }
 
 /** Inclusive on both ends, as Immich treats them. */
@@ -102,6 +122,12 @@ export interface ImmichAssetPage {
    * two thirds of a library would report "no forgotten journeys" with
    * the same confidence as one that saw all of it.
    */
+  truncated: boolean;
+}
+
+/** `searchWindowAssets`'s answer: every hit, and whether the page cap cut it short. */
+export interface ImmichWindowPage {
+  assets: ImmichAssetDetail[];
   truncated: boolean;
 }
 
@@ -249,6 +275,14 @@ export function mapAssetDetail(raw: unknown): ImmichAssetDetail | null {
   };
 }
 
+/** Adds each mappable photo or video of one search page, keeping the first sight of an id. */
+function addAssetDetails(items: readonly unknown[], into: Map<string, ImmichAssetDetail>): void {
+  for (const raw of items) {
+    const mapped = mapAssetDetail(raw);
+    if (mapped && !into.has(mapped.id)) into.set(mapped.id, mapped);
+  }
+}
+
 export function createImmichClient(
   conn: ImmichConnection,
   options: ImmichClientOptions = {}
@@ -256,6 +290,24 @@ export function createImmichClient(
   const headers = { "x-api-key": conn.apiKey };
   const jsonConfig: AxiosRequestConfig = { headers, timeout: requestTimeout(options) };
   const url = (suffix: string): string => `${conn.baseUrl}/api${suffix}`;
+
+  /** One page of `POST /search/metadata`, checked for the shape the page loops rely on. */
+  async function searchPage(
+    body: Record<string, unknown>,
+    context: string
+  ): Promise<{ items: unknown[]; hasNext: boolean }> {
+    let data: unknown;
+    try {
+      ({ data } = await axios.post(url("/search/metadata"), body, jsonConfig));
+    } catch (error) {
+      throw toImmichError(error, context);
+    }
+    const assets = isRecord(data) && isRecord(data.assets) ? data.assets : undefined;
+    if (!assets || !Array.isArray(assets.items)) {
+      throw new ImmichError("protocol", "Immich returned an unexpected search payload");
+    }
+    return { items: assets.items, hasNext: typeof assets.nextPage === "string" };
+  }
 
   return {
     async getServerVersion(): Promise<string> {
@@ -429,6 +481,49 @@ export function createImmichClient(
       }
 
       return { assets: collected, truncated };
+    },
+
+    async searchWindowAssets(
+      { takenAfter, takenBefore }: ImmichDateRange,
+      onPage?: (page: number, collected: number) => void
+    ): Promise<ImmichWindowPage> {
+      const byId = new Map<string, ImmichAssetDetail>();
+      let truncated = false;
+
+      for (let page = 1; page <= MAX_PAGES; page += 1) {
+        const { items, hasNext } = await searchPage(
+          {
+            takenAfter: takenAfter.toISOString(),
+            takenBefore: takenBefore.toISOString(),
+            withExif: true,
+            order: "asc",
+            page,
+            size: PAGE_SIZE,
+          },
+          "search/metadata by window"
+        );
+        addAssetDetails(items, byId);
+        onPage?.(page, byId.size);
+
+        if (!hasNext) break;
+        // Immich still reports more pages but we are at the hard cap: the
+        // window this returns is a silent partial unless we say so.
+        if (page === MAX_PAGES) truncated = true;
+      }
+
+      if (truncated) {
+        logger.warn({
+          message: "immich_window_search_truncated",
+          context: {
+            maxPages: MAX_PAGES,
+            collectedCount: byId.size,
+            takenAfter: takenAfter.toISOString(),
+            takenBefore: takenBefore.toISOString(),
+          },
+        });
+      }
+
+      return { assets: [...byId.values()], truncated };
     },
 
     /**
