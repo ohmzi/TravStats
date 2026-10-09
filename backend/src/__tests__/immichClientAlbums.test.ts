@@ -93,3 +93,89 @@ describe("getAlbum", () => {
     );
   });
 });
+
+describe("findOwnedAlbumByName", () => {
+  it("GETs the name-and-ownership query with the name URL-encoded", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ data: [] });
+
+    await createImmichClient(CONN).findOwnedAlbumByName(
+      "Northvale loop & Port Carrow #2",
+      OWNER_ID
+    );
+
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "https://immich.lan/api/albums?name=Northvale%20loop%20%26%20Port%20Carrow%20%232&isOwned=true",
+      expect.objectContaining({ headers: { "x-api-key": "secret-key" } })
+    );
+  });
+
+  it("returns the album with exactly that name that the caller owns", async () => {
+    // An Immich that ignores the query still answers with everything, so the
+    // client re-checks: case, then the owner (albumUsers[0]), not mere membership.
+    mockedAxios.get.mockResolvedValueOnce({
+      data: [
+        albumJson({ id: "wrong-case", albumName: "northvale loop" }),
+        albumJson({
+          id: "someone-elses",
+          albumUsers: [
+            { user: { id: OTHER_ID }, role: "owner" },
+            { user: { id: OWNER_ID }, role: "editor" },
+          ],
+        }),
+        albumJson({ id: ALBUM_ID }),
+      ],
+    });
+
+    await expect(
+      createImmichClient(CONN).findOwnedAlbumByName("Northvale loop", OWNER_ID)
+    ).resolves.toEqual({
+      id: ALBUM_ID,
+      albumName: "Northvale loop",
+      assetCount: 12,
+      thumbnailAssetId: THUMB_ID,
+    });
+  });
+
+  it("returns null when no album has that name and owner", async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      data: [albumJson({ albumName: "Port Carrow weekend" })],
+    });
+    await expect(
+      createImmichClient(CONN).findOwnedAlbumByName("Northvale loop", OWNER_ID)
+    ).resolves.toBeNull();
+
+    mockedAxios.get.mockResolvedValueOnce({ data: [] });
+    await expect(
+      createImmichClient(CONN).findOwnedAlbumByName("Northvale loop", OWNER_ID)
+    ).resolves.toBeNull();
+  });
+
+  it("never matches an album that names no owner", async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      data: [albumJson({ albumUsers: undefined }), albumJson({ albumUsers: [] })],
+    });
+
+    await expect(
+      createImmichClient(CONN).findOwnedAlbumByName("Northvale loop", OWNER_ID)
+    ).resolves.toBeNull();
+  });
+
+  it("rejects a non-array body as kind=protocol", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ data: { albums: [] } });
+
+    await expect(
+      createImmichClient(CONN).findOwnedAlbumByName("Northvale loop", OWNER_ID)
+    ).rejects.toMatchObject({ kind: "protocol" });
+  });
+
+  it("names the missing album.read permission on a 403", async () => {
+    mockedAxios.get.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 403, data: { message: "Missing required permission: album.read" } },
+    });
+
+    await expect(
+      createImmichClient(CONN).findOwnedAlbumByName("Northvale loop", OWNER_ID)
+    ).rejects.toMatchObject({ kind: "auth", detail: { missingScope: "album.read" } });
+  });
+});

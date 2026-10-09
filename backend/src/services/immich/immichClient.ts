@@ -127,6 +127,14 @@ export interface ImmichClient {
   getMyApiKey(): Promise<ImmichApiKeyInfo | null>;
   /** One album by id: its name and asset count (`AlbumResponseDto` carries no asset array). */
   getAlbum(albumId: string): Promise<ImmichAlbum>;
+  /**
+   * The album `ownerId` owns whose name is exactly `name` (case-sensitive), or
+   * null. Asked with `name` and `isOwned=true`, then checked again here: an
+   * Immich that ignores those parameters answers with every album, and an album
+   * someone shared with the caller must never be mistaken for the caller's own.
+   * With several matches the first in Immich's order wins.
+   */
+  findOwnedAlbumByName(name: string, ownerId: string): Promise<ImmichAlbum | null>;
 }
 
 /** Inclusive on both ends, as Immich treats them. */
@@ -323,6 +331,16 @@ function mapAlbum(raw: unknown): ImmichAlbum | null {
     thumbnailAssetId:
       typeof raw.albumThumbnailAssetId === "string" ? raw.albumThumbnailAssetId : null,
   };
+}
+
+/**
+ * The id of an album's owner. `AlbumResponseDto.albumUsers` documents its first
+ * entry as always the owner; a payload without one has no owner we can name.
+ */
+function albumOwnerId(raw: Record<string, unknown>): string | null {
+  const first = Array.isArray(raw.albumUsers) ? raw.albumUsers[0] : undefined;
+  const user = isRecord(first) && isRecord(first.user) ? first.user : undefined;
+  return typeof user?.id === "string" ? user.id : null;
 }
 
 /** Adds each mappable photo or video of one search page, keeping the first sight of an id. */
@@ -617,6 +635,27 @@ export function createImmichClient(
       const album = mapAlbum(data);
       if (!album) throw new ImmichError("protocol", "Immich returned an unexpected album payload");
       return album;
+    },
+
+    async findOwnedAlbumByName(name: string, ownerId: string): Promise<ImmichAlbum | null> {
+      let data: unknown;
+      try {
+        ({ data } = await axios.get(
+          url(`/albums?name=${encodeURIComponent(name)}&isOwned=true`),
+          jsonConfig
+        ));
+      } catch (error) {
+        throw toImmichError(error, "albums by name");
+      }
+      if (!Array.isArray(data)) {
+        throw new ImmichError("protocol", "Immich returned an unexpected album payload");
+      }
+      for (const raw of data) {
+        if (!isRecord(raw) || raw.albumName !== name || albumOwnerId(raw) !== ownerId) continue;
+        const album = mapAlbum(raw);
+        if (album) return album;
+      }
+      return null;
     },
 
     /**
