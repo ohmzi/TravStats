@@ -56,7 +56,7 @@ vi.mock("react-map-gl/maplibre", () => {
   // Mimics react-map-gl's real contract closely enough for GlobeView's
   // needs: forwards `ref.current = { getMap: () => fakeMap }` on mount,
   // fires `onLoad` once mounted (the event GlobeView's own `onMapLoad`
-  // is gated on), and renders `children` (the DeckGLOverlay control).
+  // is gated on), and renders `children` (the GlobeDeckOverlay control).
   const MockMapGL = React.forwardRef(function MockMapGL(
     props: { onLoad?: () => void; children?: React.ReactNode },
     ref: React.Ref<unknown>
@@ -71,7 +71,7 @@ vi.mock("react-map-gl/maplibre", () => {
 
   // Mirrors react-map-gl's real useControl closely enough: the factory
   // runs once per component instance and the resulting control instance
-  // is stable across re-renders (GlobeView's DeckGLOverlay relies on this
+  // is stable across re-renders (GlobeDeckOverlay relies on this
   // -- it calls `overlay.setProps(...)` on every render rather than
   // re-constructing the overlay).
   function useControl<T>(factory: () => T): T {
