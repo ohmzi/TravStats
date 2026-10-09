@@ -21,6 +21,7 @@ import { getCountryResolver } from "../../services/geo/countryFromCoordinates";
 import stationRoutes from "./stations";
 import companionRoutes from "./companion";
 import { resolveRoadtrip } from "../../services/roadtrip/resolveRoadtrip";
+import { insertRoadtrip } from "../../services/roadtrip/createRoadtrip";
 import { EXPENSE_ORDER, EXPENSE_SELECT, toExpenseDto } from "../../services/expenses/expenseDto";
 import { roadtripCosts } from "../../services/expenses/roadtripCosts";
 
@@ -133,28 +134,11 @@ router.post(
       const { tripId, ...body } = createRoadtripSchema.parse(req.body);
       if (tripId != null) await resolveTrip(userId, tripId);
 
-      const last = await prisma.tripRoute.findFirst({
-        where: { userId, tripId: tripId ?? null },
-        orderBy: { orderIdx: "desc" },
-        select: { orderIdx: true },
-      });
-      const route = await prisma.tripRoute.create({
-        data: {
-          userId,
-          tripId: tripId ?? null,
-          kind: "roadtrip",
-          name: body.name,
-          mode: body.mode,
-          vehicle: body.vehicle ?? null,
-          vehicleName: body.vehicleName ?? null,
-          color: body.color,
-          notes: body.notes,
-          startOdometerKm: body.startOdometerKm,
-          endOdometerKm: body.endOdometerKm,
-          orderIdx: last ? last.orderIdx + 1 : 0,
-        },
-        include: ROUTE_SELECT,
-      });
+      // A transaction of its own: the photo trip builder calls `insertRoadtrip`
+      // inside the one transaction that also writes the trip.
+      const route = await prisma.$transaction((tx) =>
+        insertRoadtrip(tx, userId, { ...body, tripId: tripId ?? null })
+      );
       logger.info({ operation: "roadtrip.create", routeId: route.id, tripId: tripId ?? null });
       res.status(201).json({ roadtrip: toDto(route) });
     } catch (error) {
