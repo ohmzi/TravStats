@@ -50,6 +50,32 @@ export interface ImmichAsset {
 }
 
 /**
+ * An asset with the facts the trip builder reads (spec 2026-10-09 §B).
+ *
+ * `localDateTime` is Immich's naive wall clock with its fake `Z` and
+ * milliseconds stripped (`YYYY-MM-DDTHH:mm:ss`). It is a real clock only when
+ * the zone is right, which `services/tripBuilder/clock.ts` decides. Every other
+ * added field is copied as Immich sent it, or null.
+ */
+export interface ImmichAssetDetail extends ImmichAsset {
+  localDateTime: string | null;
+  /** `exifInfo.timeZone`: an IANA name or `UTC±N`. */
+  timeZone: string | null;
+  /** Normalised like `fileCreatedAt`; null when absent or without an offset. */
+  fileModifiedAt: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  ownerId: string | null;
+  visibility: ImmichVisibility | null;
+  livePhotoVideoId: string | null;
+  duplicateId: string | null;
+  make: string | null;
+  model: string | null;
+  isFavorite: boolean;
+}
+
+/**
  * Why an Immich call failed. The route layer maps these onto HTTP status codes
  * and the UI maps them onto distinct messages ("bad URL" vs "bad key" vs
  * "unexpected response"), which is the whole point of separating them.

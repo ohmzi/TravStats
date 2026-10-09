@@ -13,7 +13,15 @@
  */
 import axios, { AxiosRequestConfig } from "axios";
 import logger from "../../utils/logger";
-import { ImmichAlbum, ImmichAsset, ImmichAssetSize, ImmichConnection, ImmichError } from "./types";
+import {
+  ImmichAlbum,
+  ImmichAsset,
+  ImmichAssetDetail,
+  ImmichAssetSize,
+  ImmichConnection,
+  ImmichError,
+  ImmichVisibility,
+} from "./types";
 
 /** Immich caps `size` at 1000. */
 const PAGE_SIZE = 1000;
@@ -141,9 +149,14 @@ const RFC3339_OFFSET = /(?:Z|[+-]\d{2}:\d{2})$/i;
  * read it in the SERVER's zone, so it is treated like a missing time instead.
  */
 function captureInstant(value: unknown): string {
-  if (typeof value !== "string" || !RFC3339_OFFSET.test(value)) return NO_CAPTURE_TIME;
+  return offsetInstantOrNull(value) ?? NO_CAPTURE_TIME;
+}
+
+/** The same normalisation for a time that may legitimately be absent: null, not the epoch. */
+function offsetInstantOrNull(value: unknown): string | null {
+  if (typeof value !== "string" || !RFC3339_OFFSET.test(value)) return null;
   const ms = Date.parse(value);
-  return Number.isFinite(ms) ? new Date(ms).toISOString() : NO_CAPTURE_TIME;
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
 }
 
 function mapAsset(raw: unknown): ImmichAsset | null {
@@ -165,6 +178,57 @@ function mapAsset(raw: unknown): ImmichAsset | null {
     sizeBytes: asNumberOrNull(exif?.fileSizeInByte),
     lat: asNumberOrNull(exif?.latitude),
     lon: asNumberOrNull(exif?.longitude),
+  };
+}
+
+/** Immich's `localDateTime`: a wall clock printed with a fake `Z` (and milliseconds). */
+const NAIVE_LOCAL_DATE_TIME = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.\d+)?Z?$/;
+const VISIBILITIES: readonly ImmichVisibility[] = ["timeline", "archive", "hidden", "locked"];
+
+/**
+ * The wall clock without Immich's fake `Z`, or null. A value that carries a REAL
+ * offset is refused, not stripped: it is an instant, and reading it as a wall
+ * clock would shift the photo by that offset.
+ */
+function naiveLocalDateTime(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  return NAIVE_LOCAL_DATE_TIME.exec(value)?.[1] ?? null;
+}
+
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function visibilityOrNull(value: unknown): ImmichVisibility | null {
+  return VISIBILITIES.find((visibility) => visibility === value) ?? null;
+}
+
+/**
+ * One search hit as the trip builder reads it: `mapAsset`'s fields plus the
+ * clock, zone, owner, visibility, grouping and place facts. Anything Immich did
+ * not send, or sent in a shape this does not trust, is null; nothing is guessed
+ * here (the clock model decides what a naive `localDateTime` means).
+ */
+export function mapAssetDetail(raw: unknown): ImmichAssetDetail | null {
+  const base = mapAsset(raw);
+  if (base === null || !isRecord(raw)) return null;
+  const exif = isRecord(raw.exifInfo) ? raw.exifInfo : undefined;
+
+  return {
+    ...base,
+    localDateTime: naiveLocalDateTime(raw.localDateTime),
+    timeZone: nonEmptyString(exif?.timeZone),
+    fileModifiedAt: offsetInstantOrNull(raw.fileModifiedAt),
+    city: nonEmptyString(exif?.city),
+    state: nonEmptyString(exif?.state),
+    country: nonEmptyString(exif?.country),
+    ownerId: nonEmptyString(raw.ownerId),
+    visibility: visibilityOrNull(raw.visibility),
+    livePhotoVideoId: nonEmptyString(raw.livePhotoVideoId),
+    duplicateId: nonEmptyString(raw.duplicateId),
+    make: nonEmptyString(exif?.make),
+    model: nonEmptyString(exif?.model),
+    isFavorite: raw.isFavorite === true,
   };
 }
 
