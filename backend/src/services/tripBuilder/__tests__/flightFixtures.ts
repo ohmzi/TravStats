@@ -140,3 +140,9 @@ export function datedFlight(
     ...over,
   };
 }
+
+/** A located photo that fell in the sea (`flags.atSea`): kept out of the movement photos. */
+export function seaPhoto(id: string, local: string, where: Coord): PhotoPoint {
+  const shot = photo(id, local, where);
+  return { ...shot, flags: { ...shot.flags, atSea: true } };
+}

@@ -19,7 +19,15 @@ import {
   DEPARTURE_GRACE_KM,
   DEPARTURE_GRACE_MIN,
 } from "./thresholds";
-import type { FlightAnchor, FlightSide, InFlightClass, InFlightRule, PhotoPoint } from "./types";
+import type {
+  AreaSplit,
+  FlightAnchor,
+  FlightSide,
+  GroundArea,
+  InFlightClass,
+  InFlightRule,
+  PhotoPoint,
+} from "./types";
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -181,4 +189,110 @@ export function classifyInFlight(
     verdicts.set(photo.id, verdictFor(photo, anchors, photos, references));
   }
   return verdicts;
+}
+
+function byTime(a: PhotoPoint, b: PhotoPoint): number {
+  return a.tMs - b.tMs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
+/**
+ * Chronological order of two flights: by departure instant when both have one, else by
+ * departure day, then by clock, then by id.
+ */
+function compareAnchors(a: FlightAnchor, b: FlightAnchor): number {
+  if (a.depMs !== null && b.depMs !== null && a.depMs !== b.depMs) return a.depMs - b.depMs;
+  if (a.depDay !== b.depDay) return a.depDay < b.depDay ? -1 : 1;
+  if (a.depClock !== null && b.depClock !== null && a.depClock !== b.depClock) {
+    return a.depClock < b.depClock ? -1 : 1;
+  }
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** `after` when the photo lies closer to the arrival airport than to the departure airport. */
+function nearerSide(photo: PhotoPoint, flight: FlightAnchor): FlightSide {
+  const at = coordOf(photo);
+  if (!at) return "before";
+  return distanceKm(at, flight.arr) < distanceKm(at, flight.dep) ? "after" : "before";
+}
+
+/**
+ * Which side of `flight` a ground photo is on.
+ * - A photo the classifier pinned to this flight (arrival tolerance, departure grace) keeps that
+ *   side: the cut sits at the last grace photo and the first tolerance photo, not at the
+ *   scheduled instants.
+ * - A precise flight cuts at its departure and arrival instants; a photo inside the flight that
+ *   nobody classified goes to the nearer airport.
+ * - A day-level flight cuts by day; on its own days a photo goes to the nearer airport.
+ */
+function sideOf(
+  photo: PhotoPoint,
+  flight: FlightAnchor,
+  verdict: InFlightClass | undefined
+): FlightSide {
+  if (verdict && verdict.flightId === flight.id && verdict.side) return verdict.side;
+  if (flight.depMs !== null && flight.arrMs !== null) {
+    if (photo.tMs <= flight.depMs) return "before";
+    if (photo.tMs >= flight.arrMs) return "after";
+    return nearerSide(photo, flight);
+  }
+  if (photo.day < flight.depDay) return "before";
+  if (photo.day > flight.arrDay) return "after";
+  return nearerSide(photo, flight);
+}
+
+function groundAreaOf(
+  members: readonly PhotoPoint[],
+  arriving: FlightAnchor | null,
+  departing: FlightAnchor | null
+): GroundArea | null {
+  const movement = members.filter((photo) => !photo.flags.atSea);
+  if (movement.length === 0) return null;
+  const first = movement[0];
+  const last = movement[movement.length - 1];
+  return {
+    photoIds: movement.map((photo) => photo.id),
+    seaPhotoIds: members.filter((photo) => photo.flags.atSea).map((photo) => photo.id),
+    afterFlightId: arriving ? arriving.id : null,
+    beforeFlightId: departing ? departing.id : null,
+    startMs: first.tMs,
+    endMs: last.tMs,
+    startDay: first.day,
+    endDay: last.day,
+  };
+}
+
+/**
+ * Cuts the ground photos at the flights. Every photo gets a side of every flight; the photos
+ * with the same number of flights behind them are one stretch of ground, and a stretch with a
+ * movement photo is an area. A stretch with only sea photos is dropped. A road leg never crosses
+ * a flight.
+ *
+ * `ground` is the movement photos plus the at-sea photos (they go to `seaPhotoIds`); `classes`
+ * is `classifyInFlight` over the same photos. A photo `classes` calls in the air is ignored.
+ */
+export function splitIntoAreas(
+  ground: readonly PhotoPoint[],
+  anchors: readonly FlightAnchor[],
+  classes: ReadonlyMap<string, InFlightClass>
+): AreaSplit {
+  const flights = [...anchors].sort(compareAnchors);
+  const photos = ground.filter((photo) => !classes.get(photo.id)?.inFlight).sort(byTime);
+
+  const stretches = new Map<number, PhotoPoint[]>();
+  for (const photo of photos) {
+    const verdict = classes.get(photo.id);
+    const behind = flights.filter((flight) => sideOf(photo, flight, verdict) === "after").length;
+    const members = stretches.get(behind);
+    if (members) members.push(photo);
+    else stretches.set(behind, [photo]);
+  }
+
+  const areas: GroundArea[] = [];
+  for (const [behind, members] of [...stretches].sort((a, b) => a[0] - b[0])) {
+    const arriving = behind > 0 ? flights[behind - 1] : null;
+    const departing = behind < flights.length ? flights[behind] : null;
+    const area = groundAreaOf(members, arriving, departing);
+    if (area) areas.push(area);
+  }
+  return { areas, layovers: [] };
 }
