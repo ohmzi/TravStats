@@ -9,16 +9,20 @@
  */
 import { distanceKm } from "../photoJourneys/cluster";
 import type { Coord } from "../tour/tourDistance";
-import { coordOf } from "./flightGeometry";
+import { coordOf, corridorFix, isStationary } from "./flightGeometry";
 import {
+  AIRPORT_NEAR_KM,
   ARRIVAL_TOLERANCE_KM,
   ARRIVAL_TOLERANCE_MIN,
+  CORRIDOR_KM,
+  DELAY_CORRIDOR_H,
   DEPARTURE_GRACE_KM,
   DEPARTURE_GRACE_MIN,
 } from "./thresholds";
 import type { FlightAnchor, FlightSide, InFlightClass, InFlightRule, PhotoPoint } from "./types";
 
 const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
 
 function onGround(flight: FlightAnchor, rule: InFlightRule, side: FlightSide): InFlightClass {
   return { inFlight: false, flightId: flight.id, rule, side };
@@ -49,11 +53,50 @@ function preciseVerdict(photo: PhotoPoint, at: Coord, flight: FlightAnchor): InF
   return airborne(flight, "precise");
 }
 
-function verdictFor(photo: PhotoPoint, anchors: readonly FlightAnchor[]): InFlightClass {
+/**
+ * Between the airports and not near either: more than AIRPORT_NEAR_KM from both, within
+ * CORRIDOR_KM of the track and between its two ends.
+ */
+function onCorridor(at: Coord, flight: FlightAnchor): boolean {
+  if (
+    distanceKm(at, flight.dep) <= AIRPORT_NEAR_KM ||
+    distanceKm(at, flight.arr) <= AIRPORT_NEAR_KM
+  ) {
+    return false;
+  }
+  const fix = corridorFix(flight.dep, flight.arr, at);
+  return fix.crossKm <= CORRIDOR_KM && fix.alongKm >= 0 && fix.alongKm <= fix.lengthKm;
+}
+
+/**
+ * A flight with no actual arrival may have run late: a photo up to DELAY_CORRIDOR_H after the
+ * scheduled arrival, on the corridor and not part of a stationary group, is still in the air.
+ */
+function delayVerdict(
+  photo: PhotoPoint,
+  at: Coord,
+  flight: FlightAnchor,
+  photos: readonly PhotoPoint[]
+): InFlightClass | null {
+  const { arrMs } = flight;
+  if (arrMs === null || flight.hasActualArr) return null;
+  const late = photo.tMs > arrMs && photo.tMs <= arrMs + DELAY_CORRIDOR_H * HOUR_MS;
+  return late && onCorridor(at, flight) && !isStationary(photo, photos)
+    ? airborne(flight, "delay")
+    : null;
+}
+
+function verdictFor(
+  photo: PhotoPoint,
+  anchors: readonly FlightAnchor[],
+  photos: readonly PhotoPoint[]
+): InFlightClass {
   const at = coordOf(photo);
   if (at) {
     for (const flight of anchors) {
-      const verdict = flight.precise ? preciseVerdict(photo, at, flight) : null;
+      const verdict = flight.precise
+        ? (preciseVerdict(photo, at, flight) ?? delayVerdict(photo, at, flight, photos))
+        : null;
       if (verdict) return verdict;
     }
   }
@@ -72,7 +115,7 @@ export function classifyInFlight(
 ): Map<string, InFlightClass> {
   const verdicts = new Map<string, InFlightClass>();
   for (const photo of photos) {
-    verdicts.set(photo.id, verdictFor(photo, anchors));
+    verdicts.set(photo.id, verdictFor(photo, anchors, photos));
   }
   return verdicts;
 }

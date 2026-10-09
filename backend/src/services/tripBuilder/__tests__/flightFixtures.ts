@@ -135,3 +135,15 @@ export function preciseFlight(
     ...over,
   };
 }
+
+/** The point `crossKm` to the left of the track `from` → `to`, `fraction` of the way along it. */
+export function beside(from: Coord, to: Coord, fraction: number, crossKm: number): Coord {
+  const north = (to.lat - from.lat) * KM_PER_DEGREE;
+  const east = (to.lon - from.lon) * KM_PER_DEGREE * Math.cos(rad((from.lat + to.lat) / 2));
+  const length = Math.hypot(north, east);
+  return offsetKm(
+    between(from, to, fraction),
+    (crossKm * east) / length,
+    (-crossKm * north) / length
+  );
+}

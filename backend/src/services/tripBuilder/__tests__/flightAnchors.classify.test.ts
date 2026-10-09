@@ -1,6 +1,6 @@
 import { classifyInFlight } from "../flightAnchors";
 import type { FlightAnchor, PhotoPoint } from "../types";
-import { between, NVL, offsetKm, PCR, photo, preciseFlight } from "./flightFixtures";
+import { beside, between, NVL, offsetKm, PCR, photo, preciseFlight } from "./flightFixtures";
 
 // ZZ101 leaves Northvale at 08:30 and lands at Port Carrow at 09:30 on 2031-05-02
 // (Pacific/Auckland wall clock); `midAir` is half way along its track.
@@ -118,5 +118,52 @@ describe("classifyInFlight: a red-eye that leaves the evening before the window"
     expect(verdict(photo("taxi", "2031-05-02 01:10", offsetKm(PCR, 2, 0)), [redEye])).toEqual(
       GROUND
     );
+  });
+});
+
+describe("classifyInFlight: a delayed arrival", () => {
+  it("keeps a photo on the corridor within 3 hours after the scheduled arrival in the air", () => {
+    expect(verdict(photo("late", "2031-05-02 10:15", midAir), [zz101])).toEqual({
+      inFlight: true,
+      flightId: "zz101",
+      rule: "delay",
+      side: null,
+    });
+    expect(verdict(photo("limit", "2031-05-02 12:30", midAir), [zz101])?.rule).toBe("delay");
+  });
+
+  it("ends the corridor 3 hours after the scheduled arrival", () => {
+    expect(verdict(photo("gone", "2031-05-02 12:31", midAir), [zz101])).toEqual(GROUND);
+  });
+
+  it("lets the photo go once the flight has an actual arrival", () => {
+    const landed = { ...zz101, hasActualArr: true };
+    expect(verdict(photo("late", "2031-05-02 10:15", midAir), [landed])).toEqual(GROUND);
+  });
+
+  it("does not catch a photo within 50 km of the arrival airport", () => {
+    expect(verdict(photo("town", "2031-05-02 10:15", offsetKm(PCR, 30, 0)), [zz101])).toEqual(
+      GROUND
+    );
+  });
+
+  it("does not catch a photo more than 50 km off the corridor", () => {
+    const aside = beside(NVL, PCR, 0.5, 80);
+    expect(verdict(photo("aside", "2031-05-02 10:15", aside), [zz101])).toEqual(GROUND);
+  });
+
+  it("does not catch a photo past either end of the track", () => {
+    const beyond = between(NVL, PCR, 1.3);
+    expect(verdict(photo("beyond", "2031-05-02 10:15", beyond), [zz101])).toEqual(GROUND);
+  });
+
+  it("never calls three photos standing in one place in the air", () => {
+    const stop = [
+      photo("s1", "2031-05-02 10:00", midAir),
+      photo("s2", "2031-05-02 10:20", offsetKm(midAir, 0.3, 0)),
+      photo("s3", "2031-05-02 10:40", offsetKm(midAir, 0, 0.3)),
+    ];
+    const verdicts = classifyInFlight(stop, [zz101]);
+    for (const shot of stop) expect(verdicts.get(shot.id)).toEqual(GROUND);
   });
 });
