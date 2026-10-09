@@ -217,7 +217,6 @@ export default function FlightDetailPage(): JSX.Element {
     getArcSteps(routeDistanceKm, false)
   ).map(([lon, lat]) => [lon, lat]);
 
-
   /**
    * A time in the detail grid: the airport's day and clock as the server read
    * it (`times.*.local`, ADR 0002), cut to its precision, "UTC" where the
@@ -238,9 +237,7 @@ export default function FlightDetailPage(): JSX.Element {
    * know the price" is not "the price was nothing".
    */
   const figures = [
-    distance
-      ? { key: "distance", label: t("flights:detail.distance"), value: distance }
-      : null,
+    distance ? { key: "distance", label: t("flights:detail.distance"), value: distance } : null,
     duration
       ? {
           key: "duration",
@@ -249,7 +246,11 @@ export default function FlightDetailPage(): JSX.Element {
         }
       : null,
     when(departure)
-      ? { key: "dep", label: t("flights:detail.departurePlanned"), value: when(departure) as string }
+      ? {
+          key: "dep",
+          label: t("flights:detail.departurePlanned"),
+          value: when(departure) as string,
+        }
       : null,
     when(arrival)
       ? { key: "arr", label: t("flights:detail.arrivalPlanned"), value: when(arrival) as string }
@@ -328,12 +329,18 @@ export default function FlightDetailPage(): JSX.Element {
       >
         <span
           className="t-label-mono"
-          style={{ padding: "8px 0", color: "var(--ts-text-bright)", borderBottom: "2px solid var(--accent)" }}
+          style={{
+            padding: "8px 0",
+            color: "var(--ts-text-bright)",
+            borderBottom: "2px solid var(--accent)",
+          }}
         >
           {t("flights:detail.overviewTab")}
         </span>
         <Link
-          to={flight.tripId ? `/flights?view=table&trip=${flight.tripId}` : "/flights?view=table"}
+          to={
+            flight.tripId ? `/flights/journeys/${flight.tripId}?view=table` : "/flights?view=table"
+          }
           className="t-label-mono"
           style={{ padding: "8px 0", color: "var(--ts-muted)", textDecoration: "none" }}
         >

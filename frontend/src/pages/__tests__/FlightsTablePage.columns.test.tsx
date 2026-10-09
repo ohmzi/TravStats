@@ -13,8 +13,16 @@ import { describe, expect, it } from "vitest";
  * onto the `Table` primitive so a row survives 390px. This file follows them:
  * a source-scanning guard that keeps reading the file the code LEFT is a
  * guard that passes because there is nothing there.
+ *
+ * The table itself left the page on 2026-10-08, into `FlightsTablePanel`, so a
+ * journey's own page can show the same one. The scans that are about the TABLE
+ * read the panel now; the ones about the page's own chrome read the page.
  */
 const page = readFileSync(resolve(__dirname, "../FlightsTablePage.tsx"), "utf-8");
+const panel = readFileSync(
+  resolve(__dirname, "../../components/flightsTable/FlightsTablePanel.tsx"),
+  "utf-8"
+);
 const row = readFileSync(
   resolve(__dirname, "../../components/flightsTable/FlightRow.tsx"),
   "utf-8"
@@ -34,18 +42,19 @@ describe("FlightsTablePage column composition", () => {
 
   it("drops DataSourceBadges from the status cell", () => {
     expect(page).not.toContain("DataSourceBadges");
+    expect(panel).not.toContain("DataSourceBadges");
     expect(row).not.toContain("DataSourceBadges");
   });
 
   it("merges the two date columns into a single Zeit/Time column", () => {
-    expect(page).not.toContain("table.arrival");
+    expect(panel).not.toContain("table.arrival");
     // The column id, not the i18n key: since the header became one loop over
     // FLIGHT_COLUMN_IDS, the key is composed (`flights:table.${id}`) and no
     // longer appears verbatim. Asserting the literal string was really
     // asserting how the label is spelled in source, which is not what this
     // test is about.
     expect(columns).toContain('"time"');
-    expect(page).toContain("FLIGHT_SORT_KEY_BY_COLUMN");
+    expect(panel).toContain("FLIGHT_SORT_KEY_BY_COLUMN");
   });
 
   it("keeps the actions cell + SourceInfoDot in one right-aligned flex container", () => {
@@ -59,8 +68,10 @@ describe("FlightsTablePage column composition", () => {
     expect(sourceInfoDotIndex).toBeGreaterThan(dotWrapperIndex);
   });
 
-  // The page must not quietly grow a second table beside the primitive.
+  // The table must not quietly grow a second table beside the primitive.
   it("draws no table of its own any more", () => {
+    expect(panel).not.toContain("<table");
+    expect(panel).not.toContain("overflow-x-auto");
     expect(page).not.toContain("<table");
     expect(page).not.toContain("overflow-x-auto");
   });

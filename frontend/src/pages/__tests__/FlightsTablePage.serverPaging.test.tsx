@@ -4,11 +4,13 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 
 // The URL the page was opened at — a loyalty link sets `membership` and `year`.
+// `view=table` is always present: the table itself now lives in
+// `FlightsTablePanel`, which the page only renders in that view.
 const urlParams = vi.hoisted(() => ({ current: "" }));
 vi.mock("react-router-dom", () => ({
   Link: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
   useNavigate: () => vi.fn(),
-  useSearchParams: () => [new URLSearchParams(urlParams.current), vi.fn()],
+  useSearchParams: () => [new URLSearchParams(`view=table&${urlParams.current}`), vi.fn()],
 }));
 const getLoyaltyMembership = vi.fn();
 vi.mock("../../lib/api/loyalty", () => ({
@@ -275,9 +277,16 @@ describe("FlightsTablePage — server-side paging", () => {
  * and for nothing more. If one of them ever has to be loosened to pass, the
  * question is whether the behavioural case above still covers it; if it does,
  * delete the scan rather than weaken it.
+ *
+ * The file read is `FlightsTablePanel` now: the table and its query moved
+ * there so a journey's page could show the same one, and a guard that kept
+ * reading the page would pass because there is nothing left in it to find.
  */
-describe("FlightsTablePage — nothing is filtered or sliced in the browser", () => {
-  const source = readFileSync(resolve(__dirname, "../FlightsTablePage.tsx"), "utf-8");
+describe("FlightsTablePanel — nothing is filtered or sliced in the browser", () => {
+  const source = readFileSync(
+    resolve(__dirname, "../../components/flightsTable/FlightsTablePanel.tsx"),
+    "utf-8"
+  );
 
   it("keeps no client-side slice, sort or filter over the rows", () => {
     expect(source).not.toContain(".slice(");

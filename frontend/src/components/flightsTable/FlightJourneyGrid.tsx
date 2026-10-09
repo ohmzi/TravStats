@@ -76,7 +76,11 @@ export function groupFlightsByJourney(flights: Flight[]): FlightJourneyGroup[] {
       key: flight.tripId,
       title: flight.trip?.name ?? legLabel(flight),
       color: flight.trip?.color ?? null,
-      href: `/flights?view=table&trip=${flight.tripId}`,
+      // A journey's card opens the journey's OWN page (owner, 2026-10-08),
+      // which wears the trip's head and figures and keeps the table on its own
+      // tab. It used to open the logbook's table filtered to the trip, which
+      // was a list of rows with no home for the journey itself.
+      href: `/flights/journeys/${flight.tripId}`,
       flights: [flight],
       countries: [],
     });

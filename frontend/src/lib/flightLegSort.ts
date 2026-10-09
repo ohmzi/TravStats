@@ -1,6 +1,14 @@
 import type { Flight } from "../types";
 
 /**
+ * The fields the leg order reads. A `Flight` satisfies it, and so does the
+ * narrower `Pick` a `Trip`'s flights arrive as (`GET /trips/:id`) — the journey
+ * page orders the same rows with the same rule the logbook's timeline does,
+ * without pretending the whole row is present.
+ */
+type LegOrderRow = Pick<Flight, "departureTime" | "depIata" | "arrIata">;
+
+/**
  * Order flights for trip-leg display: stable timestamp sort first, then a
  * topological repair pass for same-day groups whose timestamp order does
  * not reflect the IATA chain.
@@ -17,7 +25,7 @@ import type { Flight } from "../types";
  * resolved into a single chain (e.g. two disjoint trips on the same day,
  * or ambiguous data) — better stable than re-shuffled.
  */
-export function sortFlightsByLegOrder(flights: Flight[]): Flight[] {
+export function sortFlightsByLegOrder<T extends LegOrderRow>(flights: T[]): T[] {
   const sorted = [...flights].sort((a, b) => {
     const ta = a.departureTime ? new Date(a.departureTime).getTime() : 0;
     const tb = b.departureTime ? new Date(b.departureTime).getTime() : 0;
@@ -48,7 +56,7 @@ export function sortFlightsByLegOrder(flights: Flight[]): Flight[] {
  * Returns null when no unique head exists (= can't pick a deterministic
  * starting flight) so the caller keeps the timestamp order.
  */
-function repairSameDayChain(window: Flight[]): Flight[] | null {
+function repairSameDayChain<T extends LegOrderRow>(window: T[]): T[] | null {
   if (window.length < 2) return null;
   const arrIatas = new Set(
     window.map((f) => f.arrIata).filter((x): x is string => typeof x === "string")
@@ -57,12 +65,12 @@ function repairSameDayChain(window: Flight[]): Flight[] | null {
   if (heads.length !== 1) return null;
 
   const remaining = new Set(window);
-  const out: Flight[] = [];
-  let current: Flight | undefined = heads[0];
+  const out: T[] = [];
+  let current: T | undefined = heads[0];
   while (current) {
     out.push(current);
     remaining.delete(current);
-    const next: Flight | undefined = [...remaining].find(
+    const next: T | undefined = [...remaining].find(
       (f) => f.depIata && current!.arrIata && f.depIata === current!.arrIata
     );
     current = next;

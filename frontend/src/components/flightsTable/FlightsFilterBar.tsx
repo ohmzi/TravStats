@@ -29,6 +29,12 @@ export interface FlightsFilterBarProps {
   tripFilter: string;
   onTripChange: (value: string) => void;
   trips: readonly Trip[];
+  /**
+   * The table is scoped to ONE journey (the journey page owns the trip), so
+   * the trip control is not drawn: a dropdown the reader cannot change is a
+   * lie about what the table is showing.
+   */
+  tripLocked?: boolean;
   specialFilter: SpecialTypeFilter;
   onSpecialChange: (value: SpecialTypeFilter) => void;
   extraActiveCount: number;
@@ -56,6 +62,7 @@ export function FlightsFilterBar({
   tripFilter,
   onTripChange,
   trips,
+  tripLocked = false,
   specialFilter,
   onSpecialChange,
   extraActiveCount,
@@ -122,22 +129,24 @@ export function FlightsFilterBar({
               ))}
             </select>
           </FilterField>
-          <FilterField label={t("trips:tab")}>
-            <select
-              value={tripFilter}
-              onChange={(e): void => onTripChange(e.target.value)}
-              className={PANEL_SELECT_CLASS}
-            >
-              <option value="all">{t("flights:filter.allTrips")}</option>
-              <option value="with">{t("flights:filter.withTrip")}</option>
-              <option value="without">{t("flights:filter.withoutTrip")}</option>
-              {trips.map((trip) => (
-                <option key={trip.id} value={trip.id}>
-                  {trip.name}
-                </option>
-              ))}
-            </select>
-          </FilterField>
+          {!tripLocked && (
+            <FilterField label={t("trips:tab")}>
+              <select
+                value={tripFilter}
+                onChange={(e): void => onTripChange(e.target.value)}
+                className={PANEL_SELECT_CLASS}
+              >
+                <option value="all">{t("flights:filter.allTrips")}</option>
+                <option value="with">{t("flights:filter.withTrip")}</option>
+                <option value="without">{t("flights:filter.withoutTrip")}</option>
+                {trips.map((trip) => (
+                  <option key={trip.id} value={trip.id}>
+                    {trip.name}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+          )}
           {/* Special flights used to be a row of pills above the table —
                 the only place in the app where a filter was a pill. */}
           <FilterField label={t("specialFlights:filter.label")}>
