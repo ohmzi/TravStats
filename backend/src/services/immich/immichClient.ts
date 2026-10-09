@@ -16,8 +16,10 @@
  */
 import axios, { AxiosRequestConfig } from "axios";
 import logger from "../../utils/logger";
+import { ALBUM_ADD_CHUNK } from "../tripBuilder/thresholds";
 import {
   ImmichAlbum,
+  ImmichAlbumWriteResult,
   ImmichAsset,
   ImmichAssetDetail,
   ImmichAssetSize,
@@ -144,6 +146,15 @@ export interface ImmichClient {
    * the ones the user cannot share and reports none of them.
    */
   createAlbum(input: { albumName: string; description: string }): Promise<ImmichAlbum>;
+  /**
+   * Adds assets to an album (a WRITE; needs `albumAsset.create`), at most
+   * `ALBUM_ADD_CHUNK` ids a request. Immich answers per asset: `success` is
+   * added, `duplicate` is already in (so a retry is safe), anything else is
+   * refused with its reason. Each distinct id gets exactly one outcome; an id
+   * Immich did not answer for is refused as `missing`. A failed chunk throws:
+   * the chunks before it stay added, which a retry then hears as `duplicate`.
+   */
+  addAssetsToAlbum(albumId: string, ids: readonly string[]): Promise<ImmichAlbumWriteResult>;
 }
 
 /** Inclusive on both ends, as Immich treats them. */
@@ -683,6 +694,51 @@ export function createImmichClient(
       const album = mapAlbum(data);
       if (!album) throw new ImmichError("protocol", "Immich returned an unexpected album payload");
       return album;
+    },
+
+    async addAssetsToAlbum(
+      albumId: string,
+      ids: readonly string[]
+    ): Promise<ImmichAlbumWriteResult> {
+      // An album holds an asset once; asking twice would only hear "duplicate".
+      const unique = [...new Set(ids)];
+      const result: ImmichAlbumWriteResult = { added: 0, duplicate: 0, refused: [] };
+
+      for (let offset = 0; offset < unique.length; offset += ALBUM_ADD_CHUNK) {
+        const chunk = unique.slice(offset, offset + ALBUM_ADD_CHUNK);
+        let data: unknown;
+        try {
+          ({ data } = await axios.put(
+            url(`/albums/${encodeURIComponent(albumId)}/assets`),
+            { ids: chunk },
+            jsonConfig
+          ));
+        } catch (error) {
+          throw toImmichError(error, `albums/${albumId}/assets`);
+        }
+        if (!Array.isArray(data)) {
+          throw new ImmichError("protocol", "Immich returned an unexpected album-assets payload");
+        }
+
+        const answers = new Map<string, Record<string, unknown>>();
+        for (const entry of data) {
+          if (isRecord(entry) && typeof entry.id === "string") answers.set(entry.id, entry);
+        }
+        for (const id of chunk) {
+          const answer = answers.get(id);
+          if (answer === undefined) {
+            result.refused.push({ id, error: "missing" });
+          } else if (answer.success === true) {
+            result.added += 1;
+          } else if (answer.error === "duplicate") {
+            result.duplicate += 1;
+          } else {
+            const reason = typeof answer.error === "string" ? answer.error : "unknown";
+            result.refused.push({ id, error: reason });
+          }
+        }
+      }
+      return result;
     },
 
     /**

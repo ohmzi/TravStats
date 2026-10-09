@@ -33,6 +33,15 @@ export interface ImmichAlbum {
   thumbnailAssetId: string | null;
 }
 
+/** What `PUT /albums/:id/assets` did, summed over its chunks. */
+export interface ImmichAlbumWriteResult {
+  added: number;
+  /** Already in the album: what a retry normally hears. */
+  duplicate: number;
+  /** Every other per-id outcome (`no_permission`, `not_found`, `missing`, `unknown` …). */
+  refused: Array<{ id: string; error: string }>;
+}
+
 /** Immich's `visibility` (v3). `hidden` is the motion half of a Live Photo. */
 export type ImmichVisibility = "timeline" | "archive" | "hidden" | "locked";
 
