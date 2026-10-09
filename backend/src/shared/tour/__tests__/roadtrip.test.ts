@@ -1,4 +1,9 @@
-import { countRoadtripNights, stationState, type CountableStation } from "../roadtrip";
+import {
+  countRoadtripNights,
+  stationCityNames,
+  stationState,
+  type CountableStation,
+} from "../roadtrip";
 
 const d = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
@@ -99,5 +104,40 @@ describe("countRoadtripNights", () => {
     ]);
     expect(result.stayNights).toBe(0);
     expect(result.nightsKnown).toBe(false);
+  });
+});
+
+describe("stationCityNames", () => {
+  const stop = (title: string, viaPoint?: boolean): { title: string; viaPoint?: boolean } => ({
+    title,
+    ...(viaPoint === undefined ? {} : { viaPoint }),
+  });
+
+  it("returns the distinct station titles, trimmed and sorted", () => {
+    expect(stationCityNames([stop("  Bergen "), stop("Oslo"), stop("Bergen")])).toEqual([
+      "Bergen",
+      "Oslo",
+    ]);
+  });
+
+  it("counts a free-text title as written: two spellings are two cities", () => {
+    // The owner was shown this and accepted it — "a city" is a distinct title,
+    // so "Oakville" and "Oakville, Ontario" are two.
+    expect(stationCityNames([stop("Oakville"), stop("Oakville, Ontario")])).toEqual([
+      "Oakville",
+      "Oakville, Ontario",
+    ]);
+  });
+
+  it("skips an empty title — a station with no name names no city", () => {
+    expect(stationCityNames([stop("   "), stop("", true), stop("Alesund")])).toEqual(["Alesund"]);
+  });
+
+  it("never counts a via point — a route correction is not a place", () => {
+    expect(stationCityNames([stop("Oslo"), stop("Trondheim", true)])).toEqual(["Oslo"]);
+  });
+
+  it("returns nothing for a roadtrip with no titled station", () => {
+    expect(stationCityNames([])).toEqual([]);
   });
 });

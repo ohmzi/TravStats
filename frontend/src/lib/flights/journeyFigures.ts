@@ -37,7 +37,16 @@ import { hasUnknownLength, stayNights, type DisplayableStay } from "../lodgingDa
  * request from the browser); a journey where no airport resolves a city yields
  * a dash with its reason, and a PARTIAL resolution is a lower bound the caller
  * is told about through `airportsWithoutCity`.
+ *
+ * NIGHTS ARE THE JOURNEY'S SPAN, NOT THE SUM OF ITS STAYS. The owner ruled that
+ * a flight journey's nights run from the day it left to the day it came back to
+ * the city it left from — or, one-way, from the start to the last arrival
+ * (owner, 2026-10-08). That is a property of the LEGS, not of the lodging, so
+ * it is `journeyNights` below and reads no stays. `nightsFromStays` still
+ * holds its own rule and is kept, but the journey's nights are no longer it.
  */
+
+const DAY_MS = 86_400_000;
 
 /**
  * The fields of a flight this fold reads. Minimal on purpose, like
@@ -51,6 +60,14 @@ export interface JourneyFlight {
   arrIata?: string | null;
   depCity?: string | null;
   arrCity?: string | null;
+  /** The leg's own times — the span fold orders the legs by the first. */
+  departureTime?: string | null;
+  arrivalTime?: string | null;
+  /** ICAO and name — the other aliases `placeAliases` reads when a leg has no city. */
+  depIcao?: string | null;
+  arrIcao?: string | null;
+  depName?: string | null;
+  arrName?: string | null;
   depLat: number;
   depLon: number;
   arrLat: number;
@@ -213,10 +230,102 @@ export function distinctCities(flights: readonly JourneyFlight[]): JourneyCities
   return { count: cities.size, airportsWithoutCity };
 }
 
-/** The journey's nights, from its stays; `null` means there is no stay to count. */
+/**
+ * Every name an endpoint answers to: the catalogue's city, its IATA and ICAO
+ * codes, the plain name. Empty and absent values are dropped, so a leg that
+ * says nothing yields an empty set.
+ *
+ * A RETURN IS MATCHED BY ANY SHARED ALIAS, not one canonical field. The owner's
+ * rule is "return back to the same city" (owner, 2026-10-08), and one place can
+ * be named on one leg and left to its code on another — a partial airport
+ * catalogue is a first-class case (`distinctCities` reports it as
+ * `airportsWithoutCity`), so the origin's departure may carry a city while the
+ * returning leg's arrival carries only `YYZ`. Comparing a single field per
+ * endpoint misses that return and stretches the span over the legs AFTER it;
+ * intersecting the alias sets also keeps the intended "same city, a different
+ * airport" case, which keying on a code alone would break.
+ */
+function placeAliases(flight: JourneyFlight, end: "dep" | "arr"): Set<string> {
+  const city = end === "dep" ? flight.depCity : flight.arrCity;
+  const iata = end === "dep" ? flight.depIata : flight.arrIata;
+  const icao = end === "dep" ? flight.depIcao : flight.arrIcao;
+  const name = end === "dep" ? flight.depName : flight.arrName;
+  const aliases = new Set<string>();
+  for (const value of [city, iata, icao, name]) {
+    if (value) aliases.add(value);
+  }
+  return aliases;
+}
+
+/** Whether two endpoints name the same place — by city, code, icao or name. */
+function sharesAlias(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  for (const value of a) {
+    if (b.has(value)) return true;
+  }
+  return false;
+}
+
+/** The UTC midnight of an instant's calendar day, or `null` when it does not parse. */
+function utcDay(iso: string): number | null {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return null;
+  const date = new Date(ms);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+/**
+ * The journey's nights, as its SPAN (owner, 2026-10-08): "counted from the day
+ * of leaving to return back to the same city otherwise if its one way then
+ * start to end of journey".
+ *
+ * The legs are ordered by departure and walked; the journey ENDS at the first
+ * leg that arrives back at the city the first leg left from, so the count runs
+ * from the day of leaving to the day of returning. A journey that never comes
+ * back — a one-way — ends at the LAST arrival: start to end of journey. What
+ * that yields is the number of whole calendar days between the two end dates,
+ * which is the nights away, and NOT the sum of the journey's recorded stays:
+ * that fold is `nightsFromStays`, a different figure, and it is no longer the
+ * journey's nights.
+ *
+ * `null` — the dash, never a fabricated number — when no leg carries a
+ * departure to order by, when the terminating leg carries no arrival, or when
+ * the two dates come out in the wrong order. The day difference is read in UTC
+ * date parts, the rule the backend's `daySpan` uses
+ * (`shared/tour/roadtrip.ts`), so the card and the band cannot disagree about
+ * where a leg falls. A same-day return is honestly `0`.
+ */
+export function journeyNights(flights: readonly JourneyFlight[]): number | null {
+  const ordered = flights
+    .filter((f): f is JourneyFlight & { departureTime: string } => Boolean(f.departureTime))
+    .sort((a, b) => Date.parse(a.departureTime) - Date.parse(b.departureTime));
+  if (ordered.length === 0) return null;
+
+  const origin = placeAliases(ordered[0], "dep");
+  let terminating = ordered[ordered.length - 1];
+  if (origin.size > 0) {
+    // The first leg back to the origin closes the journey; the legs after it
+    // are a further trip and are not part of this span. A leg is the return
+    // when its arrival shares ANY alias with the origin's departure — city,
+    // code, icao or name — because a partial catalogue can name one end and
+    // leave the other to its code (see `placeAliases`).
+    const returned = ordered.find((f) => sharesAlias(placeAliases(f, "arr"), origin));
+    if (returned) terminating = returned;
+  }
+
+  const start = ordered[0].departureTime;
+  const end = terminating.arrivalTime;
+  if (!start || !end) return null;
+  const from = utcDay(start);
+  const to = utcDay(end);
+  if (from === null || to === null) return null;
+  const nights = Math.round((to - from) / DAY_MS);
+  return nights < 0 ? null : nights;
+}
+
+/** The night sum of the journey's stays — `nightsFromStays`, not the journey's nights. */
 export interface JourneyNights {
   nights: number;
-  /** True when at least one stay's length is itself only a bound — the band's `≈`. */
+  /** True when at least one stay's length is itself only a bound — the `≈`. */
   approximate: boolean;
   /** How many stays were counted — cancelled stays are skipped whole. */
   stays: number;
@@ -225,11 +334,16 @@ export interface JourneyNights {
 /**
  * Sum the nights recorded on the journey's lodging stays.
  *
- * `null` (not zero) when there is no stay: a flight trip usually has none, and
- * the owner has not yet ruled on whether an untracked journey should count its
- * calendar nights instead (open question, 2026-10-08). Until they do, the
- * honest answer is a dash with its reason, never a fabricated number and never
- * `days − 1` — which is a different thing the recon explicitly ruled out.
+ * NO LONGER the journey's nights (owner, 2026-10-08): the journey's nights are
+ * now its SPAN, folded by `journeyNights` above, and the card and the band both
+ * read that. This fold stays because it holds a correct reading of the stays —
+ * the night sum of the accommodation — and its tests still pass; it is currently
+ * unread in production (the band was its only caller). A surface that wants
+ * "nights in a stay" may read it; a surface that says "the journey's nights"
+ * must not, or it will disagree with the card and the band.
+ *
+ * `null` (not zero) when there is no stay, so a caller reads a dash with its
+ * reason rather than a fabricated zero.
  *
  * A cancelled stay is a night that did not happen (`roadtripView.ts`) and is
  * skipped whole, so a journey whose only stay was cancelled reads as no stay.

@@ -42,6 +42,14 @@ export interface RoadtripSummary extends RoadtripNights {
   endOdometerKm: number | null;
   stationCount: number;
   /**
+   * Distinct station titles this roadtrip carries — its CITIES (owner,
+   * 2026-10-08). A title is free text, so the same place spelled two ways counts
+   * twice; a via point never counts. The card reads `.length`; the list strip
+   * (re)unions the names across the shown rows and counts the union, because one
+   * city touched by three roadtrips is one city (`roadtripSummaryFigures.ts`).
+   */
+  cityNames: string[];
+  /**
    * Road legs only — one per distinct consecutive stop pair, a via point
    * included as an endpoint. The strip's drives figure reads this; a ferry,
    * rail, foot or bike leg is not a drive (`drivenLegs`, tourDistance).

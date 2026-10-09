@@ -65,6 +65,13 @@ const roadtripSummary = registry.register(
       startOdometerKm: z.number().int().nullable(),
       endOdometerKm: z.number().int().nullable(),
       stationCount: z.number().int(),
+      cityNames: z
+        .array(z.string())
+        .describe(
+          "Distinct station titles — a roadtrip's cities (owner, 2026-10-08). A title " +
+            "is free text, so the same place spelled two ways counts twice; exact-string " +
+            "dedup, via points excluded. The list strip unions these across the shown rows."
+        ),
       driveCount: z
         .number()
         .int()

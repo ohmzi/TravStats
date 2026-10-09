@@ -5,6 +5,7 @@ import {
   distinctAirports,
   distinctCities,
   journeyDistanceKm,
+  journeyNights,
   nightsFromStays,
   type JourneyFlight,
   type JourneyStay,
@@ -169,6 +170,234 @@ describe("distinctAirports and distinctCities", () => {
     const cities = distinctCities([flight({ depCity: null, arrCity: null })]);
     expect(cities.count).toBe(0);
     expect(cities.airportsWithoutCity).toBe(2);
+  });
+});
+
+describe("journeyNights", () => {
+  it("counts from the day of leaving to the day it returns to the same city", () => {
+    // Depart 1 Oct, home again on the 6th: five nights away — the span, NOT the
+    // sum of any stays.
+    expect(
+      journeyNights([
+        flight({
+          depCity: "Oslo",
+          arrCity: "Rome",
+          departureTime: "2026-10-01T06:00:00.000Z",
+          arrivalTime: "2026-10-01T09:00:00.000Z",
+        }),
+        flight({
+          depCity: "Rome",
+          arrCity: "Oslo",
+          departureTime: "2026-10-06T18:00:00.000Z",
+          arrivalTime: "2026-10-06T21:00:00.000Z",
+        }),
+      ])
+    ).toBe(5);
+  });
+
+  it("ends a one-way at the last arrival — start to end of journey", () => {
+    expect(
+      journeyNights([
+        flight({
+          depCity: "Oslo",
+          arrCity: "Rome",
+          departureTime: "2026-10-01T06:00:00.000Z",
+          arrivalTime: "2026-10-01T09:00:00.000Z",
+        }),
+        flight({
+          depCity: "Rome",
+          arrCity: "Athens",
+          departureTime: "2026-10-03T06:00:00.000Z",
+          arrivalTime: "2026-10-03T09:00:00.000Z",
+        }),
+      ])
+    ).toBe(2);
+  });
+
+  it("closes at the FIRST return and ignores the legs after it", () => {
+    // The first leg back to Oslo closes the journey; the later hop to Athens is
+    // a different trip and must not stretch the span.
+    expect(
+      journeyNights([
+        flight({
+          depCity: "Oslo",
+          arrCity: "Rome",
+          departureTime: "2026-10-01T06:00:00.000Z",
+          arrivalTime: "2026-10-01T09:00:00.000Z",
+        }),
+        flight({
+          depCity: "Rome",
+          arrCity: "Oslo",
+          departureTime: "2026-10-03T06:00:00.000Z",
+          arrivalTime: "2026-10-03T09:00:00.000Z",
+        }),
+        flight({
+          depCity: "Oslo",
+          arrCity: "Athens",
+          departureTime: "2026-10-10T06:00:00.000Z",
+          arrivalTime: "2026-10-10T09:00:00.000Z",
+        }),
+      ])
+    ).toBe(2);
+  });
+
+  it("orders the legs by their departure, not by the order handed in", () => {
+    const early = flight({
+      depCity: "Oslo",
+      arrCity: "Rome",
+      departureTime: "2026-10-01T06:00:00.000Z",
+      arrivalTime: "2026-10-01T09:00:00.000Z",
+    });
+    const late = flight({
+      depCity: "Rome",
+      arrCity: "Oslo",
+      departureTime: "2026-10-06T18:00:00.000Z",
+      arrivalTime: "2026-10-06T21:00:00.000Z",
+    });
+    expect(journeyNights([late, early])).toBe(5);
+  });
+
+  it("matches the return by city even when the airport code differs", () => {
+    // Out of Gatwick, home to Heathrow: the same city, a different airport — the
+    // span closes on the city, not the code.
+    expect(
+      journeyNights([
+        flight({
+          depIata: "LGW",
+          arrIata: "JFK",
+          depCity: "London",
+          arrCity: "New York",
+          departureTime: "2026-10-01T06:00:00.000Z",
+          arrivalTime: "2026-10-01T14:00:00.000Z",
+        }),
+        flight({
+          depIata: "JFK",
+          arrIata: "LHR",
+          depCity: "New York",
+          arrCity: "London",
+          departureTime: "2026-10-06T18:00:00.000Z",
+          arrivalTime: "2026-10-07T03:00:00.000Z",
+        }),
+      ])
+    ).toBe(6);
+  });
+
+  it("matches a return by code when the city is named on one leg and missing on the other", () => {
+    // A partial airport catalogue (the case `airportsWithoutCity` exists for)
+    // can name the origin's city on the outbound leg and leave the return's
+    // arrival to its code. The return must still close the journey, or the legs
+    // after it stretch the span: home again on the 5th and off again on the
+    // 20th is 4 nights away, not 19.
+    expect(
+      journeyNights([
+        flight({
+          depIata: "YYZ",
+          arrIata: "YUL",
+          depCity: "Toronto",
+          arrCity: "Montreal",
+          departureTime: "2026-10-01T06:00:00.000Z",
+          arrivalTime: "2026-10-01T09:00:00.000Z",
+        }),
+        flight({
+          depIata: "YUL",
+          arrIata: "YYZ",
+          depCity: "Montreal",
+          arrCity: null,
+          departureTime: "2026-10-05T18:00:00.000Z",
+          arrivalTime: "2026-10-05T21:00:00.000Z",
+        }),
+        flight({
+          depIata: "YYZ",
+          arrIata: "ATH",
+          depCity: "Toronto",
+          arrCity: "Athens",
+          departureTime: "2026-10-20T06:00:00.000Z",
+          arrivalTime: "2026-10-20T14:00:00.000Z",
+        }),
+      ])
+    ).toBe(4);
+  });
+
+  it("matches the mirror case: origin known only by code, return by city", () => {
+    // The same partial catalogue the other way round — the first leg leaves an
+    // unnamed airport by its code, the return resolves the city. The span must
+    // close on the return all the same.
+    expect(
+      journeyNights([
+        flight({
+          depIata: "YYZ",
+          arrIata: "YUL",
+          depCity: null,
+          arrCity: "Montreal",
+          departureTime: "2026-10-01T06:00:00.000Z",
+          arrivalTime: "2026-10-01T09:00:00.000Z",
+        }),
+        flight({
+          depIata: "YUL",
+          arrIata: "YYZ",
+          depCity: "Montreal",
+          arrCity: "Toronto",
+          departureTime: "2026-10-05T18:00:00.000Z",
+          arrivalTime: "2026-10-05T21:00:00.000Z",
+        }),
+      ])
+    ).toBe(4);
+  });
+
+  it("counts a same-day return honestly as zero", () => {
+    expect(
+      journeyNights([
+        flight({
+          depCity: "Oslo",
+          arrCity: "Rome",
+          departureTime: "2026-10-01T06:00:00.000Z",
+          arrivalTime: "2026-10-01T09:00:00.000Z",
+        }),
+        flight({
+          depCity: "Rome",
+          arrCity: "Oslo",
+          departureTime: "2026-10-01T18:00:00.000Z",
+          arrivalTime: "2026-10-01T21:00:00.000Z",
+        }),
+      ])
+    ).toBe(0);
+  });
+
+  it("is a dash — null — with no dated leg to order by", () => {
+    expect(journeyNights([flight({ departureTime: null, arrivalTime: null })])).toBeNull();
+    expect(journeyNights([])).toBeNull();
+  });
+
+  it("is a dash — null — when the returning leg has no arrival", () => {
+    expect(
+      journeyNights([
+        flight({
+          depCity: "Oslo",
+          arrCity: "Rome",
+          departureTime: "2026-10-01T06:00:00.000Z",
+          arrivalTime: "2026-10-01T09:00:00.000Z",
+        }),
+        flight({
+          depCity: "Rome",
+          arrCity: "Oslo",
+          departureTime: "2026-10-06T18:00:00.000Z",
+          arrivalTime: null,
+        }),
+      ])
+    ).toBeNull();
+  });
+
+  it("refuses a leg whose arrival falls before its own departure", () => {
+    expect(
+      journeyNights([
+        flight({
+          depCity: "Oslo",
+          arrCity: "Rome",
+          departureTime: "2026-10-06T06:00:00.000Z",
+          arrivalTime: "2026-10-01T09:00:00.000Z",
+        }),
+      ])
+    ).toBeNull();
   });
 });
 

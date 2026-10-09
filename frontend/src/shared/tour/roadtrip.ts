@@ -86,6 +86,29 @@ export function isStation(stop: { viaPoint?: boolean }): boolean {
   return stop.viaPoint !== true;
 }
 
+/**
+ * The distinct station titles a roadtrip carries — its CITIES (owner,
+ * 2026-10-08). A station's title is free text, so "Oakville" and "Oakville,
+ * Ontario" count as two and a wild-camp station counts as one; the owner was
+ * shown that and accepted it. The pool is the SAME one every station count
+ * reads (`isStation`), so a via point — a bend in the route, not a place —
+ * never counts. Trimmed, empties skipped, deduplicated by the exact string.
+ *
+ * The list endpoint computes this server-side and sends it as `cityNames`, so
+ * the browser reads the field rather than re-folding the stops; the mirror
+ * exists because these two files are one vocabulary.
+ */
+export function stationCityNames(
+  stops: readonly { title: string; viaPoint?: boolean }[]
+): string[] {
+  const names = new Set<string>();
+  for (const stop of stops.filter(isStation)) {
+    const title = stop.title.trim();
+    if (title) names.add(title);
+  }
+  return [...names].sort();
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function daySpan(from: Date, to: Date): number {

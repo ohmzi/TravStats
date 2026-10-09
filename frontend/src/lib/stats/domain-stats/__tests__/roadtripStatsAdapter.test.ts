@@ -22,6 +22,7 @@ function roadtrip(overrides: Partial<RoadtripSummary>): RoadtripSummary {
     startOdometerKm: null,
     endOdometerKm: null,
     stationCount: 3,
+    cityNames: [],
     driveCount: 2,
     stayNights: 1,
     freeNights: 1,

@@ -1,6 +1,7 @@
 import {
   countRoadtripNights,
   isStation,
+  stationCityNames,
   stationState,
   type RoadtripNights,
 } from "../../shared/tour/roadtrip";
@@ -280,6 +281,13 @@ export function toRoadtripSummary(
     startOdometerKm: row.startOdometerKm,
     endOdometerKm: row.endOdometerKm,
     stationCount: stations.length,
+    // The DISTINCT station titles this row carries — its cities (owner,
+    // 2026-10-08). Names rather than a count because the list strip UNIONS them
+    // across the shown rows ("how many cities i touched in all the road trips"),
+    // and a per-row total could not be deduplicated. Computed from ALL stations,
+    // not the placed-only `stations` array below, so an unplaced station still
+    // names its city and the strip cannot undercount the card (`stationCityNames`).
+    cityNames: stationCityNames(row.stops),
     // The drives the list summary counts (owner, 2026-10-08): the same road
     // legs `drivenKm` sums, never a ferry, rail, foot or bike leg — a "drive"
     // is a road stretch. `drivenLegs` is that ONE allow-list rule, shared with
