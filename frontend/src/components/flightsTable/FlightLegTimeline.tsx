@@ -127,6 +127,11 @@ export default function FlightLegTimeline({
 /**
  * One airport in the chain. A button, because picking it rings it on the map —
  * the same bargain a roadtrip station makes — and pressing it again lets go.
+ *
+ * The marker is one plain dot, where a roadtrip draws a filled/ring/dot shape
+ * per STATION STATE (`StationMarker`): an airport has no state to draw, so its
+ * marker carries position and nothing else. That is a difference the subject
+ * decides, not one to copy a shape for.
  */
 function StationRow({
   station,
@@ -152,7 +157,10 @@ function StationRow({
           : undefined,
       }}
     >
-      <div className="flex justify-center" style={{ paddingTop: 4 }}>
+      {/* The marker sits 2px down, as a roadtrip station's does
+          (`StationTimeline`): the two timelines are the same row furniture with
+          different bodies, so the marker's air is one number, not two. */}
+      <div className="flex justify-center" style={{ paddingTop: 2 }}>
         <span
           style={{
             width: 12,
@@ -224,10 +232,12 @@ function LegRow({ flight }: { flight: TripLegFlight }): JSX.Element {
       <div className="flex justify-center self-stretch">
         <div
           style={{
-            width: 2,
+            // The connector is the roadtrip leg's line: 3px, solid, the
+            // domain's colour (`StationTimeline.legLine`). It was 2px at 55%
+            // opacity, a thinner, washed line than the page it mirrors.
+            width: 3,
             borderRadius: 2,
             background: "var(--domain-flight)",
-            opacity: 0.55,
           }}
         />
       </div>
