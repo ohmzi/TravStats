@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { Trip } from "../../../types";
@@ -24,6 +24,11 @@ vi.mock("../../../hooks/useBetaFeatures", () => ({
 // A trip's roadtrips come from their own endpoint; the stub hands them in.
 const mockRoadtrips = vi.hoisted(() => vi.fn((): unknown[] => []));
 vi.mock("../../Roadtrips/useTripRoadtrips", () => ({ useTripRoadtrips: () => mockRoadtrips() }));
+
+// The spend card reads the trip's expenses itself (its own suite covers it);
+// the stub says whether the reconciler booked anything.
+const mockReconciled = vi.hoisted(() => vi.fn((): unknown => null));
+vi.mock("../useTripReconciledSpend", () => ({ useTripReconciledSpend: () => mockReconciled() }));
 
 // Rail and rental are beta areas; each test says whether they are on.
 const visible = vi.hoisted(() => ({ rail: true, rental: true }));
@@ -64,6 +69,8 @@ function renderOverview(value: Trip): void {
 }
 
 describe("TripOverview", () => {
+  beforeEach(() => mockReconciled.mockReturnValue(null));
+
   it("lists a roadtrip the trip holds as one of its entries, and says nothing is linked only when nothing is", () => {
     mockRoadtrips.mockReturnValueOnce([
       { id: "rt1", name: "Fjorde 2026", vehicle: "campervan", stopCount: 10, drivenKm: 1370.4 },
@@ -148,6 +155,25 @@ describe("TripOverview", () => {
     } finally {
       visible.rental = true;
     }
+  });
+
+  it("mounts the spend card under the figures, and only when the reconciler booked something", () => {
+    renderOverview(trip({}));
+    expect(screen.queryByText("trips:spend.title")).not.toBeInTheDocument();
+
+    mockReconciled.mockReturnValue({
+      data: null,
+      figures: {
+        spend: { atDate: { CAD: 100000, USD: 73000 }, native: { CAD: 100000 } },
+        priced: null,
+        latestUsdCad: null,
+        unconverted: 0,
+      },
+      rowCount: 1,
+      malformedRows: 0,
+    });
+    renderOverview(trip({}));
+    expect(screen.getByText("trips:spend.title")).toBeInTheDocument();
   });
 
   it("draws no figure for what the trip does not have", () => {

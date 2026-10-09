@@ -84,3 +84,19 @@ describe("formatAmount and an unknown currency", () => {
     expect(formatAmount(1234.56, null, { compact: true, language: "de" })).toBe("1.235");
   });
 });
+
+describe("formatCurrency as a statement line", () => {
+  it("names the currency by its code and prints every minor digit", () => {
+    // Two dollar currencies side by side need their codes: "$" and "CA$" say
+    // nothing about which is which in a card that shows both.
+    expect(formatCurrency(2214.5, "CAD", { statement: true, language: "en" })).toMatch(
+      /^CAD\s2,214\.50$/
+    );
+    expect(formatCurrency(2214.5, "USD", { statement: true, language: "de" })).toMatch(
+      /^2\.214,50\sUSD$/
+    );
+    expect(formatCurrency(15000, "JPY", { statement: true, language: "en" })).toMatch(
+      /^JPY\s15,000$/
+    );
+  });
+});

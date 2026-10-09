@@ -23,6 +23,11 @@ vi.mock("../../hooks/useToursVisible", () => ({
 }));
 vi.mock("../../hooks/useHasLlm", () => ({ useHasLlm: () => true }));
 vi.mock("../../components/documents/DocumentsSection", () => ({ default: () => null }));
+// The overview's spend card reads the trip's expenses itself; that request
+// would reach the network, which the setup refuses (forgejo#110).
+vi.mock("../../components/Trips/useTripReconciledSpend", () => ({
+  useTripReconciledSpend: () => null,
+}));
 vi.mock("../../lib/api", () => ({
   tripsApi: { getById: (...args: unknown[]) => getByIdMock(...args) },
 }));

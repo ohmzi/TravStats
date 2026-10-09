@@ -577,6 +577,35 @@
   "overview": {
     "daysAway": "Days away"
   },
+  "spend": {
+    "title": "Paid from your accounts",
+    "swap": "Show {{currency}} first",
+    "fullCost": "Full trip cost",
+    "state": {
+      "upcoming": "Upcoming",
+      "estimate": "Estimate",
+      "estimateFrom_one": "Estimate from {{count}} receipt",
+      "estimateFrom_other": "Estimate from {{count}} receipts",
+      "partial": "Partially verified",
+      "partialThrough": "Partially verified, bank-verified through {{date}}",
+      "verified": "Bank-verified",
+      "verifiedThrough": "Bank-verified through {{date}}"
+    },
+    "guesses_one": "{{count}} best guess",
+    "guesses_other": "{{count}} best guesses",
+    "review_one": "{{count}} receipt needs review",
+    "review_other": "{{count}} receipts need review",
+    "incomplete": "Incomplete conversion",
+    "rate": {
+      "market": "At the market rate on each transaction's date",
+      "custom": "At your rate: 1 USD = {{rate}} CAD",
+      "noCustomRate": "At the market rate on each transaction's date: your own rate is not set yet",
+      "noLatestRate": "At the market rate on each transaction's date: your own rate needs the latest market rate for the other currencies, and it is missing"
+    },
+    "categories": "By category",
+    "moreCategories_one": "{{count}} more category",
+    "moreCategories_other": "{{count}} more categories"
+  },
   "card": {
     "days_one": "day",
     "days_other": "days",

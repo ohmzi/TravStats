@@ -30,6 +30,12 @@ export const LUCIDE = {
     ["path", { d: "m12 19-7-7 7-7" }],
     ["path", { d: "M19 12H5" }],
   ],
+  "arrow-left-right": [
+    ["path", { d: "M8 3 4 7l4 4" }],
+    ["path", { d: "M4 7h16" }],
+    ["path", { d: "m16 21 4-4-4-4" }],
+    ["path", { d: "M20 17H4" }],
+  ],
   "arrow-right": [
     ["path", { d: "M5 12h14" }],
     ["path", { d: "m12 5 7 7-7 7" }],

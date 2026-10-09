@@ -36,6 +36,11 @@ vi.mock("../components/documents/DocumentsSection", () => ({
     return <div data-testid={`documents-${entry.type}`} />;
   },
 }));
+// The overview's spend card reads the trip's expenses itself; that request
+// would reach the network, which the setup refuses (forgejo#110).
+vi.mock("../components/Trips/useTripReconciledSpend", () => ({
+  useTripReconciledSpend: () => null,
+}));
 
 // ── the five surfaces' own dependencies ────────────────────────────────────
 const flightsApi = vi.hoisted(() => ({

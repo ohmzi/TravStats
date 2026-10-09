@@ -182,11 +182,17 @@ const LOCALE_HINTS: Record<string, string> = {
  * exists so those cards can stop carrying their OWN copy of this function,
  * which is how a trip total and a stay total came to disagree about how a
  * currency is written.
+ *
+ * `statement` writes the amount the way an account statement does: the ISO
+ * code instead of the symbol, and every minor digit ("CAD 2,214.50", not
+ * "CA$2,214.5"). For the trip page's spend card, which prints two dollar
+ * currencies side by side — "$" and "US$" (or "CA$" and "$", by language)
+ * would not say which is which.
  */
 export function formatCurrency(
   value: number,
   currency: Currency,
-  opts?: { compact?: boolean; language?: string }
+  opts?: { compact?: boolean; language?: string; statement?: boolean }
 ): string {
   if (value === undefined || value === null || isNaN(value)) return "";
 
@@ -209,7 +215,8 @@ export function formatCurrency(
     return new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
-      minimumFractionDigits: 0,
+      currencyDisplay: opts?.statement ? "code" : "symbol",
+      minimumFractionDigits: opts?.statement ? digits : 0,
       maximumFractionDigits: digits,
     }).format(value);
   } catch {

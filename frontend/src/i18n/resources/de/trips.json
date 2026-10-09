@@ -577,6 +577,35 @@
   "overview": {
     "daysAway": "Tage unterwegs"
   },
+  "spend": {
+    "title": "Von deinen Konten bezahlt",
+    "swap": "{{currency}} zuerst zeigen",
+    "fullCost": "Gesamtkosten der Reise",
+    "state": {
+      "upcoming": "Bevorstehend",
+      "estimate": "Schätzung",
+      "estimateFrom_one": "Schätzung aus {{count}} Beleg",
+      "estimateFrom_other": "Schätzung aus {{count}} Belegen",
+      "partial": "Teilweise geprüft",
+      "partialThrough": "Teilweise geprüft, von der Bank bestätigt bis {{date}}",
+      "verified": "Von der Bank bestätigt",
+      "verifiedThrough": "Von der Bank bestätigt bis {{date}}"
+    },
+    "guesses_one": "{{count}} Annahme",
+    "guesses_other": "{{count}} Annahmen",
+    "review_one": "{{count}} Beleg muss geprüft werden",
+    "review_other": "{{count}} Belege müssen geprüft werden",
+    "incomplete": "Umrechnung unvollständig",
+    "rate": {
+      "market": "Zum Marktkurs am Tag jeder Buchung",
+      "custom": "Zu deinem Kurs: 1 USD = {{rate}} CAD",
+      "noCustomRate": "Zum Marktkurs am Tag jeder Buchung: dein eigener Kurs ist noch nicht gesetzt",
+      "noLatestRate": "Zum Marktkurs am Tag jeder Buchung: dein eigener Kurs braucht für die übrigen Währungen den aktuellen Marktkurs, und der fehlt"
+    },
+    "categories": "Nach Kategorie",
+    "moreCategories_one": "{{count}} weitere Kategorie",
+    "moreCategories_other": "{{count}} weitere Kategorien"
+  },
   "card": {
     "days_one": "Tag",
     "days_other": "Tage",

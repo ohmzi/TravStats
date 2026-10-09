@@ -21,6 +21,11 @@ vi.mock("../../hooks/useHasLlm", () => ({ useHasLlm: () => true }));
 // this surface mounts it — here it would only be a request reaching the
 // network, which the setup refuses (forgejo#110).
 vi.mock("../../components/documents/DocumentsSection", () => ({ default: () => null }));
+// The overview's spend card reads the trip's expenses itself; that request
+// would reach the network, which the setup refuses (forgejo#110).
+vi.mock("../../components/Trips/useTripReconciledSpend", () => ({
+  useTripReconciledSpend: () => null,
+}));
 
 vi.mock("../../lib/api", () => ({
   tripsApi: {
