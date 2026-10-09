@@ -367,39 +367,46 @@ band keeps its exact geometry — 110 px tall, a 135° ramp from the light top-l
 to the dark bottom-right, landing on `--ts-surface2` — and the title and figures
 below it do not move (owner, 2026-10-09).
 
-**This is a rule for every journey, not a treatment for two trips.** The band
+**This is a rule for every journey, not a treatment for a few trips.** The band
 reads `trip.countries` and nothing else. Every journey resolves its own flags the
 same way, through one pure selector (`bannerFlags` in `lib/tripFlags.ts`): no trip
-is named, and no journey has a branch of its own. The owner is judging the
-mechanism on two pilot cards before any other card design is built on it, so the
+is named, and no journey has a branch of its own. The owner judged the mechanism
+on two pilot cards first, and the flags now draw for every journey, so the
 generality is the point, not a side effect.
 
-**Only two flags are bundled so far, and that is deliberate.** `BUNDLED_FLAGS`
-allows exactly **Canada** and **Pakistan** — the two SVGs under
-`frontend/public/flags/`. The allow-list, not the set of files on disk, is what
-holds "exactly two" true: a third flag dropped into that folder paints nothing
-until it is also named here, so a pilot asset cannot become a shipped one by
-accident.
+**The flag set is the app's own country domain, derived and not registered.**
+The band paints one flag per code in `ISO_3166_1_ALPHA2` — the very list the
+country resolver recognises a name from — reached by the convention
+`/flags/<cc>.svg`. There is **no allow-list of flags** to keep in step: the way
+to give a country a flag is to add its code to that shared list and run
+`node scripts/vendor-flags.mjs`, which copies the file out of the in-repo
+`flag-icons` dependency. A test
+(`frontend/src/lib/__tests__/flagAssets.test.ts`) fails if the folder and the
+list ever disagree, in either direction — which is what makes a URL derived by
+convention safe. So a trip created after this change draws its flags with no
+migration, no backfill and nothing for a human to update (owner, 2026-10-09).
 
 **A country with no asset is dropped, never stood in for.** Each entry in
 `trip.countries` runs through the app's own country resolver, which accepts a
 code *or* a name in any language and returns nothing for what it cannot place —
 "a wrong flag is worse than no flag" is the rule it was written to. Unplaceable
-entries are dropped and duplicates collapsed, and only countries whose flags this
-repo ships are painted. What the band does, case by case:
+entries are dropped and duplicates collapsed, and only countries in the app's
+country domain are painted. What the band does, case by case:
 
-- **No country recorded, or none bundled:** the band keeps **today's exact
+- **No country recorded, or none drawable:** the band keeps **today's exact
   `trip.color` gradient**. Nothing is invented — an absent flag shows as the
   trip's own colour, which is honest where a made-up flag or a flat grey block
   would not be.
-- **Some bundled, some not:** the bundled flags paint and the band carries a
+- **All drawable:** every recorded country paints a flag. There is **no count
+  cap**: a set has no meaningful order, so a cap could only hide a country
+  chosen arbitrarily, and the owner's own five-country journeys were exactly
+  what it hid. A five-country trip draws all five.
+- **Some drawable, some not:** the drawable flags paint and the band carries a
   `title` stating how many countries were left out, so an omission reads as a
-  spoken reason rather than as a hole. The card's figures line still prints the
-  trip's true country count, so the band never claims more than it can draw.
-- **More than three drawable flags:** only the first three paint. The cap is
-  written down in code (`BANNER_FLAG_CAP`), not left silent: past three
-  overlapping ribbons the wash stops reading as flags and starts reading as mud,
-  and the count itself is still whole in the figures line.
+  spoken reason rather than as a hole. This now fires only for an entry that
+  names no country or a code outside the shipped domain — never for a country
+  dropped to hit a number. The card's figures line still prints the trip's true
+  country count, so the band never claims more than it can draw.
 
 **The flags overlap; they are not a row of strips.** Several flags are cut into
 equal diagonal ribbons along the one 135° axis with feathered seams, so
@@ -410,12 +417,27 @@ are a set, never a route (the stored array is the user's order, the derived one
 sorted), so the band must not be read as first-visited-to-last. The first flag
 merely reads as the more prominent.
 
+**The seam is count-keyed so five flags stay legible.** The pilot's seam was
+`min(seg·0.5, 10)`; at five flags `seg = 20`, so the feather was 10 and the solid
+core of every interior ribbon — `seg − 2·feather` — was **zero**. Every flag
+reached full opacity at exactly one line and neighbours blended into one wash.
+That is arithmetic, not taste, and it is why the old three-flag cap could not
+simply be raised. So one to three flags keep the pilot's formula **bit-for-bit**
+(those cards are signed off and must not move), while four or more use a small
+fixed seam, `min(seg·0.25, 3)`: at five flags each ribbon keeps a 14 % solid core
+with 3 % seams. Past roughly ten flags the ribbons stop reading as separate
+flags and the band becomes a dense wash — but nothing is dropped, and the figures
+line still prints the true count. Whether a flag reads as *itself* at five (not
+merely as one of five) is a question only a render settles; the slicing samples a
+diagonal of a cover-scaled flag, so a charge near an edge can fall outside the
+visible band.
+
 **The dark end is a legibility requirement, not a style choice.** Two layers
 keep the spectrum honest over a flag. A **mask** fades the flags themselves along
 the 135° axis — strong at the light corner, exactly zero at the dark corner — so
 the band lands on `--ts-surface2` for a mostly-white flag and a dark one alike:
-Canada's white field and Pakistan's green reach the same dark end, and so would a
-flag added later. A **scrim** then caps the brightest pixel where the status pill
+a white field and a green one reach the same dark end, and so does any flag
+added later. A **scrim** then caps the brightest pixel where the status pill
 sits, because the pill is a 12 %-alpha fill tuned for dark surfaces and a
 white-heavy flag would otherwise break its contrast. The band's legibility is
 pinned by a test that recomputes the composited pixels from the component's own
@@ -427,10 +449,87 @@ band would not end dark enough for the chrome above it.
 **Nothing is fetched.** The band paints only files this repository ships, by URL
 from `public/flags/`. The app's own flag component loads `flagcdn.com` at
 runtime — right for the small chips it was written for, forbidden for the card
-band — so the band reads a separate, local source. The two SVGs were copied from
-the flag set the repository already vendors for its backend (`flag-icons` 7.5.0,
-MIT-licensed), not downloaded, and each records its source and licence in a
-header comment.
+band — so the band reads a separate, local source. Every one of those SVGs was
+copied **verbatim** from the flag set the repository already vendors for its
+backend (`flag-icons` 7.5.0, MIT-licensed), never downloaded, and each records
+its source, licence and own colours in a header comment. The set is regenerated,
+not hand-kept, by `node scripts/vendor-flags.mjs`; the folder explains itself in
+`frontend/public/flags/README.md`, and `.gitattributes` marks `*.svg` non-text
+so a Windows checkout cannot rewrite the bytes.
+
+**The chips name the country once.** The trip head's country chips put the name
+in both the flag's `alt` and the text beside it, so a screen reader said it twice
+and a plain-text copy concatenated "United Arab EmiratesUnited Arab Emirates"
+(owner, 2026-10-09). The flag is now rendered decorative there — `alt=""`,
+`aria-hidden`, no `title` — and the chip's own text names the country. `FlagImg`
+keeps its `alt`/`title` by default, because in the lodging table the flag is the
+only thing naming the country. The chips also fold a duplicated `trip.countries`
+entry, so a stored list that repeats a country draws one chip, not two.
+
+### A dashboard line card is a way in, never a way into editing
+
+A card a dashboard puts up over a line is a way IN to what the line summarises:
+tapping it opens the read-only page for that flight or that roadtrip, and it
+must never open the edit form (owner, 2026-10-09). The rule is written for
+dashboard cards generally, because the next line to answer with a card will
+follow it — a summary that opens an editor is a trap, since the reader asked to
+see a thing and was handed the means to change it.
+
+**The flight line's action was the bug.** Its card called `setEditingFlight`,
+so a button that said "open" put the reader in the flight's edit modal (owner,
+in other words, 2026-10-09: "open last flight opens edit mode, what it should do
+is open the flight trip page of that flight not edit"). `AllTab`'s
+`handleFlightOpen` now navigates to `/flights/:id` — the logbook's own
+read-only flight page, the same one-liner `FlightsTab` already uses to open a
+flight. Editing stays one tap away on the page this opens, and the back button
+lands on the logbook it left.
+
+**The edit affordance left the shared map card, on every surface and not just
+the dashboard's.** The card drawn for a route carries ONE action now: a second,
+"Bearbeiten" action was removed from `PinnedCard`, and with it the
+`onFlightEdit` and `selectionScope` props the flat map and the globe threaded
+down to it. The same card answers a route on the dashboard, on the flights map
+and on the globe, so an edit action on one surface and not another would have
+been two cards — the rule holds everywhere the card is drawn, not only where it
+was noticed.
+
+**The action opens the flight the reader can see.** The flight the action names
+used to be the route aggregation's own tail (`flightIds[flightIds.length - 1]`),
+which is the order the grouping produced, not date order — a "Last flight"
+button built from it could open a flight that is not the one the card's list
+shows first. It now resolves to the most recently departed flight on the route —
+the row the card's own list shows first, since `CardFlights` sorts by departure
+— so the action and the list cannot disagree about which flight is the last
+(owner, 2026-10-09).
+
+**The roadtrip line answers with the same card the roadtrips tab mounts.** A
+roadtrip line on the dashboard's "Alle" tab used to be inert: the tab draws the
+tour layer as an extra layer the map never sees, so a click reached no listener.
+It now answers with `RoadtripCardOverlay` — not a second design for the
+dashboard but the very component the roadtrips tab already mounts — whose one
+action is a `Link` to `/roadtrips/:id`, the roadtrip's own read-only detail
+page. A day-tour leg is left inert on purpose: a tour's figures already sit on
+the row that opens it, and only a roadtrip answers with a card, the same rule
+the roadtrips tab keeps. The flight card and the roadtrip card are made mutually
+exclusive, so only the line the reader last aimed at stays open.
+
+**The word "last" is printed only when the route holds more than one.** It says
+nothing about a single thing, so the action reads "Last flight" / "Last road
+trip" only when the route holds MORE than one; with exactly one it reads the
+plain "Open flight details" / "Open roadtrip details". The count is the one the
+grouping that produced the line already carries — the flights on that airport
+pair, for the route card (`RouteCardDatum.count`) — and, for the roadtrip card, a
+`count` prop that is 1 today, because a roadtrip line is always exactly one
+roadtrip; it exists so the wording can appear the day a route groups several
+rather than printing "last" with nothing for it to be last of. This is the
+dash-not-zero honesty of `ListSummaryStrip` applied to a label: a word that
+claims a group is not printed when there is no group.
+
+The labels are ordinary i18n keys in both languages — `map:globe.openLastFlight`
+(reworded from "Open last flight" to "Last flight") and the new
+`map:globe.pinned.openFlightDetails`, `roadtrips:list.openDetails` and
+`roadtrips:list.lastRoadtrip`; `roadtrips:list.open` is left where it was, for
+the underway card that still reads it.
 
 ### Smaller things
 
