@@ -16,7 +16,6 @@ import {
   applyExtendedFlightFields,
   type ExtendedFlightInput,
 } from "../services/flights/extendedFlightFields";
-import { calculateDistance, generateArcPoints } from "../utils/geo";
 import { checkAndUpdateAchievements } from "../utils/achievements";
 import { enrichFlightAirports } from "../services/airportLookup";
 import { flightCreationLimiter, statsLimiter } from "../middleware/rateLimit";
@@ -42,13 +41,11 @@ import {
 } from "../services/flightAirportFacts";
 import { withAirportTimezones } from "../services/flightTimezoneDefaults";
 import { airportChanged, flightZoneColumns, withStoredZones } from "./flights/timeInput";
-import {
-  buildAirportCoordinateIndex,
-  resolveAirportCoordinate,
-} from "../services/airportCoordinates";
+import { buildAirportCoordinateIndex } from "../services/airportCoordinates";
 import { assertMergedChronology, toUtcDate } from "../services/flights/mergedChronology";
 import { sharedFlightCreateFields } from "../services/flights/flightCreateFields";
 import { warnIfScheduledInPast } from "../services/flights/scheduledInPastWarning";
+import { flightGeoFeature, type AirportInfo } from "../services/flights/flightGeoFeature";
 import { linkDocuments, takeDocumentIds } from "../services/documents/documentService";
 import { resolveAirlineCodes } from "../utils/airlineNormalize";
 import { airlineCodeUpdate } from "../utils/airlineCodeUpdate";
@@ -544,10 +541,6 @@ router.get("/geo", async (req: AuthRequest, res: Response, next: NextFunction) =
       if (f.depIcao) icaos.add(f.depIcao);
       if (f.arrIcao) icaos.add(f.arrIcao);
     }
-    interface AirportInfo {
-      country: string | null;
-      city: string | null;
-    }
     const infoByIata = new Map<string, AirportInfo>();
     const infoByIcao = new Map<string, AirportInfo>();
     let coordinateIndex = buildAirportCoordinateIndex([]);
@@ -581,71 +574,7 @@ router.get("/geo", async (req: AuthRequest, res: Response, next: NextFunction) =
       (iata ? infoByIata.get(iata) : undefined) ??
       (icao ? infoByIcao.get(icao) : undefined) ?? { country: null, city: null };
 
-    const features = flights.map((flight) => {
-      // Draw from the catalogue, not from the flight's own copy of the
-      // coordinates. Those copies disagree between flights for the same
-      // airport, and the map derives its airport DOT from the first-seen flight
-      // per airport but each ARC from the first-seen flight per route — two
-      // different "first seen" on two different coordinates, so the arc visibly
-      // misses the dot (found at ZRH, 739 m out). Falls back to the stored
-      // value for airports the catalogue does not know.
-      const depPosition = resolveAirportCoordinate(
-        coordinateIndex,
-        flight.depIata,
-        flight.depIcao,
-        flight.depLat,
-        flight.depLon
-      );
-      const arrPosition = resolveAirportCoordinate(
-        coordinateIndex,
-        flight.arrIata,
-        flight.arrIcao,
-        flight.arrLat,
-        flight.arrLon
-      );
-      const arcPoints = generateArcPoints(depPosition, arrPosition);
-
-      return {
-        type: "Feature",
-        properties: {
-          id: flight.id,
-          tripId: flight.tripId,
-          airline: flight.airline,
-          operatingAirline: flight.operatingAirline,
-          flightNumber: flight.flightNumber,
-          callsign: flight.callsign,
-          aircraft: flight.aircraft,
-          departureAirport: {
-            icao: flight.depIcao,
-            iata: flight.depIata,
-            name: flight.depName,
-            country: airportInfo(flight.depIata, flight.depIcao).country,
-            city: airportInfo(flight.depIata, flight.depIcao).city,
-          },
-          arrivalAirport: {
-            icao: flight.arrIcao,
-            iata: flight.arrIata,
-            name: flight.arrName,
-            country: airportInfo(flight.arrIata, flight.arrIcao).country,
-            city: airportInfo(flight.arrIata, flight.arrIcao).city,
-          },
-          departureTime: flight.departureTime,
-          arrivalTime: flight.arrivalTime,
-          status: flight.status,
-          category: flight.category,
-          tags: flight.tags || [],
-          price: flight.price,
-          currency: flight.currency,
-          taxes: flight.taxes,
-          fees: flight.fees,
-          distance: calculateDistance(flight.depLat, flight.depLon, flight.arrLat, flight.arrLon),
-        },
-        geometry: {
-          type: "LineString",
-          coordinates: arcPoints,
-        },
-      };
-    });
+    const features = flights.map((f) => flightGeoFeature(f, coordinateIndex, airportInfo));
 
     res.json({
       type: "FeatureCollection",
