@@ -14,13 +14,18 @@
  * No DTO field carries an Immich asset id: a thumbnail is addressed by its
  * INDEX into `StoredDraft.previewAssetIds`, and the draft is the grant.
  *
- * The draft store's and the commit's types (`DraftStatus` … `PhaseBResult`) live
- * in `commitTypes.ts`, only to keep each file under the 800-line cap; this file
- * re-exports them, so every name is imported from here.
+ * The photo side (`ScanWindow`, `ClockCase` … `FileNameLookup`, `CityCluster` …
+ * `Segment`) lives in `photoTypes.ts`, only to keep each file under the 800-line
+ * cap; this file re-exports it, so every name is imported from here.
  */
+import type { CreateTripInput } from "../../schemas/trip";
+import type { StationsInput } from "../../schemas/roadtrip";
 import type { NightAssign } from "../../shared/tour/builderNightPlan";
-import type { ImmichConnectionSource, ImmichVisibility } from "../immich/types";
+import type { LegPair } from "../../shared/tour/legPlan";
+import type { RoadtripVehicle } from "../../shared/tour/roadtrip";
+import type { ImmichConnectionSource, ImmichErrorKind } from "../immich/types";
 import type { Coord, LegMode } from "../tour/tourDistance";
+import type { ExcludedCounts, PhotoPoint, RawSegment, ScanWindow, Segment } from "./photoTypes";
 
 export {
   NIGHT_FLIGHT,
@@ -30,7 +35,7 @@ export {
   type NightAssign,
 } from "../../shared/tour/builderNightPlan";
 
-export type * from "./commitTypes";
+export type * from "./photoTypes";
 
 // ─── Calendar words ──────────────────────────────────────────────────────────
 
@@ -86,121 +91,6 @@ export interface ScanInput {
   createAlbum: boolean;
   target: ScanTarget;
 }
-
-// ─── Window (window.ts) ──────────────────────────────────────────────────────
-
-export interface ScanWindow {
-  /** S and E: a photo belongs to the trip when S ≤ day(p) ≤ E. */
-  startDay: Day;
-  endDay: Day;
-  /** S − CONTEXT_PAD_DAYS and E + CONTEXT_PAD_DAYS: the span the empty state says was checked. */
-  contextFromDay: Day;
-  contextToDay: Day;
-  /** Immich `takenAfter`: S 00:00Z − 3 d − 14 h. */
-  fetchFrom: Date;
-  /** Immich `takenBefore`: (E+1) 00:00Z + 3 d + 12 h. */
-  fetchTo: Date;
-}
-
-// ─── Photos (clock.ts, clean.ts) ─────────────────────────────────────────────
-
-/** Which Immich clock gave the instant (§C.1): A zone known, B file time, C naive wall clock. */
-export type ClockCase = "A" | "B" | "C";
-/** Which rule gave the zone, first match wins (§C.1). */
-export type ZoneSource = "gps" | "exif" | "neighbour" | "area" | "home" | "utc";
-export type MisdatedReason = "straggler" | "batch" | "filenameClock";
-
-/** One flight-bounded stretch of time and its dominant GPS zone — zone rule 4 of §C.1. */
-export interface ZoneSpan {
-  fromMs: number;
-  toMs: number;
-  zone: string;
-}
-
-export interface ClockContext {
-  /** The residence's zone on S (zone rule 5); null without a home. */
-  homeZone: string | null;
-  /** From `areaZoneSpans` (zone rule 4). */
-  areaZones: readonly ZoneSpan[];
-}
-
-export interface PhotoFlags {
-  clockCase: ClockCase;
-  zoneSource: ZoneSource;
-  /** The zone was borrowed (neighbour, area, home or utc), so the day is a guess. */
-  dayGuessed: boolean;
-  /** EXIF named a zone the GPS disagreed with; GPS won, and it is counted (§J). */
-  exifZoneOverridden: boolean;
-  /** GPS present and not 0,0 (GPS_ZERO_EPSILON). */
-  located: boolean;
-  /** Not the movement representative of its `duplicateId` (the first by tMs is). */
-  duplicate: boolean;
-  misdated: MisdatedReason | null;
-  atSea: boolean;
-  inFlight: boolean;
-  /** Taken during a layover: never a station, never night evidence (§C.4). */
-  layover: boolean;
-}
-
-/** One asset after the clock: the unit every later module reads. */
-export interface PhotoPoint {
-  id: string;
-  type: "IMAGE" | "VIDEO";
-  ownerId: string | null;
-  visibility: ImmichVisibility | null;
-  /** t(p), epoch ms: every duration, ordering and in-flight test uses this. */
-  tMs: number;
-  /** z(p): always a valid zone (`UTC` as the last resort; `flags.zoneSource` says which rule). */
-  zone: string;
-  /** local(p). */
-  local: LocalMinute;
-  /** day(p): the calendar day of `local`. */
-  day: Day;
-  /** The day of local(p) − NIGHT_BOUNDARY_H: 00:00–03:59 counts as the evening before. */
-  nightDay: Day;
-  lat: number | null;
-  lon: number | null;
-  /** Immich's own reverse geocode (GeoNames cities500); each may be null. */
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  make: string | null;
-  model: string | null;
-  originalFileName: string;
-  isFavorite: boolean;
-  duplicateId: string | null;
-  flags: PhotoFlags;
-}
-
-export interface ExcludedCounts {
-  /** Every fetched asset whose `ownerId` is not the caller's Immich user. */
-  partner: number;
-  /** Own assets with `visibility: "hidden"` (Live Photo motion halves). */
-  hiddenLivePart: number;
-  /** In-window photos kept out of movement for each reason; they stay in the album. */
-  misdated: number;
-  inFlight: number;
-  atSea: number;
-  unlocated: number;
-  /** In-window photos whose zone was borrowed. */
-  dayGuessed: number;
-}
-
-export interface CleanResult {
-  /** Own, not hidden, S ≤ day ≤ E, by tMs; `located` and `duplicate` flags set. */
-  photos: PhotoPoint[];
-  /** Own, not hidden, fetched but outside [S, E]: straggler neighbours, `movementOutsideDates`. */
-  context: PhotoPoint[];
-  /** The id of every photo in `photos`, IMAGE and VIDEO alike. SERVER-ONLY. */
-  albumAssetIds: string[];
-  /** `partner`, `hiddenLivePart`, `unlocated`, `dayGuessed` counted; the rest 0 until marked. */
-  excluded: ExcludedCounts;
-}
-
-/** `CountryResolver.countryAt` (geo/countryFromCoordinates.ts:136), bound once per scan. */
-export type CountryAt = (lat: number, lon: number) => string | null;
-/** `searchByFileName`, clocked, over the fetch range ± MISDATED_LOOKUP_PAD_DAYS. Injected. */
-export type FileNameLookup = (fragment: string) => Promise<readonly PhotoPoint[]>;
 
 // ─── Flights (loadFlights.ts, flightAnchors.ts) ──────────────────────────────
 
@@ -297,67 +187,6 @@ export interface AreaSegments {
 export interface ImplicitSplit {
   parts: AreaSegments[];
   gaps: ImplicitGap[];
-}
-
-// ─── Clusters and segments (cityClusters.ts, nameClusters.ts, segments.ts) ───
-
-export interface CityCluster {
-  /** "c1", "c2" … in discovery order. */
-  id: string;
-  photoIds: string[];
-  /** Per-axis median. */
-  lat: number;
-  lon: number;
-  spreadKm: number;
-  /** The majority Immich name among the members; null when none carried one. */
-  immichCity: string | null;
-  immichState: string | null;
-  immichCountry: string | null;
-}
-
-export interface NamedCluster extends CityCluster {
-  title: string;
-  titleSource: TitleSource;
-  /** Median within HOME_RADIUS_KM of the residence on S (§C.5). */
-  isHome: boolean;
-}
-
-/** An existing roadtrip station of the user's, for title reuse within TITLE_REUSE_KM. */
-export interface ExistingTitle {
-  title: string;
-  lat: number;
-  lon: number;
-}
-
-export interface Bbox {
-  minLat: number;
-  maxLat: number;
-  minLon: number;
-  maxLon: number;
-}
-
-/** A run of movement photos at one cluster with no gap over SEGMENT_CONTINUE_GAP_H. */
-export interface RawSegment {
-  /** "s1", "s2" … in time order within the area. */
-  id: string;
-  clusterId: string;
-  photoIds: string[];
-  startMs: number;
-  endMs: number;
-  firstDay: Day;
-  lastDay: Day;
-  firstLocal: LocalMinute;
-  lastLocal: LocalMinute;
-}
-
-export type SegmentRole = "visit" | "brief" | "excursion" | "transit";
-
-export interface Segment extends RawSegment {
-  role: SegmentRole;
-  /** `excursion` only: the cluster id A it left from and returned to. */
-  excursionOf: string | null;
-  /** Holds the last movement photo of at least one nightDay. */
-  holdsNight: boolean;
 }
 
 // ─── Stations, legs, home (stations.ts, ferry.ts, home.ts) ───────────────────
@@ -674,4 +503,168 @@ export interface CapabilitiesDto {
   roadtrips: boolean;
   routing: { available: boolean; canProbe: boolean };
   home: { known: boolean; confirmed: boolean };
+}
+
+// ─── Draft store (draftStore.ts) ─────────────────────────────────────────────
+
+export type DraftStatus = "ready" | "committing" | "committed";
+
+export interface StationIndexEntry {
+  areaKey: string;
+  firstDay: Day;
+  lastDay: Day;
+}
+
+export interface StoredDraft {
+  id: string;
+  ownerId: string;
+  /** Epoch ms from `now()` (shared/time/clock.ts:21). */
+  createdAt: number;
+  touchedAt: number;
+  status: DraftStatus;
+  commitKey?: string;
+  commitJobId?: string;
+  /** Set by `finishCommit` right after phase B. */
+  result?: CommitResult;
+  input: ScanInput;
+  immichUserId: string;
+  connSource: ImmichConnectionSource;
+  dto: TripBuilderDraft;
+  /** ≤ MAX_PREVIEWS, addressed by index. SERVER-ONLY. */
+  previewAssetIds: string[];
+  /** SERVER-ONLY. */
+  albumAssetIds: string[];
+  /** The listed flights: the only ones a commit may assign. */
+  flightIds: ReadonlySet<string>;
+  /** Every station the draft offered, offered home stations included → its area and days. */
+  stationIndex: ReadonlyMap<string, StationIndexEntry>;
+}
+
+export type BeginCommit =
+  | { kind: "start" }
+  | { kind: "inProgress"; jobId: string }
+  | { kind: "committed"; result: CommitResult }
+  | { kind: "busy" }
+  | { kind: "missing" };
+
+// ─── Commit (commitPlan.ts, commit.ts, albumWrite.ts) ────────────────────────
+
+export type AlbumErrorKind = ImmichErrorKind | "notConfigured" | "internal";
+
+/** Phase D's answer and the album-retry job's result. Never thrown. */
+export interface AlbumOutcome {
+  status: "linked" | "skipped" | "failed" | "blocked";
+  skipReason?: "notRequested" | "noAssets";
+  immichAlbumId?: string;
+  albumName?: string;
+  /** An album the user already owned under this exact name was reused. */
+  reused?: boolean;
+  added?: number;
+  alreadyIn?: number;
+  refused?: number;
+  error?: { kind: AlbumErrorKind; missingScope?: string };
+  missingScopes?: string[];
+}
+
+export interface CommitRoadtripSummary {
+  id: string;
+  name: string;
+  stations: number;
+  nights: number;
+}
+
+export interface CommitResult {
+  tripId: string;
+  /** False for the `existing` target. */
+  created: boolean;
+  roadtrips: CommitRoadtripSummary[];
+  stopIds: string[];
+  flightsAssigned: number;
+  /** Trips a ticked flight was moved off; their status was recomputed. */
+  flightsMovedFrom: Array<{ tripId: string; name: string }>;
+  routing: { routed: number; straight: number; ferry: number; providerAvailable: boolean };
+  photoJourneysResolved: number;
+  unknownNights: number;
+  album: AlbumOutcome;
+}
+
+/** Why phase P stopped before any write (§A). */
+export type PreflightBlockReason =
+  "sharedConnection" | "connectionChanged" | "missingScopes" | "unreachable";
+
+export interface CommitBlocked {
+  status: "blocked";
+  reason: PreflightBlockReason;
+  missingScopes: string[];
+}
+
+/** The `tripBuilder.commit` job's result; `blocked` is a success that wrote nothing. */
+export type CommitJobResult = ({ status: "committed" } & CommitResult) | CommitBlocked;
+
+/** The `tripBuilder.scan` job's result. */
+export interface ScanJobResult {
+  draftId: string;
+}
+
+/** One timeline stop of a `stops` area; consecutive stations of one title make one stop. */
+export interface StopPlan {
+  areaKey: string;
+  title: string;
+  lat: number;
+  lon: number;
+  startDay: Day;
+  endDay: Day;
+  notes: string | null;
+}
+
+export interface RoadtripPlan {
+  areaKey: string;
+  name: string;
+  vehicle: RoadtripVehicle;
+  /** `stationsSchema`-parsed `deriveStationRows`: slept → `{kind:"free"}`, else `{kind:"pass"}`. */
+  stations: StationsInput["stations"];
+  /** `rowLegModes`: legModes[i] joins stations[i] and stations[i + 1]. */
+  legModes: BuilderLegMode[];
+  nights: number;
+}
+
+export type CommitTargetPlan =
+  | { kind: "new"; trip: CreateTripInput }
+  | {
+      kind: "existing";
+      tripId: string;
+      tripName: string;
+      applyWindow: boolean;
+      countries: string[];
+    };
+
+/** What the sync commit handler validated; the job writes exactly this. */
+export interface CommitPlan {
+  draftId: string;
+  userId: string;
+  window: { startDay: Day; endDay: Day };
+  /** `new`: the form with the window, countries and labels already merged in. */
+  target: CommitTargetPlan;
+  flightIds: string[];
+  stops: StopPlan[];
+  roadtrips: RoadtripPlan[];
+  photoJourneyIds: string[];
+  album: { create: boolean; name: string };
+  unknownNights: number;
+}
+
+export interface PhaseBRoadtrip extends CommitRoadtripSummary {
+  /** Legs the transaction created, for phase C to route; ferry legs are skipped there. */
+  createdLegs: LegPair[];
+  ferryLegs: number;
+}
+
+/** What phase B's one transaction wrote. */
+export interface PhaseBResult {
+  tripId: string;
+  created: boolean;
+  roadtrips: PhaseBRoadtrip[];
+  stopIds: string[];
+  flightsAssigned: number;
+  flightsMovedFrom: Array<{ tripId: string; name: string }>;
 }
