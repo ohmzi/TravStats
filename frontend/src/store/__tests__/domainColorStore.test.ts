@@ -6,7 +6,7 @@ import { DOMAINS, RETIRED_DOMAIN_DEFAULTS, TOUR_COLOR } from "../../shared/domai
 /**
  * The user's domain colours sit ON TOP of the defaults — and must keep doing
  * so when the defaults move, as they did in round 29 (forgejo#131: rail
- * lavender, roadtrip moss).
+ * lavender, roadtrip moss — the accent since 2026-10-08).
  *
  * The store reads local storage once, at import, so each case seeds storage
  * and then imports a fresh copy of the store and hook.

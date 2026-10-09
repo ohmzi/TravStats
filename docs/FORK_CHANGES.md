@@ -546,6 +546,14 @@ the underway card that still reads it.
   either way; the badge and the chip carry `aria-hidden` while they are down, and
   Reset is disabled rather than absent. The "is it filtered" test trims
   whitespace too, so a lone space narrows nothing and the chip stays down.
+- **One yellow for every travelled way.** Roadtrip and tour paths are the
+  accent `#f0a947` (the "+ New roadtrip" colour), on the map, the cards and the
+  legend. `design/tokens.json` and the backend `domains.ts` mirror carry it too,
+  a deliberate divergence from the Companion, whose `road` is still moss. The
+  colour guard (`domainColorsNotStatus.test.ts`) exempts exactly the flight,
+  roadtrip and tour from the accent rule, and only against `warn`, which is the
+  accent's own pressed shade 39.4 apart; every other domain stays clear of the
+  accent and of info, warn and bad.
 
 ## How it fits with Immich
 

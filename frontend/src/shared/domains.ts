@@ -65,9 +65,10 @@ export const DOMAINS: Record<DomainKey, DomainDescriptor> = {
     routePrefix: "/places",
   },
   // Roadtrips (2.7, design 2026-09-24) — mirror of the backend descriptor.
-  // Moss, the same hue as a day tour (round 29): roadtrip and tour are one
-  // colour, "road" in the Companion; a tour line differs by stroke width.
-  // The violet before it was the Companion's rail lavender to the digit.
+  // The same hue as a day tour (round 29): roadtrip and tour are one colour,
+  // "road" in the Companion; a tour line differs by stroke width. Moss until
+  // 2026-10-08, the accent since (see the colour below). The violet before
+  // round 29 was the Companion's rail lavender to the digit.
   roadtrip: {
     key: "roadtrip",
     available: true,
@@ -126,9 +127,11 @@ export const DOMAINS: Record<DomainKey, DomainDescriptor> = {
  * Since 2026-10-08 it is the ACCENT rather than the moss it was (owner): the
  * travelled line is the same yellow as the primary action, on the trip map and
  * on the cards alike, so one colour says "this is the way the journey went"
- * wherever it is drawn. `design/tokens.json` still carries the moss as
- * `domainColor.tour`; that is a design-system edit this change does not make on
- * its own, and the two would need reconciling there.
+ * wherever it is drawn. `design/tokens.json` carries the accent as
+ * `domainColor.tour` and `roadtrip` too, recorded there as a deliberate
+ * divergence from the Companion, whose `road` is still moss
+ * (`_webOverride`). `domainColorsNotStatus.test.ts` exempts exactly the
+ * flight, roadtrip and tour from the accent rule, and only against warn.
  */
 export const TOUR_COLOR = "#f0a947";
 
