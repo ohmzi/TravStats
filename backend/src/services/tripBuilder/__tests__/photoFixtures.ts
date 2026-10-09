@@ -9,7 +9,7 @@
 import { addDays } from "../../../shared/tour/builderNightPlan";
 import type { ImmichAssetDetail } from "../../immich/types";
 import { NIGHT_BOUNDARY_H } from "../thresholds";
-import type { PhotoFlags, PhotoPoint } from "../types";
+import type { FlightAnchor, PhotoFlags, PhotoPoint } from "../types";
 
 /** The caller's Immich user. */
 export const OWNER = "5b7e1c2a-3d4f-4a6b-9c8d-7e6f5a4b3c2d";
@@ -112,6 +112,39 @@ export function makeAsset(over: Partial<ImmichAssetDetail> = {}): ImmichAssetDet
     make: "Apple",
     model: "iPhone 14",
     isFavorite: false,
+    ...over,
+  };
+}
+
+/**
+ * Flight ZZ101 from Northvale to Saltmere, precise, on no trip. It leaves at
+ * 13:00 NZST on 4 May 2031 (01:00Z) and lands at 09:00 local the same day
+ * (13:00Z).
+ */
+export function makeAnchor(over: Partial<FlightAnchor> = {}): FlightAnchor {
+  return {
+    id: "1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b",
+    label: "ZZ101 NVL→SLM",
+    depIata: "NVL",
+    arrIata: "SLM",
+    dep: { ...NORTHVALE },
+    arr: { ...SALTMERE },
+    depZone: "Pacific/Auckland",
+    arrZone: "America/La_Paz",
+    depDay: "2031-05-04",
+    arrDay: "2031-05-04",
+    depClock: "13:00",
+    arrClock: "09:00",
+    precise: true,
+    depMs: Date.parse("2031-05-04T01:00:00Z"),
+    arrMs: Date.parse("2031-05-04T13:00:00Z"),
+    hasActualDep: false,
+    hasActualArr: false,
+    tripId: null,
+    tripName: null,
+    listed: true,
+    defaultAssign: true,
+    locked: false,
     ...over,
   };
 }

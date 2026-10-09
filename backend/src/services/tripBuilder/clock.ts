@@ -23,7 +23,7 @@
  * strings serve days, nights and notes. Every zone conversion goes through
  * shared/time.
  */
-import { machineInstant, toLocal } from "../../shared/time/instant";
+import { machineInstant, toInstant, toLocal } from "../../shared/time/instant";
 import { zoneOfCoordinates } from "../../shared/time/resolveInput";
 import { isValidZone } from "../../shared/time/zonedParts";
 import { addDays } from "../../shared/tour/builderNightPlan";
@@ -34,6 +34,7 @@ import type {
   ClockCase,
   ClockContext,
   Day,
+  FlightAnchor,
   LocalMinute,
   PhotoPoint,
   ZoneSource,
@@ -334,4 +335,71 @@ export function clockAssets(assets: readonly ImmichAssetDetail[], ctx: ClockCont
   return reads
     .map((read) => toPhoto(read, located.get(read) ?? borrowedClock(read, ctx, byInstant, byWall)))
     .sort((a, b) => a.tMs - b.tMs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+// ─── Zone rule 4's spans ─────────────────────────────────────────────────────
+
+/** Where rule 4 cuts time at a flight: its departure, or noon of its departure day on the airport's clock. */
+function cutMsOf(anchor: FlightAnchor): number {
+  if (anchor.precise && anchor.depMs !== null) return anchor.depMs;
+  const zone = isValidZone(anchor.depZone) ? anchor.depZone : "UTC";
+  return toInstant(`${anchor.depDay}T12:00`, zone, { origin: "machine" }).utc.getTime();
+}
+
+/** The zone most fixes carry. On a tie, the zone that reached that count first. */
+function dominantZone(zones: readonly string[]): string | null {
+  const counts = new Map<string, number>();
+  let best: string | null = null;
+  for (const zone of zones) {
+    const count = (counts.get(zone) ?? 0) + 1;
+    counts.set(zone, count);
+    if (best === null || count > (counts.get(best) ?? 0)) best = zone;
+  }
+  return best;
+}
+
+const validZoneOrNull = (zone: string | null | undefined): string | null =>
+  isValidZone(zone) ? zone : null;
+
+/**
+ * Zone rule 4. The clock runs before any area exists, so the rule is built
+ * on flights instead. Time is cut at every flight, and each stretch carries
+ * the zone most of its located photos show. A stretch without such photos
+ * takes the zone the flight before it landed in, or failing that, the zone
+ * the flight after it leaves from. A stretch with none of these is left out.
+ * The first stretch starts at −∞ and the last one ends at +∞.
+ */
+export function areaZoneSpans(
+  assets: readonly ImmichAssetDetail[],
+  anchors: readonly FlightAnchor[]
+): ZoneSpan[] {
+  const fixes = assets
+    .map(readAsset)
+    .flatMap((read) =>
+      read.gpsZone === null ? [] : [{ tMs: instantIn(read, read.gpsZone), zone: read.gpsZone }]
+    )
+    .sort((a, b) => a.tMs - b.tMs);
+  const cuts = anchors
+    .map((anchor) => ({ anchor, cutMs: cutMsOf(anchor) }))
+    .sort((a, b) => a.cutMs - b.cutMs);
+  const bounds = [
+    Number.NEGATIVE_INFINITY,
+    ...cuts.map((cut) => cut.cutMs),
+    Number.POSITIVE_INFINITY,
+  ];
+  const spans: ZoneSpan[] = [];
+  for (let i = 0; i + 1 < bounds.length; i += 1) {
+    const fromMs = bounds[i];
+    const toMs = bounds[i + 1];
+    if (fromMs >= toMs) continue;
+    const inside = fixes
+      .filter((fix) => fix.tMs >= fromMs && fix.tMs < toMs)
+      .map((fix) => fix.zone);
+    const zone =
+      dominantZone(inside) ??
+      validZoneOrNull(cuts[i - 1]?.anchor.arrZone) ??
+      validZoneOrNull(cuts[i]?.anchor.depZone);
+    if (zone !== null) spans.push({ fromMs, toMs, zone });
+  }
+  return spans;
 }
