@@ -481,8 +481,7 @@
     "loadError": "Die Reise konnte nicht geladen werden.",
     "phase": {
       "planned": "Geplant",
-      "underway": "Unterwegs",
-      "past": "Vergangen"
+      "underway": "Unterwegs"
     },
     "figDistance": "Zurückgelegt",
     "figDistanceSub": "Großkreis-Schätzung, nicht die geflogene Strecke",
@@ -497,11 +496,9 @@
     "figCitiesSub_one": "ein Flughafen hat keine Stadt",
     "figCitiesSub_other": "{{count}} Flughäfen haben keine Stadt",
     "figCitiesNone": "Kein Flughafen dieser Reise hat eine bekannte Stadt",
-    "figJourney": "Reise",
-    "figAlbum": "Album",
-    "figAlbumSub_one": "{{count}} Foto",
-    "figAlbumSub_other": "{{count}} Fotos",
     "tabRoute": "Route",
+    "routeHeading": "Flughäfen",
+    "tabsLabel": "Ansichten der Reise",
     "tabMapHint": "Flughafen anklicken — er wird in der Karte markiert.",
     "mapEmpty": "Noch kein Flughafen zum Zeichnen",
     "routeEmpty": "Diese Reise hat noch keinen Flug.",

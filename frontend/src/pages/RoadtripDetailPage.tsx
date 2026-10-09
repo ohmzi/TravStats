@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import AppShell from "../components/ui/AppShell";
+import ActionLink from "../components/ui/ActionLink";
 import Button from "../components/ui/Button";
 import DetailHeader from "../components/ui/DetailHeader";
 import EmptyState from "../components/ui/EmptyState";
@@ -29,6 +30,8 @@ import { sectionExpenseCount } from "../lib/sectionExpenses";
 import { hexToRgb } from "../lib/domainColor";
 import { logger } from "../lib/logger";
 import { dayNumber, roadtripPhase, spanDays } from "../lib/roadtrip/roadtripView";
+import { phasePillColor } from "../lib/detailPhase";
+import { DETAIL_MAP_BOX_RADIUS, DETAIL_MAP_STICKY_TOP } from "../lib/detailChrome";
 import { useTodayZone } from "../hooks/useTodayZone";
 import { todayIn } from "../shared/time";
 import { useToastStore } from "../store/toastStore";
@@ -266,15 +269,20 @@ export default function RoadtripDetailPage(): JSX.Element {
             : ""
         }`;
 
+  // Which phases earn a status pill, and its colour, come from the shared rule
+  // the journey page reads too (`lib/detailPhase`): planned and underway show
+  // one, past and undated show none. Only the WORDING is this page's — a
+  // roadtrip counts the day it is on, a journey does not.
+  const pillColor = phasePillColor(phase);
   const status =
-    phase === "underway" && day !== null ? (
-      <Pill color="var(--ts-good)">
+    phase === "underway" && day !== null && pillColor !== null ? (
+      <Pill color={pillColor}>
         {total !== null
           ? t("roadtrips:phase.underway", { day, total })
           : t("roadtrips:phase.underwayOpen", { day })}
       </Pill>
-    ) : phase === "planned" ? (
-      <Pill color="var(--ts-info)">{t("roadtrips:phase.planned")}</Pill>
+    ) : phase === "planned" && pillColor !== null ? (
+      <Pill color={pillColor}>{t("roadtrips:phase.planned")}</Pill>
     ) : undefined;
 
   const actions = editing ? (
@@ -298,21 +306,11 @@ export default function RoadtripDetailPage(): JSX.Element {
     </div>
   ) : (
     <div className="flex flex-wrap" style={{ gap: 8 }}>
-      <Link
-        to={`/tours/${id}`}
-        className="flex items-center"
-        style={{
-          minHeight: "var(--ts-size-touch-min)",
-          padding: "0 14px",
-          borderRadius: "var(--ts-radius-button)",
-          border: "1px solid var(--ts-border-button)",
-          color: "var(--ts-text)",
-          textDecoration: "none",
-          fontSize: 14,
-        }}
-      >
-        {t("roadtrips:editLegs")}
-      </Link>
+      {/* The outline link both detail pages draw in the head (`ui/ActionLink`),
+          pointing at this page's second object: the recorded route. The journey
+          page's points at its trip instead — the SAME furniture, a different
+          destination. */}
+      <ActionLink to={`/tours/${id}`}>{t("roadtrips:editLegs")}</ActionLink>
       <Button
         variant="primary"
         icon={<Icon name="pencil" size={16} />}
@@ -391,11 +389,17 @@ export default function RoadtripDetailPage(): JSX.Element {
           )}
         </section>
 
-        <aside className="order-1 flex flex-col lg:sticky lg:order-2" style={{ gap: 8, top: 72 }}>
+        {/* The sticky map panel both detail pages draw, from the two numbers
+            they share (`lib/detailChrome`) — the journey page's `<aside>` is
+            this one with a different map in it. */}
+        <aside
+          className="order-1 flex flex-col lg:sticky lg:order-2"
+          style={{ gap: 8, top: DETAIL_MAP_STICKY_TOP }}
+        >
           <div
             className="overflow-hidden"
             style={{
-              borderRadius: 20,
+              borderRadius: DETAIL_MAP_BOX_RADIUS,
               border: "1px solid var(--ts-border)",
               height: "min(640px, calc(100vh - 96px))",
               minHeight: 380,

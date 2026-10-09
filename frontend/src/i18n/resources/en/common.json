@@ -318,7 +318,11 @@
     "places_other": "Places",
     "visited": "Visited",
     "countries_one": "Country",
-    "countries_other": "Countries"
+    "countries_other": "Countries",
+    "journey": "Journey",
+    "album": "Album",
+    "albumSub_one": "{{count}} photo",
+    "albumSub_other": "{{count}} photos"
   },
   "continents": {
     "africa": "Africa",

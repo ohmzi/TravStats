@@ -1,7 +1,7 @@
 import type { JSX, ReactNode } from "react";
 import { Link } from "react-router-dom";
 
-import FlightFigures, { type FlightFigureCell } from "./FlightFigures";
+import FigureBand, { type FigureBandCell } from "../ui/FigureBand";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useSettingsStore } from "../../store/settingsStore";
 import { formatDistance, localeForLanguage } from "../../lib/units";
@@ -89,9 +89,15 @@ export default function FlightTripFigures({
           })
         : t("flights:journeyPage.figDistanceMeasured");
 
-  const figures: FlightFigureCell[] = [
+  const figures: FigureBandCell[] = [
     {
       key: "distance",
+      // "Distance covered", not the roadtrip band's "Driven": a plane is not
+      // driven, and this figure is a DERIVED great-circle sum, so its word has
+      // to stay distinct from the roadtrip's measured/planned one — the reason
+      // is on the caption and on hover (owner, 2026-10-08). The roadtrip's own
+      // neutral word is "Distance" (`roadtrips:detail.figRoute`), the candidate
+      // if one word is ever wanted for both.
       label: t("flights:journeyPage.figDistance"),
       value: distanceValue,
       title: distanceTitle,
@@ -111,7 +117,10 @@ export default function FlightTripFigures({
     {
       key: "airports",
       // The one existing rule (distinct IATA), reused so the band and the
-      // logbook strip cannot disagree.
+      // logbook strip cannot disagree. zero prints as `0`, not a dash: the
+      // COUNT of the journey's own recorded legs is a fact about the record —
+      // an empty journey really has none — while the derived figures above are
+      // dashes with a reason, because "we cannot work it out" is not "none".
       label: t("common:summary.airports", { count: airports }),
       value: nf.format(airports),
     },
@@ -140,7 +149,9 @@ export default function FlightTripFigures({
     },
     {
       key: "journey",
-      label: t("flights:journeyPage.figJourney"),
+      // The same words as the roadtrip band's two cells (see its header): one
+      // `common:` key set, so the two bands cannot label the same thing twice.
+      label: t("common:summary.journey"),
       value: trip.name ? (
         <Link to={`/trips/${trip.id}`}>{trip.name}</Link>
       ) : (
@@ -149,41 +160,47 @@ export default function FlightTripFigures({
     },
     {
       key: "album",
-      label: t("flights:journeyPage.figAlbum"),
+      label: t("common:summary.album"),
       value: album ? (
         <Link to={`/trips/${trip.id}?tab=gallery`}>{album.albumName}</Link>
       ) : (
         t("common:labels.notAvailable")
       ),
-      sub: album ? t("flights:journeyPage.figAlbumSub", { count: album.assetCount }) : undefined,
+      sub: album ? t("common:summary.albumSub", { count: album.assetCount }) : undefined,
     },
   ];
 
   return (
-    <div className="flex flex-col" style={{ gap: "var(--ts-space-sm)" }}>
-      <FlightFigures figures={figures} responsive={7} />
-      {/* The caveats the band is making, said once, in the roadtrip band's own
-          voice: what the distance is made of, and what the city count leaves
-          out. Cell titles say the same thing on hover. */}
-      <div className="flex flex-wrap items-center t-caption" style={{ gap: "var(--ts-space-lg)" }}>
-        {/* Shown whenever the sum is DERIVED, even when a leg is also missing:
-            the `~` on the value marks the derivation, and dropping this caption
-            the moment one leg had no distance would leave the derivation stated
-            only on hover (owner, 2026-10-08). */}
-        {knownLegs > 0 && distance.estimated && (
-          <span>{t("flights:journeyPage.figDistanceSub")}</span>
-        )}
-        {knownLegs > 0 && distance.unknownLegs > 0 && (
-          <span>
-            {t("flights:journeyPage.figDistanceSubLower", { count: distance.unknownLegs })}
-          </span>
-        )}
-        {cities.airportsWithoutCity > 0 && (
-          <span>
-            {t("flights:journeyPage.figCitiesSub", { count: cities.airportsWithoutCity })}
-          </span>
-        )}
-      </div>
-    </div>
+    <FigureBand
+      cells={figures}
+      // Seven cells, two / four / seven. The trailing seventh spans its row's
+      // remainder (see `FigureBand.spanClasses`); four across `sm` keeps the
+      // band TWO rows, the shape the roadtrip band has.
+      columns={[2, 4, 7]}
+      caption={
+        <>
+          {/* Shown whenever the sum is DERIVED, even when a leg is also missing:
+              the `~` on the value marks the derivation, and dropping this
+              caption the moment one leg had no distance would leave the
+              derivation stated only on hover (owner, 2026-10-08). The marker
+              stays: the roadtrip band has none because its distance is
+              measured or routed, and matching its look must never mean
+              dropping this one. */}
+          {knownLegs > 0 && distance.estimated && (
+            <span>{t("flights:journeyPage.figDistanceSub")}</span>
+          )}
+          {knownLegs > 0 && distance.unknownLegs > 0 && (
+            <span>
+              {t("flights:journeyPage.figDistanceSubLower", { count: distance.unknownLegs })}
+            </span>
+          )}
+          {cities.airportsWithoutCity > 0 && (
+            <span>
+              {t("flights:journeyPage.figCitiesSub", { count: cities.airportsWithoutCity })}
+            </span>
+          )}
+        </>
+      }
+    />
   );
 }

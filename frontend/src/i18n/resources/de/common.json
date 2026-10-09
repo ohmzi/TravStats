@@ -318,7 +318,11 @@
     "places_other": "Orte",
     "visited": "Besucht",
     "countries_one": "Land",
-    "countries_other": "Länder"
+    "countries_other": "Länder",
+    "journey": "Reise",
+    "album": "Album",
+    "albumSub_one": "{{count}} Foto",
+    "albumSub_other": "{{count}} Fotos"
   },
   "continents": {
     "africa": "Afrika",

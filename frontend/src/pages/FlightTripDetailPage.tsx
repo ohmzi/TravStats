@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, JSX } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import AppShell from "../components/ui/AppShell";
+import ActionLink from "../components/ui/ActionLink";
 import Button from "../components/ui/Button";
 import DetailHeader from "../components/ui/DetailHeader";
 import EmptyState from "../components/ui/EmptyState";
@@ -25,6 +26,8 @@ import { sortFlightsByLegOrder } from "../lib/flightLegSort";
 import { useTodayZone } from "../hooks/useTodayZone";
 import { todayIn } from "../shared/time";
 import { roadtripPhase } from "../lib/roadtrip/roadtripView";
+import { phasePillColor } from "../lib/detailPhase";
+import { DETAIL_MAP_BOX_RADIUS, DETAIL_MAP_STICKY_TOP } from "../lib/detailChrome";
 import { distinctAirports } from "../lib/flights/journeyFigures";
 import type { Trip } from "../types";
 
@@ -185,6 +188,11 @@ export default function FlightTripDetailPage(): JSX.Element {
             : ""
         }`;
 
+  // The subtitle keeps its own shape — a date span, then counts — rather than
+  // the roadtrip page's vehicle · dates · in-trip link: a journey has no
+  // vehicle, and it IS the trip, so there is no "part of the trip" to name. The
+  // span and the " · " join are the SAME builders the roadtrip page uses; only
+  // what goes between them differs, which is what the subject decides.
   const subtitle = [
     span,
     `${nf.format(flights.length)} ${t("common:summary.flights", { count: flights.length })}`,
@@ -193,28 +201,21 @@ export default function FlightTripDetailPage(): JSX.Element {
     .filter(Boolean)
     .join(" · ");
 
-  // A phase, not a status column: the same three states the roadtrip page
-  // names, read off the trip's own dates against today.
+  // A phase, not a status column, and the SAME rule the roadtrip page applies:
+  // planned and underway earn a pill, past and undated earn none. `past` is
+  // deliberately absent — a finished journey reads as finished from its date
+  // span, exactly as a finished roadtrip does, and the roadtrip page is the
+  // reference the owner pointed at. The colour comes from `phasePillColor`, so
+  // the two pages cannot disagree about which phase draws what again.
+  const pillColor = phasePillColor(phase);
   const status =
-    phase === "planned" ? (
-      <Pill color="var(--ts-info)">{t("flights:journeyPage.phase.planned")}</Pill>
-    ) : phase === "underway" ? (
-      <Pill color="var(--ts-good)">{t("flights:journeyPage.phase.underway")}</Pill>
-    ) : phase === "past" ? (
-      <Pill color="var(--ts-muted)">{t("flights:journeyPage.phase.past")}</Pill>
-    ) : undefined;
-
-  const outlineAction: CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    minHeight: "var(--ts-size-touch-min)",
-    padding: "0 14px",
-    borderRadius: "var(--ts-radius-button)",
-    border: "1px solid var(--ts-border-button)",
-    color: "var(--ts-text)",
-    textDecoration: "none",
-    fontSize: 14,
-  };
+    pillColor === null ? undefined : (
+      <Pill color={pillColor}>
+        {phase === "underway"
+          ? t("flights:journeyPage.phase.underway")
+          : t("flights:journeyPage.phase.planned")}
+      </Pill>
+    );
 
   const tabStyle = (active: boolean): CSSProperties => ({
     background: "none",
@@ -222,28 +223,32 @@ export default function FlightTripDetailPage(): JSX.Element {
     cursor: "pointer",
     padding: "8px 0",
     color: active ? "var(--ts-text-bright)" : "var(--ts-muted)",
-    borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
+    borderBottom: active ? "2px solid var(--ts-accent)" : "2px solid transparent",
   });
 
   return (
     <AppShell width="table">
       <DetailHeader
         backTo="/flights"
+        // "Logbook · Flights", the label the four sibling detail pages use for
+        // an entry that belongs to the Logbook (`FlightDetailPage`,
+        // `CruiseDetailPage`, `LodgingDetailPage`, `PlaceDetailPage`). The
+        // roadtrip page's "Roadtrips" names its own top-level section, not a
+        // Logbook area — so this is a difference the two pages are RIGHT to
+        // keep, not one to erase for the look of it (owner, 2026-10-08).
         backLabel={t("flights:detail.backToLogbook")}
         domain="flight"
-        icon={
-          <span style={{ fontFamily: "var(--ts-font-mono)", fontSize: 20, fontWeight: 800 }}>
-            ✈
-          </span>
-        }
+        // The domain's line icon, as every other detail page draws (`caravan`
+        // on the roadtrip page, `plane` here — `ui/domainIcons.ts`). It was a
+        // raw "✈" glyph in the same 48px tile, the last emoji-style mark in a
+        // header.
+        icon={<Icon name="plane" size={24} />}
         title={trip.name}
         status={status}
         subtitle={<span>{subtitle}</span>}
         actions={
           <div className="flex flex-wrap" style={{ gap: 8 }}>
-            <Link to={`/trips/${trip.id}`} style={outlineAction}>
-              {t("flights:detail.openTrip")}
-            </Link>
+            <ActionLink to={`/trips/${trip.id}`}>{t("flights:detail.openTrip")}</ActionLink>
             <Button
               variant="primary"
               icon={<Icon name="pencil" size={16} />}
@@ -261,15 +266,33 @@ export default function FlightTripDetailPage(): JSX.Element {
       {/* Two ways to read one journey. The count is the second tab's name
           (owner: "when user taps the flights number"), so the number leads and
           the noun comes from the shared plural-aware summary label — "3
-          Flights", or "1 Flight" for a single leg. */}
+          Flights", or "1 Flight" for a single leg.
+
+          The strip is the page's OWN furniture, the flight page's one
+          difference from the roadtrip page that the owner asked for (a table
+          behind a tab, 2026-10-08) — a roadtrip has no second view to hide. It
+          is built like the band's labels (`t-label-mono`) and every other strip
+          (`var(--ts-accent)`, a `--ts-space-*` margin), so it reads as this
+          page's furniture rather than as a fourth design.
+
+          Its first tab names the VIEW ("Route" — the timeline and the map),
+          while the list under it is headed by its OWN noun ("Airports",
+          `routeHeading`); the two are separate keys on purpose, so neither word
+          drags the other along. */}
       <div
         role="tablist"
-        className="mt-6 flex items-center"
-        style={{ gap: "var(--ts-space-lg)", borderBottom: "1px solid var(--ts-border)" }}
+        aria-label={t("flights:journeyPage.tabsLabel")}
+        className="flex items-center"
+        style={{
+          marginTop: "var(--ts-space-xl)",
+          gap: "var(--ts-space-lg)",
+          borderBottom: "1px solid var(--ts-border)",
+        }}
       >
         <button
           type="button"
           role="tab"
+          id="journey-tab-route"
           aria-selected={!showTable}
           className="t-label-mono"
           style={tabStyle(!showTable)}
@@ -280,6 +303,7 @@ export default function FlightTripDetailPage(): JSX.Element {
         <button
           type="button"
           role="tab"
+          id="journey-tab-table"
           aria-selected={showTable}
           className="t-label-mono"
           style={tabStyle(showTable)}
@@ -304,7 +328,11 @@ export default function FlightTripDetailPage(): JSX.Element {
         extracted `FlightsTablePanel`, so a flight number still opens the
         flight's page exactly as it does at /flights.
       */}
-      <div role="tabpanel" style={{ marginTop: "var(--ts-space-xl)" }}>
+      <div
+        role="tabpanel"
+        aria-labelledby={showTable ? "journey-tab-table" : "journey-tab-route"}
+        style={{ marginTop: "var(--ts-space-xl)" }}
+      >
         {showTable ? (
           <FlightsTablePanel
             lockedTripId={trip.id}
@@ -317,10 +345,13 @@ export default function FlightTripDetailPage(): JSX.Element {
             style={{ gap: "var(--ts-space-xl)" }}
           >
             <section className="order-2 flex min-w-0 flex-col lg:order-1" style={{ gap: 8 }}>
-              {/* The roadtrip body this mirrors heads its timeline with an h2
-                  (`RoadtripDetailPage`'s "Stations"); the route body needs the
-                  same so the two pages read alike (owner, 2026-10-08). */}
-              <h2 className="t-card-title">{t("flights:journeyPage.tabRoute")}</h2>
+              {/* The roadtrip body this mirrors heads its timeline with the
+                  noun for its markers ("Stations"); a journey's markers are
+                  airports, so the parallel heading is "Airports" — its own key,
+                  not the tab's "Route", so changing one cannot silently change
+                  the other. "Route" was the other candidate and was not taken:
+                  it names the tab's idea, not the list's (owner, 2026-10-08). */}
+              <h2 className="t-card-title">{t("flights:journeyPage.routeHeading")}</h2>
               <FlightLegTimeline
                 flights={orderedFlights}
                 selectedKey={selected?.key ?? null}
@@ -330,12 +361,12 @@ export default function FlightTripDetailPage(): JSX.Element {
 
             <aside
               className="order-1 flex flex-col lg:sticky lg:order-2"
-              style={{ gap: 8, top: 72 }}
+              style={{ gap: 8, top: DETAIL_MAP_STICKY_TOP }}
             >
               <div
                 className="overflow-hidden"
                 style={{
-                  borderRadius: 20,
+                  borderRadius: DETAIL_MAP_BOX_RADIUS,
                   border: "1px solid var(--ts-border)",
                   height: "min(640px, calc(100vh - 96px))",
                   minHeight: 380,
@@ -343,6 +374,9 @@ export default function FlightTripDetailPage(): JSX.Element {
               >
                 <TripMap trip={mapContent} extraLayers={highlight} />
               </div>
+              {/* The noun differs from the roadtrip page's "station" only
+                  because the markers do; the sentence, its punctuation and its
+                  place under the map are the same. */}
               <span className="t-caption">{t("flights:journeyPage.tabMapHint")}</span>
             </aside>
           </div>

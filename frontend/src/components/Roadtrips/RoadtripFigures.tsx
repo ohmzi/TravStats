@@ -1,20 +1,11 @@
-import type { JSX, ReactNode } from "react";
+import type { JSX } from "react";
 import { Link } from "react-router-dom";
 
+import FigureBand, { type FigureBandCell } from "../ui/FigureBand";
 import { Icon } from "../ui/Icon";
 import { useTranslation } from "../../hooks/useTranslation";
 import { daysAhead, spanDays } from "../../lib/roadtrip/roadtripView";
 import type { RoadtripDetail } from "../../types/roadtrip";
-
-interface Figure {
-  key: string;
-  label: string;
-  /** A figure may be a LINK — the journey it belongs to, its album. */
-  value: ReactNode;
-  sub?: string;
-  title?: string;
-  hue?: string;
-}
 
 /**
  * The figures band of a roadtrip (board 2): driven, days, places slept,
@@ -26,6 +17,12 @@ interface Figure {
  * cell that is an ENTRY POINT is always drawn, saying "N/A" when there is
  * nothing to point at, because an absent entry point and a hidden one read the
  * same otherwise.
+ *
+ * The band itself is `FigureBand`, shared with the flight journey's band so the
+ * two cannot drift apart (owner, 2026-10-08: "match the flight page to the
+ * road trip page"). Its journey and album cells read the SAME keys the journey
+ * band reads (`common:summary.*`): both bands put the same two words on the
+ * same two entry points, and one key set is what keeps them the same.
  *
  * NIGHTS AND DAY TOURS LEAVE THE BAND (owner, 2026-10-08): the nights restate
  * the same stretch of time as Days — "12 days" against "11 nights" — so Days
@@ -41,7 +38,7 @@ export default function RoadtripFigures({
   detail: RoadtripDetail;
   today: string;
 }): JSX.Element {
-  const { t, i18n } = useTranslation(["roadtrips"]);
+  const { t, i18n } = useTranslation(["roadtrips", "common"]);
   const nf = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 });
   const r = detail.roadtrip;
   const n = detail.nights;
@@ -60,7 +57,7 @@ export default function RoadtripFigures({
       ? t("roadtrips:detail.figDrivenSub", { km: nf.format(r.distanceKm) })
       : undefined;
 
-  const figures: Figure[] = [
+  const figures: FigureBandCell[] = [
     {
       key: "driven",
       label: over ? t("roadtrips:detail.figDriven") : t("roadtrips:detail.figRoute"),
@@ -98,7 +95,9 @@ export default function RoadtripFigures({
     // "not shown".
     {
       key: "journey",
-      label: t("roadtrips:detail.figJourney"),
+      // The same two words as the journey band's two cells (see the header):
+      // one key set, so "Journey"/"Album" cannot mean two things.
+      label: t("common:summary.journey"),
       value: journey ? (
         <Link to={`/trips/${journey.id}`}>{journey.name}</Link>
       ) : (
@@ -107,71 +106,39 @@ export default function RoadtripFigures({
     },
     {
       key: "album",
-      label: t("roadtrips:detail.figAlbum"),
+      label: t("common:summary.album"),
       value:
         album && journey ? (
           <Link to={`/trips/${journey.id}?tab=gallery`}>{album.albumName}</Link>
         ) : (
           t("common:labels.notAvailable")
         ),
-      sub: album ? t("roadtrips:detail.figAlbumSub", { count: album.assetCount }) : undefined,
+      sub: album ? t("common:summary.albumSub", { count: album.assetCount }) : undefined,
     },
   ];
 
   return (
-    <div className="flex flex-col" style={{ gap: "var(--ts-space-sm)" }}>
-      <dl
-        className="grid grid-cols-2 overflow-hidden sm:grid-cols-3 xl:grid-cols-6"
-        style={{
-          gap: 1,
-          background: "var(--ts-border)",
-          border: "1px solid var(--ts-border)",
-          borderRadius: "var(--ts-radius-card)",
-        }}
-      >
-        {figures.map((f) => (
-          <div
-            key={f.key}
-            className="flex min-w-0 flex-col"
-            style={{ background: "var(--ts-surface)", padding: "var(--ts-space-lg)", gap: 4 }}
-            title={f.title}
-          >
-            <dt className="t-label-mono">{f.label}</dt>
-            <dd
-              style={{
-                margin: 0,
-                fontFamily: "var(--ts-font-mono)",
-                fontSize: 22,
-                fontWeight: 600,
-                color: f.hue ?? "var(--ts-text-bright)",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              {f.value}
-            </dd>
-            {f.sub && (
-              <dd className="t-caption" style={{ margin: 0 }}>
-                {f.sub}
-              </dd>
-            )}
-          </div>
-        ))}
-      </dl>
-      <div className="flex flex-wrap items-center t-caption" style={{ gap: "var(--ts-space-lg)" }}>
-        {r.startOdometerKm !== null && (
-          <span className="flex items-center" style={{ gap: 6 }}>
-            <Icon name="gauge" size={16} />
-            {t("roadtrips:detail.odometer", {
-              from: nf.format(r.startOdometerKm),
-              to:
-                r.endOdometerKm !== null
-                  ? nf.format(r.endOdometerKm)
-                  : t("roadtrips:detail.odometerOpen"),
-            })}
-          </span>
-        )}
-        {!detail.routingAvailable && <span>{t("roadtrips:detail.noRouting")}</span>}
-      </div>
-    </div>
+    <FigureBand
+      cells={figures}
+      // Six cells, two / three / six — the band's own cadence, unchanged.
+      columns={[2, 3, 6]}
+      caption={
+        <>
+          {r.startOdometerKm !== null && (
+            <span className="flex items-center" style={{ gap: 6 }}>
+              <Icon name="gauge" size={16} />
+              {t("roadtrips:detail.odometer", {
+                from: nf.format(r.startOdometerKm),
+                to:
+                  r.endOdometerKm !== null
+                    ? nf.format(r.endOdometerKm)
+                    : t("roadtrips:detail.odometerOpen"),
+              })}
+            </span>
+          )}
+          {!detail.routingAvailable && <span>{t("roadtrips:detail.noRouting")}</span>}
+        </>
+      }
+    />
   );
 }

@@ -224,4 +224,27 @@ describe("FlightTripDetailPage", () => {
     fireEvent.click(row.querySelector("button") as HTMLElement);
     expect(await screen.findByTestId("flight-page")).toBeInTheDocument();
   });
+
+  it("keeps the Logbook back label, as the four sibling detail pages do", async () => {
+    renderAt("/flights/journeys/t1");
+    await screen.findAllByText("Baltic 2026");
+    // Deliberately NOT "Flights" to match the roadtrip page's "Roadtrips": the
+    // journey belongs to the Logbook, and four siblings say "Logbook · …". See
+    // the `backLabel` comment on the page.
+    expect(screen.getByText("flights:detail.backToLogbook")).toBeInTheDocument();
+  });
+
+  it("draws no status pill for a journey in the past, as the roadtrip page draws none", async () => {
+    getById.mockResolvedValue(
+      makeTrip({ startDate: "2000-06-01T00:00:00.000Z", endDate: "2000-06-05T00:00:00.000Z" })
+    );
+    renderAt("/flights/journeys/t1");
+    await screen.findAllByText("Baltic 2026");
+    // A past journey reads as past from its date span; the grey "PAST" pill the
+    // journey page used to add has no counterpart on the roadtrip page (owner,
+    // 2026-10-08).
+    expect(screen.queryByText("flights:journeyPage.phase.past")).toBeNull();
+    expect(screen.queryByText("flights:journeyPage.phase.planned")).toBeNull();
+    expect(screen.queryByText("flights:journeyPage.phase.underway")).toBeNull();
+  });
 });
