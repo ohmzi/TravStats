@@ -68,6 +68,13 @@ describe("Immich API key scope hint for trip albums", () => {
         expect(hint as string).toContain(scope);
       }
     });
+
+    it(`marks itself as the exception to the read-only line above it in ${lang}`, () => {
+      // The card renders this directly under `apiKeyScopes`, which ends "read-only,
+      // nothing beyond that". Without a marker the two lines contradict each other.
+      const hint = (bundle as Record<string, unknown>).apiKeyScopesAlbums as string;
+      expect(hint).toMatch(lang === "de" ? /Ausnahme/ : /exception/i);
+    });
   }
 });
 
