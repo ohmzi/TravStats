@@ -18,9 +18,15 @@ vi.setConfig({ testTimeout: 20_000 });
 
 /**
  * FlightsTablePage pulls in many heavy siblings (filters, modals, table
- * cells). None of them matter for this test — only the header's link to
- * the central import hub does — so every sibling is stubbed at the module
+ * cells). None of them matter for this test — only the link to the central
+ * import hub and the paging do — so every sibling is stubbed at the module
  * boundary, following the CruisesPage.test.tsx convention.
+ *
+ * The page is two views since 2026-10-08 (owner): the journey cards, which are
+ * the front door at `/flights`, and the logbook's table at `/flights?view=table`
+ * (now `FlightsTablePanel`). The table tests below open the table view on
+ * purpose; opening the bare page lands on the cards, which load through
+ * `lib/api/flights` and never draw the rows or the pager these tests are about.
  */
 vi.mock("../../components/NavigationBar", () => ({
   default: () => <div data-testid="nav-bar-stub" />,
@@ -48,6 +54,7 @@ vi.mock("../../components/Training/ConfirmModal", () => ({
 
 vi.mock("../../components/SkeletonLoader", () => ({
   SkeletonTable: () => <div data-testid="skeleton-table-stub" />,
+  SkeletonStatCards: () => <div data-testid="skeleton-stat-cards-stub" />,
 }));
 
 // Mock framer-motion to avoid animation-triggered state updates outside
@@ -65,6 +72,13 @@ vi.mock("../../store/toastStore", () => ({
     selector({ addToast: vi.fn() }),
 }));
 
+// The card view imports `flightsApi` from this module directly rather than
+// through the `lib/api` barrel below, so the barrel mock does not cover it —
+// the forgejo#110 trap: `getEvery()` would reach the network, which setup.ts
+// turns into a failure.
+const getEvery = vi.hoisted(() => vi.fn());
+vi.mock("../../lib/api/flights", () => ({ flightsApi: { getEvery } }));
+
 vi.mock("../../lib/api", () => ({
   flightsApi: {
     getAll: vi.fn(),
@@ -74,6 +88,9 @@ vi.mock("../../lib/api", () => ({
     getAll: vi.fn(),
   },
 }));
+
+/** The logbook's table view — the one with the rows, the pager and the filter bar. */
+const TABLE_VIEW = ["/flights?view=table"];
 
 describe("FlightsTablePage", () => {
   it("links to the central import hub in settings", async () => {
@@ -91,7 +108,7 @@ describe("FlightsTablePage", () => {
     vi.mocked(tripsApi.getAll).mockResolvedValue([]);
 
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={TABLE_VIEW}>
         <FlightsTablePage />
       </MemoryRouter>
     );
@@ -145,7 +162,7 @@ describe("FlightsTablePage", () => {
     vi.mocked(tripsApi.getAll).mockResolvedValue([]);
 
     const { container } = render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={TABLE_VIEW}>
         <FlightsTablePage />
       </MemoryRouter>
     );
@@ -161,5 +178,27 @@ describe("FlightsTablePage", () => {
     expect(paginationControlsRendered()).toBe(true);
     // The FULL filtered count (63), not the 50 rows the page renders.
     expect(screen.getByText("63")).toBeInTheDocument();
+  });
+
+  // The cards are the front door, and wear the same footer as the table
+  // (5d295e0c0: "the footer, with the import link and the way to the other
+  // view, is at the foot of both") — so the hub link must not exist on one
+  // side only.
+  it("links to the same import hub from the card view, with the way across to the table", async () => {
+    getEvery.mockResolvedValue([]);
+
+    render(
+      <MemoryRouter initialEntries={["/flights"]}>
+        <FlightsTablePage />
+      </MemoryRouter>
+    );
+
+    const link = await screen.findByRole("link", { name: /settings:import.openHub/ });
+    expect(link.getAttribute("href")).toBe("/settings/data?section=import");
+    expect(screen.getByRole("link", { name: /flights:journeyCard.viewTable/ })).toHaveAttribute(
+      "href",
+      "/flights?view=table"
+    );
+    expect(getEvery).toHaveBeenCalled();
   });
 });
