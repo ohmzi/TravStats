@@ -47,3 +47,51 @@ describe("Immich API key scope hint", () => {
     });
   }
 });
+
+/**
+ * Trip albums are the one WRITE TravStats makes to Immich, so they need three
+ * permissions beyond the read-only list above. They live in their own string so
+ * `apiKeyScopes` stays honest about what browsing a library needs, and its
+ * "does not promise album.create" guard keeps holding.
+ */
+const ALBUM_SCOPES = ["album.read", "album.create", "albumAsset.create"] as const;
+
+describe("Immich API key scope hint for trip albums", () => {
+  for (const [lang, bundle] of [
+    ["de", de],
+    ["en", en],
+  ] as const) {
+    it(`names every album permission in ${lang}`, () => {
+      const hint = (bundle as Record<string, unknown>).apiKeyScopesAlbums;
+      expect(typeof hint).toBe("string");
+      for (const scope of ALBUM_SCOPES) {
+        expect(hint as string).toContain(scope);
+      }
+    });
+  }
+});
+
+describe("Immich settings copy for the connection test", () => {
+  for (const [lang, bundle] of [
+    ["de", de],
+    ["en", en],
+  ] as const) {
+    it(`explains the container address hint in ${lang}`, () => {
+      const hint = (bundle as Record<string, unknown>).urlHintContainer;
+      expect(typeof hint).toBe("string");
+      expect(hint as string).toContain("http://immich_server:2283");
+      expect(hint as string).toContain("localhost");
+    });
+
+    it(`words every state of the album capability line in ${lang}`, () => {
+      const capability = (bundle as Record<string, unknown>).capability as
+        Record<string, unknown> | undefined;
+      expect(capability).toBeDefined();
+      for (const state of ["canCreate", "missingScopes", "sharedConnection", "unverified"]) {
+        expect(typeof capability?.[state]).toBe("string");
+      }
+      // The missing-scopes line is the only one that lists scopes.
+      expect(capability?.missingScopes as string).toContain("{{scopes}}");
+    });
+  }
+});

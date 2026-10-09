@@ -3,9 +3,11 @@
   "subtitle": "Fotos aus deiner eigenen Immich-Instanz verknüpfen",
   "baseUrl": "Server-URL",
   "baseUrlPlaceholder": "https://immich.example.com",
+  "urlHintContainer": "In Docker nimmst du die Container-Adresse, z. B. http://immich_server:2283; localhost funktioniert dort nicht.",
   "apiKey": "API-Schlüssel",
   "apiKeyPlaceholder": "In Immich unter Konto → API-Schlüssel erstellen",
   "apiKeyScopes": "Benötigte Berechtigungen: album.read, asset.read, asset.view, asset.download, user.read. album.read allein genügt nicht — die Bilder eines Albums hängen an den Asset-Rechten. Lesend, mehr braucht TravStats nicht.",
+  "apiKeyScopesAlbums": "Für Reisealben vergibst du zusätzlich album.read, album.create und albumAsset.create.",
   "apiKeyStored": "Ein Schlüssel ist gespeichert",
   "clearKey": "Schlüssel entfernen",
   "save": "Speichern",
@@ -19,6 +21,12 @@
   "modeImport": "Kopieren",
   "modeLinkHint": "Fotos bleiben in Immich — kein zusätzlicher Speicher.",
   "modeImportHint": "Fotos werden kopiert und liegen im Backup.",
+  "capability": {
+    "canCreate": "Kann Reisealben anlegen ✓",
+    "missingScopes": "Für Alben fehlt: {{scopes}}",
+    "sharedConnection": "Alben nur mit deinem eigenen Schlüssel",
+    "unverified": "Berechtigungen konnten nicht geprüft werden"
+  },
   "albums": {
     "link": "Immich-Album verknüpfen",
     "pickerTitle": "Alben auswählen",

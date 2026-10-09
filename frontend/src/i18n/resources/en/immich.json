@@ -3,9 +3,11 @@
   "subtitle": "Link photos from your own Immich instance",
   "baseUrl": "Server URL",
   "baseUrlPlaceholder": "https://immich.example.com",
+  "urlHintContainer": "Inside Docker use the container address, e.g. http://immich_server:2283; localhost won't work.",
   "apiKey": "API key",
   "apiKeyPlaceholder": "Create one in Immich under Account → API Keys",
   "apiKeyScopes": "Required permissions: album.read, asset.read, asset.view, asset.download, user.read. album.read alone is not enough — an album's pictures sit behind the asset permissions. Read-only; TravStats needs nothing beyond that.",
+  "apiKeyScopesAlbums": "For trip albums also grant album.read, album.create, albumAsset.create.",
   "apiKeyStored": "A key is stored",
   "clearKey": "Remove key",
   "save": "Save",
@@ -19,6 +21,12 @@
   "modeImport": "Copy",
   "modeLinkHint": "Photos stay in Immich — no extra storage.",
   "modeImportHint": "Photos are copied and included in backups.",
+  "capability": {
+    "canCreate": "Can create trip albums ✓",
+    "missingScopes": "Albums need: {{scopes}}",
+    "sharedConnection": "Albums only with your own key",
+    "unverified": "Couldn't verify permissions"
+  },
   "albums": {
     "link": "Link Immich album",
     "pickerTitle": "Select albums",
