@@ -225,8 +225,6 @@
     "figRoadtrips_other": "roadtrips",
     "figDrives_one": "drive",
     "figDrives_other": "drives",
-    "figTours_one": "tour",
-    "figTours_other": "tours",
     "kmUnknown": "No leg yet — that takes two stations.",
     "nightsApprox": "At least one station has no departure date.",
     "emptyTitle": "No roadtrip yet",

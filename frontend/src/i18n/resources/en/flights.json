@@ -243,9 +243,6 @@
     "loadError": "The flights could not be loaded."
   },
   "journeyCard": {
-    "flights_one": "{{count}} flight",
-    "flights_other": "{{count}} flights",
-    "airports": "airports",
     "allJourneys": "All journeys",
     "untripped": "Flights without a journey",
     "search": "Journey, airport or country",
@@ -495,10 +492,7 @@
     "figDistanceNone": "No leg of this journey records a distance",
     "figDistanceTitle": "Derived from the great-circle chord between each leg's airports, not the path flown — {{derived}} derived, {{live}} recorded",
     "figNights": "Nights",
-    "figNightsSub_one": "from {{count}} stay",
-    "figNightsSub_other": "from {{count}} stays",
-    "figNightsNone": "No stay recorded on this journey",
-    "figNightsApprox": "“≈” means a stay has no dates and counts as one night",
+    "figNightsNone": "No dated flight on this journey.",
     "figCities": "Cities",
     "figCitiesSub_one": "one airport has no city",
     "figCitiesSub_other": "{{count}} airports have no city",

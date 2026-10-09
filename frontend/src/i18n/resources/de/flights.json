@@ -243,9 +243,6 @@
     "loadError": "Die Flüge konnten nicht geladen werden."
   },
   "journeyCard": {
-    "flights_one": "{{count}} Flug",
-    "flights_other": "{{count}} Flüge",
-    "airports": "Flughäfen",
     "allJourneys": "Alle Reisen",
     "untripped": "Flüge ohne Reise",
     "search": "Reise, Flughafen oder Land",
@@ -495,10 +492,7 @@
     "figDistanceNone": "Kein Flug dieser Reise hat eine Distanz",
     "figDistanceTitle": "Aus der Großkreis-Sehne zwischen den Flughäfen jeder Etappe abgeleitet, nicht aus der geflogenen Strecke — {{derived}} abgeleitet, {{live}} aufgezeichnet",
     "figNights": "Nächte",
-    "figNightsSub_one": "aus {{count}} Aufenthalt",
-    "figNightsSub_other": "aus {{count}} Aufenthalten",
-    "figNightsNone": "Kein Aufenthalt für diese Reise erfasst",
-    "figNightsApprox": "„≈“ heißt: Ein Aufenthalt hat kein Datum und zählt als eine Nacht",
+    "figNightsNone": "Kein datierter Flug für diese Reise.",
     "figCities": "Städte",
     "figCitiesSub_one": "ein Flughafen hat keine Stadt",
     "figCitiesSub_other": "{{count}} Flughäfen haben keine Stadt",

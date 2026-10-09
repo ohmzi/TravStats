@@ -296,6 +296,8 @@
     "airports_other": "Airports",
     "cities_one": "City",
     "cities_other": "Cities",
+    "cardNights_one": "Night",
+    "cardNights_other": "Nights",
     "cruises_one": "Cruise",
     "cruises_other": "Cruises",
     "portCalls_one": "Port call",

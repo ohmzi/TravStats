@@ -46,9 +46,27 @@ function Figure({
 
 /**
  * One roadtrip in the list (design 2026-09-25, board 1): the route sketch,
- * the vehicle, the name, when and where, and four figures. A figure that is
- * not known is a dash with its reason on hover — never a zero — and a night
- * count that is only a lower bound carries "≈".
+ * the vehicle, the name, when and where, and three figures — km, nights and
+ * cities (owner, 2026-10-08). A figure that is not known is a dash with its
+ * reason on hover — never a zero — and a night count that is only a lower
+ * bound carries "≈".
+ *
+ * CITIES is not a station count (owner, 2026-10-08): it is the distinct STATION
+ * TITLES the row carries, the same field the roadtrips list strip unions across
+ * its rows. A title is free text, so "Oakville" and "Oakville, Ontario" count as
+ * two and a wild-camp station counts as one; the owner was shown that and
+ * accepted it. A roadtrip with no titled station prints a real 0, unlike the
+ * flight card, which dashes when no airport can name a city — a known empty
+ * against an unknown one; do not unify them (owner, 2026-10-08).
+ *
+ * THE ROW IS THE LIST STRIP'S RULE AT ROW SCALE. Its nights read the shared
+ * `common:summary.cardNights` — the one key both journey cards use, so they
+ * cannot spell the same figure two ways — and its cities the shared
+ * `common:summary.cities` over `cityNames`, the field the strip unions. The
+ * detail page's figures band is a DIFFERENT surface and keeps its own cells (it
+ * has a "slept in" figure the card never had, and drops nights where the card
+ * keeps them) — that difference is deliberate, not something to "fix" into
+ * agreement.
  */
 export default function RoadtripCard({
   roadtrip: r,
@@ -57,7 +75,7 @@ export default function RoadtripCard({
   roadtrip: RoadtripSummary;
   phase: RoadtripPhase;
 }): JSX.Element {
-  const { t, i18n } = useTranslation(["roadtrips"]);
+  const { t, i18n } = useTranslation(["roadtrips", "common"]);
   const navigate = useNavigate();
   const span = useRoadtripSpan();
   const nf = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 });
@@ -145,7 +163,7 @@ export default function RoadtripCard({
           )}
         </span>
         <div
-          className="grid grid-cols-4"
+          className="grid grid-cols-3"
           style={{
             gap: "var(--ts-space-sm)",
             paddingTop: "var(--ts-space-sm)",
@@ -159,16 +177,12 @@ export default function RoadtripCard({
           />
           <Figure
             value={`${r.nightsKnown ? "" : "≈ "}${nf.format(r.nights)}`}
-            label={t("roadtrips:list.figNights", { count: r.nights })}
+            label={t("common:summary.cardNights", { count: r.nights })}
             title={r.nightsKnown ? undefined : t("roadtrips:list.nightsApprox")}
           />
           <Figure
-            value={nf.format(r.stationCount)}
-            label={t("roadtrips:list.figStations", { count: r.stationCount })}
-          />
-          <Figure
-            value={<span style={{ color: "var(--accent)" }}>{nf.format(r.tourCount)}</span>}
-            label={t("roadtrips:list.figTours", { count: r.tourCount })}
+            value={nf.format(r.cityNames.length)}
+            label={t("common:summary.cities", { count: r.cityNames.length })}
           />
         </div>
       </div>

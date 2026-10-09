@@ -296,6 +296,8 @@
     "airports_other": "Flughäfen",
     "cities_one": "Stadt",
     "cities_other": "Städte",
+    "cardNights_one": "Nacht",
+    "cardNights_other": "Nächte",
     "cruises_one": "Kreuzfahrt",
     "cruises_other": "Kreuzfahrten",
     "portCalls_one": "Hafenanlauf",

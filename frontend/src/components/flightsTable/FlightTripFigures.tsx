@@ -10,7 +10,7 @@ import {
   distinctAirports,
   distinctCities,
   journeyDistanceKm,
-  nightsFromStays,
+  journeyNights,
 } from "../../lib/flights/journeyFigures";
 import type { Trip } from "../../types";
 
@@ -32,9 +32,13 @@ import type { Trip } from "../../types";
  *    2026-10-08): two airports in one city are one city and two airports. It
  *    comes from the catalogue's own city, so a partial lookup is a lower bound
  *    and the caption says by how many airports.
- *  - the NIGHTS are the journey's recorded stays, and a journey with no stay
- *    is a dash with its reason — never the calendar span, never `days − 1`,
- *    which the owner has not ruled on (open question, 2026-10-08).
+ *  - the NIGHTS are the journey's SPAN — from the day it left to the day it
+ *    came back to the city it left from, or to the last arrival of a one-way
+ *    (owner, 2026-10-08). They are emphatically NOT the sum of its recorded
+ *    stays: that was the old rule and it is gone. A journey with no dated leg
+ *    to measure is a dash with its reason, never a fabricated number and never
+ *    `days − 1`; the fold is `journeyFigures.journeyNights`, shared with the
+ *    journey card so the two cannot disagree about the same journey.
  *
  * `onShowFlights` is the owner's "tap the flights number": the flights cell is
  * a button, not a link, because it swaps the page's BODY in place rather than
@@ -57,7 +61,7 @@ export default function FlightTripFigures({
   const distance = journeyDistanceKm(flights);
   const cities = distinctCities(flights);
   const airports = distinctAirports(flights);
-  const nights = nightsFromStays(trip.lodgingStays ?? []);
+  const nights = journeyNights(flights);
   const knownLegs = distance.liveLegs + distance.derivedLegs;
 
   // The band owns the MARKER, not the number: `distancePrefix` is shared with
@@ -69,7 +73,7 @@ export default function FlightTripFigures({
       ? "—"
       : `${distancePrefix(distance)}${formatDistance(distance.km, distanceUnit, t, i18n.language)}`;
 
-  const nightsValue = nights ? `${nights.approximate ? "≈ " : ""}${nf.format(nights.nights)}` : "—";
+  const nightsValue = nights === null ? "—" : nf.format(nights);
   const citiesValue = cities.count === 0 ? "—" : nf.format(cities.count);
 
   // A dash's reason belongs on hover (owner, 2026-10-08) — never a zero, and
@@ -96,12 +100,7 @@ export default function FlightTripFigures({
       key: "nights",
       label: t("flights:journeyPage.figNights"),
       value: nightsValue,
-      sub: nights ? t("flights:journeyPage.figNightsSub", { count: nights.stays }) : undefined,
-      title: nights
-        ? nights.approximate
-          ? t("flights:journeyPage.figNightsApprox")
-          : undefined
-        : t("flights:journeyPage.figNightsNone"),
+      title: nights === null ? t("flights:journeyPage.figNightsNone") : undefined,
     },
     {
       key: "cities",
@@ -184,7 +183,6 @@ export default function FlightTripFigures({
             {t("flights:journeyPage.figCitiesSub", { count: cities.airportsWithoutCity })}
           </span>
         )}
-        {nights?.approximate && <span>{t("flights:journeyPage.figNightsApprox")}</span>}
       </div>
     </div>
   );
