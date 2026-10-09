@@ -9,11 +9,13 @@
  */
 import type { Prisma } from "../../prisma";
 
+import { prisma } from "../../db";
 import { toLocal } from "../../shared/time/instant";
+import { toDbDate } from "../../shared/time/localDate";
 import { isValidZone } from "../../shared/time/zonedParts";
 import { addDays } from "../../shared/tour/builderNightPlan";
-import { flightEndZone } from "../stats/departureClock";
-import { FLIGHT_LIST_EARLY_DAYS } from "./thresholds";
+import { buildTzMap, flightEndZone } from "../stats/departureClock";
+import { FLIGHT_LIST_EARLY_DAYS, FLIGHT_LOAD_PAD_DAYS } from "./thresholds";
 import type { Day, FlightAnchor, ScanWindow } from "./types";
 
 /** The columns an anchor is built from, and nothing else. */
@@ -149,4 +151,30 @@ export function toFlightAnchor(
     defaultAssign: row.tripId === null || locked,
     locked,
   };
+}
+
+/**
+ * Every non-cancelled flight of the user that departs within FLIGHT_LOAD_PAD_DAYS of the window
+ * (decision 5: all of them are anchors), earliest departure first. `targetTripId` is the trip
+ * being re-synced, if any.
+ */
+export async function loadFlights(
+  userId: string,
+  window: ScanWindow,
+  targetTripId: string | null
+): Promise<FlightAnchor[]> {
+  const rows = await prisma.flight.findMany({
+    where: {
+      userId,
+      status: { not: "cancelled" },
+      departureTime: {
+        gte: toDbDate(addDays(window.startDay, -FLIGHT_LOAD_PAD_DAYS)),
+        lt: toDbDate(addDays(window.endDay, FLIGHT_LOAD_PAD_DAYS + 1)),
+      },
+    },
+    select: FLIGHT_ANCHOR_SELECT,
+    orderBy: [{ departureTime: "asc" }, { id: "asc" }],
+  });
+  const tzMap = await buildTzMap(rows);
+  return rows.map((row) => toFlightAnchor(row, tzMap, window, targetTripId));
 }
