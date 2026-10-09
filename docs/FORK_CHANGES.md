@@ -130,15 +130,24 @@ Cities come from the airport catalogue's own city, resolved by the server in the
 lookup that already rides back with the flight, so the count costs no per-code
 request from the browser. A journey where no airport resolves a city is a dash
 with its reason; a PARTIAL resolution is a lower bound, and the band says by how
-many airports it is short. (The roadtrip LIST says stations and not cities
-because a station's only name is free text — a single band has room to say what
-it counted, and answers differently.)
+many airports it is short. (A roadtrip has no normalized city either — a
+station's only name is free text — so its LIST counts CITIES as the distinct
+station titles its shown rows carry, unioned across them, with the same
+free-text caveat recorded in code. A single band has room to say what it counted
+and answers the same way.)
 
-**Nights are the journey's recorded stays, and nothing else.** A cancelled stay
-is a night that did not happen and is skipped whole. A journey with no stay — as
-a flight trip usually has — is a dash with its reason, never the calendar span and
-never `days − 1`: whether an untracked journey should count its calendar nights
-is an open question, and until it is settled the dash is the honest answer.
+**Nights are the journey's SPAN, not the sum of its stays** (owner, 2026-10-08).
+The legs are ordered by departure and walked; the journey ends at the first leg
+that arrives back at the city the first leg left from, so the count runs from the
+day of leaving to the day of returning. A journey that never comes back — a
+one-way — ends at the last arrival: start to end of journey. The figure is the
+whole calendar days between those two dates, read in UTC, so a 1 Oct departure
+returning on the 6th is five nights. A journey with no dated leg to measure is a
+dash with its reason, never a fabricated number and never `days − 1`. The one
+fold (`journeyNights`) feeds both the band and the journey card, so the two
+cannot disagree. The stays' own night sum is still folded (`nightsFromStays`) and
+still tested, but it is no longer the journey's nights and no surface shows it as
+such.
 
 The **journey** and **album** cells are entry points, and draw "N/A" rather than
 vanishing when they have nothing to point at — an absent entry point and a hidden
@@ -194,7 +203,7 @@ airlines, airports — is counted over what is currently shown, on both views.
 
 The roadtrip list was the one list in the app that answered "how many, of what"
 only by counting. It now leads with a summary line of three figures —
-**roadtrips, drives, stations** — folded from exactly the rows on screen, so the
+**roadtrips, drives, cities** — folded from exactly the rows on screen, so the
 line and the list beneath it cannot disagree. Planned roadtrips are included: the
 strip's promise is to describe what is shown, and the Planned section is part of
 what is shown. ("A planned roadtrip counts for nothing in any statistic" governs
@@ -210,13 +219,19 @@ bends. The count shares its allow-list with the card's kilometres
 drive and the count cannot drift from the distance. Legs are keyed by endpoint
 pair, so a repeated ordered pair — an out-and-back — is one drive, not two.
 
-**Why the third figure is stations and not cities.** A station's only name is
-free text; there is no normalized city on a station. This line speaks for many
-rows at once, so a free-text count of them would inflate without the reader being
-able to see why. Stations is the one number the row and the line can agree on,
-and that is the rule this strip keeps. (A single card is a different question: it
-has room to say what it counted, and may answer it differently. The list does
-not.)
+**Why the third figure is cities.** The owner asked for "how many cities i
+touched in all the road trips" (owner, 2026-10-08), so the figure is the UNION
+of the shown rows' city names, not a sum of their counts — one city touched by
+three roadtrips is one city. The grammar matches the flights strip, which counts
+distinct airlines and airports over the shown flights rather than summing them.
+A roadtrip has no normalized city — a station's only name is free text — so "a
+city" is a distinct station title: trimmed, empties skipped, deduplicated by the
+exact string. The owner was shown and accepted the caveat that "Oakville" and
+"Oakville, Ontario" count as two and that a wild-camp station counts as one; the
+rule lives in a code comment (`stationCityNames`), never in the label. The names
+are computed server-side over ALL stations (not the placed-only array the map
+markers read), so an unplaced station still names its city and the strip cannot
+undercount the card, which reads the same field.
 
 **Why there is no distance headline.** A leg with no drawn line and no routing
 is stored as the great-circle chord, and routing is optional per instance, so
@@ -228,6 +243,66 @@ its home on `/stats`, where its wording can say what it contains.
 The figures live in `lib/roadtrip/roadtripSummaryFigures.ts`, beside
 `flightSummaryFigures.ts` and `railSummaryFigures.ts`, so they are testable
 without rendering a page.
+
+### The two journey cards print the same row
+
+A roadtrip card and a flight-journey card used to answer "what is this, and how
+much of it?" with different figures in a different order — kilometres, nights,
+stations and day tours on one side; a flight count, an airports count and a
+distance on the other. Two cards that open pages built to look alike should read
+alike first, so the owner settled one row for both (owner, 2026-10-08): **km,
+nights, cities**, three cells in that order and nothing else.
+
+The cells that leave are as deliberate as the ones that stay. The flight card
+loses its flights and airports cells outright — "remove number of airports from
+the card of flight on logbook" — and the roadtrip card loses its stations and
+day-tours cells, stations collapsing into cities since the two differ only where
+two stations share a title or a spelling differs. None of those figures is gone
+from the app: the journey band and the roadtrip detail band keep their own
+cells, and the flights logbook strip keeps its own. A card and the page it opens
+are different surfaces and are meant to differ; a cell is not stripped from a
+band to make a card and a band agree.
+
+**km** is the distance the row already carries. On a roadtrip card that is
+`drivenKm`, the figure the detail band's "driven" cell also prints. On a flight
+card it is the sum of the journey's leg distances, folded by
+`journeyFigures.journeyDistanceKm` — the same fold the journeys page's band
+reads — and that sum is DERIVED, a line of great-circle chords rather than a
+path flown, unless a leg carries a recorded track. A derived sum is marked and
+never printed bare: `distancePrefix` puts `~` on it, and `≈` as well when a leg
+yielded no distance at all and the total is only a lower bound. This is the band's
+own marker (above) reused at row scale, so a card and the page a tap away cannot
+disagree about what one journey's number is.
+
+**nights** is the journey's span, not a sum of recorded stays. A flight card
+reads `journeyNights` — from the day the journey left to the day it came back to
+the city it left from, or, one-way, to the last arrival — the same fold the band
+reads. A roadtrip card reads the roadtrip's own nights and carries the `≈`
+marker when a station has no departure date and the total is only a lower bound.
+Both cards name the cell through the one shared key `common:summary.cardNights`,
+so the two cannot spell one figure two ways. (The stays' own night sum,
+`nightsFromStays`, still exists and is still tested, but it is no longer the
+journey's nights and no surface shows it as such.)
+
+**cities** is a different figure on each side, each counted by its own rule and
+each labelled through the shared key `common:summary.cities`. On a flight card it
+is the distinct cities OF the journey's airports (`distinctCities`, resolved from
+the airport catalogue) — deliberately not an airport count, since a journey can
+land twice in one city and then it is two airports and one city. On a roadtrip
+card it is the distinct station titles the row carries (`cityNames`, computed
+server-side by `stationCityNames`), the same field and rule the roadtrips list
+strip unions across its rows. A title is free text, so "Oakville" and "Oakville,
+Ontario" count as two and a wild-camp station counts as one; a via point is a
+bend in the route and never a place. The owner was shown that caveat and
+accepted it.
+
+**A figure that is not known is a dash, never a zero** — unless the zero is
+itself the truth. A flight card dashes each unknown with its reason on hover: no
+leg yields a distance, no dated leg to measure the nights, no airport names a
+city. A roadtrip card dashes the kilometres before there are two stations to make
+a leg, and its cities cell prints a real `0` for a row with no titled station,
+because that is a known empty and not an unknown count. The two cities cells
+diverge there on purpose — the data does — and are not to be "unified".
 
 ### Smaller things
 
