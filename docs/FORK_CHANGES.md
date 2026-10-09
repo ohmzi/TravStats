@@ -82,13 +82,92 @@ Two things worth knowing if you touch it:
 The card grid's route line is the routed path when one exists and the stations
 alone when it does not, so a section whose legs were never routed still draws.
 
-### A flight's page shows its journey
+### A journey has a page of its own
 
-A flight is one leg of a journey, and upstream's flight page knows nothing about
-its siblings. Here, a flight that belongs to a trip opens on that trip's
-breakdown — its figures, the map of every leg, and the journey's flights as
-rows, each linking to the next — with the flights table in a second tab. A flight
-belonging to no trip falls back to its own numbers and its own arc.
+Tapping a journey card in the Flights logbook used to drop the reader into the
+whole table filtered to that trip: a list of rows with no home for the journey
+itself. The card now opens the journey's own page at `/flights/journeys/:tripId`,
+shaped like the roadtrip detail page on purpose — a head bearing the name and the
+trip's edit affordances, a band of figures under it, then a body — so the two
+read as the same kind of page rather than as two designs side by side. The route
+sits under `/flights` as a static segment, so it can never collide with
+`/flights/:id` and the logbook stays lit. A flight with no trip has no journey and
+keeps opening its own page at `/flights/:id`.
+
+**The band** carries what a flight trip can answer — distance covered, nights,
+cities, airports, flights, then the journey and its album as entry points — and
+stays visible whichever body is shown. The folding lives in
+`lib/flights/journeyFigures.ts`, beside `flightSummaryFigures.ts`, so the rules
+are testable without rendering a band.
+
+**The distance is a sum of derived numbers, and says so.** A leg's distance is
+the great-circle chord stamped with the row unless the leg carries a recorded
+track (`routeSource` is `"live_tracking"`), so the sum is DERIVED and is marked
+`~`. The same fold and the same marker (`journeyFigures.distancePrefix`) feed the
+journey card a tap away, so a card and a band cannot print different figures for
+one journey. Two cases the marker keeps honest:
+
+- A leg with no distance at all — no stamp and no two real endpoints — is NOT a
+  zero. It adds nothing and the total reads `≈`, "at least this much", rather
+  than being lowered by a leg pretending to be nothing. (A stored distance of 0
+  and the `(0,0)` "no coordinate" sentinel both mean "we never worked one out",
+  not a real nought-leg; the map draws no arc for such a leg.)
+- When a leg is missing AND the rest are chords, both signs are shown — `≈ ~` is
+  "at least this much, and the sum is an estimate" — because dropping the `~` the
+  moment a leg went missing would pass a derived figure off as a measured one.
+- A journey where no leg yields a distance at all is a dash with its reason,
+  never a zero.
+
+This is the contract `ListSummaryStrip` states of itself: flight time and
+distance are both derived, "and the app is careful to mark them as estimates
+wherever they appear". The roadtrip LIST deliberately carries no distance
+headline for the same reason; a single journey's band may print the sum because
+it can mark that sum derived, and the list's rule is left as it was.
+
+**Cities is not airports, and both are real.** They are deliberately different
+figures — a journey that lands twice in one city is two airports and one city.
+Cities come from the airport catalogue's own city, resolved by the server in the
+lookup that already rides back with the flight, so the count costs no per-code
+request from the browser. A journey where no airport resolves a city is a dash
+with its reason; a PARTIAL resolution is a lower bound, and the band says by how
+many airports it is short. (The roadtrip LIST says stations and not cities
+because a station's only name is free text — a single band has room to say what
+it counted, and answers differently.)
+
+**Nights are the journey's recorded stays, and nothing else.** A cancelled stay
+is a night that did not happen and is skipped whole. A journey with no stay — as
+a flight trip usually has — is a dash with its reason, never the calendar span and
+never `days − 1`: whether an untracked journey should count its calendar nights
+is an open question, and until it is settled the dash is the honest answer.
+
+The **journey** and **album** cells are entry points, and draw "N/A" rather than
+vanishing when they have nothing to point at — an absent entry point and a hidden
+one read the same otherwise. The **flights** cell is a BUTTON, not a link: tapping
+it swaps the body in place rather than navigating, which is the owner's "when user
+taps the flights number". The tab strip below the band names its second tab with
+that count — "3 Flights", or "1 Flight" for a single leg.
+
+**The body is one of two readings of the same journey, and the tab chooses:**
+
+- **Route** (the default tab): the journey's airports in travel order with the
+  flights between them — a station here is an airport and a leg is a flight —
+  beside a sticky map that rings the airport you pick. The route timeline is a
+  parallel row to the roadtrip's stations, not a generalisation of it: a drive has
+  a mode, a distance and a duration the router worked out, while a flight has an
+  airline, a number and a departure. Timeline and map are ordered by the same
+  rule, so they cannot disagree about which leg came first.
+- **`?view=table`**: the logbook's OWN table, locked to the journey through the
+  extracted `FlightsTablePanel` — literally the table the logbook shows, not a
+  second renderer that drifts the first time a column changes. A row there still
+  opens the flight's page exactly as it does at `/flights`, and the trip filter is
+  not drawn at all: the page owns the trip, and a control the reader cannot change
+  is a lie.
+
+**The swap lives in the URL**, not in state alone: `?view=table` is the logbook's
+own word for "show me the table", so one meaning holds across the whole Flights
+section, a shared link lands on the table, and Back leaves the page rather than
+toggling a tab. The band and the tab strip never unmount across the two bodies,
+and the title never changes across them.
 
 ### The flights log page is one page shown two ways
 
@@ -99,8 +178,9 @@ two middles, and that furniture is the same above and below both of them.
 
 **`?view=table` selects the table**; anything else is the cards. The presence of
 a trip used to decide, which was an accident of how the table's filter was
-reached. A card now links to `?view=table&trip=<id>` and the flight detail page's
-table tab uses the same shape, so the trip travels beside the view rather than
+reached. A journey card now opens the journey's own page (above), whose table tab
+is the logbook's own table under `?view=table`, and the logbook's table keeps
+`?trip=<id>` as its trip filter — so the trip travels BESIDE the view rather than
 implying it, and each view's footer carries the link to the other.
 
 The filters fold away behind one button that slides them open on a height
@@ -189,7 +269,9 @@ through the trip.
 - a **roadtrip's** figures band carries the journey it belongs to and that
   journey's album as entry points, saying N/A rather than vanishing when either
   is absent;
-- a **flight's** page reaches the same album through the journey it opens on.
+- a **journey's** own page carries the journey and its album in its band, the
+  same two entry points the roadtrip band has;
+- a **flight's** page reaches that album through the journey it opens on.
 
 Note that Immich's own album counts exclude Live Photo motion parts, so an album
 holding N still reads as fewer than N; the count is Immich's, and re-adding an
