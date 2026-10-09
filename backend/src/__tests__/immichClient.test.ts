@@ -401,3 +401,77 @@ describe("timeoutMs option", () => {
     );
   });
 });
+
+describe("a key without the right permission (403)", () => {
+  it("names the missing permission on a GET", async () => {
+    mockedAxios.get.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 403, data: { message: "Missing required permission: album.read" } },
+    });
+
+    const error = await createImmichClient(CONN)
+      .listAlbums()
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ImmichError);
+    expect(error).toMatchObject({
+      kind: "auth",
+      status: 403,
+      detail: { missingScope: "album.read" },
+    });
+    expect((error as ImmichError).message).toContain("album.read");
+  });
+
+  it("names the missing permission on a POST", async () => {
+    mockedAxios.post.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 403, data: { message: "Missing required permission: asset.read" } },
+    });
+
+    await expect(
+      createImmichClient(CONN).searchAssetsByDate({
+        takenAfter: new Date("2031-05-01T10:00:00Z"),
+        takenBefore: new Date("2031-05-09T12:00:00Z"),
+      })
+    ).rejects.toMatchObject({ kind: "auth", detail: { missingScope: "asset.read" } });
+  });
+
+  it("keeps the generic auth error when the 403 names no permission", async () => {
+    mockedAxios.get.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 403, data: { message: "Not authenticated with an API Key" } },
+    });
+
+    const error = await createImmichClient(CONN)
+      .whoami()
+      .catch((e: unknown) => e);
+
+    expect(error).toMatchObject({
+      kind: "auth",
+      status: 403,
+      message: "Immich rejected the API key",
+    });
+    expect((error as ImmichError).detail).toBeUndefined();
+  });
+
+  it("keeps a 401 generic, whatever the body says", async () => {
+    mockedAxios.get.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 401, data: { message: "Missing required permission: album.read" } },
+    });
+
+    const error = await createImmichClient(CONN)
+      .whoami()
+      .catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ kind: "auth", status: 401 });
+    expect((error as ImmichError).detail).toBeUndefined();
+  });
+
+  it("carries a detail only when one was given to the constructor", () => {
+    expect(new ImmichError("auth", "m", 401).detail).toBeUndefined();
+    expect(new ImmichError("auth", "m", 403, { missingScope: "album.create" }).detail).toEqual({
+      missingScope: "album.create",
+    });
+  });
+});

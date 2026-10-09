@@ -88,15 +88,22 @@ export interface ImmichAssetDetail extends ImmichAsset {
  */
 export type ImmichErrorKind = "unreachable" | "auth" | "notFound" | "protocol" | "invalidUrl";
 
+/** What a 403 named as missing: "Missing required permission: album.create". */
+export interface ImmichErrorDetail {
+  missingScope?: string;
+}
+
 export class ImmichError extends Error {
   public readonly kind: ImmichErrorKind;
   public readonly status?: number;
+  public readonly detail?: ImmichErrorDetail;
 
-  constructor(kind: ImmichErrorKind, message: string, status?: number) {
+  constructor(kind: ImmichErrorKind, message: string, status?: number, detail?: ImmichErrorDetail) {
     super(message);
     this.name = "ImmichError";
     this.kind = kind;
     this.status = status;
+    this.detail = detail;
   }
 }
 

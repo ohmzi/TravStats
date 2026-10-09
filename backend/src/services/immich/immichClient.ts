@@ -152,6 +152,14 @@ function asString(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
 }
 
+/** How Immich words a 403 for an API key that lacks a scope. */
+const MISSING_PERMISSION = /Missing required permission: (\S+)/;
+
+function missingScopeOf(body: unknown): string | undefined {
+  const message = isRecord(body) ? body.message : undefined;
+  return typeof message === "string" ? MISSING_PERMISSION.exec(message)?.[1] : undefined;
+}
+
 /**
  * Normalise anything thrown by axios into the four kinds the UI distinguishes.
  * An unknown non-axios throw is a protocol error — we never leak a raw stack.
@@ -164,6 +172,14 @@ function toImmichError(error: unknown, context: string): ImmichError {
     const status = typeof response?.status === "number" ? response.status : undefined;
 
     if (status === 401 || status === 403) {
+      // A key that is valid but lacks a scope is told apart from a bad key, so
+      // the UI can say WHICH permission to add instead of "rejected".
+      const missingScope = status === 403 ? missingScopeOf(response?.data) : undefined;
+      if (missingScope) {
+        return new ImmichError("auth", `Immich key lacks the ${missingScope} permission`, 403, {
+          missingScope,
+        });
+      }
       return new ImmichError("auth", "Immich rejected the API key", status);
     }
     if (status === 404) {
