@@ -38,6 +38,7 @@ export type SettingsSectionId =
   | "modules"
   | "countryCounting"
   | "trips"
+  | "tripSpend"
   | "loyalty"
   | "backup"
   | "import"
@@ -89,7 +90,9 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
     // (owner, 2026-08-23: its own "Reisen" section).
     id: "trips",
     labelKey: "settings:groups.trips",
-    sections: ["trips"],
+    // "Trip spending" sits with trips: it decides how a trip's money is
+    // shown, not how any one domain's is.
+    sections: ["trips", "tripSpend"],
   },
   {
     // Every domain's programmes in one section (owner, 2026-09-26). A general

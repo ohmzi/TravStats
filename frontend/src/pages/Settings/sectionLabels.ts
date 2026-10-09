@@ -17,6 +17,7 @@ export const SECTION_LABEL_KEY: Record<SettingsSectionId, string> = {
   modules: "common:settings.modules.title",
   countryCounting: "settings:countryCounting.title",
   trips: "settings:trips.title",
+  tripSpend: "settings:tripSpend.title",
   loyalty: "settings:memberships.title",
   backup: "settings:backup.title",
   import: "settings:import.title",

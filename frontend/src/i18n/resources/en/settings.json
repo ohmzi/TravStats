@@ -771,6 +771,30 @@
       "description": "Flights sharing a booking reference are grouped into a trip with a booking during import. When off, the booking reference is kept – you can still group them later via “Detect trips”."
     }
   },
+  "tripSpend": {
+    "title": "Trip spending",
+    "description": "How a trip page shows what you paid from your accounts.",
+    "primary": {
+      "label": "Primary currency",
+      "sub": "Shown large on the trip page; the other currency stands beside it."
+    },
+    "rateMode": {
+      "label": "Conversion rate",
+      "sub": "How an amount paid in one currency is shown in the other.",
+      "market": "Market rate on each transaction's date",
+      "custom": "My rate"
+    },
+    "customRate": {
+      "label": "Your rate",
+      "prefix": "1 USD =",
+      "suffix": "CAD",
+      "placeholder": "e.g. 1.37",
+      "hint": "Canadian dollars per US dollar, as your bank or card charged it.",
+      "latest": "Latest market rate: 1 USD = {{rate}} CAD",
+      "invalid": "Enter a rate above 0, for example 1.37.",
+      "disabledHint": "Choose “My rate” above to enter one."
+    }
+  },
   "devices": {
     "title": "Devices",
     "description": "Connect the TravStats app on your phone. Scan the QR code in the app to pair the device — a device-bound token is created automatically.",
@@ -922,6 +946,7 @@
       "modules": "Areas, modules, flights, cruises, lodging, places, roadtrips, switch on and off",
       "countryCounting": "Countries, count a country, layover, transit, country counting",
       "trips": "trip, trips, automatic, booking reference, group, create trip, detect trips",
+      "tripSpend": "Currency, CAD, USD, Canadian dollar, US dollar, exchange rate, rate, conversion, spending, expenses, paid, bank, receipts",
       "loyalty": "Loyalty programme, membership, membership number, status, tier, hotel programme, frequent flyer, miles, cruise line, points, rewards",
       "backup": "Backup, export, restore, download, Excel, spreadsheet, JSON, data",
       "import": "Import, CSV, Flightradar24, logbook, upload",

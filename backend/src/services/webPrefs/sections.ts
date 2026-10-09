@@ -37,6 +37,13 @@ export const WEB_PREF_SECTIONS = {
   statsHiddenSections: "object",
   /** `travstats:table-hidden-columns:*` and `travstats:table-sort:*`. */
   tablePrefs: "object",
+  /**
+   * `travstats.tripSpend.v1` — how the trip page's "Paid from your accounts"
+   * card shows money: the currency printed large (CAD|USD) and the rate that
+   * converts the other one (market rate per transaction date, or the user's
+   * own CAD-per-USD). Three scalars.
+   */
+  tripSpend: "object",
 } as const;
 
 export type WebPrefSection = keyof typeof WEB_PREF_SECTIONS;

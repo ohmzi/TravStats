@@ -21,6 +21,7 @@
  * | `statsCompare`           | `stats-compare-storage`                     | The year-over-year comparison choice. |
  * | `statsHiddenSections`    | `stats.hiddenSections.<tab>`                | Hidden because the user records no prices or ratings — that is their data, the same everywhere. (It was per browser before, argued by screen size; the actual reason it was asked for is content.) |
  * | `tablePrefs`             | `travstats:table-hidden-columns:*`, `travstats:table-sort:*` | Which columns matter and how a list is ordered is a reading habit. |
+ * | `tripSpend`              | `travstats.tripSpend.v1` minus `seenMarketUsdCad` | The currency a trip's spend is printed in and the rate it converts at are the owner's money habits, not the screen's. The last market rate a card saw stays on the device — an observation, not a choice. |
  *
  * STAY ON THIS DEVICE — they describe the screen, the session or one-time
  * chrome, and syncing them would make one device's layout fight another's:
@@ -63,6 +64,7 @@ import { useOverlayAppearanceStore } from "../../store/overlayAppearanceStore";
 import { usePlaceColorStore } from "../../store/placeColorStore";
 import { useStatsCompareStore } from "../../store/statsCompareStore";
 import { useThemeStore } from "../../store/themeStore";
+import { selectTripSpendSetting, useTripSpendStore } from "../../store/tripSpendStore";
 import {
   MAP_APPEARANCE_KEY,
   loadCruiseColorConfig,
@@ -77,6 +79,7 @@ import { TABLE_HIDDEN_COLUMNS_PREFIX } from "../../components/table/useColumnPre
 import { TABLE_SORT_PREFIX } from "../../components/table/useSortPrefs";
 import { STATS_HIDDEN_SECTIONS_PREFIX } from "../../hooks/useSectionVisibility";
 import { domainColorOverrides, normalizeDomainColors } from "../domainColor";
+import { DEFAULT_TRIP_SPEND_SETTING, normalizeTripSpendSetting } from "../tripSpendCurrency";
 import {
   HIDDEN_DOMAINS_STORAGE_KEY,
   parseHiddenDomains,
@@ -303,6 +306,23 @@ const tablePrefs: WebPrefSectionDef = {
   subscribe: onPrefixes(TABLE_HIDDEN_COLUMNS_PREFIX, TABLE_SORT_PREFIX),
 };
 
+const tripSpend: WebPrefSectionDef = {
+  name: "tripSpend",
+  read: () => selectTripSpendSetting(useTripSpendStore.getState()),
+  isDefault: (value) =>
+    stableStringify(normalizeTripSpendSetting(value)) ===
+    stableStringify(DEFAULT_TRIP_SPEND_SETTING),
+  apply: (value) => {
+    const setting = normalizeTripSpendSetting(value);
+    if (setting) useTripSpendStore.setState(setting);
+  },
+  subscribe: onStoreChange(
+    useTripSpendStore,
+    (s, p) =>
+      s.primary !== p.primary || s.rateMode !== p.rateMode || s.customUsdCad !== p.customUsdCad
+  ),
+};
+
 /** Every synced section. The server knows the same names. */
 export const WEB_PREF_SECTIONS: readonly WebPrefSectionDef[] = [
   mapAppearance,
@@ -313,4 +333,5 @@ export const WEB_PREF_SECTIONS: readonly WebPrefSectionDef[] = [
   statsCompare,
   statsHiddenSections,
   tablePrefs,
+  tripSpend,
 ];

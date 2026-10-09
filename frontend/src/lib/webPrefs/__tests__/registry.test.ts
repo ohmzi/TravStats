@@ -44,6 +44,7 @@ describe("web prefs registry", () => {
       "statsCompare",
       "statsHiddenSections",
       "tablePrefs",
+      "tripSpend",
     ];
     for (const name of names) expect(section(name)).toBeDefined();
     const { WEB_PREF_SECTIONS } = await import("../registry");
@@ -149,6 +150,59 @@ describe("web prefs registry", () => {
     expect(window.localStorage.getItem("travstats:table-sort:flights")).toBeNull();
     expect(stored("travstats:table-sort:lodging")).toEqual({ by: "name", order: "desc" });
     expect(window.localStorage.getItem("travstats:table-page-size:flights")).toBe("100");
+  });
+
+  describe("tripSpend", () => {
+    it("follows the account with the three choices, and keeps the seen market rate on the device", async () => {
+      const { section } = await fresh();
+      const { useTripSpendStore } = await import("../../../store/tripSpendStore");
+      useTripSpendStore.setState({
+        primary: "USD",
+        rateMode: "custom",
+        customUsdCad: 1.35,
+        seenMarketUsdCad: 1.3712,
+      });
+      expect(section("tripSpend").read()).toEqual({
+        primary: "USD",
+        rateMode: "custom",
+        customUsdCad: 1.35,
+      });
+
+      section("tripSpend").apply({ primary: "CAD", rateMode: "market", customUsdCad: 1.4 });
+      expect(useTripSpendStore.getState()).toMatchObject({
+        primary: "CAD",
+        rateMode: "market",
+        customUsdCad: 1.4,
+        seenMarketUsdCad: 1.3712,
+      });
+      expect(stored("travstats.tripSpend.v1")).toMatchObject({
+        state: { primary: "CAD", rateMode: "market", customUsdCad: 1.4 },
+      });
+    });
+
+    it("ignores a value this version cannot read, and calls only the defaults default", async () => {
+      const { section } = await fresh();
+      const { useTripSpendStore } = await import("../../../store/tripSpendStore");
+      section("tripSpend").apply({ primary: "EUR", rateMode: "market" });
+      expect(useTripSpendStore.getState().primary).toBe("CAD");
+
+      const s = section("tripSpend");
+      expect(s.isDefault({ primary: "CAD", rateMode: "market", customUsdCad: null })).toBe(true);
+      expect(s.isDefault({ primary: "USD", rateMode: "market", customUsdCad: null })).toBe(false);
+      expect(s.isDefault({ primary: "CAD", rateMode: "market", customUsdCad: 1.3 })).toBe(false);
+    });
+
+    it("hears a choice but not the card noting a market rate", async () => {
+      const { section } = await fresh();
+      const { useTripSpendStore } = await import("../../../store/tripSpendStore");
+      const onChange = vi.fn();
+      const unsubscribe = section("tripSpend").subscribe(onChange);
+      useTripSpendStore.getState().noteMarketRate(1.37);
+      expect(onChange).not.toHaveBeenCalled();
+      useTripSpendStore.getState().swapPrimary();
+      expect(onChange).toHaveBeenCalledTimes(1);
+      unsubscribe();
+    });
   });
 
   it("theme ignores a map theme this version does not know", async () => {

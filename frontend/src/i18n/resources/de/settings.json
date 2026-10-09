@@ -771,6 +771,30 @@
       "description": "Flüge mit derselben Buchungsnummer werden beim Import automatisch zu einer Reise mit Buchung gruppiert. Ausgeschaltet bleibt die Buchungsnummer erhalten – über „Reisen erkennen“ lässt sich die Gruppierung später jederzeit nachholen."
     }
   },
+  "tripSpend": {
+    "title": "Reiseausgaben",
+    "description": "Wie eine Reiseseite zeigt, was du von deinen Konten bezahlt hast.",
+    "primary": {
+      "label": "Hauptwährung",
+      "sub": "Groß auf der Reiseseite; die andere Währung steht daneben."
+    },
+    "rateMode": {
+      "label": "Umrechnungskurs",
+      "sub": "Wie ein Betrag in der einen Währung in der anderen gezeigt wird.",
+      "market": "Marktkurs am Tag jeder Buchung",
+      "custom": "Mein Kurs"
+    },
+    "customRate": {
+      "label": "Dein Kurs",
+      "prefix": "1 USD =",
+      "suffix": "CAD",
+      "placeholder": "z. B. 1,37",
+      "hint": "Kanadische Dollar pro US-Dollar, so wie deine Bank oder Karte umgerechnet hat.",
+      "latest": "Aktueller Marktkurs: 1 USD = {{rate}} CAD",
+      "invalid": "Gib einen Kurs über 0 ein, zum Beispiel 1,37.",
+      "disabledHint": "Wähle oben „Mein Kurs“, um einen einzugeben."
+    }
+  },
   "devices": {
     "title": "Geräte",
     "description": "Verbinde die TravStats-App auf deinem Smartphone. Scanne den QR-Code in der App, um das Gerät anzumelden — ein gerätegebundenes Token wird dabei automatisch erstellt.",
@@ -922,6 +946,7 @@
       "modules": "Bereiche, Module, Flüge, Kreuzfahrten, Unterkünfte, Orte, Roadtrips, ein- und ausschalten",
       "countryCounting": "Länder, Land zählen, Umstieg, Transit, Länderzählung",
       "trips": "Reise, Reisen, automatisch, Buchungsnummer, Gruppieren, Reise anlegen, Reisen erkennen",
+      "tripSpend": "Währung, CAD, USD, kanadischer Dollar, US-Dollar, Wechselkurs, Kurs, Umrechnung, Ausgaben, bezahlt, Bank, Belege",
       "loyalty": "Bonusprogramm, Mitgliedschaft, Mitgliedsnummer, Status, Hotelprogramm, Vielflieger, Meilen, Miles & More, Reederei, Punkte, Treueprogramm",
       "backup": "Backup, Sicherung, Export, Exportieren, Wiederherstellen, Download, Excel, Tabelle, JSON, Daten",
       "import": "Import, Importieren, CSV, Flightradar24, Logbuch, Hochladen",

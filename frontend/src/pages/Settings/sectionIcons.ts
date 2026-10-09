@@ -16,6 +16,7 @@ export const SECTION_ICON: Record<SettingsSectionId, IconName> = {
   modules: "sparkles",
   countryCounting: "book-open",
   trips: "route",
+  tripSpend: "wallet",
   loyalty: "credit-card",
   backup: "database",
   import: "upload",

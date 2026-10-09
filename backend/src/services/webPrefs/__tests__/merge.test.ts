@@ -1,5 +1,5 @@
 import { latestStamp, mergeWebPrefs, readStoredWebPrefs } from "../merge";
-import { WEB_PREFS_LIMITS, webPrefValueProblem } from "../sections";
+import { WEB_PREFS_LIMITS, isWebPrefSection, webPrefValueProblem } from "../sections";
 
 const NOW = new Date("2026-10-04T12:00:00.000Z");
 
@@ -101,6 +101,17 @@ describe("webPrefValueProblem — bounded, not schema-strict", () => {
         airportColor: null,
       })
     ).toBeNull();
+  });
+
+  // The web's registry names `tripSpend` (lib/webPrefs/registry.ts); a server
+  // that did not know it would drop every write and the card's currency would
+  // stay per device.
+  it("knows the trip-spend section as an object of three scalars", () => {
+    expect(isWebPrefSection("tripSpend")).toBe(true);
+    expect(
+      webPrefValueProblem("tripSpend", { primary: "USD", rateMode: "custom", customUsdCad: 1.35 })
+    ).toBeNull();
+    expect(webPrefValueProblem("tripSpend", ["USD"])).toBe("must be an object");
   });
 });
 
