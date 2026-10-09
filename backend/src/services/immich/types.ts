@@ -33,6 +33,9 @@ export interface ImmichAlbum {
   thumbnailAssetId: string | null;
 }
 
+/** Immich's `visibility` (v3). `hidden` is the motion half of a Live Photo. */
+export type ImmichVisibility = "timeline" | "archive" | "hidden" | "locked";
+
 export interface ImmichAsset {
   id: string;
   type: "IMAGE" | "VIDEO";
