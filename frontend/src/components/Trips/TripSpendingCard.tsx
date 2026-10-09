@@ -1,5 +1,6 @@
 import { useEffect, useMemo, type JSX } from "react";
 
+import { useCoarsePointer } from "../../hooks/useCoarsePointer";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useDisplayFormat } from "../../lib/displayFormat";
 import type { ReconcilerData } from "../../lib/reconcilerNote";
@@ -196,6 +197,8 @@ export default function TripSpendingCard({
 }): JSX.Element | null {
   const { t } = useTranslation(["trips"]);
   const display = useDisplayFormat();
+  // An iPad is wide and finger-operated: the swap button's size follows the input.
+  const touch = useCoarsePointer();
   const reconciliation = useTripReconciledSpend(tripId);
   const primary = useTripSpendStore((s) => s.primary);
   const rateMode = useTripSpendStore((s) => s.rateMode);
@@ -235,7 +238,7 @@ export default function TripSpendingCard({
           className="ts-chip inline-flex items-center"
           style={{
             gap: "var(--ts-space-xs)",
-            minHeight: 28,
+            minHeight: touch ? "var(--ts-size-touch-min)" : 28,
             padding: "0 var(--ts-space-md)",
             borderRadius: "var(--ts-radius-pill)",
             border: "1px solid var(--ts-border-button)",
