@@ -19,9 +19,18 @@ import {
   MISDATED_COUNTER_DAYS,
   MISDATED_COUNTER_WINDOW,
   MISDATED_FILENAME_H,
+  MISDATED_LOOKUPS,
   MISDATED_MIN_NEIGHBOURS,
 } from "./thresholds";
-import type { CleanResult, ExcludedCounts, PhotoFlags, PhotoPoint, ScanWindow } from "./types";
+import type {
+  CleanResult,
+  ExcludedCounts,
+  FileNameLookup,
+  MisdatedReason,
+  PhotoFlags,
+  PhotoPoint,
+  ScanWindow,
+} from "./types";
 import { inWindow } from "./window";
 
 /** GPS present, on the globe, and not the 0,0 that means "none" (within GPS_ZERO_EPSILON). */
@@ -265,4 +274,152 @@ export function flagFilenameClocks(photos: readonly PhotoPoint[]): Set<string> {
     }
   }
   return flagged;
+}
+
+// ─── Misdated: the batch check (§C.2, check 2) and all three together ────────
+
+interface CounterRun {
+  camera: string;
+  members: Counted[];
+}
+
+/**
+ * The window's photos that have a counter, grouped by camera and cut where
+ * consecutive counters are more than MISDATED_COUNTER_WINDOW apart.
+ */
+function counterRuns(photos: readonly PhotoPoint[]): CounterRun[] {
+  const runs: CounterRun[] = [];
+  for (const [camera, members] of byCamera(photos)) {
+    let current: Counted[] = [];
+    for (const member of members) {
+      const last = current[current.length - 1];
+      if (last !== undefined && member.counter - last.counter > MISDATED_COUNTER_WINDOW) {
+        runs.push({ camera, members: current });
+        current = [];
+      }
+      current.push(member);
+    }
+    if (current.length > 0) runs.push({ camera, members: current });
+  }
+  return runs;
+}
+
+/** The nearest counter below `counter`, within MISDATED_COUNTER_WINDOW, that is not in the run. */
+function nearestBelow(
+  members: readonly Counted[],
+  counter: number,
+  run: ReadonlySet<string>
+): Counted | null {
+  const found = inCounterRange(members, counter - MISDATED_COUNTER_WINDOW, counter - 1);
+  return found.filter((n) => !run.has(n.photo.id)).pop() ?? null;
+}
+
+/** The nearest counter above `counter`, within MISDATED_COUNTER_WINDOW, that is not in the run. */
+function nearestAbove(
+  members: readonly Counted[],
+  counter: number,
+  run: ReadonlySet<string>
+): Counted | null {
+  const found = inCounterRange(members, counter + 1, counter + MISDATED_COUNTER_WINDOW);
+  return found.find((n) => !run.has(n.photo.id)) ?? null;
+}
+
+/** The fragment `searchByFileName` is asked for a counter: `IMG_` and its first two digits (`IMG_73`). */
+const lookupFragment = (counter: number): string =>
+  `IMG_${String(counter).padStart(4, "0").slice(0, 2)}`;
+
+/** `lookup` limited to the scan's budget of MISDATED_LOOKUPS calls, asking each fragment only once. */
+function budgeted(lookup: FileNameLookup): FileNameLookup {
+  const answers = new Map<string, readonly PhotoPoint[]>();
+  let spent = 0;
+  return async (fragment) => {
+    const known = answers.get(fragment);
+    if (known !== undefined) return known;
+    if (spent >= MISDATED_LOOKUPS) return [];
+    spent += 1;
+    const found = await lookup(fragment);
+    answers.set(fragment, found);
+    return found;
+  };
+}
+
+/**
+ * The batch check. A batch re-stamped weeks after it was taken is its own
+ * majority, so the straggler check cannot see it.
+ *
+ * - For each run it finds the counter predecessor, and then the successor.
+ *   Each comes from the context first, else from the budgeted lookup of the
+ *   counter just outside the run; only the same owner's same camera counts.
+ * - The whole run is misdated when both exist, they lie within
+ *   MISDATED_COUNTER_DAYS of each other, and the run's median instant lies
+ *   more than MISDATED_COUNTER_DAYS outside them.
+ * - The smallest runs go first. A batch is smaller than the trip's own run,
+ *   whose edge neighbours also cost lookups and never flag it.
+ * - A run that touches 0000 or 9999 is not judged.
+ */
+async function flagBatches(
+  photos: readonly PhotoPoint[],
+  context: readonly PhotoPoint[],
+  lookup: FileNameLookup
+): Promise<Set<string>> {
+  const ask = budgeted(lookup);
+  const contextCameras = byCamera(context);
+  const limitMs = MISDATED_COUNTER_DAYS * DAY_MS;
+  const flagged = new Set<string>();
+  const runs = counterRuns(photos).sort((a, b) => a.members.length - b.members.length);
+  for (const run of runs) {
+    if (!run.members.some((m) => judged(m.photo))) continue;
+    const ids = new Set(run.members.map((m) => m.photo.id));
+    const first = run.members[0];
+    const last = run.members[run.members.length - 1];
+    const known = contextCameras.get(run.camera) ?? [];
+    const asked = async (counter: number): Promise<Counted[]> => {
+      const found = await ask(lookupFragment(counter));
+      const same = found.filter(
+        (p) => p.ownerId === first.photo.ownerId && cameraOf(p) === run.camera
+      );
+      return byCamera(same).get(run.camera) ?? [];
+    };
+    const before =
+      nearestBelow(known, first.counter, ids) ??
+      (first.counter > 0 ? nearestBelow(await asked(first.counter - 1), first.counter, ids) : null);
+    if (before === null) continue;
+    const after =
+      nearestAbove(known, last.counter, ids) ??
+      (last.counter < COUNTER_SPAN - 1
+        ? nearestAbove(await asked(last.counter + 1), last.counter, ids)
+        : null);
+    if (after === null) continue;
+    const lo = Math.min(before.photo.tMs, after.photo.tMs);
+    const hi = Math.max(before.photo.tMs, after.photo.tMs);
+    const middle = median(run.members.map((m) => m.photo.tMs));
+    if (hi - lo > limitMs || (middle >= lo - limitMs && middle <= hi + limitMs)) continue;
+    for (const member of run.members) {
+      if (judged(member.photo)) flagged.add(member.photo.id);
+    }
+  }
+  return flagged;
+}
+
+/**
+ * Every in-window photo kept out of movement because of its date (§C.2),
+ * with the first check that caught it: straggler, then batch, then filename
+ * clock. `lookup` is called at most MISDATED_LOOKUPS times. A lookup that
+ * throws fails the scan rather than quietly judging fewer photos.
+ */
+export async function flagMisdated(
+  photos: readonly PhotoPoint[],
+  context: readonly PhotoPoint[],
+  lookup: FileNameLookup
+): Promise<Map<string, MisdatedReason>> {
+  const reasons = new Map<string, MisdatedReason>();
+  const add = (ids: ReadonlySet<string>, reason: MisdatedReason): void => {
+    for (const id of ids) {
+      if (!reasons.has(id)) reasons.set(id, reason);
+    }
+  };
+  add(flagStragglers(photos, context), "straggler");
+  add(await flagBatches(photos, context, lookup), "batch");
+  add(flagFilenameClocks(photos), "filenameClock");
+  return reasons;
 }
