@@ -2,12 +2,16 @@
  * Synthetic fixtures for the flight rules. Invented airports in a made-up archipelago: Northvale
  * (NVL), Port Carrow (PCR) and Kelmore (KEL). Times are the wall clock of one zone, so a test
  * reads like a day's diary.
+ *
+ * The photo and the flight are built on `makePhoto` and `makeAnchor` from `photoFixtures`, so the
+ * test tree has one builder per type and a change to `PhotoPoint` is made once. Only what the
+ * flight rules vary (the place, the clock, the airports) is set here.
  */
-import { toInstant, toLocal } from "../../../shared/time/instant";
 import type { Coord } from "../../tour/tourDistance";
 import type { FlightAnchor, PhotoPoint } from "../types";
+import { makeAnchor, makePhoto, msAt, NZST_H } from "./photoFixtures";
 
-/** UTC+12 in May, with no daylight-saving change to trip over. */
+/** The zone of every fixture here: UTC+12 (NZST) from April to September, so keep dates in that stretch. */
 export const ZONE = "Pacific/Auckland";
 
 export interface Airport extends Coord {
@@ -23,9 +27,9 @@ const KM_PER_DEGREE = 111.195;
 const rad = (degrees: number): number => (degrees * Math.PI) / 180;
 const deg = (radians: number): number => (radians * 180) / Math.PI;
 
-/** The instant (epoch ms) of the wall clock `local` ("YYYY-MM-DD HH:MM") in ZONE. */
+/** The instant (epoch ms) of the wall clock `local` ("YYYY-MM-DD HH:MM") in ZONE, for a date in NZST. */
 export function at(local: string): number {
-  return toInstant(local.replace(" ", "T"), ZONE, { origin: "machine" }).utc.getTime();
+  return msAt(local, NZST_H);
 }
 
 /** The point `northKm` north and `eastKm` east of `base` (flat earth: good for a few dozen km). */
@@ -63,41 +67,17 @@ export function photo(
   where: Coord | null,
   over: Partial<PhotoPoint> = {}
 ): PhotoPoint {
-  const tMs = at(local);
-  return {
+  const { flags, ...rest } = over;
+  return makePhoto({
     id,
-    type: "IMAGE",
-    ownerId: "owner-1",
-    visibility: "timeline",
-    tMs,
-    zone: ZONE,
     local,
-    day: local.slice(0, 10),
-    nightDay: toLocal(new Date(tMs - 4 * 3_600_000), ZONE).local.slice(0, 10),
+    zone: ZONE,
     lat: where ? where.lat : null,
     lon: where ? where.lon : null,
-    city: null,
-    state: null,
-    country: null,
-    make: null,
-    model: null,
     originalFileName: `${id}.jpg`,
-    isFavorite: false,
-    duplicateId: null,
-    flags: {
-      clockCase: "A",
-      zoneSource: "gps",
-      dayGuessed: false,
-      exifZoneOverridden: false,
-      located: where !== null,
-      duplicate: false,
-      misdated: null,
-      atSea: false,
-      inFlight: false,
-      layover: false,
-    },
-    ...over,
-  };
+    ...rest,
+    flags: { located: where !== null, ...flags },
+  });
 }
 
 /** A flight with real instants at both ends, `depLocal` / `arrLocal` as "YYYY-MM-DD HH:MM" in ZONE. */
@@ -109,7 +89,7 @@ export function preciseFlight(
   to: Airport,
   over: Partial<FlightAnchor> = {}
 ): FlightAnchor {
-  return {
+  return makeAnchor({
     id,
     label: `${id} ${from.iata}→${to.iata}`,
     depIata: from.iata,
@@ -125,15 +105,8 @@ export function preciseFlight(
     precise: true,
     depMs: at(depLocal),
     arrMs: at(arrLocal),
-    hasActualDep: false,
-    hasActualArr: false,
-    tripId: null,
-    tripName: null,
-    listed: true,
-    defaultAssign: true,
-    locked: false,
     ...over,
-  };
+  });
 }
 
 /** The point `crossKm` to the left of the track `from` → `to`, `fraction` of the way along it. */
