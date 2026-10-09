@@ -28,10 +28,21 @@ export function FlagImg({
   country,
   height = 12,
   className,
+  decorative = false,
 }: {
   country?: string | null;
   height?: number;
   className?: string;
+  /**
+   * Set when the flag sits beside text that ALREADY names the country — the
+   * trip head's chips do. The image then carries no accessible name and no
+   * tooltip, so the country is announced once, not twice: the old chip put the
+   * name in both `alt` and the text node, which made a screen reader say it
+   * twice and a plain-text copy concatenate "United Arab EmiratesUnited Arab
+   * Emirates" (owner, 2026-10-09). The default keeps `alt`/`title`, because in
+   * the lodging table the flag is the ONLY thing naming the country.
+   */
+  decorative?: boolean;
 }): JSX.Element | null {
   const { i18n } = useTranslation();
   // Names as well as codes: callers hand this whatever the record holds.
@@ -46,8 +57,9 @@ export function FlagImg({
   return (
     <img
       src={flagUrl(cc)}
-      alt={name}
-      title={name}
+      alt={decorative ? "" : name}
+      title={decorative ? undefined : name}
+      aria-hidden={decorative || undefined}
       loading="lazy"
       width={Math.round(height * FLAG_ASPECT)}
       height={height}

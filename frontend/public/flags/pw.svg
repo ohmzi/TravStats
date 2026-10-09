@@ -1,0 +1,27 @@
+<!--
+  Palau — one of the journeys-card band's flags (owner, 2026-10-09).
+
+  Design source: flag-icons 7.5.0, `flags/4x3/pw.svg`, the set the repo
+  already vendors for the backend (backend/node_modules/flag-icons).
+  Copied here, verbatim, from that in-repo dependency — NOT downloaded
+  from the internet, and never fetched at build or runtime. Regenerate
+  every flag from that dependency with `node scripts/vendor-flags.mjs`.
+
+  Why a local copy at all: the frontend's own flag component (`FlagImg`)
+  loads `https://flagcdn.com` at RUNTIME, which the owner's rule forbids
+  for the card band. The band paints only assets this repository ships.
+
+  Licence: MIT — Copyright (c) 2013 Panayiotis Lipiridis. See
+  backend/node_modules/flag-icons/LICENSE. Colours used: #4aadd6, #ffde00.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" id="flag-icons-pw" viewBox="0 0 640 480">
+  <defs>
+    <clipPath id="pw-a">
+      <path fill-opacity=".7" d="M-70.3 0h640v480h-640z"/>
+    </clipPath>
+  </defs>
+  <g fill-rule="evenodd" stroke-width="1pt" clip-path="url(#pw-a)" transform="translate(70.3)">
+    <path fill="#4aadd6" d="M-173.4 0h846.3v480h-846.3z"/>
+    <path fill="#ffde00" d="M335.6 232.1a135.9 130.1 0 1 1-271.7 0 135.9 130.1 0 1 1 271.7 0"/>
+  </g>
+</svg>

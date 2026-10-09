@@ -1,0 +1,22 @@
+<!--
+  Mauritania — one of the journeys-card band's flags (owner, 2026-10-09).
+
+  Design source: flag-icons 7.5.0, `flags/4x3/mr.svg`, the set the repo
+  already vendors for the backend (backend/node_modules/flag-icons).
+  Copied here, verbatim, from that in-repo dependency — NOT downloaded
+  from the internet, and never fetched at build or runtime. Regenerate
+  every flag from that dependency with `node scripts/vendor-flags.mjs`.
+
+  Why a local copy at all: the frontend's own flag component (`FlagImg`)
+  loads `https://flagcdn.com` at RUNTIME, which the owner's rule forbids
+  for the card band. The band paints only assets this repository ships.
+
+  Licence: MIT — Copyright (c) 2013 Panayiotis Lipiridis. See
+  backend/node_modules/flag-icons/LICENSE. Colours used: #cd2a3e, #006233, #ffc400.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" id="flag-icons-mr" viewBox="0 0 640 480">
+  <path fill="#cd2a3e" d="M0 0h640v480H0z"/>
+  <path fill="#006233" d="M0 72h640v336H0z"/>
+  <path fill="#ffc400" d="M470 154.6a150 150 0 0 1-300 0 155 155 0 0 0-5 39.2 155 155 0 1 0 310 0 154 154 0 0 0-5-39.2" class="mr-st1"/>
+  <path fill="#ffc400" d="m320 93.8-13.5 41.5H263l35.3 25.6-13.5 41.4 35.3-25.6 35.3 25.6-13.5-41.4 35.3-25.6h-43.6z"/>
+</svg>

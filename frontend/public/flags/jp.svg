@@ -1,0 +1,27 @@
+<!--
+  Japan — one of the journeys-card band's flags (owner, 2026-10-09).
+
+  Design source: flag-icons 7.5.0, `flags/4x3/jp.svg`, the set the repo
+  already vendors for the backend (backend/node_modules/flag-icons).
+  Copied here, verbatim, from that in-repo dependency — NOT downloaded
+  from the internet, and never fetched at build or runtime. Regenerate
+  every flag from that dependency with `node scripts/vendor-flags.mjs`.
+
+  Why a local copy at all: the frontend's own flag component (`FlagImg`)
+  loads `https://flagcdn.com` at RUNTIME, which the owner's rule forbids
+  for the card band. The band paints only assets this repository ships.
+
+  Licence: MIT — Copyright (c) 2013 Panayiotis Lipiridis. See
+  backend/node_modules/flag-icons/LICENSE. Colours used: #fff, #bc002d.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" id="flag-icons-jp" viewBox="0 0 640 480">
+  <defs>
+    <clipPath id="jp-a">
+      <path fill-opacity=".7" d="M-88 32h640v480H-88z"/>
+    </clipPath>
+  </defs>
+  <g fill-rule="evenodd" stroke-width="1pt" clip-path="url(#jp-a)" transform="translate(88 -32)">
+    <path fill="#fff" d="M-128 32h720v480h-720z"/>
+    <circle cx="523.1" cy="344.1" r="194.9" fill="#bc002d" transform="translate(-168.4 8.6)scale(.76554)"/>
+  </g>
+</svg>

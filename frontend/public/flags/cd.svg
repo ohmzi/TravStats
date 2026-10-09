@@ -1,0 +1,21 @@
+<!--
+  Congo - Kinshasa — one of the journeys-card band's flags (owner, 2026-10-09).
+
+  Design source: flag-icons 7.5.0, `flags/4x3/cd.svg`, the set the repo
+  already vendors for the backend (backend/node_modules/flag-icons).
+  Copied here, verbatim, from that in-repo dependency — NOT downloaded
+  from the internet, and never fetched at build or runtime. Regenerate
+  every flag from that dependency with `node scripts/vendor-flags.mjs`.
+
+  Why a local copy at all: the frontend's own flag component (`FlagImg`)
+  loads `https://flagcdn.com` at RUNTIME, which the owner's rule forbids
+  for the card band. The band paints only assets this repository ships.
+
+  Licence: MIT — Copyright (c) 2013 Panayiotis Lipiridis. See
+  backend/node_modules/flag-icons/LICENSE. Colours used: #007fff, #f7d618, #ce1021.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" id="flag-icons-cd" viewBox="0 0 640 480">
+  <path fill="#007fff" d="M0 0h640v480H0z"/>
+  <path fill="#f7d618" d="M28.8 96H96l20.8-67.2L137.6 96h67.2l-54.4 41.6 20.8 67.2-54.4-41.6-54.4 41.6 20.8-67.2zM600 0 0 360v120h40l600-360V0z"/>
+  <path fill="#ce1021" d="M640 0 0 384v96L640 96z"/>
+</svg>

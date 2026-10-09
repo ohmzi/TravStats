@@ -1,0 +1,22 @@
+<!--
+  Maldives — one of the journeys-card band's flags (owner, 2026-10-09).
+
+  Design source: flag-icons 7.5.0, `flags/4x3/mv.svg`, the set the repo
+  already vendors for the backend (backend/node_modules/flag-icons).
+  Copied here, verbatim, from that in-repo dependency — NOT downloaded
+  from the internet, and never fetched at build or runtime. Regenerate
+  every flag from that dependency with `node scripts/vendor-flags.mjs`.
+
+  Why a local copy at all: the frontend's own flag component (`FlagImg`)
+  loads `https://flagcdn.com` at RUNTIME, which the owner's rule forbids
+  for the card band. The band paints only assets this repository ships.
+
+  Licence: MIT — Copyright (c) 2013 Panayiotis Lipiridis. See
+  backend/node_modules/flag-icons/LICENSE. Colours used: #d21034, #007e3a, #fff.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" id="flag-icons-mv" viewBox="0 0 640 480">
+  <path fill="#d21034" d="M0 0h640v480H0z"/>
+  <path fill="#007e3a" d="M120 120h400v240H120z"/>
+  <circle cx="350" cy="240" r="80" fill="#fff"/>
+  <circle cx="380" cy="240" r="80" fill="#007e3a"/>
+</svg>

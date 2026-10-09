@@ -33,6 +33,7 @@ function roadtrip(overrides: Partial<RoadtripSummary>): RoadtripSummary {
     tourCount: 0,
     countries: ["DE", "NO"],
     points: [],
+    path: [],
     ...overrides,
   };
 }

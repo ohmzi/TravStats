@@ -51,10 +51,15 @@ export default function TripHead({
         ) + 1
       : null;
   const range = [start, end].filter((d): d is string => Boolean(d)).map((d) => formatLocalDate(d));
+  // The backend returns a user-filled `trip.countries` untouched, so a stored
+  // list can hold the same entry twice; the derived path already dedupes. Fold
+  // it here too, so a duplicate draws one chip rather than two identical ones —
+  // and the count beside it agrees with what is drawn.
+  const countries = [...new Set(trip.countries)];
   const meta = [
     range.length === 2 && range[0] !== range[1] ? `${range[0]} – ${range[1]}` : range[0],
     days !== null && days > 0 ? t("trips:head.days", { count: days }) : null,
-    trip.countries.length > 0 ? t("trips:head.countries", { count: trip.countries.length }) : null,
+    countries.length > 0 ? t("trips:head.countries", { count: countries.length }) : null,
     trip.destinationLabel,
   ].filter(Boolean);
 
@@ -118,9 +123,9 @@ export default function TripHead({
               )}
               <span>{trip.name}</span>
             </h1>
-            {trip.countries.length > 0 && (
+            {countries.length > 0 && (
               <ul className="flex flex-wrap" style={{ gap: 6 }}>
-                {trip.countries.map((cc) => (
+                {countries.map((cc) => (
                   <li
                     key={cc}
                     className="inline-flex items-center rounded-full"
@@ -133,7 +138,8 @@ export default function TripHead({
                       color: "var(--ts-text-bright)",
                     }}
                   >
-                    <FlagImg country={cc} />
+                    {/* Decorative: the name below already labels the chip. */}
+                    <FlagImg country={cc} decorative />
                     {countryName(cc, locale)}
                   </li>
                 ))}

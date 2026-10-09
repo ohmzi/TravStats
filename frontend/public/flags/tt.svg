@@ -1,0 +1,21 @@
+<!--
+  Trinidad & Tobago — one of the journeys-card band's flags (owner, 2026-10-09).
+
+  Design source: flag-icons 7.5.0, `flags/4x3/tt.svg`, the set the repo
+  already vendors for the backend (backend/node_modules/flag-icons).
+  Copied here, verbatim, from that in-repo dependency — NOT downloaded
+  from the internet, and never fetched at build or runtime. Regenerate
+  every flag from that dependency with `node scripts/vendor-flags.mjs`.
+
+  Why a local copy at all: the frontend's own flag component (`FlagImg`)
+  loads `https://flagcdn.com` at RUNTIME, which the owner's rule forbids
+  for the card band. The band paints only assets this repository ships.
+
+  Licence: MIT — Copyright (c) 2013 Panayiotis Lipiridis. See
+  backend/node_modules/flag-icons/LICENSE. Colours used: #fff, #e00000, #000001.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" id="flag-icons-tt" viewBox="0 0 640 480">
+  <path fill="#fff" d="M0 0h640v480H0z"/>
+  <path fill="#e00000" fill-rule="evenodd" d="M463.7 480 0 1v478.8zM176.3 0 640 479V.2z"/>
+  <path fill="#000001" fill-rule="evenodd" d="M27.7.2h118.6l468.2 479.3H492.2z"/>
+</svg>

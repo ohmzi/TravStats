@@ -1,0 +1,34 @@
+<!--
+  Honduras — one of the journeys-card band's flags (owner, 2026-10-09).
+
+  Design source: flag-icons 7.5.0, `flags/4x3/hn.svg`, the set the repo
+  already vendors for the backend (backend/node_modules/flag-icons).
+  Copied here, verbatim, from that in-repo dependency — NOT downloaded
+  from the internet, and never fetched at build or runtime. Regenerate
+  every flag from that dependency with `node scripts/vendor-flags.mjs`.
+
+  Why a local copy at all: the frontend's own flag component (`FlagImg`)
+  loads `https://flagcdn.com` at RUNTIME, which the owner's rule forbids
+  for the card band. The band paints only assets this repository ships.
+
+  Licence: MIT — Copyright (c) 2013 Panayiotis Lipiridis. See
+  backend/node_modules/flag-icons/LICENSE. Colours used: #18c3df, #fff.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="flag-icons-hn" viewBox="0 0 640 480">
+  <path fill="#18c3df" d="M0 0h640v480H0z"/>
+  <path fill="#fff" d="M0 160h640v160H0z"/>
+  <g id="hn-c" fill="#18c3df" transform="translate(320 240)scale(26.66665)">
+    <g id="hn-b">
+      <path id="hn-a" d="m-.3 0 .5.1L0-1z"/>
+      <use xlink:href="#hn-a" width="100%" height="100%" transform="scale(-1 1)"/>
+    </g>
+    <use xlink:href="#hn-b" width="100%" height="100%" transform="rotate(72)"/>
+    <use xlink:href="#hn-b" width="100%" height="100%" transform="rotate(-72)"/>
+    <use xlink:href="#hn-b" width="100%" height="100%" transform="rotate(144)"/>
+    <use xlink:href="#hn-b" width="100%" height="100%" transform="rotate(-144)"/>
+  </g>
+  <use xlink:href="#hn-c" width="100%" height="100%" transform="translate(133.3 -42.7)"/>
+  <use xlink:href="#hn-c" width="100%" height="100%" transform="translate(133.3 37.3)"/>
+  <use xlink:href="#hn-c" width="100%" height="100%" transform="translate(-133.3 -42.7)"/>
+  <use xlink:href="#hn-c" width="100%" height="100%" transform="translate(-133.3 37.3)"/>
+</svg>

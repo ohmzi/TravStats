@@ -584,7 +584,7 @@
     "countries_other": "Länder",
     "entries_one": "Eintrag",
     "entries_other": "Einträge",
-    "flagsPartial": "Es werden {{shown}} von {{total}} Ländern gezeigt — für die übrigen liegt noch keine Flagge bei"
+    "flagsPartial": "Es werden {{shown}} von {{total}} Ländern gezeigt — die übrigen nennen kein Land, das wir zuordnen können"
   },
   "list": {
     "undated": "Ohne Datum"

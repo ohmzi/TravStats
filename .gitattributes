@@ -19,6 +19,15 @@
 *.otf binary
 *.eot binary
 
+# The journeys-card band's flags (frontend/public/flags/). SVG is text, but
+# these are a byte-for-byte copy of the in-repo `flag-icons` dependency
+# (`scripts/vendor-flags.mjs` regenerates them), and the vendor script and its
+# test both compare and report bytes. With core.autocrlf=true a ~249-file
+# checkout would rewrite every line ending on Windows, so the same class of bug
+# the land mask and the geojson files already document turns the flags into a
+# diff nobody asked for. Pin them non-text.
+*.svg binary
+
 # Vendored geodata. Not binary in the "do not diff it" sense — it is text —
 # but it must reach disk BYTE for byte, because the country outlines are
 # NDJSON: `services/geo/countryBoundaries.ts` walks the file line by line and

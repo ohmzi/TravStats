@@ -62,10 +62,23 @@ export const SCRIM =
  * diagonal, feathered at the seams so neighbours cross-fade instead of meeting
  * at a line. The first ribbon is solid from the light corner and the last is
  * solid to the dark corner, so nothing is left bare at either end.
+ *
+ * WHY THE FEATHER IS COUNT-KEYED. A single growing feather cannot serve both a
+ * two-flag band and a five-flag one. In the pilot the seam was
+ * `min(seg*0.5, 10)`; at five flags `seg = 20`, so the feather was 10 and the
+ * solid core of every interior ribbon (`seg - 2*feather`) was ZERO — every flag
+ * reached full opacity at exactly one line and neighbours blended into one
+ * wash. That is arithmetic, not taste, and it is why the old three-flag cap
+ * could not simply be raised (owner, 2026-10-09: his five-country journey must
+ * draw all five). So: one to three flags keep the pilot's formula BIT-FOR-BIT,
+ * because those cards are already signed off; four or more use a small fixed
+ * seam instead, so each ribbon keeps a real solid body at every count (at five,
+ * a 14 % core with 3 % seams). Once `seg*0.25 < 3` the feather is `seg*0.25` and
+ * the core settles at half the slice, so it never goes negative.
  */
 export function ribbonMask(index: number, count: number): string {
   const seg = 100 / count;
-  const feather = Math.min(seg * 0.5, 10);
+  const feather = count <= 3 ? Math.min(seg * 0.5, 10) : Math.min(seg * 0.25, 3);
   const start = index * seg;
   const end = (index + 1) * seg;
   const inFrom = index === 0 ? 0 : start - feather;

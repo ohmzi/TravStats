@@ -81,6 +81,17 @@ const flagLayers = (container: HTMLElement): HTMLElement[] => [
   ...container.querySelectorAll<HTMLElement>("[data-flag]"),
 ];
 
+/**
+ * The solid body of a ribbon mask: the two stops at FULL opacity, in order.
+ * A degenerate body (from === to, or no such stops) means the ribbon never
+ * stays opaque across any width — the exact failure the pilot's growing
+ * feather hit at five flags.
+ */
+function solidBody(mask: string): { from: number; to: number } {
+  const stops = [...mask.matchAll(/rgba\(0, 0, 0, 1\) ([\d.]+)%/g)].map((m) => Number(m[1]));
+  return { from: stops[0] ?? NaN, to: stops[stops.length - 1] ?? NaN };
+}
+
 describe("TripCard band flags", () => {
   it("paints the flag a single-country trip earned", () => {
     const layers = flagLayers(renderCard(["CA"]));
@@ -94,10 +105,12 @@ describe("TripCard band flags", () => {
     expect(layers[0].style.backgroundImage).toContain("/flags/pk.svg");
   });
 
-  // The pinned no-asset rule, at the component level: a country with no bundled
-  // flag paints NOTHING, and the band keeps the trip's own colour gradient.
-  it("paints no flag for an unbundled country and keeps the trip colour", () => {
-    const container = renderCard(["FR"]);
+  // The pinned no-asset rule, at the component level: a country with no asset
+  // paints NOTHING, and the band keeps the trip's own colour gradient. `XX` is
+  // a two-letter code outside the app's country domain, so it never resolves to
+  // a shipped flag — the fallback path, not a bundled country.
+  it("paints no flag for an out-of-domain country and keeps the trip colour", () => {
+    const container = renderCard(["XX"]);
     expect(flagLayers(container)).toHaveLength(0);
     const band = container.querySelector<HTMLElement>("[data-testid='trip-band']");
     expect(band?.getAttribute("style")).toContain(TRIP_COLOR);
@@ -107,8 +120,21 @@ describe("TripCard band flags", () => {
   // The invariant grafted from the losing design: one painted layer per
   // drawable country, and nothing drawn for the country that has no asset.
   it("paints exactly the drawable countries of a mixed trip", () => {
-    const layers = flagLayers(renderCard(["CA", "FR", "PK"]));
+    const layers = flagLayers(renderCard(["CA", "XX", "PK"]));
     expect(layers.map((l) => l.getAttribute("data-flag"))).toEqual(["CA", "PK"]);
+  });
+
+  // The owner's five-country shape, pinned without naming his trip: all five
+  // draw, in order — the band drops nothing to hit a number.
+  it("paints all five flags of a five-country trip, in order", () => {
+    const layers = flagLayers(renderCard(["CA", "PK", "AE", "OM", "TR"]));
+    expect(layers.map((l) => l.getAttribute("data-flag"))).toEqual([
+      "CA",
+      "PK",
+      "AE",
+      "OM",
+      "TR",
+    ]);
   });
 
   it("paints nothing when the trip records no countries", () => {
@@ -118,7 +144,7 @@ describe("TripCard band flags", () => {
   });
 
   it("says so on the band when some countries were left out", () => {
-    const container = renderCard(["CA", "PK", "FR", "ES", "IT"]);
+    const container = renderCard(["CA", "XX"]);
     const band = container.querySelector<HTMLElement>("[data-testid='trip-band']");
     expect(band?.getAttribute("title")).toBe("trips:card.flagsPartial");
   });
@@ -138,6 +164,38 @@ describe("TripCard band flags", () => {
     // A single flag is a full-band wash; two are ribbons with feathered seams.
     expect(ribbonMask(0, 2)).toContain("linear-gradient(135deg");
     expect(ribbonMask(0, 2)).not.toEqual(ribbonMask(1, 2));
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// The seam regime. The one-to-three-flag pilot must not move; from four flags
+// the seam is small and fixed, so every ribbon keeps a solid body. The old
+// growing feather (`min(seg*0.5, 10)`) collapsed to a zero-width body at five
+// flags — this is the property that forced the count-keyed rule.
+describe("ribbon seam regime", () => {
+  it("keeps the pilot's seam for one to three flags", () => {
+    // Two flags: seg 50, feather 10, so the first ribbon reads opaque to 40%.
+    expect(ribbonMask(0, 2)).toContain("rgba(0, 0, 0, 1) 40%");
+  });
+
+  it("gives every interior ribbon a real solid body at four, five, six and eight", () => {
+    for (const count of [4, 5, 6, 8]) {
+      for (let index = 0; index < count; index += 1) {
+        const { from, to } = solidBody(ribbonMask(index, count));
+        expect(Number.isFinite(from) && Number.isFinite(to), `${index}/${count} has stops`).toBe(
+          true
+        );
+        expect(to, `ribbon ${index} of ${count} is never fully washed`).toBeGreaterThan(from);
+      }
+    }
+  });
+
+  it("would have no solid body at five flags under the pilot's old feather", () => {
+    // The degenerate case the change removes, stated so it cannot creep back.
+    const seg = 100 / 5;
+    const oldFeather = Math.min(seg * 0.5, 10);
+    const body = seg - 2 * oldFeather;
+    expect(body).toBe(0);
   });
 });
 
@@ -187,6 +245,23 @@ describe("band legibility", () => {
       expect(contrast(pillText, pillBg), `${name} pill over a white flag`).toBeGreaterThanOrEqual(
         4.5
       );
+    }
+  });
+
+  it("keeps the status pill readable with five ribbons under it", () => {
+    // At five flags more ribbons pass beneath the pill, so the model is re-run
+    // at count 5. A flag's alpha under the pill is ribbonAlpha * spectrumAlpha,
+    // and the ribbon only ever MULTIPLIES alpha down, so the composite can
+    // never exceed the plain spectrum case — which is why the same conservative
+    // stand-in (BAND_MASK_MID) still bounds it, provided a solid body exists.
+    const core = solidBody(ribbonMask(1, 5));
+    expect(core.to).toBeGreaterThan(core.from);
+    const flag = over(channels(WHITE), BAND_MASK_MID, channels(SURFACE2));
+    const band = over(channels(SURFACE2), SCRIM_OVER_PILL, flag);
+    for (const [name, hex] of Object.entries(TRIP_PILL_COLOURS)) {
+      const pillText = channels(hex);
+      const pillBg = over(pillText, 0.12, band);
+      expect(contrast(pillText, pillBg), `${name} pill over five flags`).toBeGreaterThanOrEqual(4.5);
     }
   });
 

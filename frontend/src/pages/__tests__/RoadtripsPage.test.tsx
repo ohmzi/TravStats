@@ -57,6 +57,10 @@ function summary(over: Partial<RoadtripSummary>): RoadtripSummary {
       [10, 53],
       [6, 62],
     ],
+    path: [
+      [10, 53],
+      [6, 62],
+    ],
     ...over,
   };
 }

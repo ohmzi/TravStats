@@ -1,0 +1,24 @@
+<!--
+  Jamaica — one of the journeys-card band's flags (owner, 2026-10-09).
+
+  Design source: flag-icons 7.5.0, `flags/4x3/jm.svg`, the set the repo
+  already vendors for the backend (backend/node_modules/flag-icons).
+  Copied here, verbatim, from that in-repo dependency — NOT downloaded
+  from the internet, and never fetched at build or runtime. Regenerate
+  every flag from that dependency with `node scripts/vendor-flags.mjs`.
+
+  Why a local copy at all: the frontend's own flag component (`FlagImg`)
+  loads `https://flagcdn.com` at RUNTIME, which the owner's rule forbids
+  for the card band. The band paints only assets this repository ships.
+
+  Licence: MIT — Copyright (c) 2013 Panayiotis Lipiridis. See
+  backend/node_modules/flag-icons/LICENSE. Colours used: #000001, #090, #fc0.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" id="flag-icons-jm" viewBox="0 0 640 480">
+  <g fill-rule="evenodd">
+    <path fill="#000001" d="m0 0 320 240L0 480zm640 0L320 240l320 240z"/>
+    <path fill="#090" d="m0 0 320 240L640 0zm0 480 320-240 320 240z"/>
+    <path fill="#fc0" d="M640 0h-59.6L0 435.3V480h59.6L640 44.7z"/>
+    <path fill="#fc0" d="M0 0v44.7L580.4 480H640v-44.7L59.6 0z"/>
+  </g>
+</svg>
