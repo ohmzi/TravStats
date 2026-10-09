@@ -37,6 +37,11 @@ jest.mock("../services/immich/immichTester", () => ({ testImmichConnection }));
 const getImmichConnection = jest.fn();
 jest.mock("../services/immich/immichResolver", () => ({ getImmichConnection }));
 
+const albumCapability = jest.fn();
+jest.mock("../services/immich/immichCapabilities", () => ({ albumCapability }));
+
+const FULL_KEY = { canCreateAlbums: true, canView: true, missingScopes: [] };
+
 import immichSettingsRouter from "../routes/settings/immich";
 import immichAdminRouter from "../routes/admin/immich";
 import { errorHandler } from "../middleware/errorHandler";
@@ -60,6 +65,7 @@ beforeEach(() => {
     apiKey: "k",
     source: "user",
   });
+  albumCapability.mockResolvedValue(FULL_KEY);
 });
 
 describe("GET /settings/immich", () => {
@@ -417,5 +423,140 @@ describe("POST /admin/immich/test", () => {
 
     expect(res.status).toBe(200);
     expect(testImmichConnection).toHaveBeenCalledWith("https://global.lan", "global-key");
+  });
+});
+
+describe("POST /settings/immich/test reports what the tested key may do with albums", () => {
+  const tested = {
+    success: true,
+    message: "Connected to Immich",
+    details: { version: "1.138.2", user: "Ann" },
+  };
+  const READ_ONLY_KEY = {
+    canCreateAlbums: false,
+    canView: true,
+    missingScopes: ["album.create", "albumAsset.create"],
+  };
+  const SHARED_KEY = { canCreateAlbums: false, sharedConnection: true };
+  const shared = {
+    baseUrl: "https://immich.lan",
+    apiKey: "instance-wide-secret",
+    source: "global",
+  };
+
+  it("asks about the key the caller typed, at the normalised address that was tested", async () => {
+    testImmichConnection.mockResolvedValue(tested);
+    albumCapability.mockResolvedValue(READ_ONLY_KEY);
+
+    const res = await request(makeApp(immichSettingsRouter))
+      .post("/immich/test")
+      .send({ baseUrl: "https://new.lan/", apiKey: "new-key" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      success: true,
+      message: "Connected to Immich",
+      details: { version: "1.138.2", user: "Ann", capabilities: READ_ONLY_KEY },
+    });
+    // The tester still gets the pair exactly as typed; the capability call gets
+    // the same address in the normalised form the PUT handler would store.
+    expect(testImmichConnection).toHaveBeenCalledWith("https://new.lan/", "new-key");
+    expect(albumCapability).toHaveBeenCalledWith("https://new.lan", "new-key");
+  });
+
+  it("asks about the caller's own stored key when the body is empty", async () => {
+    testImmichConnection.mockResolvedValue(tested);
+
+    const res = await request(makeApp(immichSettingsRouter)).post("/immich/test").send({});
+
+    expect(res.body.details.capabilities).toEqual(FULL_KEY);
+    expect(albumCapability).toHaveBeenCalledWith("https://immich.lan", "k");
+  });
+
+  it.each(["global", "env"])(
+    "never asks a %s key what it may do, and never hands its permissions out",
+    async (source) => {
+      getImmichConnection.mockResolvedValue({ ...shared, source });
+      testImmichConnection.mockResolvedValue(tested);
+
+      const res = await request(makeApp(immichSettingsRouter)).post("/immich/test").send({});
+
+      expect(res.body.details).toEqual({
+        version: "1.138.2",
+        user: "Ann",
+        capabilities: SHARED_KEY,
+      });
+      expect(albumCapability).not.toHaveBeenCalled();
+    }
+  );
+
+  it("treats a key the caller typed as theirs even beside a shared address", async () => {
+    getImmichConnection.mockResolvedValue(shared);
+    testImmichConnection.mockResolvedValue(tested);
+
+    const res = await request(makeApp(immichSettingsRouter))
+      .post("/immich/test")
+      .send({ apiKey: "my-own-key" });
+
+    expect(testImmichConnection).toHaveBeenCalledWith("https://immich.lan", "my-own-key");
+    expect(albumCapability).toHaveBeenCalledWith("https://immich.lan", "my-own-key");
+    expect(res.body.details.capabilities).toEqual(FULL_KEY);
+  });
+
+  it("treats a typed pair as the caller's own even while a shared connection exists", async () => {
+    getImmichConnection.mockResolvedValue(shared);
+    testImmichConnection.mockResolvedValue(tested);
+
+    const res = await request(makeApp(immichSettingsRouter))
+      .post("/immich/test")
+      .send({ baseUrl: "https://mine.example", apiKey: "my-own-key" });
+
+    expect(albumCapability).toHaveBeenCalledWith("https://mine.example", "my-own-key");
+    expect(res.body.details.capabilities).toEqual(FULL_KEY);
+  });
+
+  it("adds nothing, and asks nothing, when the connection test failed", async () => {
+    const failure = { success: false, kind: "auth", message: "Immich rejected the API key" };
+    testImmichConnection.mockResolvedValue(failure);
+
+    const res = await request(makeApp(immichSettingsRouter)).post("/immich/test").send({});
+
+    expect(res.body).toEqual(failure);
+    expect(albumCapability).not.toHaveBeenCalled();
+  });
+
+  it("passes an unanswerable permission check through as nulls", async () => {
+    testImmichConnection.mockResolvedValue(tested);
+    const unanswered = { canCreateAlbums: null, canView: null, missingScopes: [] };
+    albumCapability.mockResolvedValue(unanswered);
+
+    const res = await request(makeApp(immichSettingsRouter)).post("/immich/test").send({});
+
+    expect(res.body.details.capabilities).toEqual(unanswered);
+  });
+
+  it("still returns the capabilities when the tester reports no details", async () => {
+    testImmichConnection.mockResolvedValue({ success: true, message: "Connected to Immich" });
+
+    const res = await request(makeApp(immichSettingsRouter)).post("/immich/test").send({});
+
+    expect(res.body).toEqual({
+      success: true,
+      message: "Connected to Immich",
+      details: { capabilities: FULL_KEY },
+    });
+  });
+
+  it("keeps the shared-key target binding: a refused target is never tested or asked", async () => {
+    getImmichConnection.mockResolvedValue(shared);
+
+    const res = await request(makeApp(immichSettingsRouter))
+      .post("/immich/test")
+      .send({ baseUrl: "https://attacker.example" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("keyRequired");
+    expect(testImmichConnection).not.toHaveBeenCalled();
+    expect(albumCapability).not.toHaveBeenCalled();
   });
 });

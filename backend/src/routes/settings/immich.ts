@@ -11,9 +11,14 @@ import { AuthRequest } from "../../middleware/auth";
 import { AppError } from "../../middleware/errorHandler";
 import { encryptApiKey } from "../../utils/encryption";
 import { immichConnectionSchema, immichTestSchema } from "../../schemas/immich";
+import { albumCapability, ImmichKeyCapabilities } from "../../services/immich/immichCapabilities";
 import { getImmichConnection } from "../../services/immich/immichResolver";
-import { testImmichConnection } from "../../services/immich/immichTester";
-import { ImmichError, normalizeImmichBaseUrl } from "../../services/immich/types";
+import { ImmichTestResult, testImmichConnection } from "../../services/immich/immichTester";
+import {
+  ImmichConnectionSource,
+  ImmichError,
+  normalizeImmichBaseUrl,
+} from "../../services/immich/types";
 import logger from "../../utils/logger";
 
 const router = Router();
@@ -40,6 +45,36 @@ function normalizeRequestedBaseUrl(raw: string): string {
   } catch (error) {
     throw new AppError(error instanceof ImmichError ? error.kind : "invalidUrl", 400);
   }
+}
+
+/**
+ * What a key the caller does not own can say about albums: nothing, and it is
+ * never asked. A shared (admin-global or ENV) key belongs to the operator, so
+ * reporting what IT may do would hand one account's permissions to another, and
+ * an album written through it would land in the operator's library.
+ */
+const SHARED_KEY_CAPABILITIES: ImmichKeyCapabilities = {
+  canCreateAlbums: false,
+  sharedConnection: true,
+};
+
+/**
+ * The tester's answer plus, on success, what the tested key may do with albums.
+ * The address is normalised exactly as `testImmichConnection` normalises it, so
+ * the key is only ever sent where it was just tested (AUD-087).
+ */
+async function withKeyCapabilities(
+  result: ImmichTestResult,
+  baseUrl: string,
+  apiKey: string,
+  source: ImmichConnectionSource
+): Promise<Record<string, unknown>> {
+  if (!result.success) return { ...result };
+  const capabilities: ImmichKeyCapabilities =
+    source === "user"
+      ? await albumCapability(normalizeRequestedBaseUrl(baseUrl), apiKey)
+      : SHARED_KEY_CAPABILITIES;
+  return { ...result, details: { ...result.details, capabilities } };
 }
 
 async function readStatus(userId: string): Promise<Record<string, unknown>> {
@@ -111,12 +146,16 @@ router.post("/test", async (req: AuthRequest, res: Response, next: NextFunction)
 
     let baseUrl = body.baseUrl;
     let apiKey = body.apiKey;
+    // Whose key this is: one the caller typed is theirs; a stored one is theirs
+    // only on the user tier (`withKeyCapabilities` never asks a shared key).
+    let source: ImmichConnectionSource = "user";
 
     // An empty body means "test whatever is currently resolved for me".
     if (!baseUrl || !apiKey) {
       const stored = await getImmichConnection(req.userId!);
       // Machine-readable failure kind, consistent with the gallery routes.
       if (!stored) throw new AppError("notConfigured", 400);
+      if (!apiKey) source = stored.source;
 
       // A URL and the key that reaches it are ONE connection, not two fields.
       // A stored key the caller never saw — admin-global or ENV — may only be
@@ -139,7 +178,8 @@ router.post("/test", async (req: AuthRequest, res: Response, next: NextFunction)
       apiKey = apiKey ?? stored.apiKey;
     }
 
-    res.json(await testImmichConnection(baseUrl, apiKey));
+    const result = await testImmichConnection(baseUrl, apiKey);
+    res.json(await withKeyCapabilities(result, baseUrl, apiKey, source));
   } catch (error) {
     next(error);
   }
