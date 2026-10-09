@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expectTypeOf, it } from "vitest";
 
 import type * as Index from "../index";
 import type * as Rankings from "../statsRankings";
@@ -16,13 +16,13 @@ describe("stats ranking types", () => {
     expectTypeOf<Index.CountryStatsResponse>().toEqualTypeOf<Rankings.CountryStatsResponse>();
   });
 
-  it("still describes what the countries ranking answers", () => {
-    const ranking: Index.CountryStatsResponse = {
-      countries: [{ country: "Westshire", count: 3 }],
-      total: 3,
-      countriesIso: ["ZZ"],
-      byYear: { "2031": ["ZZ"] },
-    };
-    expect(ranking.countries[0].count).toBe(ranking.total);
+  it("still declares the fields the stats page reads", () => {
+    // Compile-time only: `expectTypeOf` is erased at runtime, so `tsc --noEmit`
+    // is the check that fails when a field is dropped or renamed in the move.
+    expectTypeOf<Index.CountryStatsResponse>().toHaveProperty("countriesIso");
+    expectTypeOf<Index.CountryStatsResponse>().toHaveProperty("byYear");
+    expectTypeOf<Index.AirlineRankingItem>().toHaveProperty("iata");
+    expectTypeOf<Index.AirlineRankingItem>().toHaveProperty("key");
+    expectTypeOf<Index.AirlineRankingResponse>().toHaveProperty("flightsWithoutAirline");
   });
 });
