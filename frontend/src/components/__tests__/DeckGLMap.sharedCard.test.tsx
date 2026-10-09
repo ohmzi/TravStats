@@ -140,9 +140,9 @@ async function settle(): Promise<void> {
 }
 
 describe("the flat map draws the shared card", () => {
-  it("opens the route card on a flight selection, with the flight and an edit action", async () => {
+  it("opens the route card on a flight selection, with the flight and its open action", async () => {
     const geo = [leg("f1", "TOS", "AGP")];
-    render(<DeckGLMap flights={geo} visMode="routes" onEdit={vi.fn()} />);
+    render(<DeckGLMap flights={geo} visMode="routes" onFlightOpen={vi.fn()} />);
 
     act(() => {
       useFlightSelectionStore.getState().setSelection([flight("f1")]);
@@ -152,11 +152,10 @@ describe("the flat map draws the shared card", () => {
     expect(screen.getByTestId("shared-pinned-card")).toBeInTheDocument();
     const props = cardProps[cardProps.length - 1];
     expect((props.pinned as { kind: string }).kind).toBe("arc");
-    // One flight selected is not the whole route — the action says so.
-    expect(props.selectionScope).toBe("single");
-    // "Bearbeiten" survives the move: it was the flat card's action and is
-    // now the shared card's second one.
-    expect(props.onFlightEdit).toBeTypeOf("function");
+    // The card's one action opens the flight read-only; a summary card must
+    // carry no edit affordance (owner, 2026-10-09).
+    expect(props.onFlightOpen).toBeTypeOf("function");
+    expect(props.onFlightEdit).toBeUndefined();
   });
 
   it("opens the trip card for a selection spanning more than one airport pair", async () => {

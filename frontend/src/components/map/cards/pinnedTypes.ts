@@ -49,6 +49,24 @@ export interface CruiseCardDatum {
 }
 
 /**
+ * A roadtrip LINE on the dashboard — one drawn tour path, not a map layer the
+ * renderer aggregated. The line is an extra layer the tab builds, so unlike
+ * every other datum here it is NOT a subset of a globe layer datum: it exists
+ * only to answer a pick on that line.
+ *
+ * `count` is how many roadtrips the line stands for, carried from the same
+ * grouping that drew it. A line is one roadtrip today (`TourPathDatum.routeId`),
+ * so it is 1 and the card reads the plain wording; the field is here so the
+ * "last" wording can appear the day a grouping puts several on one line, rather
+ * than printing "last" with nothing for it to be last of (owner, 2026-10-09).
+ */
+export interface RoadtripCardDatum {
+  routeId: string;
+  name: string;
+  count: number;
+}
+
+/**
  * A selection that is NOT one airport pair — the flat map's trip/journey
  * grouping. It has no single route to head the card with, so the card counts
  * the flights instead and lists them.
@@ -157,7 +175,8 @@ export type MapPinned =
   | { kind: "trip"; data: TripCardDatum; anchorLngLat: [number, number] }
   | { kind: "specialFlight"; data: SpecialFlightCardDatum; anchorLngLat: [number, number] }
   | { kind: "lodging"; data: LodgingCardDatum; anchorLngLat: [number, number] }
-  | { kind: "place"; data: PlaceCardDatum; anchorLngLat: [number, number] };
+  | { kind: "place"; data: PlaceCardDatum; anchorLngLat: [number, number] }
+  | { kind: "roadtrip"; data: RoadtripCardDatum; anchorLngLat: [number, number] };
 
 /**
  * What the hover tooltip draws: pre-rendered HTML plus the screen point it

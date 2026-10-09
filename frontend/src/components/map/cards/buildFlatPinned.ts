@@ -204,6 +204,16 @@ export function pinnedFromFlightSelection(
   if (airports.size <= 2) {
     const first = matched[0];
     const c = coordsOf(first);
+    // The anchor is the route's geographic MIDPOINT, not the tap point. On the
+    // flat map a flight click is a ROUTE selection: `handleFlightClick` hands
+    // over flight ids with no coordinate, because the line under the cursor is
+    // an aggregate, not one arc a point could be taken from. The roadtrip line
+    // is the other way round — its pick carries the tapped coordinate
+    // (`tourMapOverlay`'s `info.coordinate`), so its card anchors there. The
+    // owner's 2026-10-09 ask — "both near what they describe" — is met either
+    // way: both are anchored-and-reprojected by the same mechanism, and a
+    // midpoint is a point ON the line, so the flight card still sits by its
+    // route.
     const anchor = c ? midpoint(c.from, c.to) : (centreOf(points) ?? [0, 0]);
     return {
       kind: "arc",

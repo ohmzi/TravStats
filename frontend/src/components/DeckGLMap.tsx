@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import MapGL, { type MapRef, type MapLayerMouseEvent } from "react-map-gl/maplibre";
 import { DeckGLOverlay, webgl2Available } from "./map/DeckGLOverlay";
 import { createMarkerTooltip } from "./map/markerTooltip";
@@ -78,7 +79,6 @@ interface DeckGLMapProps {
   minRouteCount?: number;
   onFlightClick?: (flightId: string) => void;
   onRouteClick?: (flightIds: string[]) => void;
-  onEdit?: (flight: Flight) => void;
   /**
    * Fires when the card's "Open (last) flight" action is used. Used to be
    * globe-only; since the two maps share one card (owner ruling 2026-09-20)
@@ -157,6 +157,15 @@ interface DeckGLMapProps {
    *  exactly as the lodging pair is. */
   placeMarkerSize?: number;
   onPlaceMarkerSizeChange?: (s: number) => void;
+  /**
+   * The pinned card's owner, when the caller holds it (`MapContainer3D`'s
+   * `pinned` doc explains why a tab wants to). Passing neither keeps this
+   * component's own state; passing `pinned` — even `null` — makes it
+   * controlled, so one tab-owned slot can hold a flight card and a roadtrip
+   * card and let each close the other.
+   */
+  pinned?: MapPinned | null;
+  onPinnedChange?: Dispatch<SetStateAction<MapPinned | null>>;
 }
 
 export function DeckGLMap({
@@ -165,7 +174,6 @@ export function DeckGLMap({
   minRouteCount = 1,
   onFlightClick,
   onRouteClick,
-  onEdit,
   onFlightOpen,
   onCruiseOpen,
   onLodgingOpen,
@@ -185,6 +193,8 @@ export function DeckGLMap({
   placeListLabels,
   placeMarkerSize = 1,
   onPlaceMarkerSizeChange,
+  pinned: pinnedProp,
+  onPinnedChange,
 }: DeckGLMapProps): JSX.Element {
   const { t, i18n } = useTranslation(["map"]);
   const locale = i18n.language || "de";
@@ -438,7 +448,13 @@ export function DeckGLMap({
   // ruling replaced all five with the globe's card, which anchors on a
   // [lng, lat] and reprojects as the camera moves. So the anchor is on the
   // payload (`MapPinned.anchorLngLat`) and this component only projects it.
-  const [pinned, setPinned] = useState<MapPinned | null>(null);
+  // A tab that draws its own lines (the roadtrip tour paths) owns the card, so
+  // one open slot closes the other kind; every other caller keeps this state.
+  // `undefined` — no prop — is "uncontrolled"; `null` is a controlled, closed
+  // slot, which is why the test is on the prop, not on falsiness.
+  const [internalPinned, setInternalPinned] = useState<MapPinned | null>(null);
+  const pinned = pinnedProp !== undefined ? pinnedProp : internalPinned;
+  const setPinned = onPinnedChange ?? setInternalPinned;
   const [pinnedPos, setPinnedPos] = useState<{ x: number; y: number } | null>(null);
 
   // The hover tooltip is the globe's too, driven imperatively so a 60–120 Hz
@@ -504,18 +520,17 @@ export function DeckGLMap({
   // Every selection that comes from outside the map — the activity sidebar,
   // the flight panel — becomes a card and a camera move, on the same terms the
   // globe uses (`map/cards/useMapSelectionCards.ts`).
-  const { cardFlights, clearSelections, selectionScope, resolveSelectedFlight, openTripDetails } =
-    useMapSelectionCards({
-      flights,
-      flightColor: flightTipColor,
-      focus: focusOn,
-      setPinned,
-      flightDelayMs: TOOLTIP_DELAY_MS,
-      clearOnEmpty: true,
-      // The bounding-box flyTo above already frames a flight selection with both
-      // airports on screen; a second command would undo exactly that.
-      framesFlightSelection: true,
-    });
+  const { cardFlights, clearSelections, openTripDetails } = useMapSelectionCards({
+    flights,
+    flightColor: flightTipColor,
+    focus: focusOn,
+    setPinned,
+    flightDelayMs: TOOLTIP_DELAY_MS,
+    clearOnEmpty: true,
+    // The bounding-box flyTo above already frames a flight selection with both
+    // airports on screen; a second command would undo exactly that.
+    framesFlightSelection: true,
+  });
 
   // Wrap onFlightClick so that a deck.gl layer click sets the guard ref BEFORE the
   // Map onClick fires and would otherwise clear the selection immediately (Bug 1).
@@ -560,6 +575,36 @@ export function DeckGLMap({
       onPlaceClick?.(placeId);
     },
     [onPlaceClick]
+  );
+
+  // deck.gl's layer pick and MapLibre's own Map click BOTH fire for one tap, and
+  // the Map handler's background branch clears whatever the tap opened unless the
+  // deck handler has already claimed it by setting `deckClickedRef`. Every layer
+  // this component builds claims its tap in its own handler (handleFlightClick,
+  // handleAirportClick, handleLodgingClick, handlePlaceClick); the caller's
+  // `extraLayers` did not, so a roadtrip line's card was set and wiped in the
+  // same tap and the roadtrip page was unreachable from the flat map (owner,
+  // 2026-10-09). Wrap each extra layer that answers a click so it claims the tap
+  // on the same terms, without the tab having to know this component's ref.
+  //
+  // Keyed on `extraLayers` alone (not on zoom or selection): the tab already
+  // memoises its layers, and re-cloning them on every camera move would be churn
+  // deck.gl has no reason to do.
+  const guardedExtraLayers = useMemo(
+    () =>
+      (extraLayers ?? []).map((layer) => {
+        const onClick = layer.props.onClick as
+          | ((info: PickingInfo, event: unknown) => void)
+          | undefined;
+        if (typeof onClick !== "function") return layer;
+        return layer.clone({
+          onClick: (info: PickingInfo, event: unknown): void => {
+            deckClickedRef.current = true;
+            onClick(info, event);
+          },
+        }) as Layer;
+      }),
+    [extraLayers]
   );
 
   // Heavy data build extracted from the layer useMemo so selection changes
@@ -697,7 +742,7 @@ export function DeckGLMap({
       ...cruisePortsAbove,
       ...lodgingLayers,
       ...placeLayers,
-      ...(extraLayers ?? []),
+      ...guardedExtraLayers,
     ];
   }, [
     visMode,
@@ -713,7 +758,7 @@ export function DeckGLMap({
     setCruiseSelection,
     cruises,
     cruiseGeometry,
-    extraLayers,
+    guardedExtraLayers,
     zoom,
     specialFlightLayers,
     markerColor,
@@ -954,24 +999,12 @@ export function DeckGLMap({
               pinned={pinned}
               flights={cardFlights}
               cruises={cruises}
-              selectionScope={selectionScope}
               onClose={() => {
                 setPinned(null);
                 clearSelections();
                 onResetTrip?.();
               }}
               onFlightOpen={onFlightOpen ?? onFlightClick}
-              onFlightEdit={
-                onEdit
-                  ? (flightId) => {
-                      const target = resolveSelectedFlight(flightId);
-                      if (!target) return;
-                      setPinned(null);
-                      clearSelections();
-                      onEdit(target);
-                    }
-                  : undefined
-              }
               onCruiseOpen={onCruiseOpen}
               onLodgingOpen={onLodgingOpen}
               onPlaceOpen={onPlaceOpen}

@@ -4,10 +4,13 @@
 // rework). On 2026-09-20 the owner put the globe card and the flat map's five
 // ad-hoc tooltips side by side and ruled that this one is the map card:
 // "Globus soll überall genutzt werden". So it moved out of `Globe/` into the
-// shared map chrome, gained the flat map's two missing selections (a trip
-// group and a Sonder-Flug) and the "Bearbeiten" action the flat map had and
-// the globe lacked — which the globe now gets too, because one card means one
-// action row.
+// shared map chrome and gained the flat map's two missing selections (a trip
+// group and a Sonder-Flug).
+//
+// It carried a second, "Bearbeiten" action for a while. That went on
+// 2026-10-09 (owner): a dashboard card is a way IN to something, so tapping a
+// summary opens the read-only thing it summarises — never the edit form.
+// Editing stays one tap away on the page the card's own action opens.
 //
 // Purely the inner content: no positioning, no occlusion, no anchor logic.
 // Each renderer mounts it wherever its own projection says the anchor is.
@@ -45,6 +48,7 @@ import { CardFlights } from "./CardFlights";
 import {
   LodgingBody,
   PlaceBody,
+  RoadtripBody,
   SpecialFlightBody,
   TripBody,
   type BodyCommonProps,
@@ -57,8 +61,6 @@ interface PinnedCardProps {
   onClose: () => void;
   /** Fires when the "Open (last) flight" action is used. */
   onFlightOpen?: (flightId: string) => void;
-  /** Fires when the "Bearbeiten" action is used — the flat map's edit modal. */
-  onFlightEdit?: (flightId: string) => void;
   /** Fires when the "Open cruise" action is used. */
   onCruiseOpen?: (cruiseId: string) => void;
   /** Fires when a trip group's "Details" action is used. */
@@ -67,13 +69,6 @@ interface PinnedCardProps {
   onLodgingOpen?: (lodgingId: string) => void;
   /** Fires when the place card's "Ort öffnen" action is used. */
   onPlaceOpen?: (placeId: string) => void;
-  /**
-   * `"single"` when the selection IS one flight rather than the whole route,
-   * which is what the flat map's single-flight click means. Only changes the
-   * primary action's wording — the card still shows the route, because a
-   * flight without its route reads like a fragment.
-   */
-  selectionScope?: "route" | "single";
 }
 
 export function PinnedCard({
@@ -82,12 +77,10 @@ export function PinnedCard({
   cruises,
   onClose,
   onFlightOpen,
-  onFlightEdit,
   onCruiseOpen,
   onTripDetails,
   onLodgingOpen,
   onPlaceOpen,
-  selectionScope = "route",
 }: PinnedCardProps): JSX.Element {
   const { t, i18n } = useTranslation([
     "map",
@@ -96,6 +89,9 @@ export function PinnedCard({
     "places",
     "specialFlights",
     "cruise",
+    // The roadtrip card reads its figures from the list keys and its action
+    // from the roadtrips namespace — added with the roadtrip line, 2026-10-09.
+    "roadtrips",
   ]);
   const locale = i18n.language || "de";
 
@@ -140,15 +136,7 @@ export function PinnedCard({
         <PortBody data={pinned.data} cruises={cruises} locale={locale} t={t} />
       )}
       {pinned.kind === "arc" && (
-        <ArcBody
-          data={pinned.data}
-          flights={flights}
-          locale={locale}
-          t={t}
-          onFlightOpen={onFlightOpen}
-          onFlightEdit={onFlightEdit}
-          selectionScope={selectionScope}
-        />
+        <ArcBody data={pinned.data} flights={flights} locale={locale} t={t} />
       )}
       {pinned.kind === "cruise" && (
         <CruiseBody
@@ -169,13 +157,7 @@ export function PinnedCard({
         />
       )}
       {pinned.kind === "specialFlight" && (
-        <SpecialFlightBody
-          data={pinned.data}
-          locale={locale}
-          t={t}
-          onFlightOpen={onFlightOpen}
-          onFlightEdit={onFlightEdit}
-        />
+        <SpecialFlightBody data={pinned.data} locale={locale} t={t} onFlightOpen={onFlightOpen} />
       )}
       {pinned.kind === "lodging" && (
         <LodgingBody data={pinned.data} locale={locale} t={t} onLodgingOpen={onLodgingOpen} />
@@ -183,6 +165,7 @@ export function PinnedCard({
       {pinned.kind === "place" && (
         <PlaceBody data={pinned.data} locale={locale} t={t} onPlaceOpen={onPlaceOpen} />
       )}
+      {pinned.kind === "roadtrip" && <RoadtripBody data={pinned.data} locale={locale} t={t} />}
     </div>
   );
 }
@@ -277,6 +260,13 @@ function Heading({ pinned, t }: { pinned: MapPinned; t: TFn }): JSX.Element {
           >
             {t(`specialFlights:specialType.${pinned.data.specialType}`)}
           </span>
+        </div>
+      );
+    case "roadtrip":
+      return (
+        <div className="flex items-center gap-2 text-[14px] font-semibold">
+          <span aria-hidden>🚐</span>
+          <span>{pinned.data.name}</span>
         </div>
       );
   }
@@ -419,19 +409,22 @@ function ArcBody({
   flights,
   locale,
   t,
-  onFlightOpen,
-  onFlightEdit,
-  selectionScope,
 }: {
   data: RouteCardDatum;
   flights: readonly GeoJSONFeature[];
-  onFlightOpen?: (flightId: string) => void;
-  onFlightEdit?: (flightId: string) => void;
-  selectionScope: "route" | "single";
 } & BodyCommonProps): JSX.Element {
   const stats = getArcStats(flights, data.flightIds);
   const colorRgb = `rgb(${data.color[0]},${data.color[1]},${data.color[2]})`;
-  const target = data.flightIds[data.flightIds.length - 1];
+  // The flight the card's own list shows FIRST — most recent by departure,
+  // the order `CardFlights` sorts by. The route datum's own tail
+  // (`flightIds[flightIds.length - 1]`) is the aggregation's order, not date
+  // order, so a "Last flight" action built from it could open a flight that is
+  // not the last one the reader sees (owner, 2026-10-09).
+  const target = flights
+    .filter((f) => data.flightIds.includes(f.properties.id))
+    .sort((a, b) =>
+      (b.properties.departureTime ?? "").localeCompare(a.properties.departureTime ?? "")
+    )[0]?.properties.id;
   return (
     <>
       <div className="mb-2.5 space-y-1.5">
@@ -481,19 +474,17 @@ function ArcBody({
       <CardFlights flights={flights} flightIds={data.flightIds} locale={locale} t={t} />
       <Actions
         primary={
-          onFlightOpen && target
+          target
             ? {
+                // "Last" is a claim that a route holds more than one flight;
+                // with exactly one there is nothing for it to be last of, so
+                // the plain wording is the honest one (owner, 2026-10-09).
                 label:
-                  selectionScope === "single"
-                    ? t("map:globe.pinned.openFlight")
-                    : t("map:globe.openLastFlight"),
-                onClick: () => onFlightOpen(target),
+                  data.count > 1
+                    ? t("map:globe.openLastFlight")
+                    : t("map:globe.pinned.openFlightDetails"),
+                to: `/flights/${target}`,
               }
-            : undefined
-        }
-        secondary={
-          onFlightEdit && target
-            ? { label: t("common:buttons.edit"), onClick: () => onFlightEdit(target) }
             : undefined
         }
       />

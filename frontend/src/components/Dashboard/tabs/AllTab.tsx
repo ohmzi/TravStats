@@ -16,7 +16,13 @@ import { resolvePlaceListColors } from "../../../lib/placeColor";
 import type { PlaceList } from "../../../types/placeList";
 import { tripsApi } from "../../../lib/api/trips";
 import { buildTourPaths, type TourPathDatum } from "../../layers/tourPathsLayer";
-import { buildTourLegendRows, TourStatusOverlay, useTourDeckLayers } from "./tourMapOverlay";
+import type { MapPinned } from "../../map/cards/pinnedTypes";
+import {
+  buildTourLegendRows,
+  roadtripPinned,
+  TourStatusOverlay,
+  useTourDeckLayers,
+} from "./tourMapOverlay";
 import {
   buildAirportPortLegendRows,
   buildCruiseLegendRows,
@@ -145,6 +151,14 @@ export function AllTab(): JSX.Element {
     }
   }, [legendOpen]);
   const [editingFlight, setEditingFlight] = useState<Flight | null>(null);
+  // The ONE pinned card this tab's maps draw, held here rather than in either
+  // renderer because the roadtrip LINE is an extra layer this tab builds — the
+  // map never sees it, so only the tab can answer its pick. One slot means a
+  // roadtrip card closes a flight card and a flight card closes a roadtrip one,
+  // which is what the owner asked for (2026-10-09). Scoped to the dashboard
+  // mount, so switching tabs drops it rather than hanging it over a line that is
+  // gone.
+  const [pinned, setPinned] = useState<MapPinned | null>(null);
 
   // Global dashboard filter — year populates `time.from/to`, domain
   // pill row toggles flight/cruise visibility on the Alle tab. The pill
@@ -257,6 +271,8 @@ export function AllTab(): JSX.Element {
   }, [places, visible.poi, filterTime.from, filterTime.to]);
 
   // Map click → selection store. DeckGLMap handles dim/highlight + tooltip.
+  // Picking a flight writes the selection store, whose card effect replaces the
+  // one pinned slot — so a roadtrip card closes without this handler saying so.
   const handleFlightClick = useCallback(
     (flightId: string): void => {
       const f = lookup(flightId);
@@ -270,6 +286,20 @@ export function AllTab(): JSX.Element {
       if (fs.length > 0) setSelection(fs);
     },
     [lookupMany, setSelection]
+  );
+  // A roadtrip line pick, wired into the tour layer this tab draws. Only a
+  // roadtrip answers with a card — a day-tour leg is inert here, exactly as it
+  // is on the roadtrips tab (the card is a roadtrip's; a tour's facts already
+  // sit on the row that opens it). It writes the SAME pinned slot a flight card
+  // uses, so the two can never be open together; clearing the flight selection
+  // drops the map highlight the roadtrip card would otherwise leave lit.
+  const handleTourPick = useCallback(
+    (datum: TourPathDatum, coordinate?: number[]): void => {
+      if (!datum.isRoadtrip) return;
+      setSelection([]);
+      setPinned(roadtripPinned(datum, coordinate));
+    },
+    [setSelection]
   );
 
   // Aktivität-sidebar row wiring. One click means the same thing in every
@@ -295,13 +325,22 @@ export function AllTab(): JSX.Element {
     [lookup, setSelection, setCruiseSelection, setLodgingSelection, setPlaceSelection]
   );
 
-  /** The map speaks flight ids, the sidebar speaks activity rows — separate doors. */
+  /**
+   * The card's one action: open the flight it names READ-ONLY, on the logbook's
+   * own detail page — the same one-liner `FlightsTab` already uses. It used to
+   * call `setEditingFlight`, so a button that said "open" put the reader in the
+   * edit form, which is the one thing a summary card must never do (owner,
+   * 2026-10-09). Editing stays one tap away on the page this opens.
+   *
+   * The sidebar's activity rows keep their own door (`handleActivityDetails`)
+   * because a row is not a card: tapping a row focuses it on the map, and its
+   * arrow is what leaves the dashboard.
+   */
   const handleFlightOpen = useCallback(
     (flightId: string): void => {
-      const f = lookup(flightId);
-      if (f) setEditingFlight(f);
+      navigate(`/flights/${flightId}`);
     },
-    [lookup]
+    [navigate]
   );
 
   const handleActivityDetails = useCallback(
@@ -499,7 +538,7 @@ export function AllTab(): JSX.Element {
   const rail = useRailOverlay(railOn, visMode === "globe", t);
   const rentalOn = useRentalVisible() && showTours && domainFilter.isVisible("rental");
   const rental = useRentalOverlay(rentalOn, visMode === "globe", t);
-  const tourDeck = useTourDeckLayers(tourPathData, visMode === "globe");
+  const tourDeck = useTourDeckLayers(tourPathData, visMode === "globe", handleTourPick);
   const tourLayers = useMemo<Layer[]>(
     () => [...tourDeck, ...rail.layers, ...rental.layers],
     [tourDeck, rail.layers, rental.layers]
@@ -738,6 +777,8 @@ export function AllTab(): JSX.Element {
           lodgingsOverride={visibleLodgings}
           onLodgingClick={handleLodgingClick}
           hideInfoPill
+          pinned={pinned}
+          onPinnedChange={setPinned}
         />
         {activityToggle}
         {legendTable}
@@ -767,6 +808,8 @@ export function AllTab(): JSX.Element {
         lodgingsOverride={visibleLodgings}
         onLodgingClick={handleLodgingClick}
         hideInfoPill
+        pinned={pinned}
+        onPinnedChange={setPinned}
         filterSlot={
           <DomainFilterButton
             tourCount={dayTourCount}

@@ -6,6 +6,7 @@
 // says and this one about how any of it is drawn.
 
 import type { JSX } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "../../../hooks/useTranslation";
 import { countryName } from "../../../lib/countryFlag";
 import { formatDate as formatUserDate } from "../../../lib/displayFormat";
@@ -113,46 +114,46 @@ export function Place({
 }
 
 /**
- * One action row for both maps. The globe card had a single CTA and the flat
- * map's tooltips had "Bearbeiten"; the ruling folded them into one card, so
- * the card carries both and each renderer decides which handlers it passes.
+ * One action row for both maps, and ONE action in it.
+ *
+ * The card carried a second, "Bearbeiten" button for a while; the owner removed
+ * it on 2026-10-09 — a dashboard card is a way IN to something, so tapping a
+ * summary opens the read-only thing it summarises, never the edit form. The
+ * slot went with it, so no card can quietly grow a second button again.
+ *
+ * The one action takes a `to` instead of an `onClick` when it leads to a page:
+ * then it is a router `<Link>`, which a reader can middle-click and open in a
+ * background tab. Only navigation earns a link; an in-place action (a card that
+ * just lists what the reader already sees) stays a button. `ArcBody` and
+ * `RoadtripBody` are the two that navigate, and both read `to` from the datum
+ * the line was built from.
  */
-export function Actions({
-  primary,
-  secondary,
-}: {
-  primary?: { label: string; onClick: () => void };
-  secondary?: { label: string; onClick: () => void };
-}): JSX.Element | null {
-  if (!primary && !secondary) return null;
+export interface CardAction {
+  label: string;
+  /** Destination of a navigating action — renders a `<Link>`. */
+  to?: string;
+  /** Handler of an in-place action — renders a `<button>`. */
+  onClick?: () => void;
+}
+
+export function Actions({ primary }: { primary?: CardAction }): JSX.Element | null {
+  if (!primary) return null;
+  const className =
+    "flex-1 cursor-pointer rounded-sm px-2 py-1.5 text-center text-[11px] font-medium transition-colors";
+  const style: React.CSSProperties = {
+    background: ACCENT_FILL,
+    border: `1px solid ${ACCENT_EDGE}`,
+    color: tokens.color.accentHover,
+  };
   return (
     <div className="mt-3 flex gap-2">
-      {primary && (
-        <button
-          type="button"
-          onClick={primary.onClick}
-          className="flex-1 cursor-pointer rounded-sm px-2 py-1.5 text-[11px] font-medium transition-colors"
-          style={{
-            background: ACCENT_FILL,
-            border: `1px solid ${ACCENT_EDGE}`,
-            color: tokens.color.accentHover,
-          }}
-        >
+      {primary.to !== undefined ? (
+        <Link to={primary.to} className={className} style={{ ...style, textDecoration: "none" }}>
           {primary.label}
-        </button>
-      )}
-      {secondary && (
-        <button
-          type="button"
-          onClick={secondary.onClick}
-          className="cursor-pointer rounded-sm px-2 py-1.5 text-[11px] font-medium transition-colors"
-          style={{
-            background: "rgba(255,255,255,0.08)",
-            border: `1px solid ${tokens.color.border}`,
-            color: tokens.color.text,
-          }}
-        >
-          {secondary.label}
+        </Link>
+      ) : (
+        <button type="button" onClick={primary.onClick} className={className} style={style}>
+          {primary.label}
         </button>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import MapGL, { useControl, type MapRef } from "react-map-gl/maplibre";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import type { Layer, MapViewState, PickingInfo } from "@deck.gl/core";
@@ -53,7 +54,7 @@ import { GlobeControlPanel, type StyleId, type LiteMode } from "./Globe/GlobeCon
 import type { ArcDatum, CruisePathDatum, PointDatum } from "./Globe/globeLayerTypes";
 import type { MapPinned } from "./map/cards/pinnedTypes";
 import { STYLE_OPTIONS } from "./Globe/globeStyles";
-import type { Flight, GeoJSONFeature } from "../types";
+import type { GeoJSONFeature } from "../types";
 import { isCountableFlight } from "../shared/flightCounting";
 import type { Cruise } from "../types/cruise";
 import type { Lodging } from "../types/lodging";
@@ -111,18 +112,13 @@ interface GlobeViewProps {
    * reads says it once.
    */
   cruisesForCard?: readonly Cruise[];
-  /** Fired by the pinned-card "Open last flight" CTA — should open the
-      flight (modal or detail page). */
+  /** Fired by the pinned card's one action — its label follows the route's
+      count ("Last flight" or "Open flight details") — and should open the
+      flight read-only, never its edit form. */
   onFlightOpen?: (flightId: string) => void;
   /** Fired by the pinned-card "Open cruise" CTA — should navigate to
       the cruise detail page. */
   onCruiseOpen?: (cruiseId: string) => void;
-  /**
-   * Fired by the card's "Bearbeiten" action. Threaded here so the globe's
-   * card carries the SAME action row as the flat map's — the ruling asked for
-   * one card, and a card with one fewer action on one surface is two.
-   */
-  onEdit?: (flight: Flight) => void;
   minRouteCount?: number;
   /** Which domain appearance sections the control panel exposes. Globe
       currently only mounts on the Alle tab, so this defaults to both. */
@@ -174,6 +170,16 @@ interface GlobeViewProps {
   /** Place marker-size multiplier, owned and persisted by MapContainer3D. */
   placeMarkerSize?: number;
   onPlaceMarkerSizeChange?: (size: number) => void;
+  /**
+   * The pinned card's owner, when the caller holds it (`MapContainer3D`'s
+   * `pinned` doc explains why a tab wants to). Passing neither keeps this
+   * component's own state. The globe is one surface where two popups could be
+   * open at once — an arc click wrote this state while a roadtrip line, drawn
+   * as an extra layer, wrote the tab's — so one owner closes each with the
+   * other (owner, 2026-10-09).
+   */
+  pinned?: MapPinned | null;
+  onPinnedChange?: Dispatch<SetStateAction<MapPinned | null>>;
 }
 
 // Auto-rotate behaviour.
@@ -235,7 +241,6 @@ export default function GlobeView({
   cruisesForCard,
   onFlightOpen,
   onCruiseOpen,
-  onEdit,
   minRouteCount = 1,
   appearanceDomains = ["flight", "cruise"],
   extraLayers = [],
@@ -249,6 +254,8 @@ export default function GlobeView({
   onLodgingMarkerSizeChange,
   placeMarkerSize = 1,
   onPlaceMarkerSizeChange,
+  pinned: pinnedProp,
+  onPinnedChange,
 }: GlobeViewProps): JSX.Element {
   const { t, i18n } = useTranslation(["map"]);
   const locale = i18n.language || "de";
@@ -493,7 +500,14 @@ export default function GlobeView({
   // globe's layer datums are assignable to it (that is what `pinnedTypes.ts`
   // is a subset for), and the activity sidebar's selections — a hotel, a place
   // — have no globe layer datum at all.
-  const [pinned, setPinned] = useState<MapPinned | null>(null);
+  //
+  // A tab that draws its own lines (the roadtrip tour paths) owns the card, so
+  // an arc click and a roadtrip pick write the SAME slot and each closes the
+  // other; every other caller keeps this state. `undefined` — no prop — is
+  // "uncontrolled"; `null` is a controlled, closed slot.
+  const [internalPinned, setInternalPinned] = useState<MapPinned | null>(null);
+  const pinned = pinnedProp !== undefined ? pinnedProp : internalPinned;
+  const setPinned = onPinnedChange ?? setInternalPinned;
 
   // The pinned card is rendered as a custom absolutely-positioned
   // overlay above the map container. MapLibre's own Popup primitive
@@ -958,13 +972,12 @@ export default function GlobeView({
     [flightColorConfig]
   );
 
-  const { cardFlights, clearSelections, selectionScope, resolveSelectedFlight, openTripDetails } =
-    useMapSelectionCards({
-      flights,
-      flightColor: flightCardColor,
-      focus: focusOnGlobe,
-      setPinned,
-    });
+  const { cardFlights, clearSelections, openTripDetails } = useMapSelectionCards({
+    flights,
+    flightColor: flightCardColor,
+    focus: focusOnGlobe,
+    setPinned,
+  });
 
   // Smooth fly-to on arc click. Compute mid-point (handling wrap-around)
   // and pick a zoom level that keeps both endpoints visible without
@@ -1394,23 +1407,11 @@ export default function GlobeView({
         screen={popupScreenPos}
         flights={cardFlights}
         cruises={[...(cruisesForCard ?? cruises)]}
-        selectionScope={selectionScope}
         onClose={() => {
           setPinned(null);
           clearSelections();
         }}
         onFlightOpen={onFlightOpen}
-        onFlightEdit={
-          onEdit
-            ? (flightId) => {
-                const target = resolveSelectedFlight(flightId);
-                if (!target) return;
-                setPinned(null);
-                clearSelections();
-                onEdit(target);
-              }
-            : undefined
-        }
         onTripDetails={() => {
           setPinned(null);
           openTripDetails();

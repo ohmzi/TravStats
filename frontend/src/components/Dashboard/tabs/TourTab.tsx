@@ -12,13 +12,14 @@ import { LEG_MODES, type LegMode } from "../../../types/tour";
 import { buildTourPaths, type TourPathDatum } from "../../layers/tourPathsLayer";
 import {
   buildTourLegendRows,
+  roadtripPinned,
   TourStatusOverlay,
   TOUR_PATH_GLOBE_ALTITUDE_M,
   useTourDeckLayers,
 } from "./tourMapOverlay";
 import { legendRow } from "./allTabLegendRows";
 import MapContainer3D from "../../MapContainer3D";
-import RoadtripCardOverlay from "../RoadtripCardOverlay";
+import type { MapPinned } from "../../map/cards/pinnedTypes";
 import { ATTRIBUTION_CLEARANCE } from "../../map/attributionClearance";
 import { SidebarToggle } from "../SidebarToggle";
 import { MapEmptyOverlay } from "./MapEmptyOverlay";
@@ -83,11 +84,12 @@ export function TourTab({ kind = "tour" }: { kind?: RouteKind } = {}): JSX.Eleme
   const { colorOf } = useDomainColors();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   /**
-   * The roadtrip whose line was clicked, and the card that answers it. The tab
-   * owns it rather than the map's pinned-card store because the line it comes
-   * from is drawn HERE, as an extra layer — the map never sees these sections.
+   * The ONE pinned card this tab's map draws — held here rather than in the map
+   * because the lines it comes from are extra layers the tab built, which the
+   * map never sees. It is the same slot a flight selection writes, so opening
+   * one closes the other (owner, 2026-10-09).
    */
-  const [pickedTour, setPickedTour] = useState<{ id: string; name: string } | null>(null);
+  const [pinned, setPinned] = useState<MapPinned | null>(null);
   const visMode = mode === "globe" ? "globe" : "routes";
 
   const tourPathData = useMemo<TourPathDatum[]>(
@@ -103,10 +105,12 @@ export function TourTab({ kind = "tour" }: { kind?: RouteKind } = {}): JSX.Eleme
   const lodgingHex = colorOf("lodging");
   const roadtripHex = colorOf("roadtrip");
   // Widths and the station size come from the map panel (forgejo#198).
-  const handleTourPick = useCallback(
-    (datum: TourPathDatum): void => setPickedTour({ id: datum.routeId, name: datum.name }),
-    []
-  );
+  const handleTourPick = useCallback((datum: TourPathDatum, coordinate?: number[]): void => {
+    // Only a roadtrip is answered: a day tour is a walk, and its figures are
+    // already on the row that opened it.
+    if (!datum.isRoadtrip) return;
+    setPinned(roadtripPinned(datum, coordinate));
+  }, []);
   const tourDeck = useTourDeckLayers(tourPathData, visMode === "globe", handleTourPick);
   const { roadtripStationSize } = useOverlayAppearance();
   const tourLayers = useMemo<Layer[]>(() => {
@@ -173,18 +177,9 @@ export function TourTab({ kind = "tour" }: { kind?: RouteKind } = {}): JSX.Eleme
         // underneath the tour lines (defaults to true).
         showInternalCruises={false}
         hideInfoPill
+        pinned={pinned}
+        onPinnedChange={setPinned}
       />
-
-      {/* The clicked section, answered beside the line it was clicked on. Only
-          roadtrips get one: a day tour is a walk, and its figures are already
-          on the row that opened it. */}
-      {pickedTour && isRoadtrip && (
-        <RoadtripCardOverlay
-          routeId={pickedTour.id}
-          name={pickedTour.name}
-          onClose={() => setPickedTour(null)}
-        />
-      )}
 
       <SidebarToggle
         open={sidebarOpen}

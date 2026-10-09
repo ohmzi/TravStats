@@ -12,7 +12,7 @@
 // move the camera, and whether an emptied selection clears the card.
 
 import { useCallback, useEffect, useMemo } from "react";
-import type { Flight, GeoJSONFeature } from "../../../types";
+import type { GeoJSONFeature } from "../../../types";
 import { useFlightSelectionStore } from "../../../store/flightSelectionStore";
 import { useCruiseSelectionStore } from "../../../store/cruiseSelectionStore";
 import { useLodgingSelectionStore } from "../../../store/lodgingSelectionStore";
@@ -120,15 +120,6 @@ export interface MapSelectionCards {
    * effect, no card. The reader had to pick something else and come back.
    */
   clearSelections: () => void;
-  /**
-   * `"single"` when the selection IS one flight rather than the whole route —
-   * only the primary action's wording changes. Derived here so both surfaces
-   * say the same thing; it used to stop at `MapContainer3D`, and the globe
-   * called one selected flight "Letzten Flug öffnen".
-   */
-  selectionScope: "single" | "route";
-  /** The selected row behind a card action, or undefined once it is gone. */
-  resolveSelectedFlight: (flightId: string) => Flight | undefined;
   /** What the trip card's "Details" action does — open the route sidebar. */
   openTripDetails: () => void;
   /**
@@ -256,12 +247,6 @@ export function useMapSelectionCards({
     focus(next.anchorLngLat);
   }, [selectedPlace, focus, setPinned, clearOnEmpty]);
 
-  const resolveSelectedFlight = useCallback(
-    (flightId: string): Flight | undefined =>
-      selectedFlights.find((f) => f.id === flightId) ?? selectedFlights[0],
-    [selectedFlights]
-  );
-
   const openTripDetails = useCallback((): void => {
     if (selectedFlights.length === 0) return;
     showDetails(selectedFlights, "route-details");
@@ -270,8 +255,6 @@ export function useMapSelectionCards({
   return {
     cardFlights,
     clearSelections,
-    selectionScope: selectedFlights.length === 1 ? "single" : "route",
-    resolveSelectedFlight,
     openTripDetails,
   };
 }

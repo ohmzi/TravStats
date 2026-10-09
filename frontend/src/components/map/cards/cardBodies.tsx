@@ -9,14 +9,20 @@
 // the ones a reader looks up by name.
 
 import type { JSX } from "react";
+import { useEffect, useState } from "react";
 import { resolveCountryCode } from "../../../lib/countryFlag";
 import { LODGING_COLOR } from "../../../lib/lodgingColor";
 import { PLACE_COLOR } from "../../../lib/placeColor";
 import { rgbCss } from "../../../lib/flightColor";
+import { roadtripsApi } from "../../../lib/api/roadtrips";
+import { logger } from "../../../lib/logger";
+import { tokens } from "../../../theme/tokens";
 import type { GeoJSONFeature } from "../../../types";
+import type { RoadtripDetail } from "../../../types/roadtrip";
 import type {
   LodgingCardDatum,
   PlaceCardDatum,
+  RoadtripCardDatum,
   SpecialFlightCardDatum,
   TripCardDatum,
 } from "./pinnedTypes";
@@ -29,6 +35,7 @@ import {
   Row,
   SubHeading,
   formatDate,
+  formatKm,
   formatKmNumber,
   type TFn,
 } from "./cardChrome";
@@ -108,11 +115,9 @@ export function SpecialFlightBody({
   locale,
   t,
   onFlightOpen,
-  onFlightEdit,
 }: {
   data: SpecialFlightCardDatum;
   onFlightOpen?: (flightId: string) => void;
-  onFlightEdit?: (flightId: string) => void;
 } & BodyCommonProps): JSX.Element {
   const colorRgb = `rgb(${data.color[0]},${data.color[1]},${data.color[2]})`;
   return (
@@ -135,11 +140,6 @@ export function SpecialFlightBody({
                 label: t("map:globe.pinned.openFlight"),
                 onClick: () => onFlightOpen(data.flightId),
               }
-            : undefined
-        }
-        secondary={
-          onFlightEdit
-            ? { label: t("common:buttons.edit"), onClick: () => onFlightEdit(data.flightId) }
             : undefined
         }
       />
@@ -252,6 +252,102 @@ export function PlaceBody({
             ? { label: t("map:globe.pinned.openPlace"), onClick: () => onPlaceOpen(data.id) }
             : undefined
         }
+      />
+    </>
+  );
+}
+
+// ─── Roadtrip body ────────────────────────────────────────────────
+
+/**
+ * The card a roadtrip LINE puts up on the dashboard (owner, 2026-10-09).
+ *
+ * The roadtrip tabs drew their lines and listed their sections beside the map,
+ * so a reader could see a route and not ask it anything. The flight line already
+ * answered a tap with the shared card; this is the SAME furniture for a roadtrip
+ * — heading, the km it covered, the nights and stations, and the way in.
+ *
+ * It fetches its own figures (`roadtripsApi.get`) because the tab's tour index
+ * carries the line and its name, not the nights or the station count. A failed
+ * or absent figure is a DASH with its reason, never a 0: a roadtrip whose
+ * distance did not load is not a roadtrip that covered nothing.
+ *
+ * This began life as a standalone overlay docked bottom-left of the map, which
+ * put it in a corner rather than near the line the reader tapped. Folding it
+ * into the shared card is what fixes that: the renderer projects the datum's
+ * `anchorLngLat` exactly as it does for the flight card, so both appear beside
+ * the thing they describe.
+ */
+export function RoadtripBody({
+  data,
+  locale,
+  t,
+}: { data: RoadtripCardDatum } & BodyCommonProps): JSX.Element {
+  const [detail, setDetail] = useState<RoadtripDetail | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDetail(null);
+    setFailed(false);
+    void (async () => {
+      try {
+        const d = await roadtripsApi.get(data.routeId);
+        if (!cancelled) setDetail(d);
+      } catch (error: unknown) {
+        logger.error(
+          { err: error, routeId: data.routeId },
+          "RoadtripBody: failed to load the roadtrip"
+        );
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [data.routeId]);
+
+  const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
+
+  return (
+    <>
+      {failed && (
+        <>
+          <Hero color={tokens.color.faint}>—</Hero>
+          <SubHeading>{t("roadtrips:detailLoadError")}</SubHeading>
+        </>
+      )}
+      {detail && (
+        <>
+          <Hero color={tokens.domainColor.roadtrip}>
+            {formatKm(detail.roadtrip.drivenKm, locale)}
+          </Hero>
+          <Grid>
+            <Row
+              label={t("roadtrips:list.figNights", { count: detail.nights.nights })}
+              value={nf.format(detail.nights.nights)}
+            />
+            <Row
+              label={t("roadtrips:list.figStations", { count: detail.roadtrip.stopCount })}
+              value={nf.format(detail.roadtrip.stopCount)}
+            />
+            <Row
+              label={t("roadtrips:detail.figCountries")}
+              value={nf.format(detail.countries.length)}
+            />
+          </Grid>
+        </>
+      )}
+      <Actions
+        primary={{
+          // "Last" is a claim that the line stands for more than one roadtrip;
+          // a line is one roadtrip today, so the plain wording is the honest
+          // one and the branch is here for the day a grouping puts several on
+          // one line (owner, 2026-10-09).
+          label:
+            data.count > 1 ? t("roadtrips:list.lastRoadtrip") : t("roadtrips:list.openDetails"),
+          to: `/roadtrips/${data.routeId}`,
+        }}
       />
     </>
   );

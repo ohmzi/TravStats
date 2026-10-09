@@ -2,6 +2,7 @@ import type { PlaceLabelList } from "../lib/placeLabel";
 import React, { lazy, Suspense, useState, useMemo, useEffect } from "react";
 import { DeckGLMap } from "./DeckGLMap";
 import { GlobeLoader } from "./GlobeLoader";
+import type { MapPinned } from "./map/cards/pinnedTypes";
 import type { Cruise, GeoJSONFeature, Flight } from "../types";
 import type { Lodging } from "../types/lodging";
 import type { Place } from "../types/place";
@@ -32,10 +33,10 @@ interface MapContainer3DProps {
   flightList?: Flight[];
   onFlightClick?: (flightId: string) => void;
   onRouteClick?: (flightIds: string[]) => void;
-  onEdit?: (flight: Flight) => void;
-  /** Fires when the pinned card's "Open last flight" action is used — should
-      open the flight (modal or detail page). Reaches BOTH renderers since the
-      owner's 2026-09-20 ruling gave the flat map the same card. */
+  /** Fires when the pinned card's one action is used — its label follows the
+      route's count ("Last flight" or "Open flight details") and it should open
+      the flight READ-ONLY, never its edit form. Reaches BOTH renderers since
+      the owner's 2026-09-20 ruling gave the flat map the same card. */
   onFlightOpen?: (flightId: string) => void;
   /** Fires when the pinned card's "Open cruise" action is used — should
       navigate to the cruise detail page. Both renderers, same reason. */
@@ -130,6 +131,22 @@ interface MapContainer3DProps {
    * Defaults to both for callers that don't specify.
    */
   appearanceDomains?: readonly AppearanceDomain[];
+  /**
+   * The pinned card's OWNER, when the caller wants to hold it.
+   *
+   * A pinned card is one value: open one and it replaces any other, which is
+   * the rule the owner asked for on 2026-10-09 — tapping a roadtrip line must
+   * close a flight card and vice versa. That only holds if one place owns the
+   * value, and a tab that draws its own lines (the roadtrip tour paths) is that
+   * place: the map never sees those layers, so only the tab can write the card
+   * they answer with.
+   *
+   * Passing this pair makes the card CONTROLLED. Callers that pass neither keep
+   * the renderer's internal state, exactly as before — the journey view and the
+   * single-domain tabs that never put a line card up are untouched.
+   */
+  pinned?: MapPinned | null;
+  onPinnedChange?: React.Dispatch<React.SetStateAction<MapPinned | null>>;
 }
 
 export default function MapContainer3D({
@@ -137,7 +154,6 @@ export default function MapContainer3D({
   flightList,
   onFlightClick,
   onRouteClick,
-  onEdit,
   onFlightOpen,
   onCruiseOpen,
   visMode,
@@ -155,6 +171,8 @@ export default function MapContainer3D({
   placeListColors,
   placeListLabels,
   appearanceDomains = ["flight", "cruise"],
+  pinned,
+  onPinnedChange,
 }: MapContainer3DProps): JSX.Element {
   const { t } = useTranslation(["common", "map"]);
   const mapTheme = useThemeStore((s) => s.mapTheme);
@@ -297,7 +315,6 @@ export default function MapContainer3D({
               cruisesForCard={cruises}
               onFlightOpen={onFlightOpen ?? onFlightClick}
               onCruiseOpen={onCruiseOpen}
-              onEdit={onEdit}
               minRouteCount={minRouteCount}
               appearanceDomains={appearanceDomains}
               extraLayers={extraLayers}
@@ -311,6 +328,10 @@ export default function MapContainer3D({
               onLodgingMarkerSizeChange={setLodgingMarkerSize}
               placeMarkerSize={placeMarkerSize}
               onPlaceMarkerSizeChange={setPlaceMarkerSize}
+              // Forwarded only when the caller holds the slot; `undefined`
+              // leaves the globe's own state in charge (see the prop's note).
+              pinned={pinned}
+              onPinnedChange={onPinnedChange}
             />
           </Suspense>
         ) : (
@@ -321,7 +342,6 @@ export default function MapContainer3D({
             cruises={cruises}
             onFlightClick={onFlightClick}
             onRouteClick={onRouteClick}
-            onEdit={onEdit}
             onFlightOpen={onFlightOpen}
             onCruiseOpen={onCruiseOpen}
             // The card's "open" action ends where the globe's does — at the
@@ -344,6 +364,10 @@ export default function MapContainer3D({
             placeMarkerSize={placeMarkerSize}
             onPlaceMarkerSizeChange={setPlaceMarkerSize}
             onLodgingClick={onLodgingClick}
+            // Forwarded only when the caller holds the slot; `undefined`
+            // leaves the flat map's own state in charge (see the prop's note).
+            pinned={pinned}
+            onPinnedChange={onPinnedChange}
           />
         )}
       </div>

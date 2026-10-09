@@ -41,6 +41,10 @@ function pathAccessor(props: unknown): (d: TourPathDatum) => unknown {
 
 const SAMPLE: TourPathDatum = {
   legId: "leg-1",
+  // Required since the line card (2026-10-09): a pick names its section from
+  // these, which the leg id alone cannot.
+  routeId: "route-1",
+  name: "Test leg",
   path: [
     [10.5, 60.1],
     [10.8, 60.3],

@@ -264,10 +264,12 @@ export function FlightsTab(): JSX.Element {
         appearanceDomains={["flight"]}
         onFlightClick={handleFlightClick}
         onRouteClick={handleRouteClick}
-        // "Open last flight" OPENS the flight — it used to call
-        // `setEditingFlight`, so a CTA that says "open" put the reader in the
+        // The card's ONE action OPENS the flight — it used to call
+        // `setEditingFlight`, so a CTA that said "open" put the reader in the
         // edit form instead of on the flight, which is the one thing the button
-        // promised not to do. Editing has its own action in the same card.
+        // promised not to do. Its label follows the route's count ("Last flight"
+        // with more than one, "Open flight details" with one). Editing lives on
+        // the page this opens, not on the card (owner, 2026-10-09).
         onFlightOpen={(flightId) => navigate(`/flights/${flightId}`)}
         hideInfoPill
       />

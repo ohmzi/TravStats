@@ -216,6 +216,8 @@
     "next": "Next up: {{station}}",
     "enterTonight": "Record tonight",
     "open": "Open roadtrip",
+    "openDetails": "Open roadtrip details",
+    "lastRoadtrip": "Last road trip",
     "figKm": "km",
     "figNights_one": "night",
     "figNights_other": "nights",

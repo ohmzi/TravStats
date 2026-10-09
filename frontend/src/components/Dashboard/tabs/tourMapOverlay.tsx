@@ -4,6 +4,7 @@ import { PathLayer } from "@deck.gl/layers";
 import type { Layer } from "@deck.gl/core";
 import { rgbCss } from "../../../lib/flightColor";
 import { TOUR_RGB, type TourPathDatum } from "../../layers/tourPathsLayer";
+import type { MapPinned } from "../../map/cards/pinnedTypes";
 import { LEG_MODES, type LegMode } from "../../../types/tour";
 import { useOverlayAppearance } from "../../../store/overlayAppearanceStore";
 
@@ -185,7 +186,14 @@ export function buildTourDeckLayers(
   pathData: readonly TourPathDatum[],
   altitudeM = 0,
   widthScales: TourWidthScales = DEFAULT_TOUR_WIDTH_SCALES,
-  onPick?: (datum: TourPathDatum) => void
+  /**
+   * A pick returns the leg that was clicked AND the coordinate it was clicked
+   * at. The datum names the section, so the caller can put a card up for the
+   * roadtrip the reader aimed at; the coordinate is where that card must be
+   * anchored, or it opens in a corner instead of beside the line (owner,
+   * 2026-10-09).
+   */
+  onPick?: (datum: TourPathDatum, coordinate?: number[]) => void
 ): Layer[] {
   if (pathData.length === 0) return [];
   return [
@@ -206,10 +214,42 @@ export function buildTourDeckLayers(
       autoHighlight: true,
       highlightColor: [255, 255, 255, 80],
       // The datum carries its section, so a pick can say WHICH roadtrip was
-      // aimed at. Without this the line was pickable and nothing listened.
-      onClick: onPick ? (info) => onPick(info.object as TourPathDatum) : undefined,
+      // aimed at; the coordinate comes with it so the card lands on the line.
+      // Without this the line was pickable and nothing listened.
+      onClick: onPick ? (info) => onPick(info.object as TourPathDatum, info.coordinate) : undefined,
     }),
   ];
+}
+
+/**
+ * The pinned card a roadtrip line answers with, built from the line's own datum
+ * and the coordinate it was tapped at — one builder for both tabs, so the two
+ * cannot disagree about which roadtrip a click meant.
+ *
+ * The anchor is the tap coordinate, so the card lands on the line the reader
+ * aimed at rather than in a corner. deck.gl gives no coordinate on some picks
+ * (a programmatic one, a test's bare `{ object }`); the clicked leg's own path
+ * midpoint is the honest fallback, being a point ON the line either way.
+ *
+ * `count` is the line's own grouping and nothing else: a line is one roadtrip
+ * today, so it is 1 and the card reads the plain wording. The field rides along
+ * so a future grouping that puts several roadtrips on one line gets the "last"
+ * wording for free, instead of a second count that could drift from the line
+ * (owner, 2026-10-09).
+ */
+export function roadtripPinned(datum: TourPathDatum, coordinate?: number[]): MapPinned {
+  const anchor: [number, number] =
+    coordinate && coordinate.length >= 2 ? [coordinate[0], coordinate[1]] : pathMidpoint(datum);
+  return {
+    kind: "roadtrip",
+    anchorLngLat: anchor,
+    data: { routeId: datum.routeId, name: datum.name, count: 1 },
+  };
+}
+
+function pathMidpoint(datum: TourPathDatum): [number, number] {
+  const mid = datum.path[Math.floor(datum.path.length / 2)] ?? datum.path[0];
+  return mid ? [mid[0], mid[1]] : [0, 0];
 }
 
 /**
@@ -220,7 +260,7 @@ export function buildTourDeckLayers(
 export function useTourDeckLayers(
   pathData: readonly TourPathDatum[],
   onGlobe: boolean,
-  onPick?: (datum: TourPathDatum) => void
+  onPick?: (datum: TourPathDatum, coordinate?: number[]) => void
 ): Layer[] {
   const { tourLineWidth, roadtripLineWidth } = useOverlayAppearance();
   return useMemo(

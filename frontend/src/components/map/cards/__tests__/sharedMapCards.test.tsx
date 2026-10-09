@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { createRef, type ReactElement } from "react";
 
 import { PinnedCard } from "../PinnedCard";
@@ -40,9 +41,12 @@ function feature(id: string, overrides: Record<string, unknown> = {}): GeoJSONFe
  * The card lifts itself in on mount via `requestAnimationFrame`, so a bare
  * `render` settles one frame AFTER the assertions — which is an act warning,
  * not a flake. Flushing the frame inside act is the honest wait.
+ *
+ * Wrapped in a Router because the route and roadtrip actions are `<Link>`s — the
+ * card navigates rather than asking its host to, so a reader can middle-click it.
  */
 async function renderCard(ui: ReactElement): Promise<void> {
-  render(ui);
+  render(<MemoryRouter>{ui}</MemoryRouter>);
   await act(async () => {
     await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
   });
@@ -56,6 +60,19 @@ const routePinned: MapPinned = {
     arrival: { iata: "AGP", name: "Málaga", country: "ES", city: "Málaga" },
     flightIds: ["f1"],
     count: 1,
+    color: [240, 169, 71],
+  },
+};
+
+/** The same route flown twice — the only shape that earns the "last" wording. */
+const twoFlightRoute: MapPinned = {
+  kind: "arc",
+  anchorLngLat: [10, 50],
+  data: {
+    departure: { iata: "TOS", name: "Tromsø", country: "NO", city: "Tromsø" },
+    arrival: { iata: "AGP", name: "Málaga", country: "ES", city: "Málaga" },
+    flightIds: ["f1", "f2"],
+    count: 2,
     color: [240, 169, 71],
   },
 };
@@ -80,26 +97,10 @@ describe("the shared map cards", () => {
     expect(screen.getByText("DL6287")).toBeInTheDocument();
   });
 
-  it("offers the edit action beside the open action, so both maps share one action row", async () => {
-    const onFlightEdit = vi.fn();
-    await renderCard(
-      <PinnedCard
-        pinned={routePinned}
-        flights={[feature("f1")]}
-        cruises={[]}
-        onClose={vi.fn()}
-        onFlightOpen={vi.fn()}
-        onFlightEdit={onFlightEdit}
-      />
-    );
-
-    expect(screen.getByRole("button", { name: "common:buttons.edit" })).toBeInTheDocument();
-  });
-
   // The suite renders raw i18n keys (no resources are loaded), so the
   // assertion names the KEY. The German and English copy behind it is what
   // `i18n/__tests__/localeKeyParity.test.ts` holds.
-  it("names the single flight rather than the last one when the selection is one flight", async () => {
+  it("names a one-flight route with the plain detail action, never 'last'", async () => {
     await renderCard(
       <PinnedCard
         pinned={routePinned}
@@ -107,26 +108,53 @@ describe("the shared map cards", () => {
         cruises={[]}
         onClose={vi.fn()}
         onFlightOpen={vi.fn()}
-        selectionScope="single"
       />
     );
 
-    expect(screen.getByRole("button", { name: "map:globe.pinned.openFlight" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "map:globe.openLastFlight" })).toBeNull();
+    const link = screen.getByRole("link", { name: "map:globe.pinned.openFlightDetails" });
+    expect(link).toHaveAttribute("href", "/flights/f1");
+    expect(screen.queryByRole("link", { name: "map:globe.openLastFlight" })).toBeNull();
   });
 
-  it("names the LAST flight when the selection is the whole route", async () => {
+  it("names the LAST flight only when more than one flew the route", async () => {
     await renderCard(
       <PinnedCard
-        pinned={routePinned}
-        flights={[feature("f1")]}
+        pinned={twoFlightRoute}
+        flights={[
+          feature("f1", { departureTime: "2021-06-05T08:00:00Z" }),
+          feature("f2", { departureTime: "2021-06-19T08:00:00Z" }),
+        ]}
         cruises={[]}
         onClose={vi.fn()}
         onFlightOpen={vi.fn()}
       />
     );
 
-    expect(screen.getByRole("button", { name: "map:globe.openLastFlight" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "map:globe.openLastFlight" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "map:globe.pinned.openFlightDetails" })).toBeNull();
+  });
+
+  it("open the flight its own list shows first — the most recent by departure", async () => {
+    await renderCard(
+      <PinnedCard
+        pinned={twoFlightRoute}
+        flights={[
+          feature("f1", { departureTime: "2021-06-05T08:00:00Z" }),
+          feature("f2", { departureTime: "2021-06-19T08:00:00Z" }),
+        ]}
+        cruises={[]}
+        onClose={vi.fn()}
+        onFlightOpen={vi.fn()}
+      />
+    );
+
+    // f2 departs later, so it is the top row of the card's list; the action
+    // must not open a flight the reader cannot see at the top. It is a LINK to
+    // the read-only logbook page, never the edit form (owner, 2026-10-09).
+    expect(screen.getByRole("link", { name: "map:globe.openLastFlight" })).toHaveAttribute(
+      "href",
+      "/flights/f2"
+    );
   });
 
   it("shows and hides the hover tooltip through its imperative handle", () => {
@@ -193,13 +221,7 @@ describe("what the deleted cards used to say", () => {
 
   it("the single-flight card reports CO₂, as MapTooltip did", async () => {
     await renderCard(
-      <PinnedCard
-        pinned={routePinned}
-        flights={[withCo2]}
-        cruises={[]}
-        onClose={vi.fn()}
-        selectionScope="single"
-      />
+      <PinnedCard pinned={routePinned} flights={[withCo2]} cruises={[]} onClose={vi.fn()} />
     );
     expect(screen.getByText("map:globe.pinned.co2")).toBeInTheDocument();
   });

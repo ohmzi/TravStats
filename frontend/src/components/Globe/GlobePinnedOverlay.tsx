@@ -38,10 +38,8 @@ interface GlobePinnedOverlayProps {
   screen: PinnedScreenPos | null;
   flights: readonly GeoJSONFeature[];
   cruises: Cruise[];
-  selectionScope: "single" | "route";
   onClose: () => void;
   onFlightOpen?: (flightId: string) => void;
-  onFlightEdit?: (flightId: string) => void;
   onTripDetails?: () => void;
   onCruiseOpen?: (cruiseId: string) => void;
   onLodgingOpen?: (lodgingId: string) => void;
@@ -53,10 +51,8 @@ export function GlobePinnedOverlay({
   screen,
   flights,
   cruises,
-  selectionScope,
   onClose,
   onFlightOpen,
-  onFlightEdit,
   onTripDetails,
   onCruiseOpen,
   onLodgingOpen,
@@ -108,10 +104,8 @@ export function GlobePinnedOverlay({
             pinned={pinned}
             flights={flights}
             cruises={cruises}
-            selectionScope={selectionScope}
             onClose={onClose}
             onFlightOpen={onFlightOpen}
-            onFlightEdit={onFlightEdit}
             onTripDetails={onTripDetails}
             onCruiseOpen={onCruiseOpen}
             onLodgingOpen={onLodgingOpen}

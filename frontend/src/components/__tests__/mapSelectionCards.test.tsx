@@ -457,28 +457,31 @@ describe("the globe frames a flight selection itself", () => {
 
 /**
  * "One card, one action row" is what the 2026-09-20 ruling asked for, and the
- * globe was not reaching it: `onFlightEdit`, `onTripDetails` and
- * `selectionScope` stopped at `MapContainer3D`, so "Bearbeiten" was flat-only,
- * the trip card had no action row at all on the sphere, and one selected
- * flight read "Flug öffnen" on the flat map and "Letzten Flug öffnen" on the
- * globe — two names for one thing, which is how a card starts being two cards.
+ * globe was not reaching it: `onTripDetails` stopped at `MapContainer3D`, so the
+ * trip card had no action row at all on the sphere. The flight action now
+ * reaches both surfaces the same way, and it is the ONLY flight action — the
+ * card opens the flight read-only and carries no edit affordance (owner,
+ * 2026-10-09).
  */
 describe("the same selection gets the same action row on both surfaces", () => {
-  const edit = vi.fn();
+  const open = vi.fn();
   const renderers: Array<[string, () => void]> = [
-    ["the flat map", () => render(<DeckGLMap flights={GEO} visMode="routes" onEdit={edit} />)],
-    ["the globe", () => render(<GlobeView flights={GEO} onEdit={edit} />)],
+    [
+      "the flat map",
+      () => render(<DeckGLMap flights={GEO} visMode="routes" onFlightOpen={open} />),
+    ],
+    ["the globe", () => render(<GlobeView flights={GEO} onFlightOpen={open} />)],
   ];
 
   for (const [name, renderIt] of renderers) {
-    it(`${name}: a single flight offers edit, and the action names THAT flight`, async () => {
+    it(`${name}: a single flight offers the open action and nothing else`, async () => {
       renderIt();
       act(() => useFlightSelectionStore.getState().setSelection([FLIGHT]));
       await settle();
 
       const props = lastCard();
-      expect(props.onFlightEdit, `${name} has no edit action`).toBeTypeOf("function");
-      expect(props.selectionScope, `${name} misnames the selection`).toBe("single");
+      expect(props.onFlightOpen, `${name} has no open action`).toBeTypeOf("function");
+      expect(props.onFlightEdit, `${name} still offers editing`).toBeUndefined();
     });
 
     it(`${name}: a trip selection offers its details action`, async () => {

@@ -216,6 +216,8 @@
     "next": "Als Nächstes {{station}}",
     "enterTonight": "Heutige Nacht eintragen",
     "open": "Roadtrip öffnen",
+    "openDetails": "Roadtrip-Details öffnen",
+    "lastRoadtrip": "Letzter Roadtrip",
     "figKm": "km",
     "figNights_one": "Nacht",
     "figNights_other": "Nächte",

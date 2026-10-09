@@ -156,6 +156,11 @@ describe("rental: width, marker size and the line switch reach layer and legend"
 describe("tours and roadtrips: each kind follows its own width slider", () => {
   const datum = (isRoadtrip: boolean, isPlaceholder = false): TourPathDatum => ({
     legId: "l",
+    // A pick resolves the SECTION from these, so a datum without them cannot
+    // name the roadtrip it belongs to — they became required with the line
+    // card (2026-10-09).
+    routeId: "r",
+    name: "x",
     path: [
       [8, 58],
       [5, 60],
