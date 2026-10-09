@@ -73,13 +73,15 @@ describe("RoadtripDetailPage", () => {
     vi.clearAllMocks();
   });
 
-  it("heads the page with where the trip stands and its figures, ≈ where a night is a guess", async () => {
+  it("heads the page with where the trip stands and its figures", async () => {
     renderAt("/roadtrips/rt");
     expect(await screen.findByText("Fjorde 2026")).toBeInTheDocument();
     expect(screen.getByText("roadtrips:phase.underway:8")).toBeInTheDocument();
     expect(screen.getByText("1.370 km")).toBeInTheDocument();
-    expect(screen.getByText("≈ 10")).toBeInTheDocument();
-    expect(screen.getAllByText("roadtrips:detail.approxHint").length).toBeGreaterThan(0);
+    // DAYS remains; the NIGHTS cell is gone (owner, 2026-10-08) because it
+    // restated the same stretch of time as Days. 18.–28.09 is eleven days.
+    expect(screen.getByText("11")).toBeInTheDocument();
+    expect(screen.queryByText("roadtrips:detail.figNights")).not.toBeInTheDocument();
   });
 
   it("turns the stations into the editor in place", async () => {

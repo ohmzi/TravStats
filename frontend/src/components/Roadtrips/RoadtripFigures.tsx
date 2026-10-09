@@ -17,14 +17,22 @@ interface Figure {
 }
 
 /**
- * The figures band of a roadtrip (board 2): driven, days, nights, places
- * slept, countries, day tours — each with the line that says what it is made
- * of — then the journey it belongs to and that journey's Immich album as entry
- * points. Fixed columns (8 / 4 / 2), so the cells never reflow into an odd last
- * row. A figure that cannot be derived is left out, never drawn as zero; a cell
- * that is an ENTRY POINT is always drawn, saying "N/A" when there is nothing to
- * point at, because an absent entry point and a hidden one read the same
- * otherwise.
+ * The figures band of a roadtrip (board 2): driven, days, places slept,
+ * countries — each with the line that says what it is made of — then the
+ * journey it belongs to and that journey's Immich album as entry points. Fixed
+ * columns (6 / 3 / 2), so the cells never reflow into an odd last row: six is
+ * the full set, and an undated roadtrip draws five, because Days is left out
+ * rather than drawn as a zero. A figure that cannot be derived is left out; a
+ * cell that is an ENTRY POINT is always drawn, saying "N/A" when there is
+ * nothing to point at, because an absent entry point and a hidden one read the
+ * same otherwise.
+ *
+ * NIGHTS AND DAY TOURS LEAVE THE BAND (owner, 2026-10-08): the nights restate
+ * the same stretch of time as Days — "12 days" against "11 nights" — so Days
+ * stays and Nights goes; the day-tour count goes with it. This is a DIFFERENT
+ * surface from the roadtrip CARD, which drops DAY TOURS but KEEPS nights and
+ * shows CITIES where the band shows places slept. Band and card are meant to
+ * differ; do not "fix" one to match the other.
  */
 export default function RoadtripFigures({
   detail,
@@ -39,7 +47,6 @@ export default function RoadtripFigures({
   const n = detail.nights;
   const days = spanDays(detail.startDate, detail.endDate);
   const ahead = daysAhead(detail.startDate, detail.endDate, today);
-  const approx = n.nightsKnown ? "" : "≈ ";
   const journey = detail.trip;
   const album = journey?.immichAlbums?.[0] ?? null;
 
@@ -73,16 +80,6 @@ export default function RoadtripFigures({
         ]
       : []),
     {
-      key: "nights",
-      label: t("roadtrips:detail.figNights"),
-      value: `${approx}${nf.format(n.nights)}`,
-      sub: t("roadtrips:detail.figNightsSub", {
-        stay: nf.format(n.stayNights),
-        free: nf.format(n.freeNights),
-      }),
-      title: n.nightsKnown ? undefined : t("roadtrips:detail.approxHint"),
-    },
-    {
       key: "places",
       label: t("roadtrips:detail.figPlaces"),
       value: t("roadtrips:detail.figPlacesValue", { count: n.placesSlept }),
@@ -92,12 +89,6 @@ export default function RoadtripFigures({
       label: t("roadtrips:detail.figCountries"),
       value: nf.format(detail.countries.length),
       sub: detail.countries.join(" · ") || undefined,
-    },
-    {
-      key: "tours",
-      label: t("roadtrips:detail.figTours"),
-      value: nf.format(detail.tours.length),
-      hue: "var(--domain-tour)",
     },
     // The journey and its album, as ENTRY POINTS rather than figures: a
     // roadtrip is reached from its journey, and the way back — plus the way to
@@ -130,7 +121,7 @@ export default function RoadtripFigures({
   return (
     <div className="flex flex-col" style={{ gap: "var(--ts-space-sm)" }}>
       <dl
-        className="grid grid-cols-2 overflow-hidden sm:grid-cols-4 xl:grid-cols-8"
+        className="grid grid-cols-2 overflow-hidden sm:grid-cols-3 xl:grid-cols-6"
         style={{
           gap: 1,
           background: "var(--ts-border)",
@@ -179,7 +170,6 @@ export default function RoadtripFigures({
             })}
           </span>
         )}
-        {!n.nightsKnown && <span>{t("roadtrips:detail.approxHint")}</span>}
         {!detail.routingAvailable && <span>{t("roadtrips:detail.noRouting")}</span>}
       </div>
     </div>
