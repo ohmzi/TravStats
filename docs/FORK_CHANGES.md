@@ -534,7 +534,10 @@ the underway card that still reads it.
 ### Smaller things
 
 - **One page width.** The three container widths collapse to one, so every page
-  is the width of the logbook rather than a shape of its own.
+  is the width of the logbook rather than a shape of its own. The number is
+  `PAGE_WIDTH` in `frontend/scripts/generate-theme.mjs`, which writes
+  `--ts-width-reading`, `-list` and `-table`; the generated CSS is never
+  edited by hand (the theme guard fails if it is).
 - **Back goes where you came from.** The detail header returns through history
   instead of a fixed target; a page opened directly has no history and still uses
   its section's front door, and middle-click still opens that section's home.

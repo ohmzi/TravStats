@@ -183,8 +183,8 @@ containers and nothing else:
 
 | Container | Max width | Use |
 |---|---|---|
-| `reading` | 720px | settings, forms, detail pages, text |
-| `list` | 1200px | lists, cards, dashboards |
+| `reading` | 1440px | settings, forms, detail pages, text |
+| `list` | 1440px | lists, cards, dashboards |
 | `table` | 1440px | the four logbooks (flights, cruises, stays, places) |
 | `full` | none | maps, the globe |
 
@@ -196,6 +196,13 @@ stays 1272px and cruises 1212px, so at 1200px they hid ticked columns on any
 screen, and the hint telling the reader to widen the window was false
 (CT106 design-6 R02, owner decision). Places fit in 1200px but take the same
 width so the page does not jump between the logbook tabs.
+
+Since 2026-10-08 (owner) all three containers are 1440px: every page is the
+width of the logbook rather than a shape of its own. The names stay, because
+`AppShell` still asks for one and a page's choice is worth reading in its
+source; what changed is the numbers, in `frontend/scripts/generate-theme.mjs`
+(`PAGE_WIDTH`), which owns them. They are not in `design/tokens.json`, and the
+generated `--ts-width-*` variables are not edited by hand.
 
 ### 4.3 Radius (`radius`)
 
