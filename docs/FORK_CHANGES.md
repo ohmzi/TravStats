@@ -357,6 +357,81 @@ a leg, and its cities cell prints a real `0` for a row with no titled station,
 because that is a known empty and not an unknown count. The two cities cells
 diverge there on purpose — the data does — and are not to be "unified".
 
+### The journey card's band carries the trip's flags
+
+The header band of a journey card — the card on the **Journeys** page — used to
+be a light-to-dark wash in the trip's own colour. It now carries the **flags of
+the countries the trip was in**, laid over one another under the same
+light-to-dark spectrum: the flags take the place the colour tint held, so the
+band keeps its exact geometry — 110 px tall, a 135° ramp from the light top-left
+to the dark bottom-right, landing on `--ts-surface2` — and the title and figures
+below it do not move (owner, 2026-10-09).
+
+**This is a rule for every journey, not a treatment for two trips.** The band
+reads `trip.countries` and nothing else. Every journey resolves its own flags the
+same way, through one pure selector (`bannerFlags` in `lib/tripFlags.ts`): no trip
+is named, and no journey has a branch of its own. The owner is judging the
+mechanism on two pilot cards before any other card design is built on it, so the
+generality is the point, not a side effect.
+
+**Only two flags are bundled so far, and that is deliberate.** `BUNDLED_FLAGS`
+allows exactly **Canada** and **Pakistan** — the two SVGs under
+`frontend/public/flags/`. The allow-list, not the set of files on disk, is what
+holds "exactly two" true: a third flag dropped into that folder paints nothing
+until it is also named here, so a pilot asset cannot become a shipped one by
+accident.
+
+**A country with no asset is dropped, never stood in for.** Each entry in
+`trip.countries` runs through the app's own country resolver, which accepts a
+code *or* a name in any language and returns nothing for what it cannot place —
+"a wrong flag is worse than no flag" is the rule it was written to. Unplaceable
+entries are dropped and duplicates collapsed, and only countries whose flags this
+repo ships are painted. What the band does, case by case:
+
+- **No country recorded, or none bundled:** the band keeps **today's exact
+  `trip.color` gradient**. Nothing is invented — an absent flag shows as the
+  trip's own colour, which is honest where a made-up flag or a flat grey block
+  would not be.
+- **Some bundled, some not:** the bundled flags paint and the band carries a
+  `title` stating how many countries were left out, so an omission reads as a
+  spoken reason rather than as a hole. The card's figures line still prints the
+  trip's true country count, so the band never claims more than it can draw.
+- **More than three drawable flags:** only the first three paint. The cap is
+  written down in code (`BANNER_FLAG_CAP`), not left silent: past three
+  overlapping ribbons the wash stops reading as flags and starts reading as mud,
+  and the count itself is still whole in the figures line.
+
+**The flags overlap; they are not a row of strips.** Several flags are cut into
+equal diagonal ribbons along the one 135° axis with feathered seams, so
+neighbours cross-fade over each other with no border, divider or shadow — a
+drawn edge is what would turn the wash back into a collage of columns. The order
+is the order the trip records, and it is **positional only**: a trip's countries
+are a set, never a route (the stored array is the user's order, the derived one
+sorted), so the band must not be read as first-visited-to-last. The first flag
+merely reads as the more prominent.
+
+**The dark end is a legibility requirement, not a style choice.** Two layers
+keep the spectrum honest over a flag. A **mask** fades the flags themselves along
+the 135° axis — strong at the light corner, exactly zero at the dark corner — so
+the band lands on `--ts-surface2` for a mostly-white flag and a dark one alike:
+Canada's white field and Pakistan's green reach the same dark end, and so would a
+flag added later. A **scrim** then caps the brightest pixel where the status pill
+sits, because the pill is a 12 %-alpha fill tuned for dark surfaces and a
+white-heavy flag would otherwise break its contrast. The band's legibility is
+pinned by a test that recomputes the composited pixels from the component's own
+stop constants — jsdom paints nothing, so it asserts the model, never a pass
+nothing measured — and the pill clears 4.5:1 over a pure-white worst case.
+Without the scrim the flag would win and the pill would fail; without the mask the
+band would not end dark enough for the chrome above it.
+
+**Nothing is fetched.** The band paints only files this repository ships, by URL
+from `public/flags/`. The app's own flag component loads `flagcdn.com` at
+runtime — right for the small chips it was written for, forbidden for the card
+band — so the band reads a separate, local source. The two SVGs were copied from
+the flag set the repository already vendors for its backend (`flag-icons` 7.5.0,
+MIT-licensed), not downloaded, and each records its source and licence in a
+header comment.
+
 ### Smaller things
 
 - **One page width.** The three container widths collapse to one, so every page
