@@ -4,7 +4,7 @@
  * meant putting the record into an editable state.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import type { Flight } from "../../types";
@@ -16,6 +16,31 @@ const getByIdMock = vi.fn();
 // this surface mounts it — here it would only be a request reaching the
 // network, which the setup refuses (forgejo#110).
 vi.mock("../../components/documents/DocumentsSection", () => ({ default: () => null }));
+
+// The route map is a basemap under an SVG, and in jsdom the box it measures is
+// 0px wide, so the real one draws nothing at all. Its own suite
+// (`components/map/__tests__/CardMap.test.tsx`) covers the drawing; what this
+// file can check is what the page hands it, so the stub exposes the stops and
+// the arc.
+vi.mock("../../components/map/CardMap", () => ({
+  default: ({
+    lines = [],
+    stops = [],
+  }: {
+    lines?: ReadonlyArray<{ coords: ReadonlyArray<readonly [number, number]> }>;
+    stops?: ReadonlyArray<{ coord: readonly [number, number] }>;
+  }) => {
+    const arc = lines[0]?.coords ?? [];
+    return (
+      <div
+        data-testid="card-map"
+        data-stops={JSON.stringify(stops.map((stop) => stop.coord))}
+        data-arc-points={arc.length}
+        data-arc-ends={JSON.stringify([arc[0], arc[arc.length - 1]])}
+      />
+    );
+  },
+}));
 
 // The delete dialog counts the kept originals that cascade with the flight.
 // The section above is stubbed out, so this mock serves the COUNT only.
@@ -88,10 +113,43 @@ describe("FlightDetailPage", () => {
     );
     renderPage();
 
-    await waitFor(() => expect(screen.getByText("34D")).toBeInTheDocument());
-    expect(screen.getByText("B24")).toBeInTheDocument();
-    expect(screen.getByText("XY7Z9Q")).toBeInTheDocument();
-    expect(screen.getByText("1 x 23 kg")).toBeInTheDocument();
+    // They live in the Booking card. The seat is ALSO a cell of the figures
+    // band now (owner, 2026-10-08), so look inside the card, not the whole page.
+    const heading = await screen.findByRole("heading", { name: "flights:detail.booking" });
+    const booking = within(heading.closest("section") as HTMLElement);
+    expect(booking.getByText("34D")).toBeInTheDocument();
+    expect(booking.getByText("B24")).toBeInTheDocument();
+    expect(booking.getByText("XY7Z9Q")).toBeInTheDocument();
+    expect(booking.getByText("1 x 23 kg")).toBeInTheDocument();
+  });
+
+  it("reads the seat in the figures band as well as in the Booking card", async () => {
+    getByIdMock.mockResolvedValue(makeFlight({ seatNumber: "34D" }));
+    renderPage();
+
+    await waitFor(() => expect(screen.getAllByText("34D")).toHaveLength(2));
+    // One in the Booking card (a <section>), one in the band above the tabs.
+    const inCard = screen.getAllByText("34D").filter((cell) => cell.closest("section") !== null);
+    expect(inCard).toHaveLength(1);
+  });
+
+  it("draws the flight's own route on a map, from one airport to the other", async () => {
+    getByIdMock.mockResolvedValue(makeFlight());
+    renderPage();
+
+    const map = await screen.findByTestId("card-map");
+    const ends = [
+      [11, 48], // MUC, as [lon, lat]
+      [12, 55], // CPH
+    ];
+    expect(JSON.parse(map.getAttribute("data-stops") as string)).toEqual(ends);
+    // A great circle is many waypoints, not the two airports joined by a ruler.
+    expect(Number(map.getAttribute("data-arc-points"))).toBeGreaterThan(2);
+    const [from, to] = JSON.parse(map.getAttribute("data-arc-ends") as string) as number[][];
+    expect(from[0]).toBeCloseTo(ends[0][0], 3);
+    expect(from[1]).toBeCloseTo(ends[0][1], 3);
+    expect(to[0]).toBeCloseTo(ends[1][0], 3);
+    expect(to[1]).toBeCloseTo(ends[1][1], 3);
   });
 
   it("gives a baggage allowance typed as a bare number its unit (forgejo#186)", async () => {
