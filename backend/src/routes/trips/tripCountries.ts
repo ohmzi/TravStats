@@ -2,6 +2,7 @@ import { prisma } from "../../db";
 import { toCountryCode } from "../../shared/countryEvidence";
 import { getCountryResolver } from "../../services/geo/countryFromCoordinates";
 import { STATION_SELECT, stationCountries } from "../../services/roadtrip/roadtripSummary";
+import { flownCountries, type VisitableFlight } from "../../services/trip/flightVisits";
 
 /**
  * Where a trip's countries come from — the stored list, or the flights,
@@ -44,7 +45,7 @@ export async function airportFactsFor(
 
 /**
  * Countries of a trip: the stored list when it has one, otherwise derived from
- * the countries its flights touch.
+ * the countries the trip's flights, cruises, stays and roadtrips put it in.
  *
  * `trips.countries` is a column nobody writes, and `overflownCountries` is
  * empty for manually created flights, so without the fallback the tile reads
@@ -52,10 +53,20 @@ export async function airportFactsFor(
  * fallback to GET /trips/:id only — and the LIST endpoint is what feeds the
  * trip cards, so every card on the Reisen overview kept showing "?" next to a
  * detail page showing five. Both call this now; a third caller must too.
+ *
+ * WHAT A COUNTRY HAS TO BE TRUE OF, which is the part that changed: the flights
+ * contribute the countries the trip spent a NIGHT in, not every airport a leg
+ * touches (`services/trip/flightVisits.ts`). Both ends of every leg used to
+ * count, so a trip that flew out of Canada and changed planes twice read as five
+ * countries when it had been to one (owner, 2026-10-09). The other three
+ * sources are already time-bearing evidence rather than airport touches and are
+ * taken at face value: a stay is nights by definition, a cruise's ports are the
+ * itinerary the traveller typed, and a roadtrip reaches every country its
+ * stations stand in by the one rule the roadtrip page uses.
  */
 export function tripCountries(
   stored: string[],
-  flights: Array<{ depIata: string | null; arrIata: string | null }>,
+  flights: readonly VisitableFlight[],
   facts: Map<string, { country: string | null; timezone: string | null }>,
   cruiseCountries: string[] = [],
   lodgingCountries: string[] = [],
@@ -65,10 +76,8 @@ export function tripCountries(
   if (stored.length) return stored;
 
   const derived = [
-    ...flights
-      .flatMap((f) => [f.depIata, f.arrIata])
-      .map((code) => (code ? facts.get(code)?.country : null))
-      .filter((c): c is string => !!c),
+    // Nights spent, not tarmac touched: see services/trip/flightVisits.ts.
+    ...flownCountries(flights, facts),
     // Cruise-only trips carry no flights at all, so a flight-only derivation
     // left them reading "?" for a voyage that plainly called at six countries.
     // Their countries come from the ports they visited.
