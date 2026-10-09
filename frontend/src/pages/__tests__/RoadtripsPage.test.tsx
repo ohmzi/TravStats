@@ -7,6 +7,11 @@ import { roadtripsApi } from "../../lib/api/roadtrips";
 import type { RoadtripSummary } from "../../types/roadtrip";
 
 vi.mock("../../components/NavigationBar", () => ({ default: () => <div /> }));
+// The cards on the list carry a deck.gl map, and jsdom has no ResizeObserver,
+// so it is stubbed the way the card and page suites stub their maps. Without
+// it every card render throws in `CardMap` and the strip assertions below never
+// run; the map's own suite covers the drawing.
+vi.mock("../../components/map/CardMap", () => ({ default: () => <div data-testid="card-map" /> }));
 vi.mock("../../components/Roadtrips/KindReviewNotice", () => ({ default: () => null }));
 vi.mock("../../components/Roadtrips/NewRoadtripDialog", () => ({ default: () => null }));
 vi.mock("../../lib/api/roadtrips", () => ({
@@ -38,6 +43,7 @@ function summary(over: Partial<RoadtripSummary>): RoadtripSummary {
     startOdometerKm: null,
     endOdometerKm: null,
     stationCount: 3,
+    cityNames: ["Bergen", "Oslo"],
     driveCount: 2,
     stayNights: 1,
     freeNights: 1,
@@ -172,8 +178,8 @@ describe("RoadtripsPage", () => {
 
   // The summary strip's promise (ListSummaryStrip): computed from exactly the
   // rows on screen. `roadtrips:list.figDrives` is unique to the strip — a card
-  // prints km, nights, stations and tours, never drives — so it is the one
-  // string safe to query by (bare numbers would match the cards too).
+  // prints km, nights and cities, never drives — so it is the one string safe
+  // to query by (bare numbers would match the cards too).
   it("summarises the shown rows and marks itself filtered", async () => {
     vi.mocked(roadtripsApi.list).mockResolvedValue([
       summary({ id: "a", name: "Bretagne", startDate: at("2023-06-02") }),

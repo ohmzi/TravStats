@@ -294,6 +294,8 @@
     "withoutAirline": "+{{count}} ohne Angabe",
     "airports_one": "Flughafen",
     "airports_other": "Flughäfen",
+    "cities_one": "Stadt",
+    "cities_other": "Städte",
     "cruises_one": "Kreuzfahrt",
     "cruises_other": "Kreuzfahrten",
     "portCalls_one": "Hafenanlauf",

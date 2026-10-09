@@ -294,6 +294,8 @@
     "withoutAirline": "+{{count}} not recorded",
     "airports_one": "Airport",
     "airports_other": "Airports",
+    "cities_one": "City",
+    "cities_other": "Cities",
     "cruises_one": "Cruise",
     "cruises_other": "Cruises",
     "portCalls_one": "Port call",

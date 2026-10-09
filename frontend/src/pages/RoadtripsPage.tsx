@@ -113,7 +113,7 @@ export default function RoadtripsPage(): JSX.Element {
       {
         roadtrips: (count) => t("roadtrips:list.figRoadtrips", { count }),
         drives: (count) => t("roadtrips:list.figDrives", { count }),
-        stations: (count) => t("roadtrips:list.figStations", { count }),
+        cities: (count) => t("common:summary.cities", { count }),
       },
       (n) => nf.format(n)
     );

@@ -30,11 +30,20 @@ import type { SummaryFigure } from "../../components/table/ListSummaryStrip";
  * Legs are keyed by endpoint pair (`shared/tour/legPlan.ts`), so a repeated
  * ordered pair — an out-and-back — is ONE drive, not two.
  *
- * The third figure is STATIONS, the card's own number (`figStations`). The
- * owner's sketch called it "cities", but the data has no normalized city — a
- * station's title is free text and the card shows countries as a joined string
- * — so the honest third figure is the one number the card and the strip can
- * agree on.
+ * The third figure is CITIES — the places the shown roadtrips touched. The
+ * owner asked for "how many cities i touched in all the road trips" (owner,
+ * 2026-10-08), so it is the UNION of the rows' city names, not a sum of their
+ * counts: one city touched by three roadtrips is ONE city. The grammar is the
+ * flights strip's ("41 Flights · 15 Airlines · 21 Airports" counts distinct
+ * airlines and airports over the shown flights rather than summing them).
+ *
+ * A city here is exactly what the roadtrip CARD's cities cell counts: a station
+ * title, trimmed, empties skipped, deduplicated by the exact string. The owner
+ * was shown and accepted that a title is free text, so "Oakville" and
+ * "Oakville, Ontario" count as two; a via point is a bend in the route, never a
+ * place. The backend computes the per-row names (`stationCityNames`, over ALL
+ * stations, not the placed-only array) and sends them as `cityNames`, so the
+ * strip and the card read one field and cannot disagree.
  *
  * All three fold every SHOWN row, planned roadtrips included: the strip's
  * promise is "computed from exactly the rows the list is showing", and the
@@ -56,7 +65,8 @@ import type { SummaryFigure } from "../../components/table/ListSummaryStrip";
 export interface SummarisableRoadtrip {
   /** Road legs only — counted by `drivenLegs` (tourDistance), a ferry excluded. */
   driveCount: number;
-  stationCount: number;
+  /** Distinct station titles this row carries — its cities. Folding UNIONS them. */
+  cityNames: string[];
 }
 
 /**
@@ -66,7 +76,7 @@ export interface SummarisableRoadtrip {
 export interface RoadtripSummaryLabels {
   roadtrips: (count: number) => string;
   drives: (count: number) => string;
-  stations: (count: number) => string;
+  cities: (count: number) => string;
 }
 
 export function roadtripSummaryFigures(
@@ -75,11 +85,14 @@ export function roadtripSummaryFigures(
   format: (n: number) => string = (n) => String(n)
 ): SummaryFigure[] {
   const drives = rows.reduce((sum, r) => sum + r.driveCount, 0);
-  const stations = rows.reduce((sum, r) => sum + r.stationCount, 0);
+  // UNION, not sum: a city touched by three roadtrips is one city. The names
+  // arrive per row already trimmed and deduped, so a plain Set is the whole rule.
+  const cities = new Set<string>();
+  for (const r of rows) for (const name of r.cityNames) cities.add(name);
 
   return [
     { key: "roadtrips", value: format(rows.length), label: labels.roadtrips(rows.length) },
     { key: "drives", value: format(drives), label: labels.drives(drives) },
-    { key: "stations", value: format(stations), label: labels.stations(stations) },
+    { key: "cities", value: format(cities.size), label: labels.cities(cities.size) },
   ];
 }
