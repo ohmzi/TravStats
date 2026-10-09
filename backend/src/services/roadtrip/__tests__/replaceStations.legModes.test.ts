@@ -24,6 +24,7 @@ const USERNAME = "replace-stations-leg-modes";
 const NORTHVALE = { title: "Northvale", lat: -45.05, lon: 168.7 };
 const PORT_CARROW = { title: "Port Carrow", lat: -44.7, lon: 169.15 };
 const KELMORE = { title: "Kelmore", lat: -44.4, lon: 168.9 };
+const TARN_LANDING = { title: "Tarn Landing", lat: -44.55, lon: 169.05 };
 
 /** A road anchored at the leg's own ends, bent so it is not the chord. */
 const road = jest.fn(async ({ from, to }: RouteRequest) => ({
@@ -76,6 +77,24 @@ describe("replaceStationsInTx leg modes", () => {
     });
   }
 
+  /** The stations as stored, in route order, with the id each one is kept under. */
+  async function storedStations(routeId: string, db: Pick<typeof prisma, "tripStop"> = prisma) {
+    return db.tripStop.findMany({
+      where: { routeId },
+      orderBy: { routeOrderIdx: "asc" },
+      select: { id: true, title: true, routeOrderIdx: true },
+    });
+  }
+
+  /** The legs as stored, in route order, with the row id a kept leg is known by. */
+  async function storedLegRows(routeId: string, db: Pick<typeof prisma, "tripRouteLeg"> = prisma) {
+    return db.tripRouteLeg.findMany({
+      where: { routeId },
+      orderBy: { fromStop: { routeOrderIdx: "asc" } },
+      select: { id: true, mode: true, source: true },
+    });
+  }
+
   it("writes a ferry onto the leg it joins and leaves the other legs on the route's mode", async () => {
     const routeId = await newRoadtrip();
 
@@ -117,16 +136,30 @@ describe("replaceStationsInTx leg modes", () => {
 
   it("refuses more leg modes than the list has legs, and writes no station", async () => {
     const routeId = await newRoadtrip();
+    await replaceStations(userId, routeId, passStations(NORTHVALE, PORT_CARROW));
+    const stationsBefore = await storedStations(routeId);
+    const legsBefore = await storedLegRows(routeId);
 
-    await expect(
-      prisma.$transaction((tx) =>
-        replaceStationsInTx(tx, userId, routeId, passStations(NORTHVALE, PORT_CARROW), {
+    // The refusal is caught INSIDE the transaction and the transaction then
+    // commits: whatever the refused call wrote would stay, so a rollback of an
+    // outer transaction cannot be what keeps the stored list as it was.
+    const during = await prisma.$transaction(async (tx) => {
+      await expect(
+        replaceStationsInTx(tx, userId, routeId, passStations(KELMORE, PORT_CARROW), {
           legModes: ["road", "ferry"],
         })
-      )
-    ).rejects.toMatchObject({ statusCode: 400 });
+      ).rejects.toMatchObject({ statusCode: 400 });
+      return {
+        stations: await storedStations(routeId, tx),
+        legs: await storedLegRows(routeId, tx),
+      };
+    });
 
-    expect(await prisma.tripStop.count({ where: { routeId } })).toBe(0);
+    expect(stationsBefore.map((s) => s.title)).toEqual(["Northvale", "Port Carrow"]);
+    expect(during.stations).toEqual(stationsBefore);
+    expect(during.legs).toEqual(legsBefore);
+    expect(await storedStations(routeId)).toEqual(stationsBefore);
+    expect(await storedLegRows(routeId)).toEqual(legsBefore);
   });
 
   it("rolls the stations and legs back with the surrounding transaction", async () => {
@@ -154,5 +187,119 @@ describe("replaceStationsInTx leg modes", () => {
     expect(saved.stations.map((s) => s.title)).toEqual(["Northvale", "Port Carrow"]);
     expect(saved.legs).toHaveLength(1);
     expect(saved.legs[0]).toMatchObject({ mode: "road", source: "routed", distanceKm: 80 });
+  });
+
+  /**
+   * `legModes` is for the legs a write CREATES. A leg the list keeps already
+   * has a mode, a routed or drawn line and costs of its own; changing its mode
+   * would leave a ferry carrying a road's geometry. The builder's re-sync
+   * deletes a changed leg itself, so a kept leg is never asked to change.
+   */
+  describe("over a roadtrip whose legs already exist", () => {
+    async function routedRoadtrip(): Promise<string> {
+      const routeId = await newRoadtrip();
+      await replaceStations(userId, routeId, passStations(NORTHVALE, PORT_CARROW, KELMORE));
+      road.mockClear();
+      return routeId;
+    }
+
+    it("marks the legs a station inserted between two others creates, and keeps the untouched leg's row", async () => {
+      const routeId = await routedRoadtrip();
+      const [north, port, kelmore] = await storedStations(routeId);
+      const [keptBefore] = await storedLegRows(routeId);
+      expect(keptBefore).toMatchObject({ mode: "road", source: "routed" });
+      const [n, p, t, k] = passStations(NORTHVALE, PORT_CARROW, TARN_LANDING, KELMORE);
+
+      const { createdLegs } = await prisma.$transaction((tx) =>
+        replaceStationsInTx(
+          tx,
+          userId,
+          routeId,
+          [{ ...n, id: north.id }, { ...p, id: port.id }, t, { ...k, id: kelmore.id }],
+          { legModes: [undefined, "ferry", "road"] }
+        )
+      );
+
+      const stations = await storedStations(routeId);
+      expect(stations.map((s) => s.title)).toEqual([
+        "Northvale",
+        "Port Carrow",
+        "Tarn Landing",
+        "Kelmore",
+      ]);
+      expect(createdLegs).toEqual([
+        { fromStopId: port.id, toStopId: stations[2].id },
+        { fromStopId: stations[2].id, toStopId: kelmore.id },
+      ]);
+      expect(await storedLegRows(routeId)).toEqual([
+        { id: keptBefore.id, mode: "road", source: "routed" },
+        { id: expect.any(String), mode: "ferry", source: "straight" },
+        { id: expect.any(String), mode: "road", source: "straight" },
+      ]);
+
+      // Only the road leg it created is routed; the ferry stays a crossing.
+      expect(await autoRouteNewLegs(userId, routeId, createdLegs)).toBe(1);
+      expect(road).toHaveBeenCalledTimes(1);
+      expect(await storedLegRows(routeId)).toEqual([
+        { id: keptBefore.id, mode: "road", source: "routed" },
+        { id: expect.any(String), mode: "ferry", source: "straight" },
+        { id: expect.any(String), mode: "road", source: "routed" },
+      ]);
+    });
+
+    it("refuses a different mode for a leg the write keeps, and writes nothing", async () => {
+      const routeId = await routedRoadtrip();
+      const stationsBefore = await storedStations(routeId);
+      const legsBefore = await storedLegRows(routeId);
+      const [n, p, k] = passStations(NORTHVALE, PORT_CARROW, KELMORE);
+      // Renamed, so a write that got as far as the stations would show.
+      const renamed = [
+        { ...n, id: stationsBefore[0].id },
+        { ...p, id: stationsBefore[1].id, title: "Port Carrow Landing" },
+        { ...k, id: stationsBefore[2].id },
+      ];
+
+      await expect(
+        prisma.$transaction((tx) =>
+          replaceStationsInTx(tx, userId, routeId, renamed, { legModes: ["ferry", undefined] })
+        )
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: "Leg modes apply only to legs this write creates",
+      });
+
+      expect(await storedStations(routeId)).toEqual(stationsBefore);
+      expect(await storedLegRows(routeId)).toEqual(legsBefore);
+    });
+
+    it("accepts the mode a kept leg already has, and touches nothing", async () => {
+      const routeId = await newRoadtrip();
+      await prisma.$transaction((tx) =>
+        replaceStationsInTx(tx, userId, routeId, passStations(NORTHVALE, PORT_CARROW, KELMORE), {
+          legModes: ["ferry", undefined],
+        })
+      );
+      const stations = await storedStations(routeId);
+      const legsBefore = await storedLegRows(routeId);
+      const [n, p, k] = passStations(NORTHVALE, PORT_CARROW, KELMORE);
+
+      const { createdLegs } = await prisma.$transaction((tx) =>
+        replaceStationsInTx(
+          tx,
+          userId,
+          routeId,
+          [
+            { ...n, id: stations[0].id },
+            { ...p, id: stations[1].id },
+            { ...k, id: stations[2].id },
+          ],
+          { legModes: ["ferry", "road"] }
+        )
+      );
+
+      expect(createdLegs).toEqual([]);
+      expect(legsBefore.map((l) => l.mode)).toEqual(["ferry", "road"]);
+      expect(await storedLegRows(routeId)).toEqual(legsBefore);
+    });
   });
 });

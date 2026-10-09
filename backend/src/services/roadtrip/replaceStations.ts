@@ -87,31 +87,62 @@ export interface ReplaceStationsOptions {
   /**
    * `legModes[i]` is the mode of the leg from `stations[i]` to
    * `stations[i + 1]`; an `undefined` or missing entry leaves that leg as
-   * `recomputeLegs` made or kept it. The photo trip builder marks its ferries
-   * here, before anything routes: `autoRouteNewLegs` drives road, foot and
-   * bike legs only, so a ferry leg stays a straight crossing.
+   * `recomputeLegs` made it. The photo trip builder marks its ferries here,
+   * before anything routes: `autoRouteNewLegs` drives road, foot and bike legs
+   * only, so a ferry leg stays a straight crossing.
+   *
+   * Applies only to legs THIS write creates. A leg the list keeps (its two
+   * stations were already joined) has a mode, a line and costs of its own, and
+   * a different mode would leave a ferry carrying a road's geometry; asking
+   * for one is a 400, and the mode a kept leg already has is accepted. To
+   * change a leg, delete it first and write the list again.
    */
   legModes?: ReadonlyArray<LegMode | undefined>;
 }
 
+const pairKey = (fromStopId: string, toStopId: string): string => `${fromStopId}\u0000${toStopId}`;
+
 /**
- * Writes the chosen modes onto the legs between consecutive stations. A new
- * leg is born with the route's default mode (`recomputeLegs`), so only a
- * different mode needs a write.
+ * Writes the chosen modes onto the legs this write created, between
+ * consecutive stations. A new leg is born with the route's default mode
+ * (`recomputeLegs`), so only a different mode needs a write. A kept leg is
+ * never changed: a mode that differs from its stored one throws.
  */
 async function applyLegModes(
   tx: DbTransaction,
   routeId: string,
   defaultMode: string,
   ordered: readonly StopCoords[],
+  createdLegs: readonly LegPair[],
   legModes: ReadonlyArray<LegMode | undefined>
 ): Promise<void> {
+  if (legModes.every((mode) => mode === undefined)) return;
+
+  const created = new Set(createdLegs.map((leg) => pairKey(leg.fromStopId, leg.toStopId)));
+  const keptModes = new Map(
+    (
+      await tx.tripRouteLeg.findMany({
+        where: { routeId },
+        select: { fromStopId: true, toStopId: true, mode: true },
+      })
+    ).map((leg) => [pairKey(leg.fromStopId, leg.toStopId), leg.mode])
+  );
+
   for (const [index, mode] of legModes.entries()) {
-    if (mode === undefined || mode === defaultMode) continue;
-    await tx.tripRouteLeg.updateMany({
-      where: { routeId, fromStopId: ordered[index].id, toStopId: ordered[index + 1].id },
-      data: { mode },
-    });
+    if (mode === undefined) continue;
+    const fromStopId = ordered[index].id;
+    const toStopId = ordered[index + 1].id;
+    const key = pairKey(fromStopId, toStopId);
+    if (!created.has(key)) {
+      if (keptModes.get(key) !== mode) {
+        throw new AppError("Leg modes apply only to legs this write creates", 400);
+      }
+    } else if (mode !== defaultMode) {
+      await tx.tripRouteLeg.updateMany({
+        where: { routeId, fromStopId, toStopId },
+        data: { mode },
+      });
+    }
   }
 }
 
@@ -123,6 +154,10 @@ async function applyLegModes(
  * insertion. Returns the legs it created, for the caller to route once the
  * transaction has committed (`autoRouteNewLegs`): routing here would hold the
  * transaction open across network calls.
+ *
+ * `opts.legModes` applies only to the legs this write creates. A different
+ * mode for a leg it keeps is a 400 thrown after the stations are written, so
+ * the caller's transaction must end with it, as any thrown error ends it.
  *
  * The ONE writer of a station list: the station editor (`PUT
  * /roadtrips/:id/stations`), the spreadsheet import and the photo trip
@@ -233,7 +268,7 @@ export async function replaceStationsInTx(
   await tx.tripStop.deleteMany({ where: { routeId, routeOrderIdx: null } });
 
   const createdLegs = await recomputeLegs(tx, routeId, mode, ordered);
-  await applyLegModes(tx, routeId, mode, ordered, legModes);
+  await applyLegModes(tx, routeId, mode, ordered, createdLegs, legModes);
   return { createdLegs };
 }
 
