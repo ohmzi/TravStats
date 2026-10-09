@@ -12,7 +12,13 @@
  *
  * Pure. The one impure input, `flagMisdated`'s filename lookup, is injected.
  */
-import { GPS_ZERO_EPSILON } from "./thresholds";
+import {
+  COUNTER_WRAP_MAX_DAYS,
+  GPS_ZERO_EPSILON,
+  MISDATED_COUNTER_DAYS,
+  MISDATED_COUNTER_WINDOW,
+  MISDATED_MIN_NEIGHBOURS,
+} from "./thresholds";
 import type { CleanResult, ExcludedCounts, PhotoFlags, PhotoPoint, ScanWindow } from "./types";
 import { inWindow } from "./window";
 
@@ -109,4 +115,111 @@ export function cleanAssets(
     if (p.flags.dayGuessed) excluded.dayGuessed += 1;
   }
   return { photos: inside, context, albumAssetIds: inside.map((p) => p.id), excluded };
+}
+
+// ─── Misdated: the straggler check (§C.2, check 1) ───────────────────────────
+
+const DAY_MS = 86_400_000;
+/** An iPhone's DCIM counter runs 0000 … 9999. */
+const COUNTER_SPAN = 10_000;
+/** iPhone's `IMG_1234` (`IMG_E1234` for an edit). A dated Android `IMG_20310503_…` is not a counter. */
+const IPHONE_COUNTER = /^IMG_E?(\d{4})(?!\d)/i;
+
+/** The iPhone counter in a file name, or null. */
+export function counterOf(fileName: string): number | null {
+  const match = IPHONE_COUNTER.exec(fileName);
+  return match ? Number(match[1]) : null;
+}
+
+interface Counted {
+  photo: PhotoPoint;
+  counter: number;
+}
+
+/** A counter belongs to one camera: one model's sequence says nothing about another's. */
+const cameraOf = (p: PhotoPoint): string => `${p.make ?? ""}|${p.model ?? ""}`;
+
+/** Only a photo that could otherwise move a station is judged; any photo may be a neighbour. */
+const judged = (p: PhotoPoint): boolean => p.flags.located && !p.flags.duplicate;
+
+/** The photos that have a counter, grouped by camera, each group sorted by counter. */
+function byCamera(photos: readonly PhotoPoint[]): Map<string, Counted[]> {
+  const cameras = new Map<string, Counted[]>();
+  for (const photo of photos) {
+    const counter = counterOf(photo.originalFileName);
+    if (counter === null) continue;
+    const members = cameras.get(cameraOf(photo)) ?? [];
+    members.push({ photo, counter });
+    cameras.set(cameraOf(photo), members);
+  }
+  for (const members of cameras.values()) members.sort((a, b) => a.counter - b.counter);
+  return cameras;
+}
+
+/** The members with a counter in [lo, hi], from a list sorted by counter. */
+function inCounterRange(members: readonly Counted[], lo: number, hi: number): Counted[] {
+  let start = 0;
+  let end = members.length;
+  while (start < end) {
+    const mid = (start + end) >> 1;
+    if (members[mid].counter < lo) start = mid + 1;
+    else end = mid;
+  }
+  const found: Counted[] = [];
+  for (let i = start; i < members.length && members[i].counter <= hi; i += 1) {
+    found.push(members[i]);
+  }
+  return found;
+}
+
+/**
+ * A photo's counter neighbours: its camera's other photos within
+ * ±MISDATED_COUNTER_WINDOW counter positions. Neighbours across the
+ * 9999 → 0000 wrap count only when the photos are at most
+ * COUNTER_WRAP_MAX_DAYS apart, because two phones of one model can sit at
+ * the two ends of the counter at once.
+ */
+function counterNeighbours(members: readonly Counted[], target: Counted): Counted[] {
+  const reach = MISDATED_COUNTER_WINDOW;
+  const { counter } = target;
+  const wrapped = [
+    ...(counter - reach < 0
+      ? inCounterRange(members, COUNTER_SPAN + counter - reach, COUNTER_SPAN - 1)
+      : []),
+    ...(counter + reach >= COUNTER_SPAN
+      ? inCounterRange(members, 0, counter + reach - COUNTER_SPAN)
+      : []),
+  ].filter((n) => Math.abs(n.photo.tMs - target.photo.tMs) <= COUNTER_WRAP_MAX_DAYS * DAY_MS);
+  return [...inCounterRange(members, counter - reach, counter + reach), ...wrapped].filter(
+    (n) => n.photo.id !== target.photo.id
+  );
+}
+
+function median(values: readonly number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/**
+ * The recipe's straggler check. A judged photo is flagged when it has at
+ * least MISDATED_MIN_NEIGHBOURS counter neighbours, in the window or its
+ * context days, and its instant lies more than MISDATED_COUNTER_DAYS from
+ * their median.
+ */
+export function flagStragglers(
+  photos: readonly PhotoPoint[],
+  context: readonly PhotoPoint[]
+): Set<string> {
+  const cameras = byCamera([...photos, ...context]);
+  const flagged = new Set<string>();
+  for (const photo of photos) {
+    const counter = counterOf(photo.originalFileName);
+    if (counter === null || !judged(photo)) continue;
+    const neighbours = counterNeighbours(cameras.get(cameraOf(photo)) ?? [], { photo, counter });
+    if (neighbours.length < MISDATED_MIN_NEIGHBOURS) continue;
+    const middle = median(neighbours.map((n) => n.photo.tMs));
+    if (Math.abs(photo.tMs - middle) > MISDATED_COUNTER_DAYS * DAY_MS) flagged.add(photo.id);
+  }
+  return flagged;
 }
