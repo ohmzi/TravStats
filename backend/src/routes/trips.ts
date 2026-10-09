@@ -12,12 +12,11 @@ import {
   assignFlightsSchema,
   createBookingSchema,
   updateBookingSchema,
-  TRIP_COLORS,
 } from "../schemas/trip";
 import { assertMergedTripDates } from "../services/trip/tripDateOrder";
 import logger from "../utils/logger";
 import { resolveCompanions, linkRowsFor } from "../services/companionService";
-import { statusFromOwnDates } from "../services/trips/ownDatesStatus";
+import { createTripRecord } from "../services/trip/createTrip";
 
 import { detectTrips } from "../services/tripDetectionService";
 import { recomputeTripStatus } from "../services/tripStatusService";
@@ -50,7 +49,7 @@ import { resolveTrip } from "./trips/resolveTrip";
 import { refusesCoverImage } from "./trips/refusesCoverImage";
 import { toPhotoDto } from "./trips/photoDto";
 import { provenanceForWrite } from "../services/tripSummaryProvenance";
-import { editedTripDays, typedTripDays } from "../services/timeModel/tripColumns";
+import { editedTripDays } from "../services/timeModel/tripColumns";
 import { enrichFlightsForClients } from "../services/flightAirportFacts";
 import { withTripTimes } from "../services/trips/timesDto";
 import { withTripDetailTimes } from "../services/trips/tripDetailTimes";
@@ -457,72 +456,8 @@ router.post(
       if (await refusesCoverImage(userId, body.coverImageUrl, res)) return;
       const documentIds = await takeDocumentIds(userId, req.body);
 
-      let color = body.color;
-      if (!color) {
-        const count = await prisma.trip.count({ where: { userId } });
-        color = TRIP_COLORS[count % TRIP_COLORS.length];
-      }
-
-      // Resolve companion names to Companion entities up front (find-or-create
-      // is idempotent via companionService, so it's safe to run outside the
-      // transaction below). The trip row and its links are written together
-      // inside a transaction so a failure never leaves the legacy `companions`
-      // array and the `companionLinks` table disagreeing.
-      const companionNames = body.companions ?? [];
-      const resolvedCompanions = await resolveCompanions(userId, companionNames);
-
-      const trip = await prisma.$transaction(async (tx) => {
-        const created = await tx.trip.create({
-          data: {
-            userId,
-            name: body.name,
-            description: body.description,
-            color,
-            startDate: body.startDate,
-            endDate: body.endDate,
-            ...typedTripDays(body),
-            // Status derivation (spec 2026-07-17-status-from-dates) normally
-            // reads linked flights/cruises, which cannot exist yet — a trip must
-            // exist before anything can reference its id. Falling through to the
-            // column default meant every hand-made trip was born "completed",
-            // including one starting next week; the dates the user had just
-            // typed were never consulted. So when no segments exist, derive from
-            // the trip's OWN bounds. recomputeTripStatus() still takes over the
-            // moment segments get linked (assign-flights, bookings link, PNR
-            // auto-trip creation, trip detection).
-            status:
-              body.status ??
-              (await statusFromOwnDates(userId, body.startDate, body.endDate)) ??
-              undefined,
-            category: body.category,
-            tags: body.tags,
-            // Dual write: resolved display names keep this legacy array in
-            // agreement with `companionLinks` below (trimmed, blanks dropped,
-            // newest spelling wins) — the previous image still reads this column.
-            companions: resolvedCompanions.map((c) => c.displayName),
-            notes: body.notes,
-            summary: body.summary,
-            ...provenanceForWrite(body.summary, null),
-            originLabel: body.originLabel,
-            destinationLabel: body.destinationLabel,
-            coverImageUrl: body.coverImageUrl,
-            icon: body.icon,
-            countries: body.countries,
-          },
-        });
-
-        if (resolvedCompanions.length > 0) {
-          await tx.tripCompanion.createMany({
-            data: linkRowsFor(resolvedCompanions.map((c) => c.id)).map((row) => ({
-              ...row,
-              tripId: created.id,
-            })),
-            skipDuplicates: true,
-          });
-        }
-
-        return created;
-      });
+      // Colour, companions, status and the insert: services/trip/createTrip.ts.
+      const trip = await createTripRecord(userId, body);
       await linkDocuments(userId, documentIds, { type: "trip", id: trip.id });
 
       logger.info({ tripId: trip.id, userId }, "[Trips] Created trip");
