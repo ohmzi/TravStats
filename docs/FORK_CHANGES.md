@@ -178,6 +178,59 @@ section, a shared link lands on the table, and Back leaves the page rather than
 toggling a tab. The band and the tab strip never unmount across the two bodies,
 and the title never changes across them.
 
+**The page is matched to the roadtrip detail page, difference by difference**
+(owner, 2026-10-08: "try to match flight page to road trip page"). The furniture
+is shared rather than copied, so the next edit cannot move one page alone: the
+two figures bands are one component (`components/ui/FigureBand.tsx`), the head's
+outline link one `ActionLink`, which phase earns a status pill one rule
+(`lib/detailPhase.ts`), and the two numbers the sticky map panel is built from —
+its offset under the header, the framed box's radius — one module
+(`lib/detailChrome.ts`). Two of the alignment's changes follow from that
+directly. A past journey draws no `PAST` pill, because a past roadtrip draws
+none: the reference is the roadtrip page, and a finished journey reads as
+finished from its date span, exactly as a finished roadtrip does. And the band's
+grid is a breakpoint cadence rather than a cell count — the roadtrip's six cells
+keep their two / three / six rhythm, the journey's seven run two / four / seven
+with the trailing album cell spanning the last row's remainder and reset to a
+single track at `xl`, where seven across is full. Four across at `sm` is itself
+the decision: seven cells three-across would be three rows, which reads less like
+the reference's two than four does. The band's Journey and Album cells also read
+one shared `common:summary.*` key set on both pages, so the same two entry points
+cannot end up labelled two ways.
+
+**The differences that remain are the subject's, not the drawing's**, and each is
+kept on purpose — none is to be "fixed" to make the two pages match. The back
+link reads "Logbook · Flights", not the roadtrip's "Roadtrips": a journey belongs
+to the Logbook, and the four sibling detail pages — the single flight, a cruise,
+a stay, a place — all say "Logbook · …", while "Roadtrips" names a top-level
+section rather than a Logbook area. The head's two actions are the same furniture
+— an outline link then a primary pencil button — pointing at each page's own
+second object: a roadtrip's recorded route, a journey's own trip. The subtitle is
+the same date span joined the same way, but a journey has no vehicle and is its
+own trip, so it names neither. The distance keeps its own word and carries its
+marker: "Distance covered" with the `~`/`≈` prefix and the great-circle caption,
+because a plane is not driven and the sum is derived, where a routed roadtrip's
+is measured — matching the look never means dropping the marker. And the body
+carries a tab strip at all, because the table behind a tab is the owner's own
+request and a roadtrip has no second view to hide; the strip is this page's
+furniture, drawn like the band's labels. The list under it is headed by its own
+noun, "Airports" — the parallel of the roadtrip's "Stations" — through a key
+separate from the tab's "Route", so neither word drags the other along.
+
+**The row bodies differ because the things in them do; only the shell is
+shared.** A roadtrip station carries a state, a night, a stay and its day tours,
+so its marker is a shape per state and its row a set of chips; an airport has no
+state, so its marker is one plain dot and its row an IATA code and a name, and
+the leg between two rows says what each mode can — a drive's routed distance and
+duration, a flight's airline, number and departure. Two smaller differences ride
+the same rule. The single-flight page keeps its own header tile, the airline's
+IATA code, where the journey draws the domain's `plane` line icon like every
+other detail page, because one airline names one flight while a journey has many.
+And a leg's duration is the app-wide `formatDuration` — not the roadtrip leg's
+`"{{h}} h {{m}}"` shape — because the same flight's duration prints this way in
+the logbook table a tab away and the two must agree; one format for both pages
+would be a change to `formatDuration` itself, not to this row.
+
 ### The flights log page is one page shown two ways
 
 The card view and the table view were two pages that happened to share a title:
