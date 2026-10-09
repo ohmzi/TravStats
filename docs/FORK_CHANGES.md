@@ -531,6 +531,65 @@ The labels are ordinary i18n keys in both languages — `map:globe.openLastFligh
 `roadtrips:list.lastRoadtrip`; `roadtrips:list.open` is left where it was, for
 the underway card that still reads it.
 
+### The trip page shows what you paid
+
+The Total cost tile on a trip's overview adds up what TravStats itself prices —
+flights, bookings, stays. It cannot know what the trip cost out of the owner's
+bank and cash accounts: the meals, the transit, the museum. A card under the
+figures now says that: **"Paid from your accounts"**, with **"Full trip cost"**
+under it (paid plus what TravStats prices). The tile itself is left exactly as
+it was; the card sits beside it and is mounted by one line in
+`TripOverview.tsx`.
+
+**Both currencies at once.** The owner lives in Canadian and US dollars, so the
+card prints one large and the other beside it ("CAD 2,214.56", "≈ USD 1,615.12"),
+and a small button swaps which is which. Amounts are written with the ISO code
+rather than the symbol (`formatCurrency`'s `statement` option), because "$"
+next to "US$" — or "CA$" next to "$", depending on the language — does not say
+which dollar is which.
+
+**Two ways to convert, and the owner picks** (Settings → Trip spending):
+
+- **Market rate on each transaction's date** — every transaction at the rate of
+  its own day. The reconciler did that conversion already, so the card reads
+  it.
+- **My rate** — "1 USD = x CAD", the rate a bank or card actually charged. The
+  CAD and USD parts are re-converted exactly. Other currencies are not reported
+  separately, so their share is approximated honestly and simply: the at-date
+  total minus the CAD and USD parts at the latest market rate, never below
+  zero. A trip paid only in CAD and USD needs no market rate at all. When there
+  is no rate of the owner's own, or the approximation needs a market rate the
+  data does not carry, the card shows the market figures and says why, rather
+  than inventing one.
+
+Under the money sits how far it is known — "Estimate from N receipts",
+"Partially verified", "Bank-verified through <date>", "Upcoming" — then "N best
+guesses", "M receipts need review", and "Incomplete conversion" whenever a
+figure could not be derived. A figure that cannot be derived is a dash, never a
+zero. A short category breakdown follows, scaled by the same conversion as the
+total so the categories still add up to it.
+
+**Where the numbers come from.** A host service, trip-reconciler, matches the
+owner's transactions to trips and writes, per trip and per original currency,
+ONE trip-wide expense (kind `other`, on the trip, on no section) through the
+public API. The row's note carries a marker line and a `#data` JSON block with
+the sums in integer minor units; `lib/reconcilerNote.ts` finds those rows among
+`GET /trips/:id/expenses` and validates the block with zod, and
+`lib/tripSpendCurrency.ts` does the two-currency view math as a pure function.
+**No schema change and no new endpoint:** to TravStats these are ordinary
+expenses. A row whose block does not parse is still read by its own amount and
+currency, and a trip the reconciler never touched shows no card at all — so
+does a failed request, since most trips would otherwise carry an error line for
+a card that would not have been drawn.
+
+**The choice follows the account.** The currency and the rate live in one store
+that both the card and the settings section read, so a change re-renders the
+card at once, and they sync across devices as a new web-preferences section:
+one line in `backend/src/services/webPrefs/sections.ts`
+(`tripSpend: "object"`) and its entry in `frontend/src/lib/webPrefs/registry.ts`.
+The last market rate a card saw prefills the rate field's placeholder; that one
+stays on the device, because it is an observation, not a choice.
+
 ### Smaller things
 
 - **One page width.** The three container widths collapse to one, so every page
