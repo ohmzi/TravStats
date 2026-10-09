@@ -3,8 +3,10 @@ import type { Dispatch, SetStateAction } from "react";
 import MapGL, { type MapRef, type MapLayerMouseEvent } from "react-map-gl/maplibre";
 import { DeckGLOverlay, webgl2Available } from "./map/DeckGLOverlay";
 import { createMarkerTooltip } from "./map/markerTooltip";
+import { guardExtraLayers } from "./map/guardExtraLayers";
 import { PinnedCard } from "./map/cards/PinnedCard";
 import { PinnedCardBoundary } from "./map/cards/PinnedCardBoundary";
+import { usePinnedCard } from "./map/cards/usePinnedCard";
 import { HoverTooltip, type HoverTooltipApi } from "./map/cards/HoverTooltip";
 import type { MapPinned } from "./map/cards/pinnedTypes";
 import { pinnedFromAirport } from "./map/cards/buildFlatPinned";
@@ -448,41 +450,16 @@ export function DeckGLMap({
   // ruling replaced all five with the globe's card, which anchors on a
   // [lng, lat] and reprojects as the camera moves. So the anchor is on the
   // payload (`MapPinned.anchorLngLat`) and this component only projects it.
-  // A tab that draws its own lines (the roadtrip tour paths) owns the card, so
-  // one open slot closes the other kind; every other caller keeps this state.
-  // `undefined` — no prop — is "uncontrolled"; `null` is a controlled, closed
-  // slot, which is why the test is on the prop, not on falsiness.
-  const [internalPinned, setInternalPinned] = useState<MapPinned | null>(null);
-  const pinned = pinnedProp !== undefined ? pinnedProp : internalPinned;
-  const setPinned = onPinnedChange ?? setInternalPinned;
-  const [pinnedPos, setPinnedPos] = useState<{ x: number; y: number } | null>(null);
+  // Who owns the open slot, and where its anchor is on screen (see the hook).
+  const { pinned, setPinned, pinnedPos, recomputeAllPositions } = usePinnedCard(
+    mapRef,
+    pinnedProp,
+    onPinnedChange
+  );
 
   // The hover tooltip is the globe's too, driven imperatively so a 60–120 Hz
   // onHover never re-renders this component (see HoverTooltip.tsx).
   const hoverRef = useRef<HoverTooltipApi | null>(null);
-
-  // Reproject the card's anchor — called on every map move/zoom via onMove.
-  const recomputeAllPositions = useCallback(() => {
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-    const anchor = pinnedRef.current?.anchorLngLat;
-    if (!anchor) return;
-    const pt = map.project(anchor);
-    setPinnedPos({ x: pt.x, y: pt.y });
-  }, []);
-
-  // `recomputeAllPositions` is wired into a rAF on every move, so it must stay
-  // referentially stable; reading the anchor through a ref is what keeps it so
-  // without going stale.
-  const pinnedRef = useRef<MapPinned | null>(null);
-  useEffect(() => {
-    pinnedRef.current = pinned;
-    if (pinned === null) {
-      setPinnedPos(null);
-      return;
-    }
-    recomputeAllPositions();
-  }, [pinned, recomputeAllPositions]);
 
   const moveRafRef = useRef<number | null>(null);
 
@@ -577,32 +554,12 @@ export function DeckGLMap({
     [onPlaceClick]
   );
 
-  // deck.gl's layer pick and MapLibre's own Map click BOTH fire for one tap, and
-  // the Map handler's background branch clears whatever the tap opened unless the
-  // deck handler has already claimed it by setting `deckClickedRef`. Every layer
-  // this component builds claims its tap in its own handler (handleFlightClick,
-  // handleAirportClick, handleLodgingClick, handlePlaceClick); the caller's
-  // `extraLayers` did not, so a roadtrip line's card was set and wiped in the
-  // same tap and the roadtrip page was unreachable from the flat map (owner,
-  // 2026-10-09). Wrap each extra layer that answers a click so it claims the tap
-  // on the same terms, without the tab having to know this component's ref.
-  //
-  // Keyed on `extraLayers` alone (not on zoom or selection): the tab already
-  // memoises its layers, and re-cloning them on every camera move would be churn
-  // deck.gl has no reason to do.
+  // A caller's `extraLayers` must claim their tap like every layer built here, or
+  // the background click below wipes the card they opened (guardExtraLayers.ts).
   const guardedExtraLayers = useMemo(
     () =>
-      (extraLayers ?? []).map((layer) => {
-        const onClick = layer.props.onClick as
-          | ((info: PickingInfo, event: unknown) => void)
-          | undefined;
-        if (typeof onClick !== "function") return layer;
-        return layer.clone({
-          onClick: (info: PickingInfo, event: unknown): void => {
-            deckClickedRef.current = true;
-            onClick(info, event);
-          },
-        }) as Layer;
+      guardExtraLayers(extraLayers, () => {
+        deckClickedRef.current = true;
       }),
     [extraLayers]
   );
