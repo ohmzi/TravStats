@@ -1,0 +1,80 @@
+/**
+ * Synthetic builders for the trip builder's tests. The repository is public,
+ * so nothing here is anyone's real trip. The places are invented (Northvale
+ * and Port Carrow in Westshire) and sit in a real zone only so the clock has
+ * one. The years are 2031 and later, and the owner ids are random v4 UUIDs.
+ *
+ * No `.test.ts` suffix: jest does not run it as a suite; tsc and eslint check it.
+ */
+import { addDays } from "../../../shared/tour/builderNightPlan";
+import { NIGHT_BOUNDARY_H } from "../thresholds";
+import type { PhotoFlags, PhotoPoint } from "../types";
+
+/** The caller's Immich user. */
+export const OWNER = "5b7e1c2a-3d4f-4a6b-9c8d-7e6f5a4b3c2d";
+/** A partner whose library shows on the caller's timeline. */
+export const PARTNER = "8c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f";
+
+/** Northvale, Westshire: Pacific/Auckland, UTC+12 in May. */
+export const NORTHVALE = { lat: -45.05, lon: 168.7 } as const;
+/** Port Carrow, about 50 km north-east of Northvale, in the same zone. */
+export const PORT_CARROW = { lat: -44.7, lon: 169.15 } as const;
+/** Pacific/Auckland's offset in May 2031 (NZST), in hours. */
+export const NZST_H = 12;
+
+const HOUR_MS = 3_600_000;
+
+/** The instant a `YYYY-MM-DD HH:MM` wall clock names at a fixed offset, in hours east of UTC. */
+export function msAt(local: string, offsetH: number): number {
+  return Date.parse(`${local.replace(" ", "T")}:00Z`) - offsetH * HOUR_MS;
+}
+
+/** The flags `clockAssets` hands over for a case-A photo with GPS: every movement flag off. */
+export const NO_FLAGS: PhotoFlags = {
+  clockCase: "A",
+  zoneSource: "gps",
+  dayGuessed: false,
+  exifZoneOverridden: false,
+  located: false,
+  duplicate: false,
+  misdated: null,
+  atSea: false,
+  inFlight: false,
+  layover: false,
+};
+
+export type PhotoInput = Partial<Omit<PhotoPoint, "flags">> & { flags?: Partial<PhotoFlags> };
+
+/**
+ * A photo after the clock and `cleanAssets`. By default it is the caller's own
+ * iPhone shot at Northvale, located, at 12:00 NZST on 3 May 2031. When `tMs`,
+ * `day` or `nightDay` is not given, it follows `local`, read at NZST.
+ */
+export function makePhoto(input: PhotoInput = {}): PhotoPoint {
+  const { flags, ...over } = input;
+  const local = over.local ?? "2031-05-03 12:00";
+  const day = local.slice(0, 10);
+  return {
+    id: "p-1",
+    type: "IMAGE",
+    ownerId: OWNER,
+    visibility: "timeline",
+    tMs: msAt(local, NZST_H),
+    zone: "Pacific/Auckland",
+    local,
+    day,
+    nightDay: Number(local.slice(11, 13)) < NIGHT_BOUNDARY_H ? addDays(day, -1) : day,
+    lat: NORTHVALE.lat,
+    lon: NORTHVALE.lon,
+    city: "Northvale",
+    state: "Westshire",
+    country: null,
+    make: "Apple",
+    model: "iPhone 14",
+    originalFileName: "IMG_0001.HEIC",
+    isFavorite: false,
+    duplicateId: null,
+    ...over,
+    flags: { ...NO_FLAGS, located: true, ...flags },
+  };
+}
