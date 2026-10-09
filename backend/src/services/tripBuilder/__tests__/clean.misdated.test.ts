@@ -1,7 +1,7 @@
 import { addDays } from "../../../shared/tour/builderNightPlan";
 import { flagMisdated } from "../clean";
 import type { MisdatedReason, PhotoPoint } from "../types";
-import { makePhoto, PARTNER, PORT_CARROW, type PhotoInput } from "./photoFixtures";
+import { makePhoto, OWNER, PARTNER, PORT_CARROW, type PhotoInput } from "./photoFixtures";
 
 // Synthetic fixtures only (public repository): invented places, shifted years.
 
@@ -80,10 +80,16 @@ describe("flagMisdated", () => {
   });
 
   it("ignores a neighbour that belongs to another owner or another camera", async () => {
-    const partners = lookupFrom({
-      IMG_73: shots(7370, 12, "2031-05-04", 12, { ownerId: PARTNER }),
-    });
-    expect((await flagMisdated(BATCH, [], partners)).size).toBe(0);
+    // Both neighbours of the batch, answered by one owner. With the caller as that owner
+    // they date the batch; the same answers from a partner's library must not.
+    const neighboursOf = (ownerId: string) =>
+      lookupFrom({
+        IMG_73: shots(7370, 12, "2031-05-04", 12, { ownerId }),
+        IMG_74: shots(7430, 10, "2031-05-05", 10, { ownerId }),
+      });
+    const own = await flagMisdated(BATCH, [], neighboursOf(OWNER));
+    expect(own).toEqual(new Map(BATCH.map((p) => [p.id, "batch" as MisdatedReason])));
+    expect((await flagMisdated(BATCH, [], neighboursOf(PARTNER))).size).toBe(0);
     const otherCamera = lookupFrom({
       IMG_73: BEFORE_BATCH,
       IMG_74: shots(7430, 10, "2031-05-05", 10, { model: "iPhone 12" }),

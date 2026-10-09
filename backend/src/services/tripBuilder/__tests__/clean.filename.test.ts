@@ -44,6 +44,26 @@ describe("flagFilenameClocks", () => {
     expect([...flagFilenameClocks([ok, off])]).toEqual(["off"]);
   });
 
+  it("holds a Pixel name against the instant, not against the wall clock read as UTC", () => {
+    // Both photos were taken at 14:22 NZST on 3 May, which is 02:22 UTC. The zone is 12 h
+    // ahead of UTC, so the two readings land on opposite sides of the 36 h limit.
+    // `inside`: named 15:00 UTC on 1 May, 35 h 22 m before the instant (47 h 22 m before
+    // the wall clock read as UTC).
+    const inside = makePhoto({
+      id: "inside",
+      originalFileName: "PXL_20310501_150000123.jpg",
+      local: "2031-05-03 14:22",
+    });
+    // `outside`: named 20:00 UTC on 4 May, 41 h 38 m after the instant (29 h 38 m after
+    // the wall clock read as UTC).
+    const outside = makePhoto({
+      id: "outside",
+      originalFileName: "PXL_20310504_200000123.jpg",
+      local: "2031-05-03 14:22",
+    });
+    expect([...flagFilenameClocks([inside, outside])]).toEqual(["outside"]);
+  });
+
   it("ignores a stamp that names no real time", () => {
     const p = makePhoto({
       id: "x",
