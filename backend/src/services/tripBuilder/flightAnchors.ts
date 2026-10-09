@@ -198,21 +198,86 @@ function byTime(a: PhotoPoint, b: PhotoPoint): number {
   return a.tMs - b.tMs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 
-/**
- * Chronological order of two flights: by departure instant when both have one, else by
- * departure day, then by clock. Two flights that still tie come in the order they connect (the
- * one that lands where the other leaves first), then by id.
- */
-function compareAnchors(a: FlightAnchor, b: FlightAnchor): number {
-  if (a.depMs !== null && b.depMs !== null && a.depMs !== b.depMs) return a.depMs - b.depMs;
-  if (a.depDay !== b.depDay) return a.depDay < b.depDay ? -1 : 1;
-  if (a.depClock !== null && b.depClock !== null && a.depClock !== b.depClock) {
-    return a.depClock < b.depClock ? -1 : 1;
-  }
-  const forward = sharesAirport(a, b);
-  const backward = sharesAirport(b, a);
-  if (forward !== backward) return forward ? -1 : 1;
+/** `arriving` lands where `departing` leaves: the same IATA code (a flight without codes never connects). */
+function sharesAirport(arriving: FlightAnchor, departing: FlightAnchor): boolean {
+  return arriving.arrIata !== null && arriving.arrIata === departing.depIata;
+}
+
+function byId(a: FlightAnchor, b: FlightAnchor): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/**
+ * A total order on the flights by day: departure day, then clock (a flight with no clock first),
+ * then id. Flights that differ in nothing else are told apart by `inConnectionOrder`.
+ */
+function compareByDay(a: FlightAnchor, b: FlightAnchor): number {
+  if (a.depDay !== b.depDay) return a.depDay < b.depDay ? -1 : 1;
+  const clockA = a.depClock ?? "";
+  const clockB = b.depClock ?? "";
+  if (clockA !== clockB) return clockA < clockB ? -1 : 1;
+  return byId(a, b);
+}
+
+/**
+ * Flights that share a day and have no clock cannot be told apart by time, only by how they
+ * connect: the next one leaves from an airport that none of the others lands at, ties by id.
+ * Connections that run in a circle leave nothing to go first, and the flights still left keep
+ * their id order.
+ */
+function inConnectionOrder(run: readonly FlightAnchor[]): FlightAnchor[] {
+  const remaining = [...run].sort(byId);
+  const ordered: FlightAnchor[] = [];
+  while (remaining.length > 0) {
+    const next = remaining.findIndex(
+      (flight) => !remaining.some((other) => other !== flight && sharesAirport(other, flight))
+    );
+    if (next < 0) return [...ordered, ...remaining];
+    ordered.push(...remaining.splice(next, 1));
+  }
+  return ordered;
+}
+
+/**
+ * The flights known only by their day, in order. Within a day the flights with no clock come
+ * first, in connection order, then the others by clock.
+ */
+function sortedByDay(flights: readonly FlightAnchor[]): FlightAnchor[] {
+  const days = new Map<string, FlightAnchor[]>();
+  for (const flight of [...flights].sort(compareByDay)) {
+    const day = days.get(flight.depDay);
+    if (day) day.push(flight);
+    else days.set(flight.depDay, [flight]);
+  }
+  return [...days.values()].flatMap((day) => [
+    ...inConnectionOrder(day.filter((flight) => flight.depClock === null)),
+    ...day.filter((flight) => flight.depClock !== null),
+  ]);
+}
+
+/**
+ * The flights in departure order, the same whatever order they arrive in. The flights with a
+ * departure instant come in that order (a tie by day, clock, id). The others are known only by
+ * their day and come in `sortedByDay` order. The two lists merge by departure day, the flights
+ * with an instant first on a day they share. Merging two sorted lists, instead of comparing a
+ * flight with an instant against one without, keeps the order consistent: a pairwise comparison
+ * of the two kinds can run in a circle.
+ */
+function inDepartureOrder(anchors: readonly FlightAnchor[]): FlightAnchor[] {
+  const timed = anchors
+    .filter((flight) => flight.depMs !== null)
+    .sort((a, b) => (a.depMs ?? 0) - (b.depMs ?? 0) || compareByDay(a, b));
+  const dated = sortedByDay(anchors.filter((flight) => flight.depMs === null));
+  const flights: FlightAnchor[] = [];
+  let nextTimed = 0;
+  let nextDated = 0;
+  while (nextTimed < timed.length || nextDated < dated.length) {
+    const datedFirst =
+      nextTimed === timed.length ||
+      (nextDated < dated.length && dated[nextDated].depDay < timed[nextTimed].depDay);
+    flights.push(datedFirst ? dated[nextDated++] : timed[nextTimed++]);
+  }
+  return flights;
 }
 
 /** `after` when the photo lies closer to the arrival airport than to the departure airport. */
@@ -253,11 +318,6 @@ function sideOf(
   if (early && !late) return "before";
   if (late && !early) return "after";
   return nearerSide(photo, flight);
-}
-
-/** `arriving` lands where `departing` leaves: the same IATA code (a flight without codes never connects). */
-function sharesAirport(arriving: FlightAnchor, departing: FlightAnchor): boolean {
-  return arriving.arrIata !== null && arriving.arrIata === departing.depIata;
 }
 
 /**
@@ -319,7 +379,7 @@ export function splitIntoAreas(
   anchors: readonly FlightAnchor[],
   classes: ReadonlyMap<string, InFlightClass>
 ): AreaSplit {
-  const flights = [...anchors].sort(compareAnchors);
+  const flights = inDepartureOrder(anchors);
   const photos = ground.filter((photo) => !classes.get(photo.id)?.inFlight).sort(byTime);
   const references = timeOrderReferences(flights, photos);
 

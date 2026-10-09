@@ -18,10 +18,14 @@ export interface Airport extends Coord {
   iata: string;
 }
 
-/** Northvale airport; Port Carrow is 347 km north-east of it, Kelmore 640 km. */
+/**
+ * Northvale airport; Port Carrow is 347 km north-east of it, Kelmore 640 km, and Westmouth a
+ * further 419 km on from Kelmore.
+ */
 export const NVL: Airport = { iata: "NVL", lat: -45.021, lon: 168.739 };
 export const PCR: Airport = { iata: "PCR", lat: -43.489, lon: 172.532 };
 export const KEL: Airport = { iata: "KEL", lat: -41.327, lon: 174.805 };
+export const WMT: Airport = { iata: "WMT", lat: -38.4, lon: 177.9 };
 
 const KM_PER_DEGREE = 111.195;
 const rad = (degrees: number): number => (degrees * Math.PI) / 180;
