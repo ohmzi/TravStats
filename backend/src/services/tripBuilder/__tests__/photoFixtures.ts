@@ -7,6 +7,7 @@
  * No `.test.ts` suffix: jest does not run it as a suite; tsc and eslint check it.
  */
 import { addDays } from "../../../shared/tour/builderNightPlan";
+import type { ImmichAssetDetail } from "../../immich/types";
 import { NIGHT_BOUNDARY_H } from "../thresholds";
 import type { PhotoFlags, PhotoPoint } from "../types";
 
@@ -76,5 +77,41 @@ export function makePhoto(input: PhotoInput = {}): PhotoPoint {
     duplicateId: null,
     ...over,
     flags: { ...NO_FLAGS, located: true, ...flags },
+  };
+}
+
+/** Saltmere: America/La_Paz, UTC−4 all year. */
+export const SALTMERE = { lat: -16.52, lon: -68.12 } as const;
+
+/**
+ * An Immich asset as the client maps it (spec §B). By default it is the
+ * caller's own iPhone photo with no zone and no GPS, whose `fileCreatedAt`
+ * and `localDateTime` both read 12:00 on 3 May 2031. That is what Immich
+ * stores for a naive camera clock.
+ */
+export function makeAsset(over: Partial<ImmichAssetDetail> = {}): ImmichAssetDetail {
+  return {
+    id: "a-1",
+    type: "IMAGE",
+    fileCreatedAt: "2031-05-03T12:00:00.000Z",
+    originalFileName: "IMG_0001.HEIC",
+    mimeType: "image/heic",
+    sizeBytes: 2_000_000,
+    lat: null,
+    lon: null,
+    localDateTime: "2031-05-03T12:00:00",
+    timeZone: null,
+    fileModifiedAt: null,
+    city: null,
+    state: null,
+    country: null,
+    ownerId: OWNER,
+    visibility: "timeline",
+    livePhotoVideoId: null,
+    duplicateId: null,
+    make: "Apple",
+    model: "iPhone 14",
+    isFavorite: false,
+    ...over,
   };
 }
