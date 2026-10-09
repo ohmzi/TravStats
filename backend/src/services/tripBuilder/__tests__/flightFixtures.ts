@@ -147,3 +147,23 @@ export function beside(from: Coord, to: Coord, fraction: number, crossKm: number
     (-crossKm * north) / length
   );
 }
+
+/** A flight known only by its days (a date-only or legacy row): no clock, no instants. */
+export function datedFlight(
+  id: string,
+  depDay: string,
+  arrDay: string,
+  from: Airport,
+  to: Airport,
+  over: Partial<FlightAnchor> = {}
+): FlightAnchor {
+  return {
+    ...preciseFlight(id, `${depDay} 12:00`, `${arrDay} 12:00`, from, to),
+    depClock: null,
+    arrClock: null,
+    precise: false,
+    depMs: null,
+    arrMs: null,
+    ...over,
+  };
+}

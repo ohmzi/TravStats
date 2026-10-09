@@ -86,17 +86,79 @@ function delayVerdict(
     : null;
 }
 
+/** The two photos that tell the ends of a day-level flight apart in time. */
+interface TimeOrderReference {
+  /** The last photo within AIRPORT_NEAR_KM of the departure airport on the flight's days. */
+  lastDepartureMs: number | null;
+  /** The first photo within AIRPORT_NEAR_KM of the arrival airport on the flight's days. */
+  firstArrivalMs: number | null;
+}
+
+/** A missing reference leaves its bound open. */
+const NO_REFERENCE: TimeOrderReference = { lastDepartureMs: null, firstArrivalMs: null };
+
+function timeOrderReference(
+  flight: FlightAnchor,
+  photos: readonly PhotoPoint[]
+): TimeOrderReference {
+  let lastDepartureMs: number | null = null;
+  let firstArrivalMs: number | null = null;
+  for (const photo of photos) {
+    const at = coordOf(photo);
+    if (!at || photo.day < flight.depDay || photo.day > flight.arrDay) continue;
+    if (distanceKm(at, flight.dep) <= AIRPORT_NEAR_KM) {
+      lastDepartureMs = lastDepartureMs === null ? photo.tMs : Math.max(lastDepartureMs, photo.tMs);
+    }
+    if (distanceKm(at, flight.arr) <= AIRPORT_NEAR_KM) {
+      firstArrivalMs = firstArrivalMs === null ? photo.tMs : Math.min(firstArrivalMs, photo.tMs);
+    }
+  }
+  return { lastDepartureMs, firstArrivalMs };
+}
+
+/** The references of every day-level flight among `flights`, by flight id. */
+function timeOrderReferences(
+  flights: readonly FlightAnchor[],
+  photos: readonly PhotoPoint[]
+): Map<string, TimeOrderReference> {
+  const references = new Map<string, TimeOrderReference>();
+  for (const flight of flights) {
+    if (!flight.precise) references.set(flight.id, timeOrderReference(flight, photos));
+  }
+  return references;
+}
+
+/**
+ * A day-level flight: on one of its days, on the corridor, after the last photo at the departure
+ * airport and before the first at the arrival airport, and not part of a stationary group.
+ */
+function impreciseVerdict(
+  photo: PhotoPoint,
+  at: Coord,
+  flight: FlightAnchor,
+  photos: readonly PhotoPoint[],
+  reference: TimeOrderReference
+): InFlightClass | null {
+  if (photo.day < flight.depDay || photo.day > flight.arrDay) return null;
+  if (!onCorridor(at, flight)) return null;
+  if (reference.lastDepartureMs !== null && photo.tMs <= reference.lastDepartureMs) return null;
+  if (reference.firstArrivalMs !== null && photo.tMs >= reference.firstArrivalMs) return null;
+  if (isStationary(photo, photos)) return null;
+  return airborne(flight, "corridor");
+}
+
 function verdictFor(
   photo: PhotoPoint,
   anchors: readonly FlightAnchor[],
-  photos: readonly PhotoPoint[]
+  photos: readonly PhotoPoint[],
+  references: ReadonlyMap<string, TimeOrderReference>
 ): InFlightClass {
   const at = coordOf(photo);
   if (at) {
     for (const flight of anchors) {
       const verdict = flight.precise
         ? (preciseVerdict(photo, at, flight) ?? delayVerdict(photo, at, flight, photos))
-        : null;
+        : impreciseVerdict(photo, at, flight, photos, references.get(flight.id) ?? NO_REFERENCE);
       if (verdict) return verdict;
     }
   }
@@ -113,9 +175,10 @@ export function classifyInFlight(
   photos: readonly PhotoPoint[],
   anchors: readonly FlightAnchor[]
 ): Map<string, InFlightClass> {
+  const references = timeOrderReferences(anchors, photos);
   const verdicts = new Map<string, InFlightClass>();
   for (const photo of photos) {
-    verdicts.set(photo.id, verdictFor(photo, anchors, photos));
+    verdicts.set(photo.id, verdictFor(photo, anchors, photos, references));
   }
   return verdicts;
 }

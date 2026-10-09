@@ -1,6 +1,15 @@
 import { classifyInFlight } from "../flightAnchors";
 import type { FlightAnchor, PhotoPoint } from "../types";
-import { beside, between, NVL, offsetKm, PCR, photo, preciseFlight } from "./flightFixtures";
+import {
+  beside,
+  between,
+  datedFlight,
+  NVL,
+  offsetKm,
+  PCR,
+  photo,
+  preciseFlight,
+} from "./flightFixtures";
 
 // ZZ101 leaves Northvale at 08:30 and lands at Port Carrow at 09:30 on 2031-05-02
 // (Pacific/Auckland wall clock); `midAir` is half way along its track.
@@ -165,5 +174,85 @@ describe("classifyInFlight: a delayed arrival", () => {
     ];
     const verdicts = classifyInFlight(stop, [zz101]);
     for (const shot of stop) expect(verdicts.get(shot.id)).toEqual(GROUND);
+  });
+});
+
+describe("classifyInFlight: a flight known only by its day", () => {
+  const zz104 = datedFlight("zz104", "2031-05-03", "2031-05-03", NVL, PCR);
+  // The traveller photographed Northvale until 09:00 and Port Carrow from 13:00.
+  const lastAtNorthvale = photo("nvl-last", "2031-05-03 09:00", offsetKm(NVL, 3, 0));
+  const firstAtCarrow = photo("pcr-first", "2031-05-03 13:00", offsetKm(PCR, 3, 0));
+  const references = [lastAtNorthvale, firstAtCarrow];
+
+  it("puts a photo on the corridor, between the two reference photos, in the air", () => {
+    const mid = photo("mid", "2031-05-03 11:00", midAir);
+    expect(verdict(mid, [zz104], references)).toEqual({
+      inFlight: true,
+      flightId: "zz104",
+      rule: "corridor",
+      side: null,
+    });
+  });
+
+  it("keeps a photo from before the last photo at the departure airport on the ground", () => {
+    const early = photo("early", "2031-05-03 08:00", midAir);
+    expect(verdict(early, [zz104], references)).toEqual(GROUND);
+  });
+
+  it("keeps a photo from after the first photo at the arrival airport on the ground", () => {
+    const late = photo("late", "2031-05-03 14:00", midAir);
+    expect(verdict(late, [zz104], references)).toEqual(GROUND);
+  });
+
+  it("leaves a bound open when its reference photo is missing", () => {
+    const mid = photo("mid", "2031-05-03 11:00", midAir);
+    expect(verdict(mid, [zz104])?.inFlight).toBe(true);
+    expect(verdict(mid, [zz104], [lastAtNorthvale])?.inFlight).toBe(true);
+    expect(verdict(mid, [zz104], [firstAtCarrow])?.inFlight).toBe(true);
+    const beforeDeparture = photo("early", "2031-05-03 08:00", midAir);
+    expect(verdict(beforeDeparture, [zz104], [lastAtNorthvale])?.inFlight).toBe(false);
+    const afterArrival = photo("late", "2031-05-03 14:00", midAir);
+    expect(verdict(afterArrival, [zz104], [firstAtCarrow])?.inFlight).toBe(false);
+  });
+
+  it("ignores photos on other days", () => {
+    expect(verdict(photo("eve", "2031-05-02 11:00", midAir), [zz104])).toEqual(GROUND);
+    expect(verdict(photo("morrow", "2031-05-04 11:00", midAir), [zz104])).toEqual(GROUND);
+  });
+
+  it("takes the reference photos from the flight's days only", () => {
+    const nextDay = photo("nvl-next", "2031-05-04 15:00", offsetKm(NVL, 3, 0));
+    const mid = photo("mid", "2031-05-03 11:00", midAir);
+    expect(verdict(mid, [zz104], [...references, nextDay])?.inFlight).toBe(true);
+  });
+
+  it("keeps a photo within 50 km of an airport on the ground", () => {
+    const nearNorthvale = between(NVL, PCR, 0.0865);
+    expect(verdict(photo("near", "2031-05-03 11:00", nearNorthvale), [zz104])).toEqual(GROUND);
+  });
+
+  it("keeps a photo more than 50 km off the corridor on the ground", () => {
+    const aside = beside(NVL, PCR, 0.5, 60);
+    expect(verdict(photo("aside", "2031-05-03 11:00", aside), [zz104])).toEqual(GROUND);
+  });
+
+  it("keeps a photo past either end of the track on the ground", () => {
+    const beyond = between(NVL, PCR, 1.3);
+    expect(verdict(photo("beyond", "2031-05-03 11:00", beyond), [zz104])).toEqual(GROUND);
+  });
+
+  it("keeps a highway town 34 km off the track on the ground when photos show a stop there", () => {
+    const town = beside(NVL, PCR, 0.5, 34);
+    const stop = [
+      photo("town-1", "2031-05-03 11:10", town),
+      photo("town-2", "2031-05-03 11:25", offsetKm(town, 0.3, 0)),
+      photo("town-3", "2031-05-03 11:40", offsetKm(town, 0, 0.3)),
+    ];
+    const verdicts = classifyInFlight([...references, ...stop], [zz104]);
+    for (const shot of stop) expect(verdicts.get(shot.id)).toEqual(GROUND);
+    // Without the stop, a lone photo in that town would pass for a window seat.
+    expect(verdict(photo("lone", "2031-05-03 11:25", town), [zz104], references)?.inFlight).toBe(
+      true
+    );
   });
 });
