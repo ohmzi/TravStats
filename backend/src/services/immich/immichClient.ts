@@ -43,6 +43,23 @@ export interface ImmichIdentity {
   name: string;
 }
 
+export interface ImmichClientOptions {
+  /**
+   * Per-request timeout of the JSON calls; default `REQUEST_TIMEOUT_MS`. The
+   * capability check and the commit preflight pass 4 s so a slow Immich cannot
+   * outlast the browser request that asked. Downloads keep their own timeout.
+   */
+  timeoutMs?: number;
+}
+
+/** A usable timeout is a positive finite number; anything else (0 means "none" to axios) is the default. */
+function requestTimeout(options: ImmichClientOptions): number {
+  const { timeoutMs } = options;
+  return typeof timeoutMs === "number" && Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? timeoutMs
+    : REQUEST_TIMEOUT_MS;
+}
+
 export interface ImmichClient {
   getServerVersion(): Promise<string>;
   whoami(): Promise<ImmichIdentity>;
@@ -232,9 +249,12 @@ export function mapAssetDetail(raw: unknown): ImmichAssetDetail | null {
   };
 }
 
-export function createImmichClient(conn: ImmichConnection): ImmichClient {
+export function createImmichClient(
+  conn: ImmichConnection,
+  options: ImmichClientOptions = {}
+): ImmichClient {
   const headers = { "x-api-key": conn.apiKey };
-  const jsonConfig: AxiosRequestConfig = { headers, timeout: REQUEST_TIMEOUT_MS };
+  const jsonConfig: AxiosRequestConfig = { headers, timeout: requestTimeout(options) };
   const url = (suffix: string): string => `${conn.baseUrl}/api${suffix}`;
 
   return {

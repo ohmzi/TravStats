@@ -341,3 +341,63 @@ describe("listAlbumAssets — capture time at the boundary (ADR 0002 D6)", () =>
     });
   });
 });
+
+describe("timeoutMs option", () => {
+  const identity = { data: { id: "u1", email: "ann@example.test", name: "Ann" } };
+  const RANGE = {
+    takenAfter: new Date("2031-05-01T10:00:00Z"),
+    takenBefore: new Date("2031-05-09T12:00:00Z"),
+  };
+
+  it("keeps the 15 s default for every JSON call", async () => {
+    mockedAxios.get.mockResolvedValueOnce(identity);
+    await createImmichClient(CONN).whoami();
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "https://immich.lan/api/users/me",
+      expect.objectContaining({ timeout: 15_000 })
+    );
+  });
+
+  it("uses the caller's shorter timeout for a quick capability or preflight check", async () => {
+    mockedAxios.get.mockResolvedValueOnce(identity);
+    await createImmichClient(CONN, { timeoutMs: 4_000 }).whoami();
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "https://immich.lan/api/users/me",
+      expect.objectContaining({ timeout: 4_000 })
+    );
+  });
+
+  it("applies it to POST calls too", async () => {
+    mockedAxios.post.mockResolvedValueOnce({ data: { assets: { items: [], nextPage: null } } });
+    await createImmichClient(CONN, { timeoutMs: 4_000 }).searchAssetsByDate(RANGE);
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      "https://immich.lan/api/search/metadata",
+      expect.anything(),
+      expect.objectContaining({ timeout: 4_000 })
+    );
+  });
+
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "ignores a timeout of %p, which axios would read as none",
+    async (timeoutMs) => {
+      mockedAxios.get.mockResolvedValueOnce(identity);
+      await createImmichClient(CONN, { timeoutMs }).whoami();
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        "https://immich.lan/api/users/me",
+        expect.objectContaining({ timeout: 15_000 })
+      );
+    }
+  );
+
+  it("leaves the 60 s stream timeout alone", async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      data: "stream",
+      headers: { "content-type": "image/webp" },
+    });
+    await createImmichClient(CONN, { timeoutMs: 4_000 }).fetchAssetStream("asset-1", "thumbnail");
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "https://immich.lan/api/assets/asset-1/thumbnail?size=thumbnail",
+      expect.objectContaining({ timeout: 60_000 })
+    );
+  });
+});
