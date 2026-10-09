@@ -68,10 +68,8 @@ import type { ActivityItem } from "../sidebars/activityItems";
 import { useLodgingSelectionStore } from "../../../store/lodgingSelectionStore";
 import { usePlaceSelectionStore } from "../../../store/placeSelectionStore";
 import type { Layer } from "@deck.gl/core";
-import { ATTRIBUTION_CLEARANCE } from "../../map/attributionClearance";
-import { initialLegendOpen, isPhoneViewport } from "./legendInitialState";
+import { AllTabLegend, useLegendOpen } from "./AllTabLegend";
 import { SidebarToggle } from "../SidebarToggle";
-import { Icon } from "../../ui/Icon";
 import { useDomainColors } from "../../../hooks/useDomainColors";
 import { DomainFilterButton } from "./DomainFilterButton";
 import { DomainFilterEmptyOverlay } from "./DomainFilterEmptyOverlay";
@@ -90,19 +88,6 @@ const ALL_MODE_TO_MAP_MODE: Record<AllMode, MapMode> = {
 function isAllMode(mode: unknown): mode is AllMode {
   return typeof mode === "string" && (ALL_MODES as readonly string[]).includes(mode);
 }
-
-/**
- * Bottom offset for map overlays in the attribution corner.
- *
- * MapLibre's attribution bar measured 44 px tall on the dashboard map; 52
- * leaves the same 8 px breathing room the rest of the overlay set uses. If the
- * bar ever grows (a second attribution line, a taller control), this is the one
- * number to change — verify by measuring, not by eye: compare the legend's
- * `getBoundingClientRect().bottom` against `.maplibregl-ctrl-bottom-right`.
- */
-// Remembered per browser: a key someone shut should stay shut on the next
-// visit, and it is a display preference rather than account state.
-const LEGEND_OPEN_KEY = "dashboard.legendOpen";
 
 export function AllTab(): JSX.Element {
   const { mode, projection } = useDashboardRoute();
@@ -131,25 +116,8 @@ export function AllTab(): JSX.Element {
   const navigate = useNavigate();
   const [places, setPlaces] = useState<Place[]>([]);
   const [placeLists, setPlaceLists] = useState<PlaceList[]>([]);
-  // Remembered per browser, like the rest of the map's appearance. Someone who
-  // closes the key on a crowded map means it, and having it reopen on every
-  // navigation is the same annoyance one page later.
-  const [legendOpen, setLegendOpen] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      return initialLegendOpen(window.localStorage.getItem(LEGEND_OPEN_KEY), isPhoneViewport());
-    } catch {
-      return !isPhoneViewport();
-    }
-  });
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(LEGEND_OPEN_KEY, String(legendOpen));
-    } catch {
-      /* private mode or blocked site data — the choice just does not survive a reload */
-    }
-  }, [legendOpen]);
+  // Open/closed is remembered per browser — see AllTabLegend.tsx.
+  const [legendOpen, setLegendOpen] = useLegendOpen();
   const [editingFlight, setEditingFlight] = useState<Flight | null>(null);
   // The ONE pinned card this tab's maps draw, held here rather than in either
   // renderer because the roadtrip LINE is an extra layer this tab builds — the
@@ -583,17 +551,7 @@ export function AllTab(): JSX.Element {
   });
   const tourHasData = tourLegend.hasData;
 
-  // Colour key as a compact table pinned bottom-right — out of the top band
-  // so it never collides with the globe's time histogram or the top-left
-  // controls. Renders only the visible domains' rows.
-  //
-  // The bottom offset clears MapLibre's attribution bar, which occupies the
-  // same corner. At `bottom: 12` the key's lower rows sat ON the line reading
-  // "MapLibre | © CARTO, © OpenStreetMap contributors" — measured at 32 px of
-  // overlap (#273). That is not only untidy: CARTO and OpenStreetMap both
-  // require the credit to stay visible, so covering it is a licence question,
-  // not a cosmetic one. The other three map overlays in this app sit
-  // bottom-LEFT and are unaffected.
+  // Colour key rows, one array so the count on the collapsed key covers all of them.
   const legendRows = [
     ...(visible.flight ? flightLegendRows : []),
     ...(visible.cruise ? cruiseLegendRows : []),
@@ -608,63 +566,13 @@ export function AllTab(): JSX.Element {
     ...rental.legendRows,
   ];
 
-  // Collapsible, like the map options beside it. The key grew a row per LIST
-  // when "by list" colouring started naming them, and on a map with a dozen
-  // lists it began covering the thing it explains (Alex, 2026-08-29).
-  //
-  // The count stays visible when collapsed. A bare chevron hides how much is
-  // behind it, and a key is the one overlay where "there is more here" is the
-  // whole point.
-  const legendTable = legendRows.length > 0 && (
-    <div
-      style={{
-        position: "absolute",
-        bottom: ATTRIBUTION_CLEARANCE,
-        right: 12,
-        zIndex: 30,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        padding: "12px 16px",
-        borderRadius: "var(--ts-radius-card)",
-        background: "color-mix(in srgb, var(--ts-surface) 94%, transparent)",
-        color: "var(--ts-text-bright)",
-        border: "1px solid var(--ts-border)",
-        fontSize: 13,
-        whiteSpace: "nowrap",
-        maxHeight: legendOpen ? "min(60vh, 420px)" : undefined,
-        overflowY: legendOpen ? "auto" : undefined,
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => setLegendOpen((open) => !open)}
-        aria-expanded={legendOpen}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          background: "none",
-          border: "none",
-          padding: 0,
-          margin: 0,
-          font: "inherit",
-          color: "var(--ts-muted)",
-          cursor: "pointer",
-        }}
-      >
-        {/* Round 4: a mono section label over the rows, like every panel title. */}
-        <span className="t-label-mono">{t("dashboard:legend.title")}</span>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {!legendOpen && (
-            <span style={{ fontVariantNumeric: "tabular-nums" }}>{legendRows.length}</span>
-          )}
-          <Icon name={legendOpen ? "chevron-down" : "chevron-up"} size={14} />
-        </span>
-      </button>
-      {legendOpen && legendRows}
-    </div>
+  const legendTable = (
+    <AllTabLegend
+      rows={legendRows}
+      open={legendOpen}
+      onToggle={() => setLegendOpen((open) => !open)}
+      title={t("dashboard:legend.title")}
+    />
   );
 
   // Top-center, the same slot `journeySelector` uses in journey mode

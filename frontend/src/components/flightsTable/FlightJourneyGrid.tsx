@@ -239,7 +239,7 @@ export default function FlightJourneyGrid(): JSX.Element {
             className="ml-2 rounded-full px-1.5 text-xs"
             style={{
               background: "var(--accent)",
-              color: "#0d1117",
+              color: "var(--ts-accent-text)",
               visibility: activeFilters > 0 ? "visible" : "hidden",
             }}
           >

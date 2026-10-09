@@ -6,7 +6,7 @@ import { DOMAINS, RETIRED_DOMAIN_DEFAULTS, TOUR_COLOR } from "../../shared/domai
 /**
  * The user's domain colours sit ON TOP of the defaults — and must keep doing
  * so when the defaults move, as they did in round 29 (forgejo#131: rail
- * lavender, roadtrip moss).
+ * lavender, roadtrip moss — the accent since 2026-10-08).
  *
  * The store reads local storage once, at import, so each case seeds storage
  * and then imports a fresh copy of the store and hook.
@@ -69,6 +69,52 @@ describe("domain colour store over the round-29 defaults", () => {
     window.localStorage.setItem(V1, JSON.stringify({ ...OLD_DEFAULTS_V1, rail: "#abcdef" }));
     const { result } = await freshHook();
     expect(result.current.colorOf("rail")).toBe("#abcdef");
+  });
+
+  // The moss is written out here, not read from RETIRED_DOMAIN_DEFAULTS: the
+  // table is what these cases test, so a test that took its input from it
+  // would pass with the moss missing.
+  const MOSS = "#a9c46a";
+  const ACCENT = "#f0a947";
+
+  it("moves a roadtrip frozen at the old moss default to the accent yellow", async () => {
+    // A browser that saved the whole map while moss was the default (round 29
+    // to 2026-10-08) holds moss that no one chose. Left alone it would keep
+    // painting roadtrips moss after the owner ruled they are the accent.
+    window.localStorage.setItem(V1, JSON.stringify({ ...OLD_DEFAULTS_V1, roadtrip: MOSS }));
+    const { result } = await freshHook();
+    expect(result.current.colorOf("roadtrip")).toBe(ACCENT);
+    expect(result.current.colorOf("roadtrip")).toBe(DOMAINS.roadtrip.color);
+    expect(result.current.colorOf("roadtrip")).toBe(TOUR_COLOR);
+    // Its neighbours in the same save are read exactly as before.
+    expect(result.current.colorOf("flight")).toBe("#00ff00");
+    expect(result.current.colorOf("rail")).toBe(DOMAINS.rail.color);
+  });
+
+  it("reads the frozen moss whatever its letter case", async () => {
+    window.localStorage.setItem(V1, JSON.stringify({ roadtrip: MOSS.toUpperCase() }));
+    const { result } = await freshHook();
+    expect(result.current.colorOf("roadtrip")).toBe(ACCENT);
+  });
+
+  it("leaves a roadtrip colour the user chose alone, next to a frozen moss", async () => {
+    window.localStorage.setItem(V1, JSON.stringify({ ...OLD_DEFAULTS_V1, roadtrip: "#123456" }));
+    const custom = await freshHook();
+    expect(custom.result.current.colorOf("roadtrip")).toBe("#123456");
+
+    // One digit off the moss is a colour someone picked, not the default.
+    window.localStorage.setItem(V1, JSON.stringify({ roadtrip: "#a9c46b", rail: MOSS }));
+    const near = await freshHook();
+    expect(near.result.current.colorOf("roadtrip")).toBe("#a9c46b");
+    // The moss is retired for the roadtrip only; on another domain it is a choice.
+    expect(near.result.current.colorOf("rail")).toBe(MOSS);
+  });
+
+  it("a deliberate moss roadtrip survives a reload once saved as v2", async () => {
+    // v2 stores only overrides, so a moss in it is a pick, never a frozen default.
+    window.localStorage.setItem(V2, JSON.stringify({ roadtrip: MOSS }));
+    const { result } = await freshHook();
+    expect(result.current.colorOf("roadtrip")).toBe(MOSS);
   });
 
   it("stores only what the user moved, so the next default change reaches the rest", async () => {

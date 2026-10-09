@@ -593,7 +593,10 @@ stays on the device, because it is an observation, not a choice.
 ### Smaller things
 
 - **One page width.** The three container widths collapse to one, so every page
-  is the width of the logbook rather than a shape of its own.
+  is the width of the logbook rather than a shape of its own. The number is
+  `PAGE_WIDTH` in `frontend/scripts/generate-theme.mjs`, which writes
+  `--ts-width-reading`, `-list` and `-table`; the generated CSS is never
+  edited by hand (the theme guard fails if it is).
 - **Back goes where you came from.** The detail header returns through history
   instead of a fixed target; a page opened directly has no history and still uses
   its section's front door, and middle-click still opens that section's home.
@@ -605,6 +608,14 @@ stays on the device, because it is an observation, not a choice.
   either way; the badge and the chip carry `aria-hidden` while they are down, and
   Reset is disabled rather than absent. The "is it filtered" test trims
   whitespace too, so a lone space narrows nothing and the chip stays down.
+- **One yellow for every travelled way.** Roadtrip and tour paths are the
+  accent `#f0a947` (the "+ New roadtrip" colour), on the map, the cards and the
+  legend. `design/tokens.json` and the backend `domains.ts` mirror carry it too,
+  a deliberate divergence from the Companion, whose `road` is still moss. The
+  colour guard (`domainColorsNotStatus.test.ts`) exempts exactly the flight,
+  roadtrip and tour from the accent rule, and only against `warn`, which is the
+  accent's own pressed shade 39.4 apart; every other domain stays clear of the
+  accent and of info, warn and bad.
 
 ## How it fits with Immich
 

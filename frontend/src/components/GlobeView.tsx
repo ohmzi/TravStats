@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import MapGL, { useControl, type MapRef } from "react-map-gl/maplibre";
-import { MapboxOverlay } from "@deck.gl/mapbox";
+import MapGL, { type MapRef } from "react-map-gl/maplibre";
 import type { Layer, MapViewState, PickingInfo } from "@deck.gl/core";
 import {
   EarthOcclusionExtension,
@@ -45,6 +44,7 @@ import { usePinnedAnchor } from "./Globe/usePinnedAnchor";
 import { occludeExtraLayers } from "./Globe/occludeExtraLayers";
 import { GlobeStatsCard } from "./Globe/GlobeStatsCard";
 import { GlobePinnedOverlay } from "./Globe/GlobePinnedOverlay";
+import { GlobeDeckOverlay } from "./Globe/GlobeDeckOverlay";
 import { applyMapOverlays } from "./Globe/mapOverlays";
 import { buildAirportPoints, buildPortPoints } from "./Globe/globePointData";
 import { buildGlobeArcData } from "./Globe/globeArcData";
@@ -194,46 +194,6 @@ const INITIAL_VIEW_STATE: MapViewState = {
   pitch: 0,
   bearing: 0,
 };
-
-interface DeckOverlayProps {
-  layers: Layer[];
-  onHover: (info: PickingInfo) => void;
-}
-
-function DeckGLOverlay({ layers, onHover }: DeckOverlayProps): null {
-  // `interleaved: true` shares MapLibre's WebGL context so deck.gl uses
-  // MapLibre's globe projection matrices directly — without it, the
-  // overlay falls back to mercator and the layers detach into a flat
-  // strip floating beside the globe whenever the camera is rotated.
-  //
-  // No `position` here: MapboxOverlay isn't a corner control, it's a
-  // render-pipeline integration, so naming a corner for it reads as a
-  // category error. It is NOT a lifecycle fix, which this comment used to
-  // imply — measured in @deck.gl/mapbox: `getDefaultPosition()` returns
-  // "top-left" and MapLibre's `addControl` falls back to it, so omitting the
-  // option and passing `{position: "top-left"}` are the same call. The flat
-  // map, the cruise map and the lodging mini-map all pass it and are fine.
-  //
-  // No `getTooltip` either: GlobeView renders its own rich React-state
-  // tooltip via `onAirportHover` / `onPortHover` / `onArcHover` /
-  // `onCruisePathHover`. Wiring `buildMarkerTooltip` here in addition
-  // would stack two bubbles on the same hover (a deck.gl-rendered name
-  // tooltip behind, and the React rich tooltip on top).
-  //
-  // Caller must gate this component until MapLibre is confirmed in
-  // globe projection — see `mapReady` in GlobeView.
-  const overlay = useControl<MapboxOverlay>(
-    () =>
-      new MapboxOverlay({
-        layers,
-        pickingRadius: 5,
-        interleaved: true,
-        onHover,
-      })
-  );
-  overlay.setProps({ layers, onHover });
-  return null;
-}
 
 export default function GlobeView({
   flights = [],
@@ -1254,7 +1214,7 @@ export default function GlobeView({
         touchPitch={false}
         style={{ width: "100%", height: "100%" }}
       >
-        {mapReady && <DeckGLOverlay layers={layers} onHover={handleDeckHover} />}
+        {mapReady && <GlobeDeckOverlay layers={layers} onHover={handleDeckHover} />}
       </MapGL>
 
       <GlobeStatsCard stats={liveStats} t={t} />

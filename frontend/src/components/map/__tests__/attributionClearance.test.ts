@@ -27,6 +27,10 @@ describe("bottom-right overlays clear the attribution bar (#273)", () => {
     const users = readdirSync(tabsDir)
       .filter((f) => f.endsWith(".tsx"))
       .filter((f) => /bottom: ATTRIBUTION_CLEARANCE/.test(readFileSync(join(tabsDir, f), "utf8")));
-    expect(users.sort()).toEqual(["AllTab.tsx", "PoiTab.tsx", "RailTab.tsx", "TourTab.tsx"]);
+    // The All tab's key was split out of AllTab.tsx into AllTabLegend.tsx to keep
+    // AllTab under the 800-line ceiling (the S1 size ratchet). The invariant is
+    // unchanged: every tab that draws a bottom-right key anchors it with the shared
+    // ATTRIBUTION_CLEARANCE.
+    expect(users.sort()).toEqual(["AllTabLegend.tsx", "PoiTab.tsx", "RailTab.tsx", "TourTab.tsx"]);
   });
 });

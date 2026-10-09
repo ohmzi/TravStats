@@ -116,6 +116,10 @@ export default function CardMap({
     if (!box) return;
     const measure = (): void => setWidth(box.clientWidth);
     measure();
+    // Feature-checked like the IntersectionObserver below, and like Table and
+    // revealInRow: without it the box is measured once at mount instead of
+    // throwing out of the effect (which unmounts the whole tree).
+    if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure);
     observer.observe(box);
     return () => observer.disconnect();

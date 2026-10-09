@@ -26,9 +26,29 @@ describe("tripEntryCounts (forgejo#169)", () => {
       },
     } as unknown as Trip;
     const counts = tripEntryCounts(trip, all);
-    expect(counts).toMatchObject({ rail: 1, rental: 1, roadtrip: 1, poi: 0 });
-    // Sections and photos are not entries: 2 + 1 + 3 + 1 + 1 + 1.
-    expect(tripEntryTotal(counts)).toBe(9);
+    // `roadtrips` (1) is only the kind='roadtrip' subset of `routes` (4); the
+    // page lists every section, so the card counts all four.
+    expect(counts).toMatchObject({ rail: 1, rental: 1, roadtrip: 4, poi: 0 });
+    // Photos are not entries; every route section is (tours included): 2 + 1 + 3 + 1 + 1 + 4.
+    expect(tripEntryTotal(counts)).toBe(12);
+  });
+
+  it("counts a trip of day tours, which `_count.roadtrips` misses (d23d143b8)", () => {
+    const trip = { _count: { routes: 2, roadtrips: 0 } } as unknown as Trip;
+    expect(tripEntryCounts(trip, all).roadtrip).toBe(2);
+  });
+
+  it("falls back to _count.roadtrips when the payload has no routes", () => {
+    const trip = { _count: { roadtrips: 3 } } as unknown as Trip;
+    expect(tripEntryCounts(trip, all).roadtrip).toBe(3);
+  });
+
+  it("hides route sections when the roadtrip domain is not visible", () => {
+    const trip = { _count: { flights: 1, routes: 2 } } as unknown as Trip;
+    const counts = tripEntryCounts(trip, (d) => d !== "roadtrip");
+    expect(counts.roadtrip).toBe(0);
+    // The gate is narrow: the other areas still count.
+    expect(tripEntryTotal(counts)).toBe(1);
   });
 
   it("leaves out an area the reader cannot see", () => {

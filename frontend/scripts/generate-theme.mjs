@@ -21,6 +21,9 @@ export const TOKENS_PATH = resolve(here, "../../design/tokens.json");
 export const OUTPUT_PATH = resolve(here, "../src/theme/tokens.css");
 export const TS_OUTPUT_PATH = resolve(here, "../src/theme/tokens.ts");
 
+/** One page width, all three container names (owner, 2026-10-08) — see the Width block below. */
+const PAGE_WIDTH = "1440px";
+
 /** `#f0a947` → `240, 169, 71`. Only ever called on a token value. */
 function channels(hex) {
   const n = parseInt(hex.slice(1), 16);
@@ -132,10 +135,23 @@ export function buildThemeCss() {
   }
 
   lines.push("");
-  lines.push("  /* Width — the one web-only layout decision (DESIGN_SYSTEM.md §4.2) */");
-  push("width-reading", "720px");
-  push("width-list", "1200px");
-  push("width-table", "1440px");
+  lines.push(
+    [
+      "  /* Width — the one web-only layout decision (DESIGN_SYSTEM.md §4.2)",
+      "   *",
+      "   * ONE width since 2026-10-08 (owner). The three were 720/1200/1440 and the",
+      "   * reader's complaint was that every page seemed to be a different shape —",
+      "   * which it was. The widest is now all three, so a page is the width of the",
+      "   * logbook and the roadtrip list wherever you are.",
+      "   *",
+      "   * The names stay because `AppShell` still asks for one and a page's CHOICE",
+      "   * is worth reading in its source. What restores the old behaviour is the",
+      "   * numbers here, not sixty call sites. */",
+    ].join("\n")
+  );
+  push("width-reading", PAGE_WIDTH);
+  push("width-list", PAGE_WIDTH);
+  push("width-table", PAGE_WIDTH);
 
   lines.push("");
   lines.push("  /* Radius — no other radius exists */");

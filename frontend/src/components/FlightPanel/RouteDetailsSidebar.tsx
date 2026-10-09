@@ -140,7 +140,7 @@ export function RouteDetailsSidebar({ flights, onBack }: RouteDetailsSidebarProp
           <Link
             key={f.id}
             to={`/flights/${f.id}`}
-            className="px-3 py-2 text-xs flex items-center gap-2 transition-colors hover:bg-[var(--color-surface-hover)]"
+            className="px-3 py-2 text-xs flex items-center gap-2 transition-colors hover:bg-[var(--ts-row-hover)]"
             style={{ borderBottom: "1px solid var(--color-border)", color: "inherit" }}
           >
             <span className="w-20 shrink-0" style={{ color: "var(--text-muted)" }}>

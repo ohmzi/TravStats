@@ -7,7 +7,8 @@ import { DOMAINS, TOUR_COLOR, type DomainKey } from "../../shared/domains";
 /**
  * A domain colour is never a demanding status colour (round 29, owner
  * 2026-09-26, forgejo#131): info, warn, bad — and accent, except for the flight,
- * whose amber the accent was taken from.
+ * whose amber the accent was taken from, and, by owner ruling 2026-10-08
+ * (30cf51237), the roadtrip and tour paths.
  *
  * Why it needs a guard: rail used to be brick red #d4655c beside `bad`
  * #e65a4f. A rail row next to a cancelled flight read the same, and a late
@@ -20,6 +21,15 @@ import { DOMAINS, TOUR_COLOR, type DomainKey } from "../../shared/domains";
  */
 
 const DEMANDING = ["info", "warn", "bad"] as const;
+
+/**
+ * The domains that ARE the accent, and may be. The flight is the amber the
+ * accent was taken from. Roadtrip and tour are the accent by OWNER RULING
+ * 2026-10-08 (commit 30cf51237, "one yellow for every travelled way"): the same
+ * yellow as the primary action, on the trip map, on the cards and in the
+ * legend. Nothing else may share it.
+ */
+const ACCENT_DOMAINS: ReadonlySet<string> = new Set(["flight", "roadtrip", "tour"]);
 
 /** Registry domain → its name in the token file (the Companion calls lodging "hotel"). */
 const TOKEN_NAME: Record<DomainKey, keyof typeof tokens.domainColor> = {
@@ -43,9 +53,9 @@ const lower = (hex: string): string => hex.toLowerCase();
  * red #d4655c was never byte-equal to `bad` #e65a4f, it was 24.8 apart in RGB.
  * So a domain must also keep its distance. Measured on the round-29 palette,
  * the closest domain/status pair is cruise vs info at 53.4; 40 sits between
- * the defect and the nearest legitimate pair. The flight is exempt, as it is
- * from the accent rule: `warn` #d8952f is the accent's own pressed shade, 39.4
- * from the flight amber the accent was taken from.
+ * the defect and the nearest legitimate pair. A domain that IS the accent is
+ * exempt from warn only: `warn` #d8952f is the accent's own pressed shade,
+ * 39.4 from #f0a947. It is still held clear of info and bad.
  */
 const MIN_RGB_DISTANCE = 40;
 
@@ -68,8 +78,8 @@ describe("domain colours stay clear of the status colours", () => {
 
   it("no domain default sits near info, warn or bad either", () => {
     for (const [name, hex] of tokenDomainColors()) {
-      if (name === "flight") continue;
       for (const status of DEMANDING) {
+        if (ACCENT_DOMAINS.has(name) && status === "warn") continue;
         const distance = rgbDistance(hex, tokens.color[status]);
         expect(
           distance,
@@ -79,12 +89,21 @@ describe("domain colours stay clear of the status colours", () => {
     }
   });
 
-  it("only the flight may share the accent", () => {
+  it("only the flight and the travelled ways may share the accent", () => {
     for (const [name, hex] of tokenDomainColors()) {
-      if (name === "flight") continue;
+      if (ACCENT_DOMAINS.has(name)) continue;
       expect(lower(hex), `domainColor.${name} equals color.accent`).not.toBe(
         lower(tokens.color.accent)
       );
+    }
+  });
+
+  it("a domain exempted for sharing the accent shares it exactly", () => {
+    for (const name of ACCENT_DOMAINS) {
+      expect(
+        lower(tokens.domainColor[name as keyof typeof tokens.domainColor]),
+        `domainColor.${name} is the accent`
+      ).toBe(lower(tokens.color.accent));
     }
   });
 

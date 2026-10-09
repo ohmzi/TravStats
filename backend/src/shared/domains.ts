@@ -68,15 +68,18 @@ export const DOMAINS: Record<DomainKey, DomainDescriptor> = {
   // that sleep at the user's stays. Stored as `TripRoute` rows with
   // `kind = "roadtrip"` — a domain in the product sense (its own page, colour,
   // enable switch), the same engine as a tour underneath. No parser target.
-  // Moss, the same hue as a day tour (round 29): roadtrip and tour are one
-  // colour, "road" in the Companion; a tour line differs by stroke width.
-  // The violet before it was the Companion's rail lavender to the digit.
+  // The accent, the same hue as a day tour: roadtrip and tour are one colour
+  // (round 29), a tour line differs by stroke width. Moss until 2026-10-08,
+  // when the owner ruled that a travelled way is the primary action's yellow
+  // everywhere it is drawn (30cf51237); the Companion still calls it "road"
+  // and draws it moss. The violet before round 29 was the Companion's rail
+  // lavender to the digit.
   roadtrip: {
     key: "roadtrip",
     available: true,
     i18nKey: "domain.roadtrip",
     icon: "🚐",
-    color: "#a9c46a",
+    color: "#f0a947",
     routePrefix: "/roadtrips",
   },
   // Train journeys (spec 2026-09-25-rail-domain). Available, so shared code
@@ -121,9 +124,10 @@ export const DOMAINS: Record<DomainKey, DomainDescriptor> = {
  * place it is written. Mirrors `domainColor.tour` in `design/tokens.json` and
  * `--ts-domain-tour` in the generated theme. Since round 29 (2026-09-26) it
  * equals the roadtrip default — one "road" hue; the map tells a tour from a
- * roadtrip by its thinner line (`tourMapOverlay.tsx`).
+ * roadtrip by its thinner line (`tourMapOverlay.tsx`). Since 2026-10-08 that
+ * hue is the accent rather than moss (owner, 30cf51237).
  */
-export const TOUR_COLOR = "#a9c46a";
+export const TOUR_COLOR = "#f0a947";
 
 export const AVAILABLE_DOMAINS: DomainKey[] = DOMAIN_KEYS.filter((k) => DOMAINS[k].available);
 

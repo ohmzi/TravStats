@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { RouteDetailsSidebar } from "./RouteDetailsSidebar";
 import type { Flight } from "../../types";
 
@@ -43,6 +44,16 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
   };
 }
 
+// Each route row is a <Link> to the flight (85a6c3994), and a Link reads the router context, so
+// the sidebar renders inside a router, as it does in the app (BrowserRouter in App.tsx).
+function renderSidebar(flights: Flight[]) {
+  return render(
+    <MemoryRouter>
+      <RouteDetailsSidebar flights={flights} onBack={() => {}} />
+    </MemoryRouter>
+  );
+}
+
 describe("RouteDetailsSidebar", () => {
   it("route sidebar separates flown and planned legs", () => {
     const flights = [
@@ -50,7 +61,7 @@ describe("RouteDetailsSidebar", () => {
       makeFlight({ id: "2", status: "flown" }),
       makeFlight({ id: "3", status: "scheduled" }),
     ];
-    render(<RouteDetailsSidebar flights={flights} onBack={() => {}} />);
+    renderSidebar(flights);
     expect(screen.getByText(/2× geflogen/)).toBeInTheDocument();
     expect(screen.getByText(/1× geplant/)).toBeInTheDocument();
     expect(screen.queryByText(/3× geflogen/)).toBeNull();
@@ -59,7 +70,7 @@ describe("RouteDetailsSidebar", () => {
 
   it("falls back to the legacy label when nothing is flown or planned (cancelled-only)", () => {
     const flights = [makeFlight({ id: "1", status: "cancelled" })];
-    render(<RouteDetailsSidebar flights={flights} onBack={() => {}} />);
+    renderSidebar(flights);
     expect(screen.getByText(/1× geflogen/)).toBeInTheDocument();
   });
 
@@ -69,8 +80,24 @@ describe("RouteDetailsSidebar", () => {
       makeFlight({ id: "2", status: "flown" }),
       makeFlight({ id: "3", status: "flown" }),
     ];
-    render(<RouteDetailsSidebar flights={flights} onBack={() => {}} />);
+    renderSidebar(flights);
     expect(screen.getByText(/3× geflogen/)).toBeInTheDocument();
     expect(screen.queryByText(/geplant/)).toBeNull();
+  });
+
+  it("lists each flight as a link to that flight's own page, in departure order", () => {
+    // Passed out of order on purpose: the sidebar sorts by departureTime, so a1 (January) must
+    // come first even though b2 (March) is handed in first.
+    const flights = [
+      makeFlight({ id: "b2", flightNumber: "LH456", departureTime: "2024-03-01T08:00:00Z" }),
+      makeFlight({ id: "a1", flightNumber: "LH123", departureTime: "2024-01-01T08:00:00Z" }),
+    ];
+    renderSidebar(flights);
+    const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(2);
+    expect(links[0]).toHaveAttribute("href", "/flights/a1");
+    expect(links[0]).toHaveTextContent("LH123");
+    expect(links[1]).toHaveAttribute("href", "/flights/b2");
+    expect(links[1]).toHaveTextContent("LH456");
   });
 });

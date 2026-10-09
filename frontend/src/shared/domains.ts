@@ -65,9 +65,10 @@ export const DOMAINS: Record<DomainKey, DomainDescriptor> = {
     routePrefix: "/places",
   },
   // Roadtrips (2.7, design 2026-09-24) — mirror of the backend descriptor.
-  // Moss, the same hue as a day tour (round 29): roadtrip and tour are one
-  // colour, "road" in the Companion; a tour line differs by stroke width.
-  // The violet before it was the Companion's rail lavender to the digit.
+  // The same hue as a day tour (round 29): roadtrip and tour are one colour,
+  // "road" in the Companion; a tour line differs by stroke width. Moss until
+  // 2026-10-08, the accent since (see the colour below). The violet before
+  // round 29 was the Companion's rail lavender to the digit.
   roadtrip: {
     key: "roadtrip",
     available: true,
@@ -126,9 +127,11 @@ export const DOMAINS: Record<DomainKey, DomainDescriptor> = {
  * Since 2026-10-08 it is the ACCENT rather than the moss it was (owner): the
  * travelled line is the same yellow as the primary action, on the trip map and
  * on the cards alike, so one colour says "this is the way the journey went"
- * wherever it is drawn. `design/tokens.json` still carries the moss as
- * `domainColor.tour`; that is a design-system edit this change does not make on
- * its own, and the two would need reconciling there.
+ * wherever it is drawn. `design/tokens.json` carries the accent as
+ * `domainColor.tour` and `roadtrip` too, recorded there as a deliberate
+ * divergence from the Companion, whose `road` is still moss
+ * (`_webOverride`). `domainColorsNotStatus.test.ts` exempts exactly the
+ * flight, roadtrip and tour from the accent rule, and only against warn.
  */
 export const TOUR_COLOR = "#f0a947";
 
@@ -143,12 +146,17 @@ export const TOUR_COLOR = "#f0a947";
  *
  * - cruise, lodging, poi: the 2.6.x set, replaced by the Companion's in 2.7.0.
  * - roadtrip violet, rail brick red: replaced by round 29 (forgejo#131).
+ * - roadtrip moss: round 29's default, replaced by the accent on 2026-10-08
+ *   (owner, 30cf51237, "one yellow for every travelled way"). Listed AFTER the
+ *   violet, so the violet stays at index 0. There is no tour entry: a tour is
+ *   not a `DomainKey`, its colour (`TOUR_COLOR`) is a constant and no storage
+ *   ever held it, so there is nothing of it to migrate.
  */
 export const RETIRED_DOMAIN_DEFAULTS: Readonly<Partial<Record<DomainKey, readonly string[]>>> = {
   cruise: ["#6fa0d6"],
   lodging: ["#d4778f"],
   poi: ["#5ec2b2"],
-  roadtrip: ["#a597f0"],
+  roadtrip: ["#a597f0", "#a9c46a"],
   rail: ["#d4655c"],
 };
 

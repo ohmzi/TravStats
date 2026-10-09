@@ -142,9 +142,10 @@ export const TOUR_PATH_GLOBE_ALTITUDE_M = 5_000;
 /**
  * Line width in pixels. A straight placeholder chord is the thinnest (a claim
  * about the data). A measured day tour is thinner than a measured roadtrip:
- * since round 29 (2026-09-26) both default to the one "road" moss, the
- * Companion's rule is that a tour line is the thinner one, and on the "Alle"
- * map the two lie side by side — without this they are indistinguishable.
+ * since round 29 (2026-09-26) both default to one "road" hue (the accent since
+ * 2026-10-08), the Companion's rule is that a tour line is the thinner one, and
+ * on the "Alle" map the two lie side by side — without this they are
+ * indistinguishable.
  * At the default scale nothing drops below 2 px (see the alpha/width note on
  * `buildTourDeckLayers`).
  */
