@@ -221,3 +221,63 @@ describe("searchWindowAssets", () => {
     expect(mockedAxios.post).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("searchByFileName", () => {
+  it("POSTs the flat file-name body for ONE page, even when Immich has more", async () => {
+    mockedAxios.post.mockResolvedValueOnce(page([asset("p1")], "2"));
+
+    const found = await createImmichClient(CONN).searchByFileName("IMG_04", RANGE);
+
+    expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      "https://immich.lan/api/search/metadata",
+      {
+        originalFileName: "IMG_04",
+        takenAfter: "2031-05-01T10:00:00.000Z",
+        takenBefore: "2031-05-09T12:00:00.000Z",
+        withExif: true,
+        order: "asc",
+        page: 1,
+        size: 1000,
+      },
+      expect.objectContaining({ headers: { "x-api-key": "secret-key" } })
+    );
+    expect(found.map((a) => a.id)).toEqual(["p1"]);
+  });
+
+  it("maps hits like the window search and de-duplicates them", async () => {
+    mockedAxios.post.mockResolvedValueOnce(
+      page([asset("p1"), asset("p1"), asset("a1", { type: "AUDIO" })], null)
+    );
+
+    const found = await createImmichClient(CONN).searchByFileName("IMG_04", RANGE);
+
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ id: "p1", city: "Northvale", timeZone: "Pacific/Auckland" });
+  });
+
+  it("trims the fragment before it is sent", async () => {
+    mockedAxios.post.mockResolvedValueOnce(page([], null));
+
+    await createImmichClient(CONN).searchByFileName("  IMG_04  ", RANGE);
+
+    expect(mockedAxios.post.mock.calls[0][1]).toMatchObject({ originalFileName: "IMG_04" });
+  });
+
+  it("answers a blank fragment with nothing and never asks Immich (it would match every file)", async () => {
+    await expect(createImmichClient(CONN).searchByFileName("   ", RANGE)).resolves.toEqual([]);
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+  });
+
+  it("maps a rejected key to kind=auth", async () => {
+    mockedAxios.post.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 401, data: {} },
+    });
+
+    await expect(createImmichClient(CONN).searchByFileName("IMG_04", RANGE)).rejects.toMatchObject({
+      kind: "auth",
+      status: 401,
+    });
+  });
+});

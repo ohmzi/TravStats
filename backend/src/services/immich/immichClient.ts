@@ -105,6 +105,15 @@ export interface ImmichClient {
     range: ImmichDateRange,
     onPage?: (page: number, collected: number) => void
   ): Promise<ImmichWindowPage>;
+  /**
+   * Assets whose original file name contains `fragment`, taken inside `range`.
+   *
+   * One page only (at most 1000): this is a probe for the misdated-batch check,
+   * not a listing. Immich matches with ILIKE, so `_` and `%` in the fragment act
+   * as wildcards; callers compare the full names they get back. A blank fragment
+   * returns nothing without a request, because it would match every file.
+   */
+  searchByFileName(fragment: string, range: ImmichDateRange): Promise<ImmichAssetDetail[]>;
 }
 
 /** Inclusive on both ends, as Immich treats them. */
@@ -524,6 +533,30 @@ export function createImmichClient(
       }
 
       return { assets: [...byId.values()], truncated };
+    },
+
+    async searchByFileName(
+      fragment: string,
+      { takenAfter, takenBefore }: ImmichDateRange
+    ): Promise<ImmichAssetDetail[]> {
+      const needle = fragment.trim();
+      if (needle === "") return [];
+
+      const { items } = await searchPage(
+        {
+          originalFileName: needle,
+          takenAfter: takenAfter.toISOString(),
+          takenBefore: takenBefore.toISOString(),
+          withExif: true,
+          order: "asc",
+          page: 1,
+          size: PAGE_SIZE,
+        },
+        "search/metadata by file name"
+      );
+      const byId = new Map<string, ImmichAssetDetail>();
+      addAssetDetails(items, byId);
+      return [...byId.values()];
     },
 
     /**
