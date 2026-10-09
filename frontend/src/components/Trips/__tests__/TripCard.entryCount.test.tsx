@@ -5,7 +5,9 @@ import type { Trip } from "../../../types";
 
 /**
  * forgejo#169 — a trip whose only entry is a linked train ride: the trip page
- * said "Bahn – 1 Fahrt", the card "0 Einträge", even after a reload.
+ * said "Bahn – 1 Fahrt", the card "0 Einträge", even after a reload. The
+ * roadtrip entry is `_count.routes`, the sections the trip page lists (tours
+ * included), not the kind='roadtrip' subset `_count.roadtrips`.
  */
 const settings = vi.hoisted(() => ({
   value: {
@@ -65,11 +67,24 @@ describe("TripCard entry count (forgejo#169)", () => {
     render(
       <MemoryRouter>
         <TripCard
-          trip={trip({ flights: 1, railJourneys: 1, rentalBookings: 1, roadtrips: 1 })}
+          trip={trip({ flights: 1, railJourneys: 1, rentalBookings: 1, routes: 2, roadtrips: 1 })}
           onOpen={() => {}}
         />
       </MemoryRouter>
     );
-    expect(screen.getByText("trips:card.entries/4")).toBeInTheDocument();
+    // `roadtrips` is the kind='roadtrip' subset of `routes` (one roadtrip plus
+    // one tour, as the list endpoint sends it); the card counts the sections
+    // the trip page lists: 1 + 1 + 1 + 2.
+    expect(screen.getByText("trips:card.entries/5")).toBeInTheDocument();
+  });
+
+  it("counts a trip of day tours as entries", () => {
+    render(
+      <MemoryRouter>
+        <TripCard trip={trip({ routes: 2 })} onOpen={() => {}} />
+      </MemoryRouter>
+    );
+    // Tours only: `roadtrips` is 0, the sections are not (d23d143b8).
+    expect(screen.getByText("trips:card.entries/2")).toBeInTheDocument();
   });
 });
