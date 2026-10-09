@@ -826,7 +826,7 @@ Also:
 
 | # | Idea | Effort |
 |---|---|---|
-| 1 | Re-sync: add new window photos to the album and suggest new stations (the retry endpoint does half of it) | M |
+| 1 | ~~Re-sync~~ promoted to v1, see section K. Remaining v2 part: a nightly automatic re-sync of trips whose window gained photos | M |
 | 2 | Turn `possibleUnrecordedFlight` into a pre-filled Add Flight form (pre-fill only, never invent flights) | M |
 | 3 | Day trips as day tours (`kind:"tour"`, `anchorStopId`) instead of pass stations | M |
 | 4 | Match overnight stations to LodgingStays (`night:{kind:"stay"}`), or offer to create a stay | M |
@@ -880,6 +880,104 @@ Dropped ideas:
 **Repository.**
 - The other session's files, including `FORK_CHANGES.md`, stay untouched until the final rebase.
 - Its uncommitted `AllTab.tsx` (836 lines) will need its own size fix.
+
+---
+
+## K. Existing trips: edit, update and re-sync (owner ruling 2026-10-09, first-class, not cuttable)
+
+The owner ranks editing an existing trip, and re-syncing it after new photos or changed dates, as
+important as building a new one. The acceptance test is an existing journey: inspect Immich, create
+the album, link it, then edit the dates or upload more photos and re-sync. This section overrides
+any earlier wording that calls the `existing` target optional or says it "creates new roadtrips".
+
+### K.1 Entry points
+
+- **Trip page.** A "Re-sync from Immich" action in `TripHead` or the gallery header. `TripDetailPage.tsx` is at its size limit, so the action lives in a new small component passed in through existing props or slots. It launches `target:{kind:"existing", tripId}` with the trip's saved dates.
+- **TripModal edit mode.** The "Build from Immich photos…" button from section G. After an edit-mode save that **changed the dates**, a toast offers "Dates changed — re-sync photos?", which launches the same flow.
+- **Roadtrip page.** A "Re-sync from Immich" link in the figures band when the roadtrip is filed on a trip. It opens the trip's re-sync.
+
+### K.2 What an `existing` scan adds to the draft
+
+`buildDraft` loads the trip's current state alongside the photos:
+- the trip's roadtrips (`TripRoute kind:"roadtrip", tripId`) with their stations (id, title, lat, lon, start and end dates, night state, `lodgingStayId`, notes);
+- the trip's timeline stops;
+- the flights already on the trip;
+- the linked albums (`TripImmichAlbum` rows).
+
+It then **reconciles** the derived plan with that state, using `reconcile.ts` (pure):
+- **Areas to roadtrips.** Each derived area that would become a roadtrip is matched to an existing roadtrip on the trip, first by station overlap (most matched stations wins), then by name. A matched area **updates that roadtrip in place**. An unmatched area becomes a new roadtrip, named by the section C.11 rules.
+- **Stations.** A derived station matches an existing station of the matched roadtrip when they are within `CITY_LINK_KM` of each other and either their day ranges overlap or their titles are equal. Each pair gets a status:
+  - `same`: dates and night unchanged;
+  - `changed`: the derived dates or night differ from the stored ones;
+  - `new`: a derived station with no stored match;
+  - `notSeen`: a stored station with no derived match.
+- **Kept fields.** A matched station keeps its **id** and the **user's fields**: title (stored wins unless it equals the old coordinate fallback), notes, `lodgingStayId` and `placeId`. Legs, routes, filed photos and stays therefore survive.
+- **Night state.** A stored `stay` night always wins over a derived `free` one, because the stay owns the night.
+- **`notSeen` defaults.** A `notSeen` station defaults to **keep** (failure class 4: a re-derivation must not destroy good data). The single exception is a station that lies entirely outside the new window after a date change, which defaults to **remove**. Both defaults show a chip, and the user can flip either one.
+- **Timeline stops.** These are matched the same way: same / changed / new / notSeen.
+- **Flights.** Flights already on the trip stay locked and ticked. New in-window flights follow decision 5.
+
+### K.3 Album re-sync
+
+- **Target album.** The album to update is the trip's linked `TripImmichAlbum` whose Immich album is owned by the user and whose name equals the trip name. Failing that, the first owned linked album. Failing that, the section D lookup: find an owned album by name, else create one.
+- **Additions.** Assets in the new window that are not yet members are added (`PUT /albums/:id/assets`; `duplicate` means already in).
+- **Removals.**
+  - Album members outside the window are listed in the review as "N photos outside the trip dates".
+  - **Remove** defaults ON only when TravStats created the album, which is detected by the Immich album description starting with `TravStats trip ·`, the marker written at creation. Otherwise it defaults OFF.
+  - Removal uses `DELETE /albums/:id/assets {ids}` (scope `albumAsset.delete`, added to the optional album scopes and to the capability check). Without the scope, the toggle is disabled with "needs albumAsset.delete".
+  - The removal is a step in phase D after the additions. It only ever removes ids that the server's own window computation classified as outside, never ids the client sent.
+- **Description.** When TravStats owns the album, its description is refreshed to `TravStats trip · S – E`.
+- **Link row.** `TripImmichAlbum.assetCount`, `lastSyncedAt` and `albumName` are updated, then `invalidateAlbumAssets` runs.
+
+### K.4 Commit for `existing`
+
+Phase B, in one transaction:
+1. Update the trip: dates when `applyWindow`, and the union of countries.
+2. Flights, as in section D.
+3. For each matched roadtrip, call `replaceStationsInTx` with the reconciled list:
+   - matched stations carry their `id`;
+   - kept `notSeen` stations carry their `id` unchanged;
+   - removed ones are omitted (replaceStations releases a timeline stop and deletes a roadtrip-owned stop);
+   - new stations have no id.
+   
+   Legs are keyed by endpoint stop, so unchanged legs keep their routed geometry. `legModes` are set only for new legs, or where the user changed a mode.
+4. Insert new roadtrips for unmatched areas.
+5. Update matched timeline stops, create new ones, and delete only those the user removed.
+
+Phases C and D run as before. Routing covers only new or changed legs, and phase D adds the album removals.
+
+The result reports `updated`/`added`/`removed`/`kept` counts per roadtrip and for the album: `added`, `alreadyIn`, `removed`.
+
+### K.5 Review UI for `existing`
+
+- Each station row carries a status pill: `same` (muted), `changed` (shows old → new dates and nights), `new`, or `notSeen` (with keep/remove).
+- The header reads "Update trip" instead of "Create trip". The success panel shows the diff counts.
+- A "Show unchanged" toggle collapses `same` rows, so a re-sync with few changes reads as a short diff.
+
+### K.6 Tests (synthetic)
+
+- **`reconcile.test`:**
+  - same, changed, new and notSeen classification;
+  - title and stay preservation;
+  - the out-of-window default;
+  - area-to-roadtrip matching across two roadtrips.
+- **`commit.existing.test`** (test database):
+  - station ids are preserved and their legs keep `source:"routed"`;
+  - a new station is added between two existing ones;
+  - a removed station is deleted;
+  - a kept `notSeen` station is untouched;
+  - a stay night is preserved;
+  - the trip's dates are updated.
+- **`albumResync.test`:**
+  - new-window assets are added;
+  - out-of-window assets are removed only when the TravStats marker is present and removal is ticked;
+  - a missing `albumAsset.delete` scope disables removal;
+  - client-sent ids are never used.
+- **UAT on the owner's real trip**, with notes outside the repo. Build the existing journey, then:
+  1. upload a new photo dated inside the window and re-sync: the album gains it;
+  2. extend the end date by a day and re-sync: new photos are added and a new station appears;
+  3. shorten the trip and re-sync: out-of-window stations default to remove, and the album drops those photos;
+  4. re-sync with no changes: zero writes except `lastSyncedAt`.
 
 ---
 
