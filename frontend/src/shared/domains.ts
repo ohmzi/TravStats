@@ -146,12 +146,17 @@ export const TOUR_COLOR = "#f0a947";
  *
  * - cruise, lodging, poi: the 2.6.x set, replaced by the Companion's in 2.7.0.
  * - roadtrip violet, rail brick red: replaced by round 29 (forgejo#131).
+ * - roadtrip moss: round 29's default, replaced by the accent on 2026-10-08
+ *   (owner, 30cf51237, "one yellow for every travelled way"). Listed AFTER the
+ *   violet, so the violet stays at index 0. There is no tour entry: a tour is
+ *   not a `DomainKey`, its colour (`TOUR_COLOR`) is a constant and no storage
+ *   ever held it, so there is nothing of it to migrate.
  */
 export const RETIRED_DOMAIN_DEFAULTS: Readonly<Partial<Record<DomainKey, readonly string[]>>> = {
   cruise: ["#6fa0d6"],
   lodging: ["#d4778f"],
   poi: ["#5ec2b2"],
-  roadtrip: ["#a597f0"],
+  roadtrip: ["#a597f0", "#a9c46a"],
   rail: ["#d4655c"],
 };
 
