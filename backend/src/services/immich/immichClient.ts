@@ -125,6 +125,8 @@ export interface ImmichClient {
    * not an API key (403); a bad or revoked key (401) still throws.
    */
   getMyApiKey(): Promise<ImmichApiKeyInfo | null>;
+  /** One album by id: its name and asset count (`AlbumResponseDto` carries no asset array). */
+  getAlbum(albumId: string): Promise<ImmichAlbum>;
 }
 
 /** Inclusive on both ends, as Immich treats them. */
@@ -311,6 +313,18 @@ export function mapAssetDetail(raw: unknown): ImmichAssetDetail | null {
   };
 }
 
+/** One album as the app reads it; null for an entry without a usable id. */
+function mapAlbum(raw: unknown): ImmichAlbum | null {
+  if (!isRecord(raw) || typeof raw.id !== "string" || raw.id.length === 0) return null;
+  return {
+    id: raw.id,
+    albumName: asString(raw.albumName, ""),
+    assetCount: asNumberOrNull(raw.assetCount) ?? 0,
+    thumbnailAssetId:
+      typeof raw.albumThumbnailAssetId === "string" ? raw.albumThumbnailAssetId : null,
+  };
+}
+
 /** Adds each mappable photo or video of one search page, keeping the first sight of an id. */
 function addAssetDetails(items: readonly unknown[], into: Map<string, ImmichAssetDetail>): void {
   for (const raw of items) {
@@ -386,21 +400,9 @@ export function createImmichClient(
       if (!Array.isArray(data)) {
         throw new ImmichError("protocol", "Immich returned an unexpected album payload");
       }
-      // A missing/non-string id would otherwise collide as `{ id: "" }` — drop
-      // it instead, consistent with mapAsset's handling of malformed assets.
-      return data
-        .filter(isRecord)
-        .filter(
-          (raw): raw is Record<string, unknown> & { id: string } =>
-            typeof raw.id === "string" && raw.id.length > 0
-        )
-        .map((raw) => ({
-          id: raw.id,
-          albumName: asString(raw.albumName, ""),
-          assetCount: asNumberOrNull(raw.assetCount) ?? 0,
-          thumbnailAssetId:
-            typeof raw.albumThumbnailAssetId === "string" ? raw.albumThumbnailAssetId : null,
-        }));
+      // A missing/non-string id would otherwise collide as `{ id: "" }`; mapAlbum
+      // drops it, consistent with mapAsset's handling of malformed assets.
+      return data.map(mapAlbum).filter((album): album is ImmichAlbum => album !== null);
     },
 
     async listAlbumAssets(albumId: string): Promise<ImmichAsset[]> {
@@ -603,6 +605,18 @@ export function createImmichClient(
       return {
         permissions: data.permissions.filter((p): p is string => typeof p === "string"),
       };
+    },
+
+    async getAlbum(albumId: string): Promise<ImmichAlbum> {
+      let data: unknown;
+      try {
+        ({ data } = await axios.get(url(`/albums/${encodeURIComponent(albumId)}`), jsonConfig));
+      } catch (error) {
+        throw toImmichError(error, `albums/${albumId}`);
+      }
+      const album = mapAlbum(data);
+      if (!album) throw new ImmichError("protocol", "Immich returned an unexpected album payload");
+      return album;
     },
 
     /**
