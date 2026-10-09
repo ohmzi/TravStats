@@ -259,3 +259,47 @@ describe("splitIntoAreas: a layover between precise flights", () => {
     expect(areas).toHaveLength(1);
   });
 });
+
+describe("splitIntoAreas: a layover between flights known only by their day", () => {
+  // The ids sort the outbound flight first: only the connection can put them in order.
+  const inbound = datedFlight("b-in", "2031-05-03", "2031-05-03", NVL, PCR);
+  const outbound = datedFlight("a-out", "2031-05-03", "2031-05-03", PCR, KEL);
+  const before = photo("nvl-1", "2031-05-03 07:00", offsetKm(NVL, 10, 0));
+  const terminal = [
+    photo("terminal-1", "2031-05-03 11:00", offsetKm(PCR, 3, 0)),
+    photo("terminal-2", "2031-05-03 12:30", offsetKm(PCR, 4, 2)),
+  ];
+  const kelmore = photo("kel-1", "2031-05-03 19:00", offsetKm(KEL, 6, 0));
+
+  it("reports the stretch at the shared airport on one day as a layover", () => {
+    const { areas, layovers } = split([before, ...terminal, kelmore], [outbound, inbound]);
+    expect(layovers).toEqual([
+      {
+        inFlightId: "b-in",
+        outFlightId: "a-out",
+        airportIata: "PCR",
+        photoIds: ["terminal-1", "terminal-2"],
+      },
+    ]);
+    expect(areas.map((area) => area.photoIds)).toEqual([["nvl-1"], ["kel-1"]]);
+  });
+
+  it("makes an area of it when the traveller stayed the night", () => {
+    const nextDay = datedFlight("a-out", "2031-05-04", "2031-05-04", PCR, KEL);
+    const tomorrow = photo("kel-1", "2031-05-04 19:00", offsetKm(KEL, 6, 0));
+    const { areas, layovers } = split([before, ...terminal, tomorrow], [inbound, nextDay]);
+    expect(layovers).toEqual([]);
+    expect(areas.map((area) => area.photoIds)).toEqual([
+      ["nvl-1"],
+      ["terminal-1", "terminal-2"],
+      ["kel-1"],
+    ]);
+  });
+
+  it("makes an area of it when a photo is more than 30 km from the airport", () => {
+    const wander = photo("terminal-2", "2031-05-03 12:30", offsetKm(PCR, 45, 0));
+    const { areas, layovers } = split([before, terminal[0], wander, kelmore], [inbound, outbound]);
+    expect(layovers).toEqual([]);
+    expect(areas).toHaveLength(3);
+  });
+});

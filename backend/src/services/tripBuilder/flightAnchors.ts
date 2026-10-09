@@ -200,7 +200,8 @@ function byTime(a: PhotoPoint, b: PhotoPoint): number {
 
 /**
  * Chronological order of two flights: by departure instant when both have one, else by
- * departure day, then by clock, then by id.
+ * departure day, then by clock. Two flights that still tie come in the order they connect (the
+ * one that lands where the other leaves first), then by id.
  */
 function compareAnchors(a: FlightAnchor, b: FlightAnchor): number {
   if (a.depMs !== null && b.depMs !== null && a.depMs !== b.depMs) return a.depMs - b.depMs;
@@ -208,6 +209,9 @@ function compareAnchors(a: FlightAnchor, b: FlightAnchor): number {
   if (a.depClock !== null && b.depClock !== null && a.depClock !== b.depClock) {
     return a.depClock < b.depClock ? -1 : 1;
   }
+  const forward = sharesAirport(a, b);
+  const backward = sharesAirport(b, a);
+  if (forward !== backward) return forward ? -1 : 1;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
@@ -257,9 +261,9 @@ function sharesAirport(arriving: FlightAnchor, departing: FlightAnchor): boolean
 }
 
 /**
- * Ground between two precise flights at one airport that is only a connection: less than
- * LAYOVER_MAX_H between landing and the next departure, and every photo within
- * LAYOVER_RADIUS_KM of the airport.
+ * Ground between two flights at one airport that is only a connection: for two precise flights,
+ * less than LAYOVER_MAX_H between landing and the next departure; otherwise landing and
+ * departure on one day. Either way every photo lies within LAYOVER_RADIUS_KM of the airport.
  */
 function isLayover(
   arriving: FlightAnchor,
@@ -267,9 +271,12 @@ function isLayover(
   members: readonly PhotoPoint[]
 ): boolean {
   if (!sharesAirport(arriving, departing)) return false;
-  if (arriving.arrMs === null || departing.depMs === null) return false;
-  const ground = departing.depMs - arriving.arrMs;
-  if (ground < 0 || ground >= LAYOVER_MAX_H * HOUR_MS) return false;
+  if (arriving.arrMs !== null && departing.depMs !== null) {
+    const ground = departing.depMs - arriving.arrMs;
+    if (ground < 0 || ground >= LAYOVER_MAX_H * HOUR_MS) return false;
+  } else if (arriving.arrDay !== departing.depDay) {
+    return false;
+  }
   return members.every((photo) => {
     const at = coordOf(photo);
     return at !== null && distanceKm(at, arriving.arr) <= LAYOVER_RADIUS_KM;
