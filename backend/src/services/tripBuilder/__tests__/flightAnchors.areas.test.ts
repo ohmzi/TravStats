@@ -1,6 +1,17 @@
 import { classifyInFlight, splitIntoAreas } from "../flightAnchors";
 import type { FlightAnchor, PhotoPoint } from "../types";
-import { at, between, NVL, offsetKm, PCR, photo, preciseFlight, seaPhoto } from "./flightFixtures";
+import {
+  at,
+  beside,
+  between,
+  datedFlight,
+  NVL,
+  offsetKm,
+  PCR,
+  photo,
+  preciseFlight,
+  seaPhoto,
+} from "./flightFixtures";
 
 /** What the pipeline does: classify, drop the photos in the air, split what is left. */
 function split(photos: PhotoPoint[], flights: FlightAnchor[]) {
@@ -160,5 +171,40 @@ describe("splitIntoAreas: sea photos", () => {
     const { areas } = split([strait, arrival, town], [zz101]);
     expect(areas).toHaveLength(1);
     expect(areas[0].afterFlightId).toBe("zz101");
+  });
+});
+
+describe("splitIntoAreas: a flight known only by its day", () => {
+  const zz104 = datedFlight("zz104", "2031-05-03", "2031-05-03", NVL, PCR);
+  const photos = [
+    photo("eve", "2031-05-02 19:00", offsetKm(NVL, 10, 0)), // the day before: before
+    photo("dep-1", "2031-05-03 07:30", offsetKm(NVL, 5, 0)),
+    // Nearer Port Carrow, but taken before the last photo at Northvale.
+    photo("early-far", "2031-05-03 08:30", offsetKm(PCR, 0, -60)),
+    photo("dep-2", "2031-05-03 09:00", offsetKm(NVL, 3, 0)), // the last photo at the departure airport
+    // Between the two reference photos and off the corridor: the nearer airport decides.
+    photo("far-1", "2031-05-03 11:00", beside(NVL, PCR, 0.3, 90)),
+    photo("far-2", "2031-05-03 11:30", beside(NVL, PCR, 0.7, 90)),
+    photo("arr-1", "2031-05-03 13:00", offsetKm(PCR, 3, 0)), // the first photo at the arrival airport
+    // Nearer Northvale, but taken after the first photo at Port Carrow.
+    photo("late-far", "2031-05-03 14:00", offsetKm(NVL, 0, 60)),
+    photo("arr-2", "2031-05-03 16:00", offsetKm(PCR, 8, 0)),
+    photo("morrow", "2031-05-04 10:00", offsetKm(PCR, 5, 0)), // the day after: after
+  ];
+
+  it("splits by day, then by the time order of the reference photos, then by the nearer airport", () => {
+    const { areas, layovers } = split(photos, [zz104]);
+    expect(layovers).toEqual([]);
+    expect(areas.map((area) => area.photoIds)).toEqual([
+      ["eve", "dep-1", "early-far", "dep-2", "far-1"],
+      ["far-2", "arr-1", "late-far", "arr-2", "morrow"],
+    ]);
+    expect(areas[0]).toMatchObject({ afterFlightId: null, beforeFlightId: "zz104" });
+    expect(areas[1]).toMatchObject({ afterFlightId: "zz104", beforeFlightId: null });
+  });
+
+  it("splits by day alone when the flight's days hold no photo", () => {
+    const { areas } = split([photos[0], photos[9]], [zz104]);
+    expect(areas.map((area) => area.photoIds)).toEqual([["eve"], ["morrow"]]);
   });
 });

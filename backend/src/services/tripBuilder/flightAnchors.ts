@@ -222,12 +222,15 @@ function nearerSide(photo: PhotoPoint, flight: FlightAnchor): FlightSide {
  *   scheduled instants.
  * - A precise flight cuts at its departure and arrival instants; a photo inside the flight that
  *   nobody classified goes to the nearer airport.
- * - A day-level flight cuts by day; on its own days a photo goes to the nearer airport.
+ * - A day-level flight cuts by day; on its own days the time-order references decide (before the
+ *   last photo at the departure airport, after the first at the arrival airport) and a photo no
+ *   reference decides goes to the nearer airport.
  */
 function sideOf(
   photo: PhotoPoint,
   flight: FlightAnchor,
-  verdict: InFlightClass | undefined
+  verdict: InFlightClass | undefined,
+  references: ReadonlyMap<string, TimeOrderReference>
 ): FlightSide {
   if (verdict && verdict.flightId === flight.id && verdict.side) return verdict.side;
   if (flight.depMs !== null && flight.arrMs !== null) {
@@ -237,6 +240,11 @@ function sideOf(
   }
   if (photo.day < flight.depDay) return "before";
   if (photo.day > flight.arrDay) return "after";
+  const { lastDepartureMs, firstArrivalMs } = references.get(flight.id) ?? NO_REFERENCE;
+  const early = lastDepartureMs !== null && photo.tMs <= lastDepartureMs;
+  const late = firstArrivalMs !== null && photo.tMs >= firstArrivalMs;
+  if (early && !late) return "before";
+  if (late && !early) return "after";
   return nearerSide(photo, flight);
 }
 
@@ -277,11 +285,14 @@ export function splitIntoAreas(
 ): AreaSplit {
   const flights = [...anchors].sort(compareAnchors);
   const photos = ground.filter((photo) => !classes.get(photo.id)?.inFlight).sort(byTime);
+  const references = timeOrderReferences(flights, photos);
 
   const stretches = new Map<number, PhotoPoint[]>();
   for (const photo of photos) {
     const verdict = classes.get(photo.id);
-    const behind = flights.filter((flight) => sideOf(photo, flight, verdict) === "after").length;
+    const behind = flights.filter(
+      (flight) => sideOf(photo, flight, verdict, references) === "after"
+    ).length;
     const members = stretches.get(behind);
     if (members) members.push(photo);
     else stretches.set(behind, [photo]);
