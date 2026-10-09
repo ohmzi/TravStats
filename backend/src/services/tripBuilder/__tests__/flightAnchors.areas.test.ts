@@ -5,6 +5,7 @@ import {
   beside,
   between,
   datedFlight,
+  KEL,
   NVL,
   offsetKm,
   PCR,
@@ -206,5 +207,55 @@ describe("splitIntoAreas: a flight known only by its day", () => {
   it("splits by day alone when the flight's days hold no photo", () => {
     const { areas } = split([photos[0], photos[9]], [zz104]);
     expect(areas.map((area) => area.photoIds)).toEqual([["eve"], ["morrow"]]);
+  });
+});
+
+describe("splitIntoAreas: a layover between precise flights", () => {
+  const inbound = preciseFlight("zz101", "2031-05-02 08:30", "2031-05-02 09:30", NVL, PCR);
+  const outbound = preciseFlight("zz103", "2031-05-02 13:00", "2031-05-02 14:10", PCR, KEL);
+  const before = photo("nvl-1", "2031-05-02 06:10", offsetKm(NVL, 12, 0));
+  const gate = photo("gate", "2031-05-02 09:22", offsetKm(PCR, 5, 0));
+  const terminal = [
+    photo("terminal-1", "2031-05-02 10:40", offsetKm(PCR, 2, 1)),
+    photo("terminal-2", "2031-05-02 11:30", offsetKm(PCR, 1, 1)),
+  ];
+  const kelmore = photo("kel-1", "2031-05-02 15:30", offsetKm(KEL, 6, 0));
+
+  it("reports the stretch at the shared airport as a layover and not as an area", () => {
+    const { areas, layovers } = split([before, gate, ...terminal, kelmore], [inbound, outbound]);
+    expect(layovers).toEqual([
+      {
+        inFlightId: "zz101",
+        outFlightId: "zz103",
+        airportIata: "PCR",
+        photoIds: ["gate", "terminal-1", "terminal-2"],
+      },
+    ]);
+    expect(areas.map((area) => [area.photoIds, area.afterFlightId, area.beforeFlightId])).toEqual([
+      [["nvl-1"], null, "zz101"],
+      [["kel-1"], "zz103", null],
+    ]);
+  });
+
+  it("makes an area of it when a photo wanders more than 30 km from the airport", () => {
+    const wander = photo("wander", "2031-05-02 11:30", offsetKm(PCR, 45, 0));
+    const { areas, layovers } = split([gate, terminal[0], wander], [inbound, outbound]);
+    expect(layovers).toEqual([]);
+    expect(areas).toHaveLength(1);
+    expect(areas[0]).toMatchObject({ afterFlightId: "zz101", beforeFlightId: "zz103" });
+  });
+
+  it("makes an area of it when the ground time is 12 hours or more", () => {
+    const late = preciseFlight("zz103", "2031-05-02 21:30", "2031-05-02 22:40", PCR, KEL);
+    const { areas, layovers } = split([gate, ...terminal], [inbound, late]);
+    expect(layovers).toEqual([]);
+    expect(areas).toHaveLength(1);
+  });
+
+  it("makes an area of it when the next flight leaves from another airport", () => {
+    const elsewhere = preciseFlight("zz106", "2031-05-02 13:00", "2031-05-02 15:30", KEL, NVL);
+    const { areas, layovers } = split([gate, ...terminal], [inbound, elsewhere]);
+    expect(layovers).toEqual([]);
+    expect(areas).toHaveLength(1);
   });
 });

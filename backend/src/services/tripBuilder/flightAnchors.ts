@@ -18,6 +18,8 @@ import {
   DELAY_CORRIDOR_H,
   DEPARTURE_GRACE_KM,
   DEPARTURE_GRACE_MIN,
+  LAYOVER_MAX_H,
+  LAYOVER_RADIUS_KM,
 } from "./thresholds";
 import type {
   AreaSplit,
@@ -26,6 +28,7 @@ import type {
   GroundArea,
   InFlightClass,
   InFlightRule,
+  Layover,
   PhotoPoint,
 } from "./types";
 
@@ -248,6 +251,31 @@ function sideOf(
   return nearerSide(photo, flight);
 }
 
+/** `arriving` lands where `departing` leaves: the same IATA code (a flight without codes never connects). */
+function sharesAirport(arriving: FlightAnchor, departing: FlightAnchor): boolean {
+  return arriving.arrIata !== null && arriving.arrIata === departing.depIata;
+}
+
+/**
+ * Ground between two precise flights at one airport that is only a connection: less than
+ * LAYOVER_MAX_H between landing and the next departure, and every photo within
+ * LAYOVER_RADIUS_KM of the airport.
+ */
+function isLayover(
+  arriving: FlightAnchor,
+  departing: FlightAnchor,
+  members: readonly PhotoPoint[]
+): boolean {
+  if (!sharesAirport(arriving, departing)) return false;
+  if (arriving.arrMs === null || departing.depMs === null) return false;
+  const ground = departing.depMs - arriving.arrMs;
+  if (ground < 0 || ground >= LAYOVER_MAX_H * HOUR_MS) return false;
+  return members.every((photo) => {
+    const at = coordOf(photo);
+    return at !== null && distanceKm(at, arriving.arr) <= LAYOVER_RADIUS_KM;
+  });
+}
+
 function groundAreaOf(
   members: readonly PhotoPoint[],
   arriving: FlightAnchor | null,
@@ -271,8 +299,9 @@ function groundAreaOf(
 
 /**
  * Cuts the ground photos at the flights. Every photo gets a side of every flight; the photos
- * with the same number of flights behind them are one stretch of ground, and a stretch with a
- * movement photo is an area. A stretch with only sea photos is dropped. A road leg never crosses
+ * with the same number of flights behind them are one stretch of ground. A stretch between two
+ * flights that is only a layover is reported as one and is no area; any other stretch with a
+ * movement photo is an area, and one with only sea photos is dropped. A road leg never crosses
  * a flight.
  *
  * `ground` is the movement photos plus the at-sea photos (they go to `seaPhotoIds`); `classes`
@@ -299,11 +328,21 @@ export function splitIntoAreas(
   }
 
   const areas: GroundArea[] = [];
+  const layovers: Layover[] = [];
   for (const [behind, members] of [...stretches].sort((a, b) => a[0] - b[0])) {
     const arriving = behind > 0 ? flights[behind - 1] : null;
     const departing = behind < flights.length ? flights[behind] : null;
-    const area = groundAreaOf(members, arriving, departing);
-    if (area) areas.push(area);
+    if (arriving && departing && isLayover(arriving, departing, members)) {
+      layovers.push({
+        inFlightId: arriving.id,
+        outFlightId: departing.id,
+        airportIata: arriving.arrIata,
+        photoIds: members.map((photo) => photo.id),
+      });
+    } else {
+      const area = groundAreaOf(members, arriving, departing);
+      if (area) areas.push(area);
+    }
   }
-  return { areas, layovers: [] };
+  return { areas, layovers };
 }
