@@ -11,13 +11,27 @@ export interface ImmichConnectionStatus {
   hasAccess: boolean;
 }
 
+/**
+ * What the tested key may do with trip albums, from `POST /settings/immich/test`
+ * on success. `canCreateAlbums: null` means Immich could not say (not "denied").
+ * `sharedConnection` marks an administrator's or environment key, which is never
+ * asked: albums need the user's own key.
+ */
+export interface ImmichKeyCapabilities {
+  canCreateAlbums: boolean | null;
+  canView?: boolean | null;
+  /** The album permissions the key lacks; empty when unanswered. */
+  missingScopes?: string[];
+  sharedConnection?: boolean;
+}
+
 export interface ImmichTestResult {
   success: boolean;
   /** English, for debugging only — the UI renders `errors.<kind>` instead. */
   message: string;
   /** Machine-readable failure classification, present only on failure. */
   kind?: ImmichFailureKind;
-  details?: { version?: string; user?: string };
+  details?: { version?: string; user?: string; capabilities?: ImmichKeyCapabilities };
 }
 
 export interface ImmichAlbumSummary {

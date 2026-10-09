@@ -242,3 +242,90 @@ describe("ImmichConnectionCard", () => {
     expect(screen.getByRole("radio", { name: "T:modeImport" })).toBeInTheDocument();
   });
 });
+
+describe("ImmichConnectionCard: hints and what the tested key may do with albums", () => {
+  async function runTest(details: Record<string, unknown>): Promise<void> {
+    testConnection.mockResolvedValue({
+      success: true,
+      message: "ok",
+      details: { version: "1.138.2", ...details },
+    });
+    const user = userEvent.setup();
+    render(<ImmichConnectionCard />);
+    await waitFor(() => expect(getSettings).toHaveBeenCalled());
+    await user.click(screen.getByRole("button", { name: "test" }));
+    await waitFor(() => expect(screen.getByText("connected")).toBeInTheDocument());
+  }
+
+  it("names the album permissions and the container address next to the fields", async () => {
+    render(<ImmichConnectionCard />);
+
+    expect(await screen.findByText("apiKeyScopesAlbums")).toBeInTheDocument();
+    expect(screen.getByText("urlHintContainer")).toBeInTheDocument();
+    expect(screen.getByLabelText("baseUrl")).toHaveAccessibleDescription("urlHintContainer");
+  });
+
+  it("says the key can create trip albums, in an element of its own beside the status", async () => {
+    await runTest({ capabilities: { canCreateAlbums: true, canView: true, missingScopes: [] } });
+
+    expect(screen.getByText("capability.canCreate")).toBeInTheDocument();
+    // The status line is still exactly "connected", with nothing appended to it.
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent(/^connected$/);
+    expect(status).not.toContainElement(screen.getByTestId("immich-capability"));
+  });
+
+  it("lists the permissions the key lacks", async () => {
+    await runTest({
+      capabilities: {
+        canCreateAlbums: false,
+        canView: true,
+        missingScopes: ["album.create", "albumAsset.create"],
+      },
+    });
+
+    expect(screen.getByText("capability.missingScopes")).toBeInTheDocument();
+    expect(mockTranslateFn).toHaveBeenCalledWith("capability.missingScopes", {
+      scopes: "album.create, albumAsset.create",
+    });
+  });
+
+  it("says albums need the user's own key on a shared connection", async () => {
+    await runTest({ capabilities: { canCreateAlbums: false, sharedConnection: true } });
+
+    expect(screen.getByText("capability.sharedConnection")).toBeInTheDocument();
+  });
+
+  it("says it could not verify when Immich could not say", async () => {
+    await runTest({
+      capabilities: { canCreateAlbums: null, canView: null, missingScopes: [] },
+    });
+
+    expect(screen.getByText("capability.unverified")).toBeInTheDocument();
+  });
+
+  it("says it could not verify rather than list nothing when a denial names no scope", async () => {
+    await runTest({ capabilities: { canCreateAlbums: false, missingScopes: [] } });
+
+    expect(screen.getByText("capability.unverified")).toBeInTheDocument();
+    expect(screen.queryByText("capability.missingScopes")).not.toBeInTheDocument();
+  });
+
+  it("shows no capability line when the backend sent none", async () => {
+    await runTest({});
+
+    expect(screen.queryByTestId("immich-capability")).not.toBeInTheDocument();
+  });
+
+  it("shows no capability line when the test failed", async () => {
+    testConnection.mockResolvedValue({ success: false, kind: "auth", message: "rejected" });
+    const user = userEvent.setup();
+    render(<ImmichConnectionCard />);
+    await waitFor(() => expect(getSettings).toHaveBeenCalled());
+
+    await user.click(screen.getByRole("button", { name: "test" }));
+
+    await waitFor(() => expect(screen.getByText("errors.auth")).toBeInTheDocument());
+    expect(screen.queryByTestId("immich-capability")).not.toBeInTheDocument();
+  });
+});

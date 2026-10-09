@@ -2,12 +2,47 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useIsDemoAccount } from "../../hooks/useIsDemoAccount";
 import { failureKey, immichApi, immichFailureKind } from "../../lib/api/immich";
-import type { ImmichConnectionStatus, ImmichMode, ImmichTestResult } from "../../types/immich";
+import type {
+  ImmichConnectionStatus,
+  ImmichKeyCapabilities,
+  ImmichMode,
+  ImmichTestResult,
+} from "../../types/immich";
 import { SectionCard, SectionTitle } from "./SettingsShared";
 import DemoLockedNotice from "./DemoLockedNotice";
 import Pill from "../ui/Pill";
 import { token } from "../ui/tokens";
 import { Segmented } from "../ui/Segmented";
+
+/** The `immich` i18n key of the capability line, and the scopes it lists, if any. */
+function capabilityLine(c: ImmichKeyCapabilities): { key: string; scopes?: string } {
+  if (c.sharedConnection) return { key: "capability.sharedConnection" };
+  if (c.canCreateAlbums === true) return { key: "capability.canCreate" };
+  if (c.canCreateAlbums === false && c.missingScopes && c.missingScopes.length > 0) {
+    return { key: "capability.missingScopes", scopes: c.missingScopes.join(", ") };
+  }
+  // `null`, or a denial that names no scope: say what is true, that it is unknown.
+  return { key: "capability.unverified" };
+}
+
+/**
+ * What the tested key may do with trip albums. A sibling of the status line, not
+ * part of it: "Connected · v…" is a message of its own, and the tests that read
+ * it match its text exactly.
+ */
+function CapabilityLine({ capabilities }: { capabilities: ImmichKeyCapabilities }): JSX.Element {
+  const { t } = useTranslation("immich");
+  const line = capabilityLine(capabilities);
+  return (
+    <p
+      className="t-caption"
+      data-testid="immich-capability"
+      style={{ color: capabilities.canCreateAlbums === true ? token("good") : token("muted") }}
+    >
+      {line.scopes === undefined ? t(line.key) : t(line.key, { scopes: line.scopes })}
+    </p>
+  );
+}
 
 /**
  * User-facing Immich connection settings.
@@ -127,7 +162,11 @@ export default function ImmichConnectionCard(): JSX.Element {
             placeholder={t("baseUrlPlaceholder")}
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
+            aria-describedby="immich-base-url-hint"
           />
+          <p id="immich-base-url-hint" className="t-caption">
+            {t("urlHintContainer")}
+          </p>
 
           <label className="label" htmlFor="immich-api-key">
             {t("apiKey")}
@@ -142,6 +181,7 @@ export default function ImmichConnectionCard(): JSX.Element {
             onChange={(e) => setApiKey(e.target.value)}
           />
           <p className="t-caption">{t("apiKeyScopes")}</p>
+          <p className="t-caption">{t("apiKeyScopesAlbums")}</p>
           {status?.hasKey && (
             <div className="t-caption flex items-center gap-2">
               <span>{t("apiKeyStored")}</span>
@@ -196,6 +236,9 @@ export default function ImmichConnectionCard(): JSX.Element {
                 ? t("connected", { version: testResult.details?.version ?? "?" })
                 : t(failureKey(testResult.kind))}
             </p>
+          )}
+          {testResult?.success && testResult.details?.capabilities && (
+            <CapabilityLine capabilities={testResult.details.capabilities} />
           )}
           {error && (
             <p role="alert" className="text-sm" style={{ color: token("bad") }}>
