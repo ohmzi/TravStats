@@ -5,6 +5,9 @@
  * paths and payload shapes — when Immich shifts its API again (it has before:
  * `/api/asset` -> `/api/assets`), this file is the entire blast radius.
  *
+ * Read-only except album create and add-to-album: the trip builder (spec
+ * 2026-10-09) writes ONE album per trip and nothing else to Immich.
+ *
  * Two shapes worth remembering:
  *  - `AlbumResponseDto` carries NO asset array. Album contents come from
  *    `POST /search/metadata` with `albumIds`, which is paginated.
@@ -135,6 +138,12 @@ export interface ImmichClient {
    * With several matches the first in Immich's order wins.
    */
   findOwnedAlbumByName(name: string, ownerId: string): Promise<ImmichAlbum | null>;
+  /**
+   * Creates an EMPTY album (a WRITE; needs `album.create`). Assets are added
+   * afterwards with `addAssetsToAlbum`, because creating with `assetIds` drops
+   * the ones the user cannot share and reports none of them.
+   */
+  createAlbum(input: { albumName: string; description: string }): Promise<ImmichAlbum>;
 }
 
 /** Inclusive on both ends, as Immich treats them. */
@@ -656,6 +665,24 @@ export function createImmichClient(
         if (album) return album;
       }
       return null;
+    },
+
+    async createAlbum({
+      albumName,
+      description,
+    }: {
+      albumName: string;
+      description: string;
+    }): Promise<ImmichAlbum> {
+      let data: unknown;
+      try {
+        ({ data } = await axios.post(url("/albums"), { albumName, description }, jsonConfig));
+      } catch (error) {
+        throw toImmichError(error, "create album");
+      }
+      const album = mapAlbum(data);
+      if (!album) throw new ImmichError("protocol", "Immich returned an unexpected album payload");
+      return album;
     },
 
     /**

@@ -179,3 +179,60 @@ describe("findOwnedAlbumByName", () => {
     ).rejects.toMatchObject({ kind: "auth", detail: { missingScope: "album.read" } });
   });
 });
+
+describe("createAlbum", () => {
+  const input = {
+    albumName: "Northvale loop",
+    description: "TravStats trip · 2031-05-02 – 2031-05-09",
+  };
+
+  it("POSTs only the name and description and returns the new, empty album", async () => {
+    mockedAxios.post.mockResolvedValueOnce({
+      data: albumJson({ assetCount: 0, albumThumbnailAssetId: null }),
+    });
+
+    await expect(createImmichClient(CONN).createAlbum(input)).resolves.toEqual({
+      id: ALBUM_ID,
+      albumName: "Northvale loop",
+      assetCount: 0,
+      thumbnailAssetId: null,
+    });
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      "https://immich.lan/api/albums",
+      {
+        albumName: "Northvale loop",
+        description: "TravStats trip · 2031-05-02 – 2031-05-09",
+      },
+      expect.objectContaining({ headers: { "x-api-key": "secret-key" } })
+    );
+  });
+
+  it("sends no asset ids: Immich drops the ones it cannot share without saying which", async () => {
+    mockedAxios.post.mockResolvedValueOnce({ data: albumJson() });
+
+    await createImmichClient(CONN).createAlbum(input);
+
+    expect(mockedAxios.post.mock.calls[0][1]).not.toHaveProperty("assetIds");
+  });
+
+  it("names the missing album.create permission on a 403", async () => {
+    mockedAxios.post.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 403, data: { message: "Missing required permission: album.create" } },
+    });
+
+    await expect(createImmichClient(CONN).createAlbum(input)).rejects.toMatchObject({
+      kind: "auth",
+      status: 403,
+      detail: { missingScope: "album.create" },
+    });
+  });
+
+  it("rejects an answer without an album id as kind=protocol", async () => {
+    mockedAxios.post.mockResolvedValueOnce({ data: { albumName: "Northvale loop" } });
+
+    await expect(createImmichClient(CONN).createAlbum(input)).rejects.toMatchObject({
+      kind: "protocol",
+    });
+  });
+});
