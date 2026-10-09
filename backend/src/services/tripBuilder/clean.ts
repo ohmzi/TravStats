@@ -12,11 +12,13 @@
  *
  * Pure. The one impure input, `flagMisdated`'s filename lookup, is injected.
  */
+import { isLocalDate, toDbDate } from "../../shared/time/localDate";
 import {
   COUNTER_WRAP_MAX_DAYS,
   GPS_ZERO_EPSILON,
   MISDATED_COUNTER_DAYS,
   MISDATED_COUNTER_WINDOW,
+  MISDATED_FILENAME_H,
   MISDATED_MIN_NEIGHBOURS,
 } from "./thresholds";
 import type { CleanResult, ExcludedCounts, PhotoFlags, PhotoPoint, ScanWindow } from "./types";
@@ -220,6 +222,47 @@ export function flagStragglers(
     if (neighbours.length < MISDATED_MIN_NEIGHBOURS) continue;
     const middle = median(neighbours.map((n) => n.photo.tMs));
     if (Math.abs(photo.tMs - middle) > MISDATED_COUNTER_DAYS * DAY_MS) flagged.add(photo.id);
+  }
+  return flagged;
+}
+
+// ─── Misdated: the filename clock check (§C.2, check 3) ──────────────────────
+
+const HOUR_MS = 3_600_000;
+/** Samsung's camera writes the local wall clock into the name: `20310503_142233.jpg`. */
+const SAMSUNG_STAMP = /^(\d{8})_(\d{6})/;
+/** Pixel's camera writes UTC into the name: `PXL_20310503_022233456.jpg`. */
+const PIXEL_STAMP = /^PXL_(\d{8})_(\d{6})/;
+
+/** A `YYYYMMDD` + `HHMMSS` stamp as a wall clock read as UTC; null when it names no real time. */
+function stampMs(ymd: string, hms: string): number | null {
+  const day = `${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}`;
+  const [hour, minute, second] = [hms.slice(0, 2), hms.slice(2, 4), hms.slice(4, 6)].map(Number);
+  if (!isLocalDate(day) || hour > 23 || minute > 59 || second > 59) return null;
+  return toDbDate(day).getTime() + ((hour * 60 + minute) * 60 + second) * 1000;
+}
+
+/** A photo's `local` read as UTC — the same arithmetic form as a Samsung stamp. */
+const localAsUtcMs = (local: string): number => Date.parse(`${local.replace(" ", "T")}:00Z`);
+
+/**
+ * Flags a photo whose camera wrote a clock into the file name that differs
+ * from the photo's own by more than MISDATED_FILENAME_H. A Samsung name is
+ * compared with local(p); a Pixel name, which is UTC, with t(p). A photo
+ * flagged here was re-dated somewhere along the way.
+ */
+export function flagFilenameClocks(photos: readonly PhotoPoint[]): Set<string> {
+  const flagged = new Set<string>();
+  for (const photo of photos) {
+    if (!judged(photo)) continue;
+    const pixel = PIXEL_STAMP.exec(photo.originalFileName);
+    const stamp = pixel ?? SAMSUNG_STAMP.exec(photo.originalFileName);
+    if (!stamp) continue;
+    const namedMs = stampMs(stamp[1], stamp[2]);
+    const actualMs = pixel ? photo.tMs : localAsUtcMs(photo.local);
+    if (namedMs !== null && Math.abs(namedMs - actualMs) > MISDATED_FILENAME_H * HOUR_MS) {
+      flagged.add(photo.id);
+    }
   }
   return flagged;
 }
