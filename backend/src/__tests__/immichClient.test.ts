@@ -475,3 +475,90 @@ describe("a key without the right permission (403)", () => {
     });
   });
 });
+
+describe("getMyApiKey", () => {
+  it("GETs /api/api-keys/me and returns the key's permissions", async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      data: {
+        id: "k1",
+        name: "TravStats",
+        permissions: ["asset.read", "album.read", "user.read"],
+      },
+    });
+
+    await expect(createImmichClient(CONN).getMyApiKey()).resolves.toEqual({
+      permissions: ["asset.read", "album.read", "user.read"],
+    });
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "https://immich.lan/api/api-keys/me",
+      expect.objectContaining({ headers: { "x-api-key": "secret-key" } })
+    );
+  });
+
+  it('passes "all" through unexpanded: it means every scope', async () => {
+    mockedAxios.get.mockResolvedValueOnce({ data: { id: "k1", permissions: ["all"] } });
+
+    await expect(createImmichClient(CONN).getMyApiKey()).resolves.toEqual({
+      permissions: ["all"],
+    });
+  });
+
+  it("drops a permission entry that is not a string", async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      data: { permissions: ["asset.read", 7, null, "album.read"] },
+    });
+
+    await expect(createImmichClient(CONN).getMyApiKey()).resolves.toEqual({
+      permissions: ["asset.read", "album.read"],
+    });
+  });
+
+  it("answers null on a 403: the credential is not an API key, so there is nothing to read", async () => {
+    mockedAxios.get.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 403, data: { message: "Not authenticated with an API Key" } },
+    });
+
+    await expect(createImmichClient(CONN).getMyApiKey()).resolves.toBeNull();
+  });
+
+  it("answers null on a 403 that names a permission too", async () => {
+    mockedAxios.get.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 403, data: { message: "Missing required permission: apiKey.read" } },
+    });
+
+    await expect(createImmichClient(CONN).getMyApiKey()).resolves.toBeNull();
+  });
+
+  it("still throws kind=auth on a 401 (bad or revoked key)", async () => {
+    mockedAxios.get.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 401, data: { message: "Invalid API key" } },
+    });
+
+    await expect(createImmichClient(CONN).getMyApiKey()).rejects.toMatchObject({
+      kind: "auth",
+      status: 401,
+    });
+  });
+
+  it("maps a 404 (an Immich too old for the endpoint) to kind=notFound", async () => {
+    mockedAxios.get.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 404, data: {} },
+    });
+
+    await expect(createImmichClient(CONN).getMyApiKey()).rejects.toMatchObject({
+      kind: "notFound",
+    });
+  });
+
+  it("rejects a payload without a permission list as kind=protocol", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ data: { id: "k1", permissions: "all" } });
+
+    await expect(createImmichClient(CONN).getMyApiKey()).rejects.toMatchObject({
+      kind: "protocol",
+    });
+  });
+});

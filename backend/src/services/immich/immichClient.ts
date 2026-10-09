@@ -60,6 +60,11 @@ function requestTimeout(options: ImmichClientOptions): number {
     : REQUEST_TIMEOUT_MS;
 }
 
+/** What `GET /api-keys/me` says about the key in use. `"all"` means every scope. */
+export interface ImmichApiKeyInfo {
+  permissions: string[];
+}
+
 export interface ImmichClient {
   getServerVersion(): Promise<string>;
   whoami(): Promise<ImmichIdentity>;
@@ -114,6 +119,12 @@ export interface ImmichClient {
    * returns nothing without a request, because it would match every file.
    */
   searchByFileName(fragment: string, range: ImmichDateRange): Promise<ImmichAssetDetail[]>;
+  /**
+   * The permissions of the API key in use, from `GET /api-keys/me` (which needs
+   * no scope itself). Null when Immich cannot answer because the credential is
+   * not an API key (403); a bad or revoked key (401) still throws.
+   */
+  getMyApiKey(): Promise<ImmichApiKeyInfo | null>;
 }
 
 /** Inclusive on both ends, as Immich treats them. */
@@ -573,6 +584,25 @@ export function createImmichClient(
       const byId = new Map<string, ImmichAssetDetail>();
       addAssetDetails(items, byId);
       return [...byId.values()];
+    },
+
+    async getMyApiKey(): Promise<ImmichApiKeyInfo | null> {
+      let data: unknown;
+      try {
+        ({ data } = await axios.get(url("/api-keys/me"), jsonConfig));
+      } catch (error) {
+        const mapped = toImmichError(error, "api-keys/me");
+        // "Not authenticated with an API Key": there is no key to read, which is
+        // "cannot say", not a failure of the connection.
+        if (mapped.kind === "auth" && mapped.status === 403) return null;
+        throw mapped;
+      }
+      if (!isRecord(data) || !Array.isArray(data.permissions)) {
+        throw new ImmichError("protocol", "Immich returned an unexpected API key payload");
+      }
+      return {
+        permissions: data.permissions.filter((p): p is string => typeof p === "string"),
+      };
     },
 
     /**
