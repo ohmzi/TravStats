@@ -145,6 +145,14 @@ export interface Flight {
   // Display helpers (populated by backend for enriched flights)
   depCountry?: string | null;
   arrCountry?: string | null;
+  /**
+   * The city each end sits in, from the same catalogue lookup as the country
+   * (`backend/src/services/flightAirportFacts.ts`). A journey band counts the
+   * CITIES its airports touch — a different figure from the airport count
+   * (owner, 2026-10-08) — so the count needs the city, not just the code.
+   */
+  depCity?: string | null;
+  arrCity?: string | null;
   depTimezone?: string | null;
   arrTimezone?: string | null;
   times?: FlightTimes; // ADR 0002 phase 4 — read through lib/entityTimes.ts
@@ -260,6 +268,19 @@ export interface Trip {
     | "seatClass"
     | "status"
     | "times"
+    // The journey page reads the SHAPE of the flying off the same endpoint:
+    // each flight is one leg, drawn as its two airports with the distance and
+    // the way it was measured between them — a chord stamped at write time
+    // (`routeDistance`) or, for the few rows that carry one, a recorded track
+    // (`routeSource`). Without these the band cannot tell a measured leg from
+    // a derived one and the journey's distance could not be marked honestly.
+    | "routeDistance"
+    | "routeSource"
+    | "depName"
+    | "arrName"
+    | "depCity"
+    | "arrCity"
+    | "durationMinutes"
   >[];
   cruises?: Array<{
     times?: CruiseTimes;

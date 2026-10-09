@@ -108,6 +108,11 @@ export const flightResponse = registry.register(
       arrTimezone: z.string().nullable().describe("IANA zone of the arrival airport."),
       depCountry: z.string().nullable().describe("ISO country of the departure airport."),
       arrCountry: z.string().nullable().describe("ISO country of the arrival airport."),
+      depCity: z
+        .string()
+        .nullable()
+        .describe("City of the departure airport, or null when unknown."),
+      arrCity: z.string().nullable().describe("City of the arrival airport, or null when unknown."),
 
       // The one key the routes send that this schema did not publish: 95 of
       // the 96 keys of a listed flight were described, `trip` was not (beta

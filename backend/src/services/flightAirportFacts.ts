@@ -5,8 +5,9 @@
  * stores the zone each end was written with, which wins. Rows written before
  * that carry none, and rendering them in their airport's clock needs the
  * catalogue. The
- * same lookup answers two more questions for free: which countries the flight
- * touched, and how long it actually took once both zones are accounted for.
+ * same lookup answers three more questions for free: which countries the flight
+ * touched, which city each end sits in, and how long it actually took once both
+ * zones are accounted for.
  *
  * THIS LIVES IN ONE PLACE BECAUSE IT ALREADY DRIFTED. The list endpoint
  * enriched, the single-flight endpoint did not, and the flight detail page —
@@ -42,6 +43,18 @@ export interface AirportFacts {
   arrTimezone: string | null;
   depCountry: string | null;
   arrCountry: string | null;
+  /**
+   * The city each end sits in, from the same catalogue lookup as the country.
+   *
+   * The journey band counts the CITIES its airports touch, which is a
+   * different figure from the airport count (owner, 2026-10-08): two airports
+   * in one city are two airports and one city, and the two are expected to
+   * differ. Resolved here rather than by the browser so the count costs no
+   * extra request — the catalogue is already in hand and the city rides the
+   * same row as the country.
+   */
+  depCity: string | null;
+  arrCity: string | null;
   /** null when the times are DATE_ONLY — the display layer draws a great-circle estimate instead. */
   durationMinutes: number | null;
 }
@@ -93,12 +106,17 @@ async function withCatalogue<T extends EnrichableFlight>(
 
   const tzMap = new Map<string, string>();
   const countryMap = new Map<string, string>();
+  const cityMap = new Map<string, string>();
   if (codes.size > 0) {
     try {
       const airports = await getCachedAirports(Array.from(codes));
       for (const [code, data] of airports.entries()) {
         if (data?.timezone) tzMap.set(code, data.timezone);
         if (data?.country) countryMap.set(code, data.country);
+        // The city is optional on the airport row: an airport with no city is
+        // left out of the map, exactly as a missing country is, and the
+        // reader sees the figure's own undercount note rather than a zero.
+        if (data?.city) cityMap.set(code, data.city);
       }
     } catch (error) {
       // Every catalogue field stays null and durations use a naive diff; a
@@ -140,6 +158,8 @@ async function withCatalogue<T extends EnrichableFlight>(
       arrTimezone,
       depCountry: lookup(countryMap, f.depIata, f.depIcao),
       arrCountry: lookup(countryMap, f.arrIata, f.arrIcao),
+      depCity: lookup(cityMap, f.depIata, f.depIcao),
+      arrCity: lookup(cityMap, f.arrIata, f.arrIcao),
       durationMinutes: rawDuration === null ? null : Math.round(rawDuration),
     };
     return { enriched, catalogue: { index, dep: depCatalogue, arr: arrCatalogue } };

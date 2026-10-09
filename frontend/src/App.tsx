@@ -31,6 +31,7 @@ const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const FlightsTablePage = lazy(() => import("./pages/FlightsTablePage"));
 const FlightDetailPage = lazy(() => import("./pages/FlightDetailPage"));
+const FlightTripDetailPage = lazy(() => import("./pages/FlightTripDetailPage"));
 const CruisesPage = lazy(() => import("./pages/CruisesPage"));
 const RailPage = lazy(() => import("./pages/RailPage"));
 const RailDetailPage = lazy(() => import("./pages/RailDetailPage"));
@@ -270,6 +271,24 @@ function AppContent() {
                   isAuthenticated ? (
                     <DomainRouteGuard domain="flight">
                       <FlightDetailPage />
+                    </DomainRouteGuard>
+                  ) : (
+                    <Navigate to="/login" />
+                  )
+                }
+              />
+              {/* A journey's own page (owner, 2026-10-08), nested UNDER
+                  /flights so the logbook stays lit and a nested STATIC
+                  segment so it can never collide with /flights/:id (React
+                  Router ranks the literal higher regardless of order). The
+                  same flight domain guard as its neighbours — no inline
+                  isEnabled() check, which the router source-scan forbids. */}
+              <Route
+                path="/flights/journeys/:tripId"
+                element={
+                  isAuthenticated ? (
+                    <DomainRouteGuard domain="flight">
+                      <FlightTripDetailPage />
                     </DomainRouteGuard>
                   ) : (
                     <Navigate to="/login" />
