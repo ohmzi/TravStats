@@ -11,6 +11,8 @@ import { flightArrival, flightDeparture, tripEnd, tripStart } from "../../lib/en
 import { dayOf } from "../../shared/time";
 import { statusPillStyle } from "../table/statusPillStyle";
 import { Icon, type IconName } from "../ui/Icon";
+import { bannerFlags, knownCountries } from "../../lib/tripFlags";
+import TripBandFlags from "./TripBandFlags";
 
 interface TripCardProps {
   trip: Trip;
@@ -120,6 +122,28 @@ export default function TripCard({ trip, onOpen }: TripCardProps): JSX.Element {
   const mono = { fontFamily: "var(--ts-font-mono)" } as const;
   const figure = { color: "var(--ts-text-bright)" } as const;
 
+  // The header band is painted from the trip's own countries: the flag or
+  // flags in place of the colour tint the card used to wear (owner,
+  // 2026-10-09). `bannerFlags` resolves names as well as codes and drops any
+  // country this repo ships no flag for, so an unbundled country is never
+  // guessed at. When NO flag is drawable the band keeps its exact old
+  // gradient — the trip's own colour is an honest fallback where an invented
+  // flag would not be.
+  const flags = bannerFlags(trip.countries);
+  const drawnCountries = knownCountries(trip.countries);
+  const bandBackground =
+    flags.length > 0
+      ? "var(--ts-surface2)"
+      : `linear-gradient(135deg, color-mix(in srgb, ${trip.color} 22%, var(--ts-surface2)), var(--ts-surface2))`;
+  // Spoken, not drawn: when some recorded countries have no bundled flag the
+  // band says how many were left out, so a missing flag reads as a reason
+  // rather than as a hole. The total is the trip's true country SET, not the
+  // raw array, so a duplicate cannot inflate it.
+  const bandTitle =
+    flags.length > 0 && drawnCountries.length > flags.length
+      ? t("trips:card.flagsPartial", { shown: flags.length, total: drawnCountries.length })
+      : undefined;
+
   return (
     <div
       role="link"
@@ -139,11 +163,12 @@ export default function TripCard({ trip, onOpen }: TripCardProps): JSX.Element {
       }}
     >
       <div
+        data-testid="trip-band"
         className="relative h-[110px]"
-        style={{
-          background: `linear-gradient(135deg, color-mix(in srgb, ${trip.color} 22%, var(--ts-surface2)), var(--ts-surface2))`,
-        }}
+        title={bandTitle}
+        style={{ background: bandBackground }}
       >
+        <TripBandFlags countries={trip.countries} />
         {trip.coverImageUrl && (
           <div
             aria-hidden="true"

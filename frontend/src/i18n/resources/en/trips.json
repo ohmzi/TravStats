@@ -583,7 +583,8 @@
     "countries_one": "country",
     "countries_other": "countries",
     "entries_one": "entry",
-    "entries_other": "entries"
+    "entries_other": "entries",
+    "flagsPartial": "Showing {{shown}} of {{total}} countries — the rest have no bundled flag yet"
   },
   "list": {
     "undated": "Undated"
