@@ -7,6 +7,8 @@ import { makeAnchor, makeAsset, NORTHVALE, SALTMERE } from "./photoFixtures";
 const DEP = Date.parse("2031-05-04T01:00:00Z");
 const NZ = "Pacific/Auckland";
 const LA_PAZ = "America/La_Paz";
+/** A third zone, named by flights whose own zones a test must not be able to pass on. */
+const TOKYO = "Asia/Tokyo";
 const OPEN_START = Number.NEGATIVE_INFINITY;
 const OPEN_END = Number.POSITIVE_INFINITY;
 
@@ -31,17 +33,53 @@ describe("areaZoneSpans", () => {
     ]);
   });
 
-  it("goes with the zone most of a stretch's photos show", () => {
+  it("takes each side's zone from its own photos when the flight names none", () => {
     const spans = areaZoneSpans(
       [
+        fix("n1", "2031-05-03T00:00:00.000Z", NORTHVALE),
+        fix("s1", "2031-05-04T15:00:00.000Z", SALTMERE),
+      ],
+      [makeAnchor({ depZone: null, arrZone: null })]
+    );
+    expect(spans).toEqual([
+      { fromMs: OPEN_START, toMs: DEP, zone: NZ },
+      { fromMs: DEP, toMs: OPEN_END, zone: LA_PAZ },
+    ]);
+  });
+
+  it("goes with the zone most of a stretch's photos show, not the first, the last or the flight's", () => {
+    // The minority zone comes first and last, and the flight names a third zone for both sides.
+    const spans = areaZoneSpans(
+      [
+        fix("s1", "2031-05-02T21:00:00.000Z", SALTMERE),
         fix("n1", "2031-05-02T22:00:00.000Z", NORTHVALE),
-        fix("s1", "2031-05-02T23:00:00.000Z", SALTMERE),
         fix("n2", "2031-05-03T00:00:00.000Z", NORTHVALE),
         fix("n3", "2031-05-03T01:00:00.000Z", NORTHVALE),
+        fix("s2", "2031-05-03T02:00:00.000Z", SALTMERE),
       ],
-      [makeAnchor()]
+      [makeAnchor({ depZone: TOKYO, arrZone: TOKYO })]
     );
-    expect(spans[0].zone).toBe(NZ);
+    expect(spans).toEqual([
+      { fromMs: OPEN_START, toMs: DEP, zone: NZ },
+      { fromMs: DEP, toMs: OPEN_END, zone: TOKYO },
+    ]);
+  });
+
+  it.each([
+    ["Northvale first", "snns", NZ],
+    ["Saltmere first", "nssn", LA_PAZ],
+  ])("on a tie, goes with the zone that reached the count first (%s)", (_name, order, zone) => {
+    const times = [
+      "2031-05-02T21:00:00.000Z",
+      "2031-05-02T22:00:00.000Z",
+      "2031-05-02T23:00:00.000Z",
+      "2031-05-03T00:00:00.000Z",
+    ];
+    const fixes = [...order].map((place, i) =>
+      fix(`${place}${i}`, times[i], place === "n" ? NORTHVALE : SALTMERE)
+    );
+    const spans = areaZoneSpans(fixes, [makeAnchor({ depZone: TOKYO, arrZone: TOKYO })]);
+    expect(spans[0]).toEqual({ fromMs: OPEN_START, toMs: DEP, zone });
   });
 
   it("cuts at noon of the departure day on the departure clock when the flight has no times", () => {
@@ -90,8 +128,11 @@ describe("areaZoneSpans", () => {
   });
 
   it("dates a photo with no GPS and no neighbour by its stretch (zone rule 4)", () => {
+    // The flight names no zone, so only the stretch's photos can say where the video was.
+    // The Saltmere photo is 13 h before the video: out of rule 3's reach, inside the stretch.
     const assets = [
       fix("n1", "2031-05-03T00:00:00.000Z", NORTHVALE),
+      fix("s1", "2031-05-04T14:00:00.000Z", SALTMERE),
       makeAsset({
         id: "video",
         type: "VIDEO",
@@ -99,7 +140,8 @@ describe("areaZoneSpans", () => {
         fileCreatedAt: "2031-05-05T03:00:00.000Z",
       }),
     ];
-    const ctx = { homeZone: null, areaZones: areaZoneSpans(assets, [makeAnchor()]) };
+    const anchors = [makeAnchor({ depZone: null, arrZone: null })];
+    const ctx = { homeZone: null, areaZones: areaZoneSpans(assets, anchors) };
     const video = clockAssets(assets, ctx).find((p) => p.id === "video");
     expect(video).toMatchObject({ zone: LA_PAZ, local: "2031-05-04 23:00" });
     expect(video?.flags.zoneSource).toBe("area");
