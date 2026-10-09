@@ -14,6 +14,8 @@
  */
 import { isLocalDate, toDbDate } from "../../shared/time/localDate";
 import {
+  AT_SEA_BUFFER_KM,
+  AT_SEA_RING_POINTS,
   COUNTER_WRAP_MAX_DAYS,
   GPS_ZERO_EPSILON,
   MISDATED_COUNTER_DAYS,
@@ -24,6 +26,7 @@ import {
 } from "./thresholds";
 import type {
   CleanResult,
+  CountryAt,
   ExcludedCounts,
   FileNameLookup,
   MisdatedReason,
@@ -422,4 +425,57 @@ export async function flagMisdated(
   add(await flagBatches(photos, context, lookup), "batch");
   add(flagFilenameClocks(photos), "filenameClock");
   return reasons;
+}
+
+// ─── At sea (§C.2) ───────────────────────────────────────────────────────────
+
+const EARTH_RADIUS_KM = 6371;
+const toRad = (deg: number): number => (deg * Math.PI) / 180;
+const toDeg = (rad: number): number => (rad * 180) / Math.PI;
+
+/**
+ * `points` points `km` from (lat, lon), spaced evenly round from due north.
+ * Longitudes stay within ±180° when the ring crosses the antimeridian.
+ */
+export function ringAround(
+  lat: number,
+  lon: number,
+  km: number,
+  points: number
+): Array<{ lat: number; lon: number }> {
+  const angle = km / EARTH_RADIUS_KM;
+  const lat1 = toRad(lat);
+  const lon1 = toRad(lon);
+  return Array.from({ length: points }, (_, i) => {
+    const bearing = (2 * Math.PI * i) / points;
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(angle) + Math.cos(lat1) * Math.sin(angle) * Math.cos(bearing)
+    );
+    const lon2 =
+      lon1 +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(angle) * Math.cos(lat1),
+        Math.cos(angle) - Math.sin(lat1) * Math.sin(lat2)
+      );
+    return { lat: toDeg(lat2), lon: ((toDeg(lon2) + 540) % 360) - 180 };
+  });
+}
+
+/**
+ * A photo is at sea when there is no country at it and none at any of the
+ * AT_SEA_RING_POINTS points AT_SEA_BUFFER_KM round it. The ring is the
+ * buffer the 1:10m coastline needs, because a harbour-front photo can fall
+ * just outside its country's polygon. Only located photos are asked. An
+ * at-sea photo leaves the clusters but stays in the album, as ferry and
+ * night evidence.
+ */
+export function flagAtSea(photos: readonly PhotoPoint[], countryAt: CountryAt): Set<string> {
+  const atSea = new Set<string>();
+  for (const photo of photos) {
+    if (!photo.flags.located || photo.lat === null || photo.lon === null) continue;
+    if (countryAt(photo.lat, photo.lon) !== null) continue;
+    const ring = ringAround(photo.lat, photo.lon, AT_SEA_BUFFER_KM, AT_SEA_RING_POINTS);
+    if (ring.every((point) => countryAt(point.lat, point.lon) === null)) atSea.add(photo.id);
+  }
+  return atSea;
 }
