@@ -10,6 +10,7 @@
  */
 import type { ReportProgress } from "../jobs/jobRegistry";
 import { AppError } from "../../middleware/errorHandler";
+import logger from "../../utils/logger";
 import { getImmichConnection } from "../immich/immichResolver";
 import { ImmichError, type ImmichErrorKind } from "../immich/types";
 import { resolveBuilderDeps } from "./resolveDeps";
@@ -489,7 +490,14 @@ export async function buildTripDraft(
     const deps = await resolveBuilderDeps(userId, input, conn);
     return await buildDraftWith(deps, userId, input, report);
   } catch (error) {
-    if (error instanceof ImmichError) throw new AppError(IMMICH_JOB_CODES[error.kind], 502);
+    if (error instanceof ImmichError) {
+      // The job keeps only the code; this is the one place the failing call, status and scope survive.
+      logger.warn({
+        message: "trip_builder_immich_failure",
+        context: { kind: error.kind, status: error.status, detail: error.message },
+      });
+      throw new AppError(IMMICH_JOB_CODES[error.kind], 502);
+    }
     throw error;
   }
 }

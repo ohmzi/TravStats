@@ -1,3 +1,8 @@
+// A failed Immich call is logged with its status and detail; keep that out of the test output.
+jest.mock("../../../utils/logger", () => ({
+  __esModule: true,
+  default: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+}));
 jest.mock("../../immich/immichClient", () => ({ createImmichClient: jest.fn() }));
 jest.mock("../../immich/immichResolver", () => ({ getImmichConnection: jest.fn() }));
 jest.mock("../../home/homeStore", () => ({ loadHomePeriods: jest.fn() }));
@@ -10,6 +15,7 @@ jest.mock("../builderQueries", () => ({
 }));
 
 import { prisma } from "../../../db";
+import logger from "../../../utils/logger";
 import { createImmichClient } from "../../immich/immichClient";
 import { getImmichConnection } from "../../immich/immichResolver";
 import { ImmichError } from "../../immich/types";
@@ -156,5 +162,31 @@ describe("buildTripDraft", () => {
       message: "immich_unreachable",
       statusCode: 502,
     });
+  });
+
+  it("logs the failing call, status and missing scope before the code replaces them", async () => {
+    whoami.mockRejectedValue(
+      new ImmichError("auth", "Immich key lacks the album.create permission", 403, {
+        missingScope: "album.create",
+      })
+    );
+    await expect(buildTripDraft(USER, INPUT, () => undefined)).rejects.toMatchObject({
+      message: "immich_auth",
+      statusCode: 502,
+    });
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: "trip_builder_immich_failure",
+      context: {
+        kind: "auth",
+        status: 403,
+        detail: "Immich key lacks the album.create permission",
+      },
+    });
+  });
+
+  it("does not log an error that is not an Immich failure", async () => {
+    whoami.mockRejectedValue(new Error("boom"));
+    await expect(buildTripDraft(USER, INPUT, () => undefined)).rejects.toThrow("boom");
+    expect(logger.warn).not.toHaveBeenCalled();
   });
 });
