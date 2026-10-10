@@ -18,12 +18,13 @@ import { Router, Response, NextFunction } from "express";
 import { authenticate, requireWriteScope, AuthRequest } from "../middleware/auth";
 import { rejectDemoWrites } from "../middleware/demoGuard";
 import { immichImportLimiter, immichProxyLimiter } from "../middleware/rateLimit";
-import { scanBodySchema } from "../schemas/tripBuilder";
+import { AppError } from "../middleware/errorHandler";
+import { draftIdParamSchema, scanBodySchema } from "../schemas/tripBuilder";
 import { getImmichConnection } from "../services/immich/immichResolver";
 import { startJob } from "../services/jobs/jobRegistry";
 import { buildTripDraft, progressReporter } from "../services/tripBuilder/buildDraft";
 import { builderCapabilities } from "../services/tripBuilder/capabilities";
-import { putDraft } from "../services/tripBuilder/draftStore";
+import { deleteDraft, expiresAtOf, getDraft, putDraft } from "../services/tripBuilder/draftStore";
 import type { ScanJobResult } from "../services/tripBuilder/types";
 import { resolveTrip } from "./trips/resolveTrip";
 
@@ -73,5 +74,28 @@ router.post(
     }
   }
 );
+
+/** Gone, expired, or never the caller's: the three look the same from outside. */
+const draftExpired = (): AppError =>
+  new AppError("This draft has expired; scan again", 404, "DRAFT_EXPIRED");
+
+router.get("/drafts/:id", (req: AuthRequest, res: Response, next: NextFunction): void => {
+  try {
+    const draft = getDraft(req.userId!, draftIdParamSchema.parse(req.params.id));
+    if (!draft) throw draftExpired();
+    res.json({ ...draft.dto, expiresAt: new Date(expiresAtOf(draft)).toISOString() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete("/drafts/:id", (req: AuthRequest, res: Response, next: NextFunction): void => {
+  try {
+    deleteDraft(req.userId!, draftIdParamSchema.parse(req.params.id));
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});
 
 export default router;
