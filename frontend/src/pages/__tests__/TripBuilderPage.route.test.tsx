@@ -49,6 +49,17 @@ vi.mock("../../hooks/useEnabledDomains", () => ({
 vi.mock("../TripDetailPage", () => ({
   default: () => <div data-testid="trip-detail-stub" />,
 }));
+// The builder page follows a scan job through this hook; its own suite covers that.
+// Here the job is just "still running", so the route is reached without a request.
+vi.mock("../../hooks/useBuilderSession", () => ({
+  useBuilderSession: () => ({
+    phase: { kind: "scanning", progress: null },
+    draft: null,
+    state: null,
+    commit: { kind: "idle" },
+    leave: vi.fn(),
+  }),
+}));
 
 vi.unmock("../../store/settingsStore");
 

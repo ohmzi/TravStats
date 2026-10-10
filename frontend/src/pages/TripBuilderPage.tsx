@@ -1,21 +1,533 @@
-import type { JSX } from "react";
-import AppShell from "../components/ui/AppShell";
-import PageHeader from "../components/ui/PageHeader";
+import { useState, type JSX } from "react";
+import { useNavigate } from "react-router-dom";
+
+import { AppShell, Button, Card, EmptyState, PageHeader } from "../components/ui";
+import ChangeDatesDialog from "../components/Trips/tripBuilder/ChangeDatesDialog";
+import ReviewAlbumSection from "../components/Trips/tripBuilder/ReviewAlbumSection";
+import ReviewAreaSection from "../components/Trips/tripBuilder/ReviewAreaSection";
+import ReviewExcluded from "../components/Trips/tripBuilder/ReviewExcluded";
+import ReviewFlightRows from "../components/Trips/tripBuilder/ReviewFlightRows";
+import ReviewHeader from "../components/Trips/tripBuilder/ReviewHeader";
+import ReviewNightChip from "../components/Trips/tripBuilder/ReviewNightChip";
+import ReviewPhotoJourneys from "../components/Trips/tripBuilder/ReviewPhotoJourneys";
+import ReviewSection from "../components/Trips/tripBuilder/ReviewSection";
+import ReviewWarnings from "../components/Trips/tripBuilder/ReviewWarnings";
+import { useBuilderSession, type BuilderSession } from "../hooks/useBuilderSession";
+import { useConfirmDialog } from "../hooks/useConfirmDialog";
 import { useTranslation } from "../hooks/useTranslation";
+import { useDisplayFormat } from "../lib/displayFormat";
+import { effectiveNights, sleptKeys } from "../lib/tripBuilder/planRules";
+import {
+  nightChoices,
+  placeNights,
+  reviewProblems,
+  unknownNightCount,
+  type ReviewProblem,
+} from "../lib/tripBuilder/reviewView";
+import {
+  TRIP_BUILDER_PHASES,
+  type CommitBlocked,
+  type CommitResult,
+  type PreflightBlockReason,
+  type TripBuilderPhase,
+} from "../types/tripBuilder";
+
+const PHASE_KEY: Record<TripBuilderPhase, string> = {
+  fetch: "tripBuilder:progress.fetch",
+  clean: "tripBuilder:progress.clean",
+  flights: "tripBuilder:progress.flights",
+  movement: "tripBuilder:progress.movement",
+  names: "tripBuilder:progress.names",
+  roads: "tripBuilder:progress.roads",
+  nights: "tripBuilder:progress.nights",
+};
+
+const PROBLEM_KEY: Record<ReviewProblem["code"], string> = {
+  blankTripName: "tripBuilder:review.problems.blankTripName",
+  roadtripTooShort: "tripBuilder:review.problems.roadtripTooShort",
+  nightPlanInvalid: "tripBuilder:review.problems.nightPlanInvalid",
+};
+
+const BLOCKED_KEY: Record<PreflightBlockReason, string> = {
+  sharedConnection: "tripBuilder:review.blocked.sharedConnection",
+  connectionChanged: "tripBuilder:review.blocked.connectionChanged",
+  missingScopes: "tripBuilder:review.blocked.missingScopes",
+  unreachable: "tripBuilder:review.blocked.unreachable",
+};
+
+/** Where the Immich key is set; opened in a new tab so the review is kept. */
+const KEY_SETTINGS = "/settings/services?section=externalServices";
+
+function Message({
+  kind = "nothing",
+  title,
+  description,
+  action,
+}: {
+  kind?: "nothing" | "degraded" | "pending";
+  title: string;
+  description?: string;
+  action?: JSX.Element;
+}): JSX.Element {
+  return (
+    <Card>
+      <EmptyState kind={kind} title={title} description={description} action={action} />
+    </Card>
+  );
+}
+
+function SuccessPanel({
+  result,
+  albumBusy,
+  onRetryAlbum,
+  onOpen,
+}: {
+  result: CommitResult;
+  albumBusy: boolean;
+  onRetryAlbum: () => void;
+  onOpen: () => void;
+}): JSX.Element {
+  const { t } = useTranslation(["tripBuilder"]);
+  const stations = result.roadtrips.reduce((sum, roadtrip) => sum + roadtrip.stations, 0);
+  const nights = result.roadtrips.reduce((sum, roadtrip) => sum + roadtrip.nights, 0);
+  const { album } = result;
+  const facts = [
+    result.roadtrips.length > 0
+      ? t("tripBuilder:review.success.stations", { count: stations })
+      : null,
+    result.roadtrips.length > 0 ? t("tripBuilder:review.success.nights", { count: nights }) : null,
+    result.stopIds.length > 0
+      ? t("tripBuilder:review.success.stops", { count: result.stopIds.length })
+      : null,
+    result.flightsAssigned > 0
+      ? t("tripBuilder:review.success.flights", { count: result.flightsAssigned })
+      : null,
+    result.routing.straight > 0
+      ? t("tripBuilder:review.success.legsStraight", { count: result.routing.straight })
+      : null,
+    result.unknownNights > 0
+      ? t("tripBuilder:review.success.unknownNights", { count: result.unknownNights })
+      : null,
+    album.status === "linked"
+      ? t("tripBuilder:review.success.albumAdded", {
+          added: album.added ?? 0,
+          already: album.alreadyIn ?? 0,
+        })
+      : null,
+  ].filter((fact): fact is string => fact !== null);
+
+  return (
+    <Card style={{ display: "flex", flexDirection: "column", gap: "var(--ts-space-lg)" }}>
+      <h2 className="t-card-title">
+        {result.created
+          ? t("tripBuilder:review.success.created")
+          : t("tripBuilder:review.success.updated")}
+      </h2>
+      {facts.length > 0 && <p>{facts.join(" · ")}</p>}
+      {!result.routing.providerAvailable && result.routing.straight > 0 && (
+        <p className="t-caption">{t("tripBuilder:review.success.noRouting")}</p>
+      )}
+      {(album.status === "failed" || album.status === "blocked") && (
+        <div className="flex flex-wrap items-center" style={{ gap: "var(--ts-space-md)" }}>
+          <span className="t-caption">{t("tripBuilder:review.success.albumFailed")}</span>
+          <Button disabled={albumBusy} onClick={onRetryAlbum}>
+            {t("tripBuilder:review.success.retryAlbum")}
+          </Button>
+        </div>
+      )}
+      <div>
+        <Button variant="primary" onClick={onOpen}>
+          {t("tripBuilder:review.success.open")}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function BlockedPanel({
+  blocked,
+  busy,
+  onSaveWithoutAlbum,
+}: {
+  blocked: CommitBlocked;
+  busy: boolean;
+  onSaveWithoutAlbum: () => void;
+}): JSX.Element {
+  const { t } = useTranslation(["tripBuilder"]);
+  return (
+    <Card
+      role="alert"
+      style={{ display: "flex", flexDirection: "column", gap: "var(--ts-space-lg)" }}
+    >
+      <p>{t(BLOCKED_KEY[blocked.reason], { scopes: blocked.missingScopes.join(", ") })}</p>
+      <div className="flex flex-wrap" style={{ gap: "var(--ts-space-md)" }}>
+        <a
+          href={KEY_SETTINGS}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center"
+          style={{
+            minHeight: "var(--ts-size-touch-min)",
+            padding: "0 14px",
+            borderRadius: "var(--ts-radius-button)",
+            border: "1px solid var(--ts-border-button)",
+            color: "var(--ts-text)",
+            textDecoration: "none",
+          }}
+        >
+          {t("tripBuilder:review.blocked.fixKey")}
+        </a>
+        <Button disabled={busy} onClick={onSaveWithoutAlbum}>
+          {t("tripBuilder:review.blocked.saveWithoutAlbum")}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function ReviewScreen({
+  session,
+  onBack,
+}: {
+  session: BuilderSession;
+  onBack: () => void;
+}): JSX.Element | null {
+  const { t } = useTranslation(["tripBuilder"]);
+  const fmt = useDisplayFormat();
+  const [changingDates, setChangingDates] = useState(false);
+  const { draft, state, commit, edit } = session;
+  if (draft === null || state === null) return null;
+
+  const problems = reviewProblems(draft, state);
+  const placed = placeNights(draft, state);
+  const slept = sleptKeys(state);
+  const answers = effectiveNights(state);
+  const running = commit.kind === "running";
+  const emptyWindow = draft.stats.assets === 0;
+  const ticked = draft.flights.filter((f) => !f.locked && state.flightTicks[f.id]).length;
+  const roadtripsHidden = draft.warnings.some((w) => w.code === "roadtripsHidden");
+  const { startDay, endDay } = draft.window;
+
+  const create = (
+    <Button
+      variant="primary"
+      disabled={running || emptyWindow || problems.length > 0}
+      onClick={() => void session.submit()}
+    >
+      {running
+        ? t("tripBuilder:review.saving")
+        : draft.target.kind === "existing"
+          ? t("tripBuilder:review.addToTrip")
+          : t("tripBuilder:review.createTrip")}
+    </Button>
+  );
+
+  const body = (
+    <div className="flex min-w-0 flex-col" style={{ gap: "var(--ts-space-xl)" }}>
+      {state.areas.map((area, index) => (
+        <ReviewAreaSection
+          key={area.key}
+          draft={draft}
+          state={state}
+          area={area}
+          ordinal={index + 1}
+          nights={placed.byArea.get(area.key) ?? []}
+          slept={slept}
+          roadtripsHidden={roadtripsHidden}
+          onEdit={edit}
+        />
+      ))}
+      {placed.loose.length > 0 && (
+        <ReviewSection title={t("tripBuilder:review.otherNights")}>
+          {placed.loose.map((night) => (
+            <ReviewNightChip
+              key={night}
+              day={night}
+              assign={answers[night]}
+              choices={nightChoices(draft, state, night)}
+              onAssign={(assign) => edit({ type: "assignNight", day: night, assign })}
+            />
+          ))}
+        </ReviewSection>
+      )}
+      <ReviewFlightRows
+        flights={draft.flights}
+        ticks={state.flightTicks}
+        onTick={(flightId, ticked) => edit({ type: "setFlightTick", flightId, ticked })}
+      />
+      {draft.album !== null && state.album !== null && (
+        <ReviewAlbumSection
+          album={draft.album}
+          value={state.album}
+          onChange={(createAlbum, name) => edit({ type: "setAlbum", create: createAlbum, name })}
+        />
+      )}
+      <ReviewPhotoJourneys
+        journeys={draft.photoJourneys}
+        ticks={state.photoJourneyTicks}
+        onTick={(id, tickedJourney) =>
+          edit({ type: "togglePhotoJourney", id, ticked: tickedJourney })
+        }
+      />
+      <ReviewExcluded excluded={draft.stats.excluded} />
+      <ReviewWarnings
+        warnings={draft.warnings}
+        window={draft.window}
+        onExtend={(range) => void session.rescan(range)}
+      />
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col" style={{ gap: "var(--ts-space-xl)" }}>
+      <PageHeader
+        title={
+          draft.target.kind === "existing"
+            ? t("tripBuilder:review.titleExisting")
+            : t("tripBuilder:review.titleNew")
+        }
+        meta={t("tripBuilder:review.meta", {
+          from: fmt.localDate(startDay),
+          to: fmt.localDate(endDay),
+          assets: draft.stats.assets,
+        })}
+        actions={
+          <>
+            {state.edits.length > 0 && !running && (
+              <Button onClick={session.resetEdits}>{t("tripBuilder:review.reset")}</Button>
+            )}
+            <Button disabled={running} onClick={onBack}>
+              {t("tripBuilder:review.back")}
+            </Button>
+            {create}
+          </>
+        }
+      />
+
+      {commit.kind === "failed" && (
+        <Card role="alert">
+          <p>{commit.message}</p>
+        </Card>
+      )}
+      {commit.kind === "blocked" && (
+        <BlockedPanel
+          blocked={commit.blocked}
+          busy={running}
+          onSaveWithoutAlbum={() => void session.submit(true)}
+        />
+      )}
+
+      <ReviewHeader
+        draft={draft}
+        tripName={state.tripName}
+        countries={state.countries}
+        unknownNights={unknownNightCount(state)}
+        carried={session.carried}
+        onTripName={(name) => edit({ type: "setTripName", name })}
+        onCountries={(countries) => edit({ type: "setCountries", countries })}
+        onChangeDates={() => setChangingDates(true)}
+      />
+
+      {problems.length > 0 && (
+        <ul role="alert" className="t-caption" style={{ color: "var(--ts-warn)" }}>
+          {problems.map((problem) => (
+            <li key={problem.code === "roadtripTooShort" ? problem.areaKey : problem.code}>
+              {t(PROBLEM_KEY[problem.code], {
+                name:
+                  problem.code === "roadtripTooShort"
+                    ? (state.areas.find((a) => a.key === problem.areaKey)?.name ?? "")
+                    : "",
+              })}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {emptyWindow ? (
+        <Message
+          title={t("tripBuilder:review.empty.noPhotos", {
+            from: fmt.localDate(startDay),
+            to: fmt.localDate(endDay),
+          })}
+          description={[
+            t("tripBuilder:review.empty.checked", {
+              from: fmt.localDate(draft.window.checkedFrom),
+              to: fmt.localDate(draft.window.checkedTo),
+            }),
+            draft.stats.excluded.partner > 0
+              ? t("tripBuilder:review.empty.partner", { count: draft.stats.excluded.partner })
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          action={
+            <div className="flex flex-wrap justify-center" style={{ gap: "var(--ts-space-md)" }}>
+              <Button onClick={() => setChangingDates(true)}>
+                {t("tripBuilder:review.empty.changeDates")}
+              </Button>
+              {ticked > 0 && (
+                <Button variant="primary" disabled={running} onClick={() => void session.submit()}>
+                  {draft.target.kind === "existing"
+                    ? t("tripBuilder:review.empty.flightsOnlyExisting", { count: ticked })
+                    : t("tripBuilder:review.empty.flightsOnlyNew", { count: ticked })}
+                </Button>
+              )}
+              <Button onClick={onBack}>{t("tripBuilder:review.empty.cancel")}</Button>
+            </div>
+          }
+        />
+      ) : (
+        body
+      )}
+
+      <ChangeDatesDialog
+        open={changingDates}
+        startDay={startDay}
+        endDay={endDay}
+        onClose={() => setChangingDates(false)}
+        onConfirm={(range) => {
+          setChangingDates(false);
+          void session.rescan(range);
+        }}
+      />
+    </div>
+  );
+}
 
 /**
- * The photo trip builder's page (`/trips/builder`, spec 2026-10-09 §G).
- *
- * The launcher in the create-trip popup lands here with `?job=<jobId>`. This
- * file starts as the route's landing page, a heading under the app shell; the
- * progress line, the review and the commit are built on it by the review-page
- * tasks.
+ * The review of a photo-built trip (spec §G): follows the scan, shows the draft
+ * for editing, and sends it. Nothing is written before the user presses the
+ * button; this page only ever reads and edits a draft in memory on the server.
  */
 export default function TripBuilderPage(): JSX.Element {
   const { t } = useTranslation(["tripBuilder"]);
+  const navigate = useNavigate();
+  const { confirm, confirmDialog } = useConfirmDialog();
+  const session = useBuilderSession();
+  const { phase, commit, state } = session;
+
+  const back = async (): Promise<void> => {
+    const unsaved = state !== null && state.edits.length > 0 && commit.kind !== "done";
+    if (unsaved) {
+      const leave = await confirm({
+        message: t("tripBuilder:review.leaveConfirm"),
+        confirmText: t("tripBuilder:review.leaveYes"),
+        destructive: true,
+      });
+      if (!leave) return;
+    }
+    session.leave();
+  };
+  const goBack = <Button onClick={() => session.leave()}>{t("tripBuilder:review.back")}</Button>;
+
+  // Every phase but the review itself sits under the page's own heading. The
+  // review draws a heading of its own (it carries the dates and the buttons),
+  // and a page has one h1.
+  let heading: JSX.Element | null = <PageHeader title={t("tripBuilder:page.title")} />;
+  let content: JSX.Element;
+  if (phase.kind === "scanning") {
+    const phaseName =
+      phase.progress === null ? undefined : TRIP_BUILDER_PHASES[phase.progress.done - 1];
+    content = (
+      <Message
+        kind="pending"
+        title={t("tripBuilder:review.scan.title")}
+        description={
+          phase.progress !== null && phaseName !== undefined
+            ? t("tripBuilder:review.scan.step", {
+                done: phase.progress.done,
+                total: phase.progress.total,
+                phase: t(PHASE_KEY[phaseName]),
+              })
+            : t("tripBuilder:review.scan.running")
+        }
+      />
+    );
+  } else if (phase.kind === "scanLost") {
+    content = <Message kind="degraded" title={t("tripBuilder:review.scan.lost")} action={goBack} />;
+  } else if (phase.kind === "scanFailed") {
+    content = (
+      <Message
+        kind="degraded"
+        title={t("tripBuilder:review.scan.failed")}
+        description={phase.message}
+        action={goBack}
+      />
+    );
+  } else if (phase.kind === "loading") {
+    content = <Message kind="pending" title={t("tripBuilder:review.loading")} />;
+  } else if (phase.kind === "expired") {
+    content = (
+      <Message
+        title={t("tripBuilder:review.expired.title")}
+        description={t(
+          phase.canScanAgain
+            ? "tripBuilder:review.expired.keeps"
+            : "tripBuilder:review.expired.startOver"
+        )}
+        action={
+          phase.canScanAgain ? (
+            <Button variant="primary" onClick={() => void session.scanAgain()}>
+              {t("tripBuilder:review.expired.scanAgain")}
+            </Button>
+          ) : (
+            goBack
+          )
+        }
+      />
+    );
+  } else if (phase.kind === "loadFailed") {
+    content = (
+      <Message kind="degraded" title={t("tripBuilder:review.loadFailed")} action={goBack} />
+    );
+  } else if (phase.kind === "empty") {
+    content = <Message title={t("tripBuilder:review.nothing")} action={goBack} />;
+  } else if (commit.kind === "done") {
+    content = (
+      <SuccessPanel
+        result={commit.result}
+        albumBusy={commit.album === "running"}
+        onRetryAlbum={() => void session.retryAlbum()}
+        onOpen={() => navigate(`/trips/${commit.result.tripId}`)}
+      />
+    );
+  } else if (commit.kind === "already") {
+    content = (
+      <Message
+        title={t("tripBuilder:review.already")}
+        action={
+          commit.tripId !== null ? (
+            <Button variant="primary" onClick={() => navigate(`/trips/${commit.tripId}`)}>
+              {t("tripBuilder:review.success.open")}
+            </Button>
+          ) : (
+            goBack
+          )
+        }
+      />
+    );
+  } else if (commit.kind === "unknown") {
+    content = (
+      <Message
+        kind="degraded"
+        title={t("tripBuilder:review.unknown")}
+        action={
+          <Button variant="primary" onClick={() => navigate("/trips")}>
+            {t("tripBuilder:review.unknownAction")}
+          </Button>
+        }
+      />
+    );
+  } else {
+    heading = null;
+    content = <ReviewScreen session={session} onBack={() => void back()} />;
+  }
+
   return (
-    <AppShell width="reading">
-      <PageHeader title={t("tripBuilder:page.title")} />
+    <AppShell width="table">
+      {heading}
+      {content}
+      {confirmDialog}
     </AppShell>
   );
 }
