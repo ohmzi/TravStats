@@ -3,11 +3,31 @@
  * the user lived on a day, how that home sits at either end of an area, and
  * whether an area is only the way back home.
  */
+import { machineInstant } from "../../shared/time/instant";
 import { zoneOfCoordinates } from "../../shared/time/resolveInput";
+import { addDays } from "../../shared/tour/builderNightPlan";
 import { periodAt, type HomePeriod } from "../../utils/homeAirport";
 import { distanceKm } from "../photoJourneys/cluster";
-import { HOME_RADIUS_KM } from "./thresholds";
-import type { CityCluster, Day, HomeAtDay } from "./types";
+import type { Coord } from "../tour/tourDistance";
+import { claimKey, stationKeyOf } from "./stations";
+import {
+  HOME_LEG_MAX_KM,
+  HOME_RADIUS_KM,
+  IMPLICIT_FLIGHT_MIN_KM,
+  IMPLICIT_FLIGHT_MIN_KMH,
+} from "./thresholds";
+import type {
+  AreaHome,
+  CityCluster,
+  Day,
+  GroundArea,
+  HomeAtDay,
+  HomeEnd,
+  NamedCluster,
+  PhotoPoint,
+  PlanStation,
+  ScanWindow,
+} from "./types";
 
 /**
  * The home on `day`, or null. A period with no residence (a migrated one whose
@@ -34,4 +54,157 @@ export function isHomeCluster(
   home: HomeAtDay | null
 ): boolean {
   return home !== null && distanceKm(cluster, home) <= HOME_RADIUS_KM;
+}
+
+/**
+ * Home legs count only at the edges of the window, give or take a day: an area
+ * that begins or ends in the middle of the trip (after an unrecorded flight)
+ * is not a journey from, or to, home.
+ */
+const EDGE_DAYS = 1;
+const HOUR_MS = 3_600_000;
+
+export interface AreaHomeInput {
+  window: ScanWindow;
+  area: GroundArea;
+  stations: readonly PlanStation[];
+  stationCluster: ReadonlyMap<string, string>;
+  clusters: ReadonlyMap<string, NamedCluster>;
+  photosById: ReadonlyMap<string, PhotoPoint>;
+  homeAt: (day: Day) => HomeAtDay | null;
+  homeAirportName: string | null;
+  taken: Set<string>;
+}
+
+type Side = "start" | "end";
+
+interface EndPlan {
+  end: HomeEnd;
+  stations: PlanStation[];
+  home: HomeAtDay | null;
+}
+
+/** "Kelmore, Westshire" → "Kelmore". */
+const townOf = (home: HomeAtDay): string => home.name.split(",")[0].trim() || home.name.trim();
+
+/** The first (start) or last (end) movement photo of the area that has a position. */
+function edgePhoto(input: AreaHomeInput, side: Side): (PhotoPoint & Coord) | null {
+  const ids = side === "start" ? input.area.photoIds : [...input.area.photoIds].reverse();
+  for (const id of ids) {
+    const photo = input.photosById.get(id);
+    if (photo && photo.lat !== null && photo.lon !== null) {
+      return { ...photo, lat: photo.lat, lon: photo.lon };
+    }
+  }
+  return null;
+}
+
+/** Hours between the photo and the window's edge on the home clock; null if no clock can say. */
+function hoursToEdge(
+  input: AreaHomeInput,
+  side: Side,
+  photo: PhotoPoint,
+  home: HomeAtDay
+): number | null {
+  const zone = home.zone ?? photo.zone;
+  const edgeDay = side === "start" ? input.window.startDay : addDays(input.window.endDay, 1);
+  const edge = machineInstant(`${edgeDay}T00:00:00`, zone);
+  if (edge === null) return null;
+  const ms = side === "start" ? photo.tMs - edge.getTime() : edge.getTime() - photo.tMs;
+  return ms / HOUR_MS;
+}
+
+/**
+ * Whether the photographs support driving from (or back to) home: the edge
+ * photo is within `HOME_LEG_MAX_KM` of the residence and the trip from home
+ * would not have taken a flight (400 km or more at 200 km/h or faster).
+ */
+function supportsHomeLeg(input: AreaHomeInput, side: Side, home: HomeAtDay): boolean {
+  const photo = edgePhoto(input, side);
+  if (photo === null) return false;
+  const km = distanceKm(photo, home);
+  if (km > HOME_LEG_MAX_KM) return false;
+  if (km < IMPLICIT_FLIGHT_MIN_KM) return true;
+  const hours = hoursToEdge(input, side, photo, home);
+  return hours !== null && hours > 0 && km / hours < IMPLICIT_FLIGHT_MIN_KMH;
+}
+
+function relabelAsHome(station: PlanStation, cluster: NamedCluster, home: HomeAtDay): PlanStation {
+  const city = cluster.immichCity?.trim();
+  return {
+    ...station,
+    kind: "home",
+    title: city || townOf(home),
+    titleSource: city ? "immich" : "home",
+  };
+}
+
+function addedHomeStation(input: AreaHomeInput, home: HomeAtDay, day: Day): PlanStation {
+  const title = !home.confirmed && input.homeAirportName ? input.homeAirportName : townOf(home);
+  return {
+    key: claimKey(stationKeyOf(home.lat, home.lon, day), input.taken),
+    title,
+    titleSource: "home",
+    kind: "home",
+    lat: home.lat,
+    lon: home.lon,
+    snappedKm: null,
+    firstDay: day,
+    lastDay: day,
+    firstLocal: null,
+    lastLocal: null,
+    photoCount: 0,
+    previewIdx: [],
+    notes: null,
+  };
+}
+
+function planEnd(input: AreaHomeInput, side: Side, stations: PlanStation[]): EndPlan {
+  const { window, area } = input;
+  const notOffered = { end: { offered: false, defaultOn: false }, stations, home: null };
+  const hasFlight = (side === "start" ? area.afterFlightId : area.beforeFlightId) !== null;
+  const atEdge =
+    side === "start"
+      ? area.startDay <= addDays(window.startDay, EDGE_DAYS)
+      : area.endDay >= addDays(window.endDay, -EDGE_DAYS);
+  const day = side === "start" ? window.startDay : window.endDay;
+  const home = input.homeAt(day);
+  if (hasFlight || !atEdge || home === null || stations.length === 0) return notOffered;
+
+  const index = side === "start" ? 0 : stations.length - 1;
+  const cluster = input.clusters.get(input.stationCluster.get(stations[index].key) ?? "");
+  if (cluster?.isHome) {
+    const relabelled = relabelAsHome(stations[index], cluster, home);
+    const relabelledList = stations.map((station, i) => (i === index ? relabelled : station));
+    return {
+      end: { offered: true, defaultOn: true, station: relabelled },
+      stations: relabelledList,
+      home,
+    };
+  }
+
+  const station = addedHomeStation(input, home, day);
+  const defaultOn = supportsHomeLeg(input, side, home);
+  const placed = side === "start" ? [station, ...stations] : [...stations, station];
+  return {
+    end: { offered: true, defaultOn, station },
+    stations: defaultOn ? placed : stations,
+    home,
+  };
+}
+
+/**
+ * The home legs of an area (decision 6): at an end with no flight and a home on
+ * that day, the area's own home cluster is relabelled `home`, or a Home pass
+ * station is added dated S or E. The switch starts on when the photos support
+ * it (`supportsHomeLeg`), and is offered but off otherwise; a switch that is on
+ * has its station in the returned list.
+ */
+export function planAreaHome(input: AreaHomeInput): { home: AreaHome; stations: PlanStation[] } {
+  const start = planEnd(input, "start", [...input.stations]);
+  const end = planEnd(input, "end", start.stations);
+  const unconfirmed = [start, end].some(
+    (plan) => plan.end.offered && plan.home !== null && !plan.home.confirmed
+  );
+  return { home: { start: start.end, end: end.end, unconfirmed }, stations: end.stations };
 }
