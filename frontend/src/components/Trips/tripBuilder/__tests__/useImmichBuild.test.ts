@@ -137,6 +137,48 @@ describe("useImmichBuild", () => {
       expect(result.current.options).toEqual({ inspect: true, createAlbum: true });
     });
 
+    it("takes back an album switch flipped on after a verdict that forbids albums", async () => {
+      mocks.capabilities.mockResolvedValue(
+        caps({ album: { canCreate: false, reason: "sharedConnection" } })
+      );
+      const { result } = renderHook(() => useImmichBuild(true, "2031-05-02", "2031-05-09"));
+      await waitFor(() => expect(result.current.check.phase).toBe("ready"));
+
+      act(() => result.current.flip("createAlbum", true));
+
+      expect(result.current.options).toEqual({ inspect: true, createAlbum: false });
+      expect(result.current.scanning).toBe(true);
+      expect(mocks.capabilities).toHaveBeenCalledTimes(1);
+    });
+
+    it("takes back every switch flipped on after a verdict that forbids inspecting", async () => {
+      mocks.capabilities.mockResolvedValue(
+        caps({ inspect: { ok: false, missingScopes: ["asset.read"] } })
+      );
+      const { result } = renderHook(() => useImmichBuild(true, "2031-05-02", "2031-05-09"));
+      await waitFor(() => expect(result.current.check.phase).toBe("ready"));
+      expect(result.current.options).toEqual({ inspect: false, createAlbum: false });
+
+      act(() => result.current.flip("inspect", true));
+      expect(result.current.options).toEqual({ inspect: false, createAlbum: false });
+
+      act(() => result.current.flip("createAlbum", true));
+      expect(result.current.options).toEqual({ inspect: false, createAlbum: false });
+      expect(result.current.scanning).toBe(false);
+    });
+
+    it("lets a switch the verdict allows go on and off after the verdict", async () => {
+      mocks.capabilities.mockResolvedValue(caps({}));
+      const { result } = renderHook(() => useImmichBuild(true, "2031-05-02", "2031-05-09"));
+      await waitFor(() => expect(result.current.check.phase).toBe("ready"));
+
+      act(() => result.current.flip("createAlbum", true));
+      expect(result.current.options).toEqual({ inspect: true, createAlbum: true });
+
+      act(() => result.current.flip("inspect", false));
+      expect(result.current.options).toEqual({ inspect: false, createAlbum: true });
+    });
+
     it("switches both off when the check itself fails", async () => {
       vi.spyOn(console, "warn").mockImplementation(() => undefined);
       mocks.capabilities.mockRejectedValue(new Error("offline"));

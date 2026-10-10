@@ -116,7 +116,10 @@ export function useImmichBuild(
   }, []);
 
   const flip = (key: keyof ImmichScanOptions, on: boolean): void => {
-    setOptions({ ...options, [key]: on });
+    const next = { ...options, [key]: on };
+    // A kept verdict is applied here too: `ask` returns early once it is `ready`,
+    // so no answer will arrive to take back a switch the account may not use.
+    setOptions(check.phase === "ready" ? allowed(check, next) : next);
     if (on) ask();
   };
 
