@@ -77,3 +77,12 @@ describe("TripHead country chips", () => {
     expect(rendered.map((c) => c.textContent)).toEqual(["Canada", "Pakistan"]);
   });
 });
+
+describe("TripHead re-sync entry", () => {
+  it("offers the re-sync of the trip beside edit and delete", () => {
+    const container = renderHead(["AE"]);
+    const link = container.querySelector('a[href="/trips/t1/resync"]');
+    expect(link).not.toBeNull();
+    expect(link?.textContent).toBe("tripBuilder:resync.action");
+  });
+});

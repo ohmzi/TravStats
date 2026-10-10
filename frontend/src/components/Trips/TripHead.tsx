@@ -8,6 +8,7 @@ import { FlagImg } from "../../lib/countryFlag";
 import { countryName } from "../../shared/geo/countryCode";
 import { statusPillStyle } from "../table/statusPillStyle";
 import Button from "../ui/Button";
+import ResyncFromImmich from "./tripBuilder/ResyncFromImmich";
 
 /** Trip status → the shared status palette (planned reads as scheduled). */
 const STATUS_TONE: Record<Trip["status"], string> = {
@@ -148,6 +149,7 @@ export default function TripHead({
           </div>
           <div className="flex shrink-0 flex-wrap" style={{ gap: "var(--ts-space-sm)" }}>
             <Button onClick={onEdit}>{t("common:buttons.edit")}</Button>
+            <ResyncFromImmich tripId={trip.id} />
             <Button variant="danger" onClick={onDelete}>
               {t("common:buttons.delete")}
             </Button>
