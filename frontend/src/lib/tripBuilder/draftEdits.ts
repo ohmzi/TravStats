@@ -36,6 +36,7 @@ import {
   setVehicle,
   togglePhotoJourney,
 } from "./editsBasic";
+import { assignNight, setAreaKind } from "./editsNights";
 import { fold, merge, remove, toggleHome, toggleSlept } from "./editsStructure";
 import { syncArea } from "./reviewRules";
 
@@ -160,6 +161,10 @@ export function applyEdit(
       return fold(draft, state, edit);
     case "toggleHome":
       return toggleHome(draft, state, edit);
+    case "assignNight":
+      return assignNight(draft, state, edit);
+    case "setAreaKind":
+      return setAreaKind(draft, state, edit);
     default:
       return state;
   }
