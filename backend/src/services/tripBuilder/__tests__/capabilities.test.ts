@@ -1,13 +1,20 @@
+// An unverifiable key is logged (kind only); keep the warning out of the test output.
+jest.mock("../../../utils/logger", () => ({
+  __esModule: true,
+  default: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+}));
 jest.mock("../../immich/immichClient", () => ({ createImmichClient: jest.fn() }));
 jest.mock("../../immich/immichResolver", () => ({ getImmichConnection: jest.fn() }));
 jest.mock("../../home/homeStore", () => ({ loadHomePeriods: jest.fn() }));
 jest.mock("../../domainVisibility", () => ({ loadVisibleDomains: jest.fn() }));
 jest.mock("../probe", () => ({ resolveRoadProbes: jest.fn() }));
 
+import logger from "../../../utils/logger";
 import { loadVisibleDomains } from "../../domainVisibility";
 import { loadHomePeriods } from "../../home/homeStore";
 import { createImmichClient } from "../../immich/immichClient";
 import { getImmichConnection } from "../../immich/immichResolver";
+import { ImmichError } from "../../immich/types";
 import { builderCapabilities } from "../capabilities";
 import { resolveRoadProbes } from "../probe";
 
@@ -105,6 +112,21 @@ describe("builderCapabilities", () => {
       canCreate: null,
       reason: "unverified",
     });
+  });
+
+  it("logs why a key could not be verified, with the error kind and no detail", async () => {
+    const warn = jest.mocked(logger.warn);
+    warn.mockClear();
+
+    getMyApiKey.mockRejectedValue(new ImmichError("unreachable", "Immich is unreachable"));
+    await builderCapabilities(USER);
+    getMyApiKey.mockRejectedValue(new Error("timeout"));
+    await builderCapabilities(USER);
+
+    expect(warn.mock.calls).toEqual([
+      [{ message: "immich_capability_check_failed", context: { kind: "unreachable" } }],
+      [{ message: "immich_capability_check_failed", context: { kind: "unexpected" } }],
+    ]);
   });
 
   it("reports roadtrips, routing and home", async () => {

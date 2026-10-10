@@ -12,26 +12,16 @@ import { loadVisibleDomains } from "../domainVisibility";
 import { loadHomePeriods } from "../home/homeStore";
 import {
   ALBUM_SCOPES,
-  CAPABILITY_TIMEOUT_MS,
   INSPECT_SCOPES,
+  readKeyScopes,
   scopesMissing,
 } from "../immich/immichCapabilities";
-import { createImmichClient } from "../immich/immichClient";
 import { getImmichConnection } from "../immich/immichResolver";
 import type { ImmichConnection } from "../immich/types";
 import { resolveRoadProbes } from "./probe";
 import type { CapabilitiesDto } from "./types";
 
 const UNKNOWN_INSPECT = { ok: null, missingScopes: [] as string[] };
-
-async function readPermissions(conn: ImmichConnection): Promise<string[] | null> {
-  try {
-    const key = await createImmichClient(conn, { timeoutMs: CAPABILITY_TIMEOUT_MS }).getMyApiKey();
-    return key ? key.permissions : null;
-  } catch {
-    return null;
-  }
-}
 
 async function immichCapabilities(
   conn: ImmichConnection | null
@@ -52,7 +42,9 @@ async function immichCapabilities(
       album: { canCreate: false, reason: "sharedConnection" },
     };
   }
-  const permissions = await readPermissions(conn);
+  // Past the source gate the key is the caller's own, which is what
+  // `readKeyScopes` assumes; it logs why a key could not be verified.
+  const permissions = await readKeyScopes(conn.baseUrl, conn.apiKey);
   if (permissions === null) {
     return {
       configured: true,
