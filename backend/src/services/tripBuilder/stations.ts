@@ -8,9 +8,10 @@
  * A repeat of a key gets `~2`, `~3` … from one `taken` set per scan.
  */
 import { medianPoint } from "./medians";
-import { PREVIEWS_PER_STATION, STATION_KEY_GRID_DEG } from "./thresholds";
+import { MAX_PREVIEWS, PREVIEWS_PER_STATION, STATION_KEY_GRID_DEG } from "./thresholds";
 import { NIGHT_HOME } from "./types";
 import type {
+  AreaPlan,
   Day,
   DraftStation,
   NamedCluster,
@@ -194,4 +195,43 @@ export function buildStations(input: BuildStationsInput): StationBuild {
   }
 
   return { stations, photoStation, stationCluster, spanMs, previewPhotoIds, passedThrough };
+}
+
+/**
+ * The draft's thumbnail list and each station's indexes into it. Thumbnails are
+ * dealt out one rank at a time across every station, so when the list reaches
+ * `max` every station has already had its favourites; a photo shared by two
+ * stations is listed once.
+ */
+export function indexPreviews(
+  areas: ReadonlyArray<Pick<AreaPlan, "stations" | "previewPhotoIds">>,
+  max: number = MAX_PREVIEWS
+): { previewAssetIds: string[]; previewIdx: Map<string, number[]> } {
+  const rows = areas.flatMap((area) =>
+    area.stations.map((station) => ({
+      key: station.key,
+      ids: area.previewPhotoIds.get(station.key) ?? [],
+    }))
+  );
+  const previewAssetIds: string[] = [];
+  const indexOfAsset = new Map<string, number>();
+  const previewIdx = new Map<string, number[]>(
+    rows.map((row): [string, number[]] => [row.key, []])
+  );
+
+  const deepest = rows.reduce((depth, row) => Math.max(depth, row.ids.length), 0);
+  for (let rank = 0; rank < deepest; rank++) {
+    for (const row of rows) {
+      const id = row.ids[rank];
+      if (id === undefined) continue;
+      let index = indexOfAsset.get(id);
+      if (index === undefined) {
+        if (previewAssetIds.length >= max) continue;
+        index = previewAssetIds.push(id) - 1;
+        indexOfAsset.set(id, index);
+      }
+      previewIdx.get(row.key)?.push(index);
+    }
+  }
+  return { previewAssetIds, previewIdx };
 }
