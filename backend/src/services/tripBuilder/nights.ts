@@ -22,6 +22,8 @@ import {
   NIGHT_UNKNOWN,
   nightsOf,
 } from "../../shared/tour/builderNightPlan";
+import { distanceKm } from "../photoJourneys/cluster";
+import { HOME_RADIUS_KM, NIGHT_BOUNDARY_H } from "./thresholds";
 import type {
   AreaPlan,
   Day,
@@ -185,6 +187,57 @@ const ruleFlight: NightRule = (ctx, night) => {
   return airborne ? entry(NIGHT_FLIGHT, "flight") : null;
 };
 
+/** "HH:MM", or the end of a `YYYY-MM-DD HH:MM` clock, as minutes after midnight. */
+function minutesOf(clock: string): number {
+  const hhmm = clock.slice(-5);
+  return Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+}
+
+/** The flight that landed last in `night` (04:00 boundary), by the clock at its destination. */
+function latestLanding(anchors: readonly FlightAnchor[], night: Day): FlightAnchor | null {
+  let latest: { anchor: FlightAnchor; at: string } | null = null;
+  for (const anchor of anchors) {
+    const { arrDay, arrClock } = flightEnds(anchor);
+    const afterMidnight = arrClock !== null && minutesOf(arrClock) < NIGHT_BOUNDARY_H * 60;
+    if ((afterMidnight ? addDays(arrDay, -1) : arrDay) !== night) continue;
+    // A landing with no clock is taken to be the day's last.
+    const at = `${arrDay} ${arrClock ?? "23:59"}`;
+    if (latest === null || at > latest.at) latest = { anchor, at };
+  }
+  return latest === null ? null : latest.anchor;
+}
+
+/**
+ * 2. A flight landed in this night after P, or there is no P: the night is
+ * spent where it landed. That is home when the airport is within 30 km of the
+ * residence, else the first station of the area the flight opens (its first
+ * day is pulled back to this night), else unknown. A photo taken after the
+ * landing, in that area, is the night's own evidence and this rule steps aside.
+ */
+const ruleAfterLanding: NightRule = (ctx, night) => {
+  const landing = latestLanding(ctx.input.anchors, night);
+  if (landing === null) return null;
+  const arrivalArea = ctx.input.areas.find((a) => a.area.afterFlightId === landing.id);
+  const last = ctx.lastByNight.get(night);
+  if (arrivalArea !== undefined && last !== undefined) {
+    if (ctx.areaOfPhoto.get(last.id) === arrivalArea) return null;
+  }
+
+  const home = ctx.input.homeAt(night);
+  if (home !== null && distanceKm(landing.arr, home) <= HOME_RADIUS_KM) {
+    return entry(NIGHT_HOME, "afterLanding");
+  }
+  // An airport or home station at the area's start is not where the traveller slept.
+  const first = arrivalArea?.stations.find((s) => s.kind === "visit" || s.kind === "brief");
+  if (arrivalArea !== undefined && first !== undefined) {
+    if (first.firstDay > night) {
+      ctx.pulls.push({ areaKey: arrivalArea.key, stationKey: first.key, firstDay: night });
+    }
+    return entry(first.key, "afterLanding");
+  }
+  return unknownEntry(ctx, night);
+};
+
 /** 3. No photo at all on this night: unknown, with the stations either side as suggestions. */
 const ruleUnknown: NightRule = (ctx, night) =>
   ctx.lastByNight.has(night) ? null : unknownEntry(ctx, night);
@@ -205,7 +258,11 @@ export function attributeNights(input: NightInputs): NightAttribution {
   const ctx = buildContext(input);
   const nights: Record<Day, NightEntry> = {};
   for (const night of nightsOf(input.window)) {
-    nights[night] = ruleFlight(ctx, night) ?? ruleUnknown(ctx, night) ?? ruleLastPhoto(ctx, night);
+    nights[night] =
+      ruleFlight(ctx, night) ??
+      ruleAfterLanding(ctx, night) ??
+      ruleUnknown(ctx, night) ??
+      ruleLastPhoto(ctx, night);
   }
   return { nights, pulls: ctx.pulls };
 }
