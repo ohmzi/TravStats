@@ -18,18 +18,25 @@ import {
   DELAY_CORRIDOR_H,
   DEPARTURE_GRACE_KM,
   DEPARTURE_GRACE_MIN,
+  IMPLICIT_FLIGHT_MIN_KM,
+  IMPLICIT_FLIGHT_MIN_KMH,
   LAYOVER_MAX_H,
   LAYOVER_RADIUS_KM,
 } from "./thresholds";
 import type {
+  AreaSegments,
   AreaSplit,
+  CityCluster,
   FlightAnchor,
   FlightSide,
   GroundArea,
+  ImplicitGap,
+  ImplicitSplit,
   InFlightClass,
   InFlightRule,
   Layover,
   PhotoPoint,
+  RawSegment,
 } from "./types";
 
 const MINUTE_MS = 60_000;
@@ -388,4 +395,81 @@ export function splitIntoAreas(
     }
   }
   return { areas, layovers };
+}
+
+/**
+ * Consecutive segments no ground travel explains: at least IMPLICIT_FLIGHT_MIN_KM apart and
+ * reached at IMPLICIT_FLIGHT_MIN_KMH or faster, measured from the last photo of one to the first
+ * of the next. A gap under a minute counts as a minute, so the speed stays finite.
+ */
+function implicitGap(
+  from: RawSegment,
+  to: RawSegment,
+  clusters: ReadonlyMap<string, CityCluster>
+): ImplicitGap | null {
+  const origin = clusters.get(from.clusterId);
+  const target = clusters.get(to.clusterId);
+  if (!origin || !target) return null;
+  const km = distanceKm(origin, target);
+  if (km < IMPLICIT_FLIGHT_MIN_KM) return null;
+  const kmh = km / (Math.max(to.startMs - from.endMs, MINUTE_MS) / HOUR_MS);
+  if (kmh < IMPLICIT_FLIGHT_MIN_KMH) return null;
+  return {
+    fromDay: from.lastDay,
+    toDay: to.firstDay,
+    from: { lat: origin.lat, lon: origin.lon },
+    to: { lat: target.lat, lon: target.lon },
+    km,
+    kmh,
+  };
+}
+
+/** The ground area of one run of segments; only the outer ends keep the original area's flights. */
+function areaOfRun(
+  area: GroundArea,
+  run: readonly RawSegment[],
+  isFirst: boolean,
+  isLast: boolean
+): GroundArea {
+  const head = run[0];
+  const tail = run[run.length - 1];
+  return {
+    photoIds: run.flatMap((segment) => segment.photoIds),
+    seaPhotoIds: area.seaPhotoIds,
+    afterFlightId: isFirst ? area.afterFlightId : null,
+    beforeFlightId: isLast ? area.beforeFlightId : null,
+    startMs: head.startMs,
+    endMs: tail.endMs,
+    startDay: head.firstDay,
+    endDay: tail.lastDay,
+  };
+}
+
+/**
+ * Splits an area where no recorded flight explains the jump between two of its consecutive
+ * segments. Each jump is returned as an `ImplicitGap` (the builder turns it into a
+ * `possibleUnrecordedFlight` warning); an area with no jump comes back unchanged. Every part
+ * keeps the area's `seaPhotoIds`: they are ferry evidence, which the consumers read by time.
+ */
+export function splitImplicitFlights(
+  part: AreaSegments,
+  clusters: ReadonlyMap<string, CityCluster>
+): ImplicitSplit {
+  const runs: RawSegment[][] = [];
+  const gaps: ImplicitGap[] = [];
+  for (const segment of part.segments) {
+    const run = runs[runs.length - 1];
+    const gap = run ? implicitGap(run[run.length - 1], segment, clusters) : null;
+    if (gap) gaps.push(gap);
+    if (run && !gap) run.push(segment);
+    else runs.push([segment]);
+  }
+  if (gaps.length === 0) return { parts: [part], gaps };
+  return {
+    parts: runs.map((run, index) => ({
+      area: areaOfRun(part.area, run, index === 0, index === runs.length - 1),
+      segments: run,
+    })),
+    gaps,
+  };
 }
