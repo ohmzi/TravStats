@@ -203,6 +203,18 @@ function ReviewScreen({
   const slept = sleptKeys(state);
   const answers = effectiveNights(state);
   const running = commit.kind === "running";
+  // While a commit is in flight its key belongs to this draft: scanning again
+  // would hand the key to another draft (and so a second trip), and leaving would
+  // hide what the commit did. Every way out of the review waits for the answer.
+  const openDates = (): void => {
+    if (!running) setChangingDates(true);
+  };
+  const rescan = (range: Parameters<BuilderSession["rescan"]>[0]): void => {
+    if (!running) void session.rescan(range);
+  };
+  const cancel = (): void => {
+    if (!running) onBack();
+  };
   const emptyWindow = draft.stats.assets === 0;
   const ticked = draft.flights.filter((f) => !f.locked && state.flightTicks[f.id]).length;
   const roadtripsHidden = draft.warnings.some((w) => w.code === "roadtripsHidden");
@@ -270,11 +282,7 @@ function ReviewScreen({
         }
       />
       <ReviewExcluded excluded={draft.stats.excluded} />
-      <ReviewWarnings
-        warnings={draft.warnings}
-        window={draft.window}
-        onExtend={(range) => void session.rescan(range)}
-      />
+      <ReviewWarnings warnings={draft.warnings} window={draft.window} onExtend={rescan} />
     </div>
   );
 
@@ -325,7 +333,7 @@ function ReviewScreen({
         carried={session.carried}
         onTripName={(name) => edit({ type: "setTripName", name })}
         onCountries={(countries) => edit({ type: "setCountries", countries })}
-        onChangeDates={() => setChangingDates(true)}
+        onChangeDates={openDates}
       />
 
       {problems.length > 0 && (
@@ -362,7 +370,7 @@ function ReviewScreen({
             .join(" ")}
           action={
             <div className="flex flex-wrap justify-center" style={{ gap: "var(--ts-space-md)" }}>
-              <Button onClick={() => setChangingDates(true)}>
+              <Button disabled={running} onClick={openDates}>
                 {t("tripBuilder:review.empty.changeDates")}
               </Button>
               {ticked > 0 && (
@@ -372,7 +380,9 @@ function ReviewScreen({
                     : t("tripBuilder:review.empty.flightsOnlyNew", { count: ticked })}
                 </Button>
               )}
-              <Button onClick={onBack}>{t("tripBuilder:review.empty.cancel")}</Button>
+              <Button disabled={running} onClick={cancel}>
+                {t("tripBuilder:review.empty.cancel")}
+              </Button>
             </div>
           }
         />
@@ -387,7 +397,7 @@ function ReviewScreen({
         onClose={() => setChangingDates(false)}
         onConfirm={(range) => {
           setChangingDates(false);
-          void session.rescan(range);
+          rescan(range);
         }}
       />
     </div>

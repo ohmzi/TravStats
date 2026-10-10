@@ -564,6 +564,69 @@ describe("saving", () => {
   });
 });
 
+describe("while the trip is being saved", () => {
+  // The commit key belongs to this draft: a re-scan would hand it to another draft
+  // (a second trip), and leaving would hide what the commit in flight did.
+  beforeEach(() => {
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+    mocks.waitForJob.mockReturnValue(new Promise(() => undefined));
+  });
+
+  const nothingButFlights = () =>
+    reviewDraft({
+      stats: { ...reviewDraft().stats, assets: 0, located: 0 },
+      areas: [],
+      days: [],
+      nights: {},
+      album: null,
+    });
+
+  it("leaves every way out of an empty window alone until the commit is answered", async () => {
+    await renderDraft(nothingButFlights());
+    fireEvent.click(screen.getByRole("button", { name: /flightsOnlyNew/ }));
+    await screen.findByText("tripBuilder:review.saving");
+
+    const cancel = screen.getByRole("button", { name: "tripBuilder:review.empty.cancel" });
+    const changeHere = screen.getByRole("button", {
+      name: "tripBuilder:review.empty.changeDates",
+    });
+    expect(cancel).toBeDisabled();
+    expect(changeHere).toBeDisabled();
+    fireEvent.click(cancel);
+    fireEvent.click(changeHere);
+    fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.header.changeDates" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mocks.scan).not.toHaveBeenCalled();
+    expect(mocks.discardDraft).not.toHaveBeenCalled();
+    expect(mocks.confirm).not.toHaveBeenCalled();
+    expect(where()).toBe(`/trips/builder?draft=${DRAFT_ID}`);
+  });
+
+  it("does not scan again for the dates a warning suggests", async () => {
+    await renderDraft(
+      reviewDraft({
+        warnings: [
+          {
+            code: "flightOutsideDates",
+            params: { flightId: FLIGHT_OUT, suggestStartDay: "2031-05-01" },
+          },
+        ],
+      })
+    );
+    fireEvent.click(createButton());
+    await screen.findByText("tripBuilder:review.saving");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: 'tripBuilder:warnings.extendStart {"day":"01.05.2031"}' })
+    );
+
+    expect(mocks.scan).not.toHaveBeenCalled();
+    expect(mocks.discardDraft).not.toHaveBeenCalled();
+    expect(where()).toBe(`/trips/builder?draft=${DRAFT_ID}`);
+  });
+});
+
 describe("a window with nothing in it", () => {
   const nothing = (partner = 0) =>
     reviewDraft({
