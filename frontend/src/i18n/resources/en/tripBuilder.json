@@ -50,7 +50,298 @@
   },
   "errors": {
     "commit": {
-      "tripChanged": "This trip changed since the scan. Scan again — your edits are kept."
+      "tripChanged": "This trip changed since the scan. Scan again — your edits are kept.",
+      "alreadyCommitted": "This trip was already created.",
+      "draftExpired": "This draft has expired. Scan again; your edits are kept.",
+      "draftMismatch": "The draft no longer matches what was sent. Reload the page and try again.",
+      "failed": "The trip could not be created and nothing was saved. Try again.",
+      "inProgress": "A save is already running for this draft.",
+      "nightPlanInvalid": "The nights do not add up. Check the night fields and try again.",
+      "roadtripsHidden": "Roadtrips are switched off. Save the areas as timeline stops, or turn roadtrips on in Settings.",
+      "stationsInvalid": "A roadtrip needs at least two valid stops. Check the areas and try again.",
+      "windowChanged": "The dates changed since the scan. Scan again."
+    },
+    "album": {
+      "retryFailed": "The album could not be completed. Try again in a moment."
+    },
+    "rateLimitedMinutes_one": "Too many scans. Try again in {{count}} minute.",
+    "rateLimitedMinutes_other": "Too many scans. Try again in {{count}} minutes.",
+    "scan": {
+      "failed": "The scan failed.",
+      "immich_auth": "Immich refused the key. Check it in Settings.",
+      "immich_invalid_url": "The Immich address is not valid. Check it in Settings.",
+      "immich_not_found": "Immich did not find what was asked for.",
+      "immich_protocol": "Immich answered in a way TravStats does not understand.",
+      "immich_unreachable": "Immich could not be reached.",
+      "invalid": "These dates cannot be scanned.",
+      "notConfigured": "Immich is not set up. Add the server and a key in Settings."
+    }
+  },
+  "editBuild": {
+    "button": "Build from Immich photos…",
+    "unsaved": "Save your changes first. The scan uses the saved trip.",
+    "noDates": "Give the trip a start and an end date first.",
+    "reversed": "The trip ends before it starts.",
+    "tooLong": "A scan covers at most 62 days."
+  },
+  "progress": {
+    "fetch": "Fetching photos",
+    "clean": "Cleaning up",
+    "flights": "Matching flights",
+    "movement": "Finding where you went",
+    "names": "Naming places",
+    "roads": "Checking roads",
+    "nights": "Placing nights"
+  },
+  "warnings": {
+    "albumLinkedElsewhere": "This album is linked to another trip.",
+    "cannotSnap": "Your routing service cannot place stops on the road or tell ferries from roads, so ferries come from photos taken at sea.",
+    "emptyWindow": "There are no photos in this window.",
+    "extendEnd": "End on {{day}}",
+    "extendStart": "Start on {{day}}",
+    "flightOutsideDates": "A flight just outside these dates may belong to the trip.",
+    "homeUnconfirmed": "Your home location is not confirmed. Confirm it in Settings.",
+    "movementOutsideDates": "Photos on {{day}} were taken {{km}} km from home and join the first or last area of this trip.",
+    "noLocatedPhotos": "None of the photos has a location, so there is no route. The album is still made.",
+    "noRoadData_one": "{{count}} stop has no road data here and stays where it was photographed.",
+    "noRoadData_other": "{{count}} stops have no road data here and stay where they were photographed.",
+    "noRouting": "No routing service is set up, so legs stay straight lines.",
+    "overlappingTrip": "“{{name}}” ({{start}} – {{end}}) overlaps these dates.",
+    "pendingPhotoJourneys_one": "{{count}} photo suggestion covers these dates.",
+    "pendingPhotoJourneys_other": "{{count}} photo suggestions cover these dates.",
+    "possibleUnrecordedFlight": "Between {{from}} and {{to}} you moved far and fast, but no flight is logged ({{fromAirport}} and {{toAirport}} are the nearest airports).",
+    "roadtripsHidden": "Roadtrips are switched off, so areas are saved as timeline stops. Turn them on in Settings › Beta.",
+    "suspiciouslyLong": "That trip lasts over 60 days. Check its dates; a typo in the year would swallow this one.",
+    "truncated": "Your library has more photos than one scan reads, so the later ones are missing. Scan a shorter window."
+  },
+  "review": {
+    "addToTrip": "Add to trip",
+    "already": "This trip was already created.",
+    "album": {
+      "blocked": {
+        "missingScopes": "Your Immich key lacks permissions: {{scopes}}.",
+        "notConfigured": "Immich is not set up.",
+        "sharedConnection": "Albums can only be made with your own Immich key, not a shared one.",
+        "unverified": "The key's permissions could not be checked, so creating the album might fail."
+      },
+      "counts_one": "{{count}} photo ({{images}} images, {{videos}} videos)",
+      "counts_other": "{{count}} photos ({{images}} images, {{videos}} videos)",
+      "create": "Create an album with these photos",
+      "empty": "There are no photos, so no album is made.",
+      "existing_one": "Adds to your album “{{name}}” ({{count}} photo already in it)",
+      "existing_other": "Adds to your album “{{name}}” ({{count}} photos already in it)",
+      "linkedElsewhere": "This album is already linked to the trip “{{trip}}”.",
+      "name": "Album name",
+      "title": "Immich album"
+    },
+    "area": {
+      "afterFlight": "After the flight {{flight}}",
+      "homeEnd": "Ends at home",
+      "homeStart": "Starts at home",
+      "homeUnconfirmed": "Home location not confirmed — confirm it in Settings",
+      "kind": "Save as",
+      "kinds": {
+        "roadtrip": "Roadtrip",
+        "skip": "Don't save",
+        "stops": "Timeline stops"
+      },
+      "name": "Roadtrip name",
+      "skipped": "This area is not saved.",
+      "summary": "{{stations}} stops · {{nights}} nights",
+      "title": "Area {{n}}",
+      "vehicle": "Vehicle",
+      "vehicles": {
+        "bicycle": "Bicycle",
+        "campervan": "Campervan",
+        "car": "Car",
+        "caravan": "Caravan",
+        "motorcycle": "Motorcycle",
+        "motorhome": "Motorhome",
+        "other": "Other"
+      }
+    },
+    "back": "← Back",
+    "blocked": {
+      "connectionChanged": "Your Immich connection changed since the scan. Nothing was saved.",
+      "fixKey": "Fix the key ↗",
+      "missingScopes": "Your Immich key lacks permissions ({{scopes}}). Nothing was saved.",
+      "saveWithoutAlbum": "Save the trip without the album",
+      "sharedConnection": "Immich is connected with a shared key, and albums can only be made with your own. Nothing was saved.",
+      "unreachable": "Immich could not be reached. Nothing was saved."
+    },
+    "createTrip": "Create trip",
+    "dates": {
+      "cancel": "Cancel",
+      "end": "Last day",
+      "hint": "The photos are scanned again for the new dates and your edits are carried over. At most {{days}} days.",
+      "incomplete": "Pick both days.",
+      "reversed": "The last day is before the first.",
+      "scanAgain": "Scan again",
+      "start": "First day",
+      "title": "Change the dates",
+      "tooLong": "A scan covers at most {{days}} days."
+    },
+    "day": {
+      "continuesAt": "Photos at {{places}}",
+      "flight": "Flight {{label}}",
+      "noPhotos": "No photos",
+      "passedThrough": "Passed through {{title}} at {{time}}",
+      "photos": "{{photos}} photos, {{located}} with a place"
+    },
+    "empty": {
+      "cancel": "Cancel",
+      "changeDates": "Change dates",
+      "checked": "Checked {{from}} to {{to}}, three days either side.",
+      "flightsOnlyExisting_one": "Add the {{count}} flight to the trip",
+      "flightsOnlyExisting_other": "Add the {{count}} flights to the trip",
+      "flightsOnlyNew_one": "Create the trip with the {{count}} flight only",
+      "flightsOnlyNew_other": "Create the trip with the {{count}} flights only",
+      "noPhotos": "No photos from {{from}} to {{to}} in your Immich library",
+      "partner_one": "{{count}} photo from a partner library was left out.",
+      "partner_other": "{{count}} photos from a partner library were left out."
+    },
+    "excluded": {
+      "atSea_one": "{{count}} photo taken at sea",
+      "atSea_other": "{{count}} photos taken at sea",
+      "dayGuessed_one": "{{count}} photo whose day was guessed",
+      "dayGuessed_other": "{{count}} photos whose day was guessed",
+      "hiddenLivePart_one": "{{count}} hidden half of a live photo",
+      "hiddenLivePart_other": "{{count}} hidden halves of live photos",
+      "hint": "Your own photos stay in the album",
+      "inFlight_one": "{{count}} photo taken in flight",
+      "inFlight_other": "{{count}} photos taken in flight",
+      "misdated_one": "{{count}} photo with the wrong date",
+      "misdated_other": "{{count}} photos with the wrong date",
+      "partner_one": "{{count}} photo from a partner library",
+      "partner_other": "{{count}} photos from a partner library",
+      "title": "Left out of the route",
+      "unlocated_one": "{{count}} photo without a location",
+      "unlocated_other": "{{count}} photos without a location"
+    },
+    "expired": {
+      "keeps": "Scanning again keeps your edits.",
+      "scanAgain": "Scan again",
+      "startOver": "Start the scan again from the trip.",
+      "title": "This draft has expired"
+    },
+    "flights": {
+      "approximate": "Times approximate",
+      "currentTrip": "currently in {{trip}}",
+      "hint": "Tick the ones that belong to this trip",
+      "layover_one": "{{count}} photo during a layover at {{airport}}",
+      "layover_other": "{{count}} photos during a layover at {{airport}}",
+      "locked": "Already on this trip",
+      "title": "Flights"
+    },
+    "header": {
+      "addCountry": "Add a country",
+      "addCountryPlaceholder": "e.g. NZ",
+      "carried": "Kept {{kept}} of {{total}} of your edits.",
+      "changeDates": "Change dates…",
+      "existingTrip": "Updating this trip",
+      "name": "Trip name",
+      "removeCountry": "Remove {{code}}",
+      "unknownNights_one": "{{count}} night still open",
+      "unknownNights_other": "{{count}} nights still open"
+    },
+    "journeys": {
+      "hint": "Marked as handled when the trip is created",
+      "item": "Photos from {{start}} to {{end}}",
+      "title": "Photo suggestions"
+    },
+    "leaveConfirm": "Leave without saving? Your edits and this draft are discarded.",
+    "leaveYes": "Leave",
+    "leg": {
+      "between": "{{from}} to {{to}}",
+      "chord": "{{km}} km in a straight line",
+      "evidence": {
+        "chip": "The line crosses water",
+        "router": "The router found a ferry",
+        "seaPhotos": "Photos taken at sea"
+      },
+      "ferry": "Ferry",
+      "mode": "How you travelled",
+      "road": "Road",
+      "routed": "{{km}} km by road"
+    },
+    "loadFailed": "The draft could not be loaded.",
+    "loading": "Loading the draft…",
+    "map": {
+      "empty": "No stops to show.",
+      "loading": "Loading the map…",
+      "title": "Route preview"
+    },
+    "meta": "{{from}} – {{to}} · {{assets}} photos",
+    "night": {
+      "choose": "Where did you sleep on {{date}}?",
+      "flight": "Night of {{date}}: in the air",
+      "home": "At home",
+      "label": "Night of {{date}}",
+      "suggested": "{{title}} (suggested)",
+      "unknown": "Don't know yet",
+      "unknownHint": "No photo says where you slept. Pick a place."
+    },
+    "nothing": "There is nothing to review here. Start from a trip.",
+    "otherNights": "Other nights",
+    "problems": {
+      "blankTripName": "Give the trip a name.",
+      "nightPlanInvalid": "The nights do not add up.",
+      "roadtripTooShort": "{{name}} needs at least two stops to be a roadtrip. Add stops, or save it as timeline stops."
+    },
+    "reset": "Discard my edits",
+    "saving": "Saving…",
+    "scan": {
+      "failed": "The scan failed.",
+      "lost": "Scan interrupted. Nothing was saved. Start the scan again.",
+      "running": "Working…",
+      "step": "Step {{done}} of {{total}} · {{phase}}",
+      "title": "Scanning your photos"
+    },
+    "station": {
+      "delete": "Remove stop",
+      "fold": "Fold day trip back in",
+      "kind": {
+        "airport": "Airport",
+        "brief": "Short stop",
+        "dayTrip": "Day trip",
+        "home": "Home"
+      },
+      "merge": "Join with the next stop",
+      "name": "Name",
+      "note": "Note",
+      "photos_one": "{{count}} photo",
+      "photos_other": "{{count}} photos",
+      "slept": "Slept here",
+      "sleptNone": "No unknown night is near this stop. Answer the nights between the days instead.",
+      "snapped": "Moved {{km}} km onto the road"
+    },
+    "success": {
+      "albumAdded": "album: {{added}} added ({{already}} already in)",
+      "albumFailed": "The album could not be completed. The trip itself was saved.",
+      "created": "Trip created",
+      "flights_one": "{{count}} flight",
+      "flights_other": "{{count}} flights",
+      "legsStraight_one": "{{count}} leg a straight line",
+      "legsStraight_other": "{{count}} legs straight lines",
+      "nights_one": "{{count}} night",
+      "nights_other": "{{count}} nights",
+      "noRouting": "No routing service answered, so the legs are straight lines.",
+      "open": "Open trip",
+      "retryAlbum": "Retry the album",
+      "stations_one": "{{count}} stop",
+      "stations_other": "{{count}} stops",
+      "stops_one": "{{count}} timeline stop",
+      "stops_other": "{{count}} timeline stops",
+      "unknownNights_one": "{{count}} unknown night",
+      "unknownNights_other": "{{count}} unknown nights",
+      "updated": "Trip updated"
+    },
+    "titleExisting": "Update your trip",
+    "titleNew": "Review your trip",
+    "unknown": "Outcome unknown. Check your trips to see whether it was created.",
+    "unknownAction": "Open my trips",
+    "warnings": {
+      "title": "Worth knowing"
     }
   }
 }

@@ -50,7 +50,298 @@
   },
   "errors": {
     "commit": {
-      "tripChanged": "Die Reise hat sich seit dem Scan geändert. Scanne noch einmal; deine Änderungen bleiben erhalten."
+      "tripChanged": "Die Reise hat sich seit dem Scan geändert. Scanne noch einmal; deine Änderungen bleiben erhalten.",
+      "alreadyCommitted": "Diese Reise wurde schon angelegt.",
+      "draftExpired": "Dieser Entwurf ist abgelaufen. Scanne erneut, deine Änderungen bleiben erhalten.",
+      "draftMismatch": "Der Entwurf passt nicht mehr zu dem, was gesendet wurde. Lade die Seite neu und versuch es erneut.",
+      "failed": "Die Reise konnte nicht angelegt werden, es wurde nichts gespeichert. Versuch es erneut.",
+      "inProgress": "Für diesen Entwurf läuft bereits ein Speichervorgang.",
+      "nightPlanInvalid": "Die Nächte passen nicht zusammen. Prüfe die Nacht-Felder und versuch es erneut.",
+      "roadtripsHidden": "Roadtrips sind ausgeschaltet. Speichere die Gebiete als Zeitleisten-Stopps oder schalte Roadtrips in den Einstellungen ein.",
+      "stationsInvalid": "Ein Roadtrip braucht mindestens zwei gültige Stopps. Prüfe die Gebiete und versuch es erneut.",
+      "windowChanged": "Die Daten haben sich seit dem Scan geändert. Scanne erneut."
+    },
+    "album": {
+      "retryFailed": "Das Album konnte nicht fertiggestellt werden. Versuch es gleich noch einmal."
+    },
+    "rateLimitedMinutes_one": "Zu viele Scans. Versuch es in {{count}} Minute erneut.",
+    "rateLimitedMinutes_other": "Zu viele Scans. Versuch es in {{count}} Minuten erneut.",
+    "scan": {
+      "failed": "Der Scan ist fehlgeschlagen.",
+      "immich_auth": "Immich hat den Schlüssel abgelehnt. Prüfe ihn in den Einstellungen.",
+      "immich_invalid_url": "Die Immich-Adresse ist ungültig. Prüfe sie in den Einstellungen.",
+      "immich_not_found": "Immich hat das Angefragte nicht gefunden.",
+      "immich_protocol": "Immich hat auf eine Weise geantwortet, die TravStats nicht versteht.",
+      "immich_unreachable": "Immich ist nicht erreichbar.",
+      "invalid": "Diese Daten lassen sich nicht scannen.",
+      "notConfigured": "Immich ist nicht eingerichtet. Trage Server und Schlüssel in den Einstellungen ein."
+    }
+  },
+  "editBuild": {
+    "button": "Aus Immich-Fotos aufbauen…",
+    "unsaved": "Speichere zuerst deine Änderungen. Der Scan nutzt die gespeicherte Reise.",
+    "noDates": "Gib der Reise zuerst ein Start- und ein Enddatum.",
+    "reversed": "Die Reise endet, bevor sie beginnt.",
+    "tooLong": "Ein Scan deckt höchstens 62 Tage ab."
+  },
+  "progress": {
+    "fetch": "Fotos laden",
+    "clean": "Aufräumen",
+    "flights": "Flüge zuordnen",
+    "movement": "Stationen finden",
+    "names": "Orte benennen",
+    "roads": "Straßen prüfen",
+    "nights": "Nächte zuordnen"
+  },
+  "warnings": {
+    "albumLinkedElsewhere": "Dieses Album ist mit einer anderen Reise verknüpft.",
+    "cannotSnap": "Dein Routing-Dienst kann Stopps nicht auf die Straße legen und Fähren nicht von Straßen unterscheiden, deshalb ergeben sich Fähren aus Fotos auf dem Wasser.",
+    "emptyWindow": "In diesem Zeitraum gibt es keine Fotos.",
+    "extendEnd": "Am {{day}} enden",
+    "extendStart": "Am {{day}} beginnen",
+    "flightOutsideDates": "Ein Flug knapp außerhalb dieser Daten gehört vielleicht zur Reise.",
+    "homeUnconfirmed": "Dein Wohnort ist nicht bestätigt. Bestätige ihn in den Einstellungen.",
+    "movementOutsideDates": "Fotos vom {{day}} entstanden {{km}} km von zu Hause entfernt und gehören zum ersten oder letzten Gebiet dieser Reise.",
+    "noLocatedPhotos": "Kein Foto hat einen Ort, deshalb gibt es keine Route. Das Album wird trotzdem angelegt.",
+    "noRoadData_one": "Für {{count}} Stopp gibt es hier keine Straßendaten, er bleibt am Fotoort.",
+    "noRoadData_other": "Für {{count}} Stopps gibt es hier keine Straßendaten, sie bleiben an den Fotoorten.",
+    "noRouting": "Es ist kein Routing-Dienst eingerichtet, die Etappen bleiben Luftlinien.",
+    "overlappingTrip": "„{{name}}“ ({{start}} – {{end}}) überschneidet sich mit diesen Daten.",
+    "pendingPhotoJourneys_one": "{{count}} Foto-Vorschlag deckt diese Daten ab.",
+    "pendingPhotoJourneys_other": "{{count}} Foto-Vorschläge decken diese Daten ab.",
+    "possibleUnrecordedFlight": "Zwischen {{from}} und {{to}} bist du weit und schnell gereist, aber es ist kein Flug eingetragen (die nächsten Flughäfen sind {{fromAirport}} und {{toAirport}}).",
+    "roadtripsHidden": "Roadtrips sind ausgeschaltet, deshalb werden Gebiete als Zeitleisten-Stopps gespeichert. Schalte sie unter Einstellungen › Beta ein.",
+    "suspiciouslyLong": "Diese Reise dauert über 60 Tage. Prüfe ihre Daten; ein Tippfehler im Jahr würde diese Reise verschlucken.",
+    "truncated": "Deine Bibliothek hat mehr Fotos, als ein Scan liest, die späteren fehlen. Scanne einen kürzeren Zeitraum."
+  },
+  "review": {
+    "addToTrip": "Zur Reise hinzufügen",
+    "already": "Diese Reise wurde schon angelegt.",
+    "album": {
+      "blocked": {
+        "missingScopes": "Deinem Immich-Schlüssel fehlen Berechtigungen: {{scopes}}.",
+        "notConfigured": "Immich ist nicht eingerichtet.",
+        "sharedConnection": "Alben lassen sich nur mit deinem eigenen Immich-Schlüssel anlegen, nicht mit einem geteilten.",
+        "unverified": "Die Berechtigungen des Schlüssels ließen sich nicht prüfen, das Anlegen des Albums könnte scheitern."
+      },
+      "counts_one": "{{count}} Foto ({{images}} Bilder, {{videos}} Videos)",
+      "counts_other": "{{count}} Fotos ({{images}} Bilder, {{videos}} Videos)",
+      "create": "Album mit diesen Fotos anlegen",
+      "empty": "Es gibt keine Fotos, deshalb wird kein Album angelegt.",
+      "existing_one": "Wird deinem Album „{{name}}“ hinzugefügt (darin ist schon {{count}} Foto)",
+      "existing_other": "Wird deinem Album „{{name}}“ hinzugefügt (darin sind schon {{count}} Fotos)",
+      "linkedElsewhere": "Dieses Album ist schon mit der Reise „{{trip}}“ verknüpft.",
+      "name": "Name des Albums",
+      "title": "Immich-Album"
+    },
+    "area": {
+      "afterFlight": "Nach dem Flug {{flight}}",
+      "homeEnd": "Endet zu Hause",
+      "homeStart": "Beginnt zu Hause",
+      "homeUnconfirmed": "Wohnort nicht bestätigt — bestätige ihn in den Einstellungen",
+      "kind": "Speichern als",
+      "kinds": {
+        "roadtrip": "Roadtrip",
+        "skip": "Nicht speichern",
+        "stops": "Zeitleisten-Stopps"
+      },
+      "name": "Name des Roadtrips",
+      "skipped": "Dieses Gebiet wird nicht gespeichert.",
+      "summary": "{{stations}} Stopps · {{nights}} Nächte",
+      "title": "Gebiet {{n}}",
+      "vehicle": "Fahrzeug",
+      "vehicles": {
+        "bicycle": "Fahrrad",
+        "campervan": "Campervan",
+        "car": "Auto",
+        "caravan": "Wohnwagen",
+        "motorcycle": "Motorrad",
+        "motorhome": "Wohnmobil",
+        "other": "Anderes"
+      }
+    },
+    "back": "← Zurück",
+    "blocked": {
+      "connectionChanged": "Deine Immich-Verbindung hat sich seit dem Scan geändert. Es wurde nichts gespeichert.",
+      "fixKey": "Schlüssel beheben ↗",
+      "missingScopes": "Deinem Immich-Schlüssel fehlen Berechtigungen ({{scopes}}). Es wurde nichts gespeichert.",
+      "saveWithoutAlbum": "Reise ohne Album speichern",
+      "sharedConnection": "Immich ist mit einem geteilten Schlüssel verbunden, und Alben lassen sich nur mit deinem eigenen anlegen. Es wurde nichts gespeichert.",
+      "unreachable": "Immich war nicht erreichbar. Es wurde nichts gespeichert."
+    },
+    "createTrip": "Reise anlegen",
+    "dates": {
+      "cancel": "Abbrechen",
+      "end": "Letzter Tag",
+      "hint": "Die Fotos werden für die neuen Daten erneut gescannt und deine Änderungen werden übernommen. Höchstens {{days}} Tage.",
+      "incomplete": "Wähle beide Tage.",
+      "reversed": "Der letzte Tag liegt vor dem ersten.",
+      "scanAgain": "Erneut scannen",
+      "start": "Erster Tag",
+      "title": "Daten ändern",
+      "tooLong": "Ein Scan deckt höchstens {{days}} Tage ab."
+    },
+    "day": {
+      "continuesAt": "Fotos in {{places}}",
+      "flight": "Flug {{label}}",
+      "noPhotos": "Keine Fotos",
+      "passedThrough": "Durchgefahren: {{title}} um {{time}}",
+      "photos": "{{photos}} Fotos, {{located}} mit Ort"
+    },
+    "empty": {
+      "cancel": "Abbrechen",
+      "changeDates": "Daten ändern",
+      "checked": "Geprüft: {{from}} bis {{to}}, drei Tage davor und danach.",
+      "flightsOnlyExisting_one": "Den {{count}} Flug zur Reise hinzufügen",
+      "flightsOnlyExisting_other": "Die {{count}} Flüge zur Reise hinzufügen",
+      "flightsOnlyNew_one": "Reise nur mit dem {{count}} Flug anlegen",
+      "flightsOnlyNew_other": "Reise nur mit den {{count}} Flügen anlegen",
+      "noPhotos": "Keine Fotos von {{from}} bis {{to}} in deiner Immich-Bibliothek",
+      "partner_one": "{{count}} Foto aus einer Partner-Bibliothek wurde ausgelassen.",
+      "partner_other": "{{count}} Fotos aus einer Partner-Bibliothek wurden ausgelassen."
+    },
+    "excluded": {
+      "atSea_one": "{{count}} Foto auf dem Wasser aufgenommen",
+      "atSea_other": "{{count}} Fotos auf dem Wasser aufgenommen",
+      "dayGuessed_one": "{{count}} Foto, dessen Tag geschätzt wurde",
+      "dayGuessed_other": "{{count}} Fotos, deren Tag geschätzt wurde",
+      "hiddenLivePart_one": "{{count}} verdeckte Hälfte eines Live-Fotos",
+      "hiddenLivePart_other": "{{count}} verdeckte Hälften von Live-Fotos",
+      "hint": "Deine eigenen Fotos bleiben im Album",
+      "inFlight_one": "{{count}} Foto im Flug aufgenommen",
+      "inFlight_other": "{{count}} Fotos im Flug aufgenommen",
+      "misdated_one": "{{count}} Foto mit falschem Datum",
+      "misdated_other": "{{count}} Fotos mit falschem Datum",
+      "partner_one": "{{count}} Foto aus einer Partner-Bibliothek",
+      "partner_other": "{{count}} Fotos aus einer Partner-Bibliothek",
+      "title": "Nicht in der Route",
+      "unlocated_one": "{{count}} Foto ohne Ort",
+      "unlocated_other": "{{count}} Fotos ohne Ort"
+    },
+    "expired": {
+      "keeps": "Ein neuer Scan behält deine Änderungen.",
+      "scanAgain": "Erneut scannen",
+      "startOver": "Starte den Scan erneut bei der Reise.",
+      "title": "Dieser Entwurf ist abgelaufen"
+    },
+    "flights": {
+      "approximate": "Zeiten ungefähr",
+      "currentTrip": "aktuell in {{trip}}",
+      "hint": "Hake an, was zu dieser Reise gehört",
+      "layover_one": "{{count}} Foto während der Zwischenlandung in {{airport}}",
+      "layover_other": "{{count}} Fotos während der Zwischenlandung in {{airport}}",
+      "locked": "Schon auf dieser Reise",
+      "title": "Flüge"
+    },
+    "header": {
+      "addCountry": "Land hinzufügen",
+      "addCountryPlaceholder": "z. B. NZ",
+      "carried": "{{kept}} von {{total}} deiner Änderungen übernommen.",
+      "changeDates": "Daten ändern…",
+      "existingTrip": "Diese Reise wird aktualisiert",
+      "name": "Name der Reise",
+      "removeCountry": "{{code}} entfernen",
+      "unknownNights_one": "{{count}} Nacht noch offen",
+      "unknownNights_other": "{{count}} Nächte noch offen"
+    },
+    "journeys": {
+      "hint": "Werden als erledigt markiert, wenn die Reise angelegt wird",
+      "item": "Fotos von {{start}} bis {{end}}",
+      "title": "Foto-Vorschläge"
+    },
+    "leaveConfirm": "Ohne Speichern verlassen? Deine Änderungen und dieser Entwurf gehen verloren.",
+    "leaveYes": "Verlassen",
+    "leg": {
+      "between": "{{from}} nach {{to}}",
+      "chord": "{{km}} km Luftlinie",
+      "evidence": {
+        "chip": "Die Linie quert Wasser",
+        "router": "Das Routing hat eine Fähre gefunden",
+        "seaPhotos": "Fotos auf dem Wasser"
+      },
+      "ferry": "Fähre",
+      "mode": "Wie du gereist bist",
+      "road": "Straße",
+      "routed": "{{km}} km über die Straße"
+    },
+    "loadFailed": "Der Entwurf konnte nicht geladen werden.",
+    "loading": "Entwurf wird geladen…",
+    "map": {
+      "empty": "Keine Stopps zum Anzeigen.",
+      "loading": "Karte wird geladen…",
+      "title": "Routenvorschau"
+    },
+    "meta": "{{from}} – {{to}} · {{assets}} Fotos",
+    "night": {
+      "choose": "Wo hast du am {{date}} geschlafen?",
+      "flight": "Nacht vom {{date}}: in der Luft",
+      "home": "Zu Hause",
+      "label": "Nacht vom {{date}}",
+      "suggested": "{{title}} (Vorschlag)",
+      "unknown": "Noch unklar",
+      "unknownHint": "Kein Foto zeigt, wo du geschlafen hast. Wähle einen Ort."
+    },
+    "nothing": "Hier gibt es nichts zu prüfen. Starte bei einer Reise.",
+    "otherNights": "Weitere Nächte",
+    "problems": {
+      "blankTripName": "Gib der Reise einen Namen.",
+      "nightPlanInvalid": "Die Nächte passen nicht zusammen.",
+      "roadtripTooShort": "{{name}} braucht mindestens zwei Stopps, um ein Roadtrip zu sein. Ergänze Stopps oder speichere es als Zeitleisten-Stopps."
+    },
+    "reset": "Meine Änderungen verwerfen",
+    "saving": "Speichere…",
+    "scan": {
+      "failed": "Der Scan ist fehlgeschlagen.",
+      "lost": "Scan unterbrochen. Es wurde nichts gespeichert. Starte den Scan erneut.",
+      "running": "Läuft…",
+      "step": "Schritt {{done}} von {{total}} · {{phase}}",
+      "title": "Deine Fotos werden gescannt"
+    },
+    "station": {
+      "delete": "Stopp entfernen",
+      "fold": "Tagesausflug wieder einfügen",
+      "kind": {
+        "airport": "Flughafen",
+        "brief": "Kurzer Halt",
+        "dayTrip": "Tagesausflug",
+        "home": "Zuhause"
+      },
+      "merge": "Mit dem nächsten Stopp zusammenfassen",
+      "name": "Name",
+      "note": "Notiz",
+      "photos_one": "{{count}} Foto",
+      "photos_other": "{{count}} Fotos",
+      "slept": "Hier geschlafen",
+      "sleptNone": "Keine offene Nacht liegt in der Nähe dieses Stopps. Beantworte stattdessen die Nächte zwischen den Tagen.",
+      "snapped": "{{km}} km auf die Straße verschoben"
+    },
+    "success": {
+      "albumAdded": "Album: {{added}} hinzugefügt ({{already}} schon drin)",
+      "albumFailed": "Das Album konnte nicht fertiggestellt werden. Die Reise selbst ist gespeichert.",
+      "created": "Reise angelegt",
+      "flights_one": "{{count}} Flug",
+      "flights_other": "{{count}} Flüge",
+      "legsStraight_one": "{{count}} Etappe als Luftlinie",
+      "legsStraight_other": "{{count}} Etappen als Luftlinie",
+      "nights_one": "{{count}} Nacht",
+      "nights_other": "{{count}} Nächte",
+      "noRouting": "Kein Routing-Dienst hat geantwortet, die Etappen sind Luftlinien.",
+      "open": "Reise öffnen",
+      "retryAlbum": "Album erneut versuchen",
+      "stations_one": "{{count}} Stopp",
+      "stations_other": "{{count}} Stopps",
+      "stops_one": "{{count}} Zeitleisten-Stopp",
+      "stops_other": "{{count}} Zeitleisten-Stopps",
+      "unknownNights_one": "{{count}} offene Nacht",
+      "unknownNights_other": "{{count}} offene Nächte",
+      "updated": "Reise aktualisiert"
+    },
+    "titleExisting": "Aktualisiere deine Reise",
+    "titleNew": "Prüfe deine Reise",
+    "unknown": "Ergebnis unbekannt. Schau in deinen Reisen nach, ob sie angelegt wurde.",
+    "unknownAction": "Meine Reisen öffnen",
+    "warnings": {
+      "title": "Gut zu wissen"
     }
   }
 }
