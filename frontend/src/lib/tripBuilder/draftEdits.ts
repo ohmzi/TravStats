@@ -36,6 +36,7 @@ import {
   setVehicle,
   togglePhotoJourney,
 } from "./editsBasic";
+import { fold, merge, remove, toggleHome, toggleSlept } from "./editsStructure";
 import { syncArea } from "./reviewRules";
 
 export { logEdit } from "./editLog";
@@ -149,6 +150,16 @@ export function applyEdit(
       return togglePhotoJourney(draft, state, edit);
     case "setTripName":
       return setTripName(draft, state, edit);
+    case "merge":
+      return merge(draft, state, edit);
+    case "delete":
+      return remove(draft, state, edit);
+    case "toggleSlept":
+      return toggleSlept(draft, state, edit);
+    case "foldDayTrip":
+      return fold(draft, state, edit);
+    case "toggleHome":
+      return toggleHome(draft, state, edit);
     default:
       return state;
   }
