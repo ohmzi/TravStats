@@ -13,7 +13,7 @@
  * whose key may be asked (see `routes/settings/immich.ts`).
  */
 import logger from "../../utils/logger";
-import { createImmichClient } from "./immichClient";
+import { createImmichClient, ImmichClient } from "./immichClient";
 import { ImmichError } from "./types";
 
 /** Creating a trip album: find it, create it, fill it. */
@@ -75,4 +75,37 @@ export async function albumCapability(baseUrl: string, apiKey: string): Promise<
     canView: scopesMissing(granted, INSPECT_SCOPES).length === 0,
     missingScopes: missingAlbum,
   };
+}
+
+/**
+ * Scopes that make an album feature better but are not needed to have albums.
+ * `albumAsset.delete` lets a re-sync take photos out of an album once the trip's
+ * dates shrink; without it the removal switch is disabled, never an error.
+ */
+export const ALBUM_REMOVE_SCOPE = "albumAsset.delete";
+export const ALBUM_OPTIONAL_SCOPES = [ALBUM_REMOVE_SCOPE] as const;
+
+export interface AlbumRemovalCapability {
+  /** null: `/api-keys/me` could not answer, so the key's scopes are unknown. */
+  allowed: boolean | null;
+  missingScope?: string;
+}
+
+/**
+ * Whether the key may remove assets from an album, asked at the moment it is
+ * needed (the scan, and again at the commit — a key can change in between). A
+ * failed or refused read is "unknown", never "allowed".
+ */
+export async function albumRemovalCapability(
+  client: Pick<ImmichClient, "getMyApiKey">
+): Promise<AlbumRemovalCapability> {
+  let key: Awaited<ReturnType<ImmichClient["getMyApiKey"]>>;
+  try {
+    key = await client.getMyApiKey();
+  } catch {
+    return { allowed: null };
+  }
+  if (key === null) return { allowed: null };
+  const missing = scopesMissing(key.permissions, ALBUM_OPTIONAL_SCOPES);
+  return missing.length === 0 ? { allowed: true } : { allowed: false, missingScope: missing[0] };
 }
