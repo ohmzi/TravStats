@@ -357,6 +357,15 @@
       "noNights": "no night",
       "nights_one": "{{count}} night",
       "nights_other": "{{count}} nights"
+    },
+    "showUnchanged": "Show unchanged ({{count}})",
+    "notSeen": {
+      "title": "Not seen in your photos",
+      "reasonNotInPhotos": "Your photos do not show this stop. It stays unless you remove it.",
+      "reasonOutsideWindow": "Lies outside the new dates, so it is removed unless you keep it."
+    },
+    "notSeenStops": {
+      "title": "Timeline stops not seen in your photos"
     }
   }
 }

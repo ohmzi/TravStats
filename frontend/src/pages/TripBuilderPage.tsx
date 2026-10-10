@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 
 import { AppShell, Button, Card, EmptyState, PageHeader } from "../components/ui";
 import ChangeDatesDialog from "../components/Trips/tripBuilder/ChangeDatesDialog";
+import { ExistingDiffProvider } from "../components/Trips/tripBuilder/ExistingDiffContext";
+import NotSeenList from "../components/Trips/tripBuilder/NotSeenList";
 import ReviewAlbumSection from "../components/Trips/tripBuilder/ReviewAlbumSection";
 import ReviewAreaSection from "../components/Trips/tripBuilder/ReviewAreaSection";
 import ReviewExcluded from "../components/Trips/tripBuilder/ReviewExcluded";
@@ -13,6 +15,7 @@ import ReviewNightChip from "../components/Trips/tripBuilder/ReviewNightChip";
 import ReviewPhotoJourneys from "../components/Trips/tripBuilder/ReviewPhotoJourneys";
 import ReviewSection from "../components/Trips/tripBuilder/ReviewSection";
 import ReviewWarnings from "../components/Trips/tripBuilder/ReviewWarnings";
+import ShowUnchangedToggle from "../components/Trips/tripBuilder/ShowUnchangedToggle";
 import { useBuilderSession, type BuilderSession } from "../hooks/useBuilderSession";
 import { useConfirmDialog } from "../hooks/useConfirmDialog";
 import { useTranslation } from "../hooks/useTranslation";
@@ -238,6 +241,7 @@ function ReviewScreen({
 
   const body = (
     <div className="flex min-w-0 flex-col" style={{ gap: "var(--ts-space-xl)" }}>
+      <ShowUnchangedToggle />
       {state.areas.map((area, index) => (
         <ReviewAreaSection
           key={area.key}
@@ -251,6 +255,7 @@ function ReviewScreen({
           onEdit={edit}
         />
       ))}
+      <NotSeenList areaKey={null} />
       {placed.loose.length > 0 && (
         <ReviewSection title={t("tripBuilder:review.otherNights")}>
           {placed.loose.map((night) => (
@@ -393,7 +398,9 @@ function ReviewScreen({
           className="grid items-start lg:grid-cols-[minmax(0,1fr)_minmax(340px,440px)]"
           style={{ gap: "var(--ts-space-xl)" }}
         >
-          {body}
+          <ExistingDiffProvider draft={draft} state={state} onEdit={edit}>
+            {body}
+          </ExistingDiffProvider>
           <aside className="lg:sticky" style={{ top: DETAIL_MAP_STICKY_TOP }}>
             <ReviewMapPreview state={state} />
           </aside>

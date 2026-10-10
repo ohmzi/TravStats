@@ -12,6 +12,7 @@ import { Card } from "../../ui/Card";
 import { Field, Input, Select, Switch } from "../../ui/Field";
 import Pill from "../../ui/Pill";
 import { Segmented } from "../../ui/Segmented";
+import NotSeenList from "./NotSeenList";
 import ReviewDayGroup from "./ReviewDayGroup";
 import ReviewNightChip from "./ReviewNightChip";
 
@@ -190,6 +191,7 @@ export default function ReviewAreaSection({
               onEdit={onEdit}
             />
           ))}
+          <NotSeenList areaKey={area.key} />
         </div>
       )}
     </Card>

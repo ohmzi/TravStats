@@ -357,6 +357,15 @@
       "noNights": "keine Nacht",
       "nights_one": "{{count}} Nacht",
       "nights_other": "{{count}} Nächte"
+    },
+    "showUnchanged": "Unveränderte anzeigen ({{count}})",
+    "notSeen": {
+      "title": "Auf deinen Fotos nicht zu sehen",
+      "reasonNotInPhotos": "Auf deinen Fotos ist dieser Halt nicht zu sehen. Er bleibt, außer du entfernst ihn.",
+      "reasonOutsideWindow": "Liegt außerhalb der neuen Daten und wird entfernt, außer du behältst ihn."
+    },
+    "notSeenStops": {
+      "title": "Zeitleisten-Stopps, die auf deinen Fotos fehlen"
     }
   }
 }
