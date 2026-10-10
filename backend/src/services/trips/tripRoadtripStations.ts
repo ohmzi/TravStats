@@ -53,9 +53,11 @@ export async function roadtripStationsForTrip(
   const visible = await loadVisibleDomains(userId);
   if (!visible.includes("roadtrip")) return [];
 
+  // `TripRoute.orderIdx` is not unique (a trip merge keeps each roadtrip's old
+  // position), so `routeId` breaks the tie and keeps one roadtrip's stations together.
   const rows = await prisma.tripStop.findMany({
     where: { tripId: null, viaPoint: false, route: { tripId, userId, kind: "roadtrip" } },
-    orderBy: [{ route: { orderIdx: "asc" } }, { routeOrderIdx: "asc" }],
+    orderBy: [{ route: { orderIdx: "asc" } }, { routeId: "asc" }, { routeOrderIdx: "asc" }],
     select: SELECT,
   });
 

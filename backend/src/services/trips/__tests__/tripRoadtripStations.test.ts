@@ -138,4 +138,46 @@ describe("roadtripStationsForTrip", () => {
 
     expect(await roadtripStationsForTrip(ownerId, tripId)).toEqual([]);
   });
+
+  describe("roadtrips that share a position on the trip", () => {
+    const ASHBY_FORD = { title: "Ashby Ford", lat: -44.55, lon: 169.0 };
+    let mergedTripId: string;
+
+    /**
+     * `TripRoute.orderIdx` is neither unique nor renumbered everywhere: merging two
+     * trips keeps each roadtrip's old position, and the spreadsheet import writes
+     * the column default, so two roadtrips of one trip can both sit at 0.
+     */
+    beforeAll(async () => {
+      mergedTripId = (await prisma.trip.create({ data: { userId: ownerId, name: "Merged" } })).id;
+      const north = await roadtrip(ownerId, mergedTripId, "Northvale leg", [
+        free(NORTHVALE, "2031-07-01", "2031-07-02"),
+        free(PORT_CARROW, "2031-07-02", "2031-07-03"),
+      ]);
+      const west = await roadtrip(ownerId, mergedTripId, "Westshire leg", [
+        free(KELMORE, "2031-07-03", "2031-07-04"),
+        free(ASHBY_FORD, "2031-07-04", "2031-07-05"),
+      ]);
+      await prisma.tripRoute.updateMany({
+        where: { id: { in: [north, west] } },
+        data: { orderIdx: 0 },
+      });
+    });
+
+    it("keeps the stations of one roadtrip together and in their own order", async () => {
+      const stations = await roadtripStationsForTrip(ownerId, mergedTripId);
+
+      expect(stations).toHaveLength(4);
+      const routeIds = stations.map((s) => s.routeId);
+      // Two roadtrips make exactly one change of route along the list; interleaved
+      // stations (A0, B0, A1, B1) would change route on every step.
+      const changes = routeIds.filter((id, i) => i > 0 && id !== routeIds[i - 1]).length;
+      expect(new Set(routeIds).size).toBe(2);
+      expect(changes).toBe(1);
+      for (const routeId of new Set(routeIds)) {
+        const own = stations.filter((s) => s.routeId === routeId);
+        expect(own.map((s) => s.routeOrderIdx)).toEqual([0, 1]);
+      }
+    });
+  });
 });
