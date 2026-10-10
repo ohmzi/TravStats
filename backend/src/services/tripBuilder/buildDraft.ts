@@ -169,7 +169,11 @@ function flightPhase(photos: PhotoPoint[], anchors: readonly FlightAnchor[]): Fl
 
 // ─── DTO pieces ──────────────────────────────────────────────────────────────
 
-function toDraftFlight(anchor: FlightAnchor, targetTripId: string | null): DraftFlight {
+function toDraftFlight(
+  anchor: FlightAnchor,
+  targetTripId: string | null,
+  layover?: DraftFlight["layover"]
+): DraftFlight {
   return {
     id: anchor.id,
     label: anchor.label,
@@ -184,6 +188,7 @@ function toDraftFlight(anchor: FlightAnchor, targetTripId: string | null): Draft
         : null,
     defaultAssign: anchor.defaultAssign,
     locked: anchor.locked,
+    ...(layover ? { layover } : {}),
   };
 }
 
@@ -386,6 +391,12 @@ export async function buildDraftWith(
     homeUnconfirmed: areas.some((a) => a.home.unconfirmed),
   });
 
+  const layovers = new Map(
+    split.layovers.map(
+      (l) => [l.inFlightId, { photoCount: l.photoIds.length, airportIata: l.airportIata }] as const
+    )
+  );
+
   const createdAt = deps.nowMs();
   const id = deps.newId();
   const dto: TripBuilderDraft = {
@@ -407,7 +418,7 @@ export async function buildDraftWith(
     originLabel: labels.originLabel,
     destinationLabel: labels.destinationLabel,
     stats,
-    flights: listed.map((anchor) => toDraftFlight(anchor, targetTripId)),
+    flights: listed.map((anchor) => toDraftFlight(anchor, targetTripId, layovers.get(anchor.id))),
     days: input.inspect ? toDraftDays(window, photos, areas, listed, night.kept) : [],
     nights: night.nights,
     areas,

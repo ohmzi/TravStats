@@ -16,7 +16,7 @@ import { splitImplicitFlights } from "./flightAnchors";
 import { isMovementPhoto } from "./clean";
 import { clusterCities, clusterOfPhoto } from "./cityClusters";
 import type { CollectedWindow } from "./collect";
-import { planAreaHome } from "./home";
+import { isPostReturnArea, planAreaHome } from "./home";
 import { bboxOf, nameClusters } from "./nameClusters";
 import { probeLegs, snapStations, stationsWithoutRoute } from "./probe";
 import { buildSegments, classifySegments } from "./segments";
@@ -239,5 +239,9 @@ export function nightsPhase(
     anchors: collected.anchors,
     homeAt: collected.homeAt,
   });
-  return { kept: applyDayPulls(plans, attribution.pulls), nights: attribution.nights };
+  const anchorsById = new Map(collected.anchors.map((a) => [a.id, a] as const));
+  const kept = applyDayPulls(plans, attribution.pulls).filter(
+    (plan) => !isPostReturnArea(plan, anchorsById, attribution.nights, collected.homeAt)
+  );
+  return { kept, nights: attribution.nights };
 }
