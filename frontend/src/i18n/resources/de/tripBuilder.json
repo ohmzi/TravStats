@@ -38,6 +38,9 @@
     "description": "Durchsucht die Fotos deiner Immich-Bibliothek nach den Reisedaten und entwirft Route, Nächte und ein Album. Du prüfst alles, bevor etwas gespeichert wird.",
     "action": "Mit Fotos starten"
   },
+  "page": {
+    "title": "Reise aus Fotos"
+  },
   "timeline": {
     "roadtrip": "Roadtrip",
     "state": "Übernachtung",

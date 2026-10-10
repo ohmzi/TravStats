@@ -53,6 +53,7 @@ const LodgingDetailPage = lazy(() => import("./pages/LodgingDetailPage"));
 const LodgingChainDetailPage = lazy(() => import("./pages/LodgingChainDetailPage"));
 const TripsPage = lazy(() => import("./pages/TripsPage"));
 const TripDetailPage = lazy(() => import("./pages/TripDetailPage"));
+const TripBuilderPage = lazy(() => import("./pages/TripBuilderPage"));
 const TripRouteEditorPage = lazy(() => import("./pages/TripRouteEditorPage"));
 const ToursPage = lazy(() => import("./pages/ToursPage"));
 const RoadtripsPage = lazy(() => import("./pages/RoadtripsPage"));
@@ -514,6 +515,10 @@ function AppContent() {
               <Route
                 path="/trips"
                 element={isAuthenticated ? <TripsPage /> : <Navigate to="/login" />}
+              />
+              <Route
+                path="/trips/builder"
+                element={isAuthenticated ? <TripBuilderPage /> : <Navigate to="/login" />}
               />
               <Route
                 path="/trips/:id"

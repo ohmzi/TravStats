@@ -38,6 +38,9 @@
     "description": "Scans the photos in your Immich library for the trip's dates and drafts the route, the nights and an album. You review everything before anything is saved.",
     "action": "Start from photos"
   },
+  "page": {
+    "title": "Trip from photos"
+  },
   "timeline": {
     "roadtrip": "Roadtrip",
     "state": "Night",
