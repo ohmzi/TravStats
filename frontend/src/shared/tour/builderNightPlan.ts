@@ -253,3 +253,104 @@ export function deriveStationRows(
   });
   return placed.map(({ row }) => row);
 }
+
+/**
+ * Every reason a set of night answers is not a plan the commit may write
+ * (spec §C.10); an empty list means it is one.
+ *
+ * The checks run in the order below, and within a check the errors come by
+ * day, so the first error is the one to tell the person about:
+ *
+ * 1. `duplicateStation`: two stations share a key.
+ * 2. `nightOutsideWindow`: a night that is not one of S … E−1.
+ * 3. `unknownStation`: an answer that is neither a station key nor a word.
+ * 4. `nightOutsideArea`: a night outside [area start − 1, area end] of the
+ *    area that holds the station it names (the evening of the last day
+ *    belongs to the area; so does the night before its first photo day, when
+ *    the traveller landed late).
+ * 5. `nightNotAdjacent`: a night outside [first photo day − 1, last photo
+ *    day + 1] of the station it names, which would stretch the station over
+ *    the nights of its neighbours.
+ * 6. `overlappingSleptRows`: two slept rows share a night. The rows come from
+ *    `deriveStationRows`, so only a repeated station key can do it; the check
+ *    is the commit's last line of defence against writing a night twice.
+ * 7. `sleptRowOutsideWindow`: a slept row that is not inside [S, E].
+ *
+ * Checks 3 to 5 look only at nights inside the window; checks 4 and 5 only at
+ * nights that name a known station. Checks 6 and 7 read the rows the nights
+ * as sent would write.
+ */
+export function validateNightPlan(
+  stations: readonly NightPlanStation[],
+  nights: Readonly<Record<string, NightAssign>>,
+  areas: readonly NightPlanArea[],
+  window: NightPlanWindow
+): NightPlanError[] {
+  const errors: NightPlanError[] = [];
+  const words = new Set<string>(NIGHT_SPECIALS);
+  const windowNights = new Set(nightsOf(window));
+  const days = Object.keys(nights).sort();
+
+  const known = new Map<string, NightPlanStation>();
+  const repeated = new Set<string>();
+  for (const station of stations) {
+    if (known.has(station.key)) repeated.add(station.key);
+    else known.set(station.key, station);
+  }
+  for (const key of repeated) errors.push({ code: "duplicateStation", stationKey: key, day: null });
+
+  for (const day of days) {
+    if (windowNights.has(day)) continue;
+    const assign = nights[day];
+    errors.push({ code: "nightOutsideWindow", stationKey: words.has(assign) ? null : assign, day });
+  }
+
+  const named = days.filter((day) => windowNights.has(day) && !words.has(nights[day]));
+  for (const day of named) {
+    if (!known.has(nights[day])) {
+      errors.push({ code: "unknownStation", stationKey: nights[day], day });
+    }
+  }
+  const placed = named.filter((day) => known.has(nights[day]));
+
+  const areaOf = new Map<string, NightPlanArea>();
+  for (const area of areas) {
+    for (const key of area.stationKeys) if (!areaOf.has(key)) areaOf.set(key, area);
+  }
+  for (const day of placed) {
+    const area = areaOf.get(nights[day]);
+    if (area === undefined || day < addDays(area.startDay, -1) || day > area.endDay) {
+      errors.push({ code: "nightOutsideArea", stationKey: nights[day], day });
+    }
+  }
+  for (const day of placed) {
+    const station = known.get(nights[day]);
+    if (
+      station !== undefined &&
+      (day < addDays(station.firstDay, -1) || day > addDays(station.lastDay, 1))
+    ) {
+      errors.push({ code: "nightNotAdjacent", stationKey: nights[day], day });
+    }
+  }
+
+  const slept = deriveStationRows(stations, nights).filter((row) => row.slept);
+  let reach = "";
+  for (const row of slept) {
+    if (row.startDate < reach) {
+      errors.push({ code: "overlappingSleptRows", stationKey: row.stationKey, day: row.startDate });
+    }
+    if (row.endDate > reach) reach = row.endDate;
+  }
+  for (const row of slept) {
+    if (row.startDate < window.startDay) {
+      errors.push({
+        code: "sleptRowOutsideWindow",
+        stationKey: row.stationKey,
+        day: row.startDate,
+      });
+    } else if (row.endDate > window.endDay) {
+      errors.push({ code: "sleptRowOutsideWindow", stationKey: row.stationKey, day: row.endDate });
+    }
+  }
+  return errors;
+}
