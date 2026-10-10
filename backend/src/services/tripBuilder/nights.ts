@@ -254,6 +254,51 @@ function isHomePlace(ctx: NightContext, place: string, night: Day): boolean {
   return station.kind === "home" || (home !== null && distanceKm(station, home) <= HOME_RADIUS_KM);
 }
 
+/** `place` as a night's answer: the home cluster, under any name, is the word `home`. */
+function answerFor(ctx: NightContext, place: string, night: Day): string {
+  return isHomePlace(ctx, place, night) ? NIGHT_HOME : place;
+}
+
+/** The station a crossing left from: the one whose last photo is the latest before `photo`. */
+function boardingStationBefore(ctx: NightContext, photo: PhotoPoint): string | null {
+  const area = ctx.areaOfPhoto.get(photo.id);
+  if (area === undefined) return null;
+  let boarding: { key: string; lastMs: number } | null = null;
+  for (const station of area.stations) {
+    const span = area.spanMs.get(station.key);
+    if (span === undefined || span.lastMs > photo.tMs) continue;
+    if (boarding === null || span.lastMs > boarding.lastMs) {
+      boarding = { key: station.key, lastMs: span.lastMs };
+    }
+  }
+  return boarding === null ? null : holdingKey(ctx, boarding.key);
+}
+
+/**
+ * 4. The night was on the water, and goes to the station the ferry left from,
+ * not the port it reached. Either P is a photo taken at sea, or P is at a
+ * station and the next morning's first photo is at the station a ferry leg
+ * leads to. A leg that is only a road does not make a ferry night.
+ */
+const ruleFerry: NightRule = (ctx, night) => {
+  const last = ctx.lastByNight.get(night);
+  if (last === undefined) return null;
+  if (last.flags.atSea) {
+    const boarding = boardingStationBefore(ctx, last);
+    return boarding === null
+      ? unknownEntry(ctx, night)
+      : entry(answerFor(ctx, boarding, night), "ferry");
+  }
+  const next = ctx.firstMovementByNight.get(addDays(night, 1));
+  const from = placeOf(ctx, last);
+  const to = next === undefined ? null : placeOf(ctx, next);
+  if (from === null || to === null || from === to) return null;
+  const crossing = ctx.areaOfPhoto
+    .get(last.id)
+    ?.legs.some((leg) => leg.mode === "ferry" && leg.fromKey === from && leg.toKey === to);
+  return crossing === true ? entry(answerFor(ctx, from, night), "ferry") : null;
+};
+
 /** 5. P is in the home cluster: the night was spent at home. */
 const ruleHome: NightRule = (ctx, night) => {
   const last = ctx.lastByNight.get(night);
@@ -282,6 +327,7 @@ export function attributeNights(input: NightInputs): NightAttribution {
       ruleFlight(ctx, night) ??
       ruleAfterLanding(ctx, night) ??
       ruleUnknown(ctx, night) ??
+      ruleFerry(ctx, night) ??
       ruleHome(ctx, night) ??
       ruleLastPhoto(ctx, night);
   }
