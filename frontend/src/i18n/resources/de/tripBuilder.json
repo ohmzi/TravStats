@@ -343,5 +343,20 @@
     "warnings": {
       "title": "Gut zu wissen"
     }
+  },
+  "existing": {
+    "status": {
+      "same": "Unverändert",
+      "changed": "Geändert",
+      "new": "Neu",
+      "notSeen": "Nicht in deinen Fotos"
+    },
+    "diff": {
+      "was": "vorher",
+      "undated": "ohne Datum",
+      "noNights": "keine Nacht",
+      "nights_one": "{{count}} Nacht",
+      "nights_other": "{{count}} Nächte"
+    }
   }
 }

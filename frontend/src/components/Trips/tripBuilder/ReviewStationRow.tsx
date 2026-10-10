@@ -8,6 +8,9 @@ import type { DraftStation, StationKind } from "../../../types/tripBuilder";
 import Button from "../../ui/Button";
 import { Field, Input, Switch, TextArea } from "../../ui/Field";
 import Pill from "../../ui/Pill";
+import { useExistingDiff } from "./ExistingDiffContext";
+import StationDiff from "./StationDiff";
+import StationStatusPill from "./StationStatusPill";
 
 const KIND_LABEL: Partial<Record<StationKind, string>> = {
   brief: "tripBuilder:review.station.kind.brief",
@@ -44,7 +47,7 @@ export default function ReviewStationRow({
   canMerge,
   canFold,
   onEdit,
-}: ReviewStationRowProps): JSX.Element {
+}: ReviewStationRowProps): JSX.Element | null {
   const { t } = useTranslation(["tripBuilder"]);
   const fmt = useDisplayFormat();
   const fieldId = useId();
@@ -53,6 +56,8 @@ export default function ReviewStationRow({
   const [note, setNote] = useState(station.notes ?? "");
   useEffect(() => setTitle(station.title), [station.title]);
   useEffect(() => setNote(station.notes ?? ""), [station.notes]);
+  const info = useExistingDiff().infoFor(station);
+  if (info.hidden) return null;
 
   const anchor = station.kind === "home" || station.kind === "airport";
   const kindLabel = KIND_LABEL[station.kind];
@@ -98,6 +103,7 @@ export default function ReviewStationRow({
         <span style={{ fontSize: 15, fontWeight: 700, color: "var(--ts-text-bright)" }}>
           {station.title}
         </span>
+        {info.status !== null && <StationStatusPill status={info.status} />}
         {kindLabel !== undefined && <Pill color="var(--ts-muted)">{t(kindLabel)}</Pill>}
         {slept && <Pill color="var(--ts-good)">{t("tripBuilder:review.station.slept")}</Pill>}
         <span className="t-caption">{days}</span>
@@ -107,6 +113,11 @@ export default function ReviewStationRow({
           </span>
         )}
       </button>
+      {info.status === "changed" && station.before && info.facts && (
+        <div style={{ padding: "0 var(--ts-space-lg) var(--ts-space-md)" }}>
+          <StationDiff before={station.before} facts={info.facts} />
+        </div>
+      )}
 
       {open && (
         <div

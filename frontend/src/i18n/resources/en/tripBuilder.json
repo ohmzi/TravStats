@@ -343,5 +343,20 @@
     "warnings": {
       "title": "Worth knowing"
     }
+  },
+  "existing": {
+    "status": {
+      "same": "Unchanged",
+      "changed": "Changed",
+      "new": "New",
+      "notSeen": "Not in your photos"
+    },
+    "diff": {
+      "was": "was",
+      "undated": "no dates",
+      "noNights": "no night",
+      "nights_one": "{{count}} night",
+      "nights_other": "{{count}} nights"
+    }
   }
 }
