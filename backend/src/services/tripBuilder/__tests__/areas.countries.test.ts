@@ -27,6 +27,28 @@ describe("draftCountries", () => {
     ]);
   });
 
+  it("adds a country only a ticked flight reaches, after the stations' countries", () => {
+    expect(
+      draftCountries({
+        stations: [station("n1")],
+        tickedFlights: [anchor({ id: "f1", arr: SUNHAVEN })],
+        countryAt,
+        existing: [],
+      })
+    ).toEqual(["NZ", "AU"]);
+  });
+
+  it("takes the countries from the ticked flights alone when there are no stations", () => {
+    expect(
+      draftCountries({
+        stations: [],
+        tickedFlights: [anchor({ id: "f1", arr: SUNHAVEN })],
+        countryAt,
+        existing: [],
+      })
+    ).toEqual(["AU"]);
+  });
+
   it("leaves out home and airport stations", () => {
     const stations = [
       station("h1", { kind: "home", lat: KELMORE.lat, lon: KELMORE.lon }),
