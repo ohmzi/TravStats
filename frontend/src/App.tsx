@@ -53,6 +53,7 @@ const LodgingDetailPage = lazy(() => import("./pages/LodgingDetailPage"));
 const LodgingChainDetailPage = lazy(() => import("./pages/LodgingChainDetailPage"));
 const TripsPage = lazy(() => import("./pages/TripsPage"));
 const TripDetailPage = lazy(() => import("./pages/TripDetailPage"));
+const TripResyncPage = lazy(() => import("./pages/TripResyncPage"));
 const TripBuilderPage = lazy(() => import("./pages/TripBuilderPage"));
 const TripRouteEditorPage = lazy(() => import("./pages/TripRouteEditorPage"));
 const ToursPage = lazy(() => import("./pages/ToursPage"));
@@ -523,6 +524,10 @@ function AppContent() {
               <Route
                 path="/trips/:id"
                 element={isAuthenticated ? <TripDetailPage /> : <Navigate to="/login" />}
+              />
+              <Route
+                path="/trips/:id/resync"
+                element={isAuthenticated ? <TripResyncPage /> : <Navigate to="/login" />}
               />
               {/* Tours, across every trip and none. A tour may belong to no
                   trip at all since 2026-09-21, and then this list is the only

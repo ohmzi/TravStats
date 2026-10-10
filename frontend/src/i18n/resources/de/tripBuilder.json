@@ -398,6 +398,25 @@
   },
   "resync": {
     "action": "Mit Immich abgleichen",
-    "datesChanged": "Daten geändert — Fotos neu abgleichen?"
+    "datesChanged": "Daten geändert — Fotos neu abgleichen?",
+    "starting": "Foto-Scan wird gestartet …",
+    "back": "Zurück zur Reise",
+    "noDates": {
+      "title": "Diese Reise hat noch keine Daten",
+      "description": "Lege ein Start- und ein Enddatum fest und gleiche dann ihre Fotos ab."
+    },
+    "notConfigured": {
+      "title": "Verbinde zuerst Immich",
+      "description": "TravStats braucht deinen Immich-Server und deinen Schlüssel, bevor es deine Fotos scannen kann.",
+      "action": "Einstellungen öffnen"
+    },
+    "tooLong": {
+      "title": "Diese Reise ist für einen Scan zu lang",
+      "description": "Ein Scan deckt höchstens 62 Tage ab. Gleiche einen kürzeren Abschnitt ab, indem du die Daten der Reise änderst."
+    },
+    "failed": {
+      "title": "Der Scan konnte nicht gestartet werden",
+      "description": "Es wurde nichts geändert. Versuche es gleich noch einmal."
+    }
   }
 }

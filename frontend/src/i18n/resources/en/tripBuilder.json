@@ -398,6 +398,25 @@
   },
   "resync": {
     "action": "Re-sync from Immich",
-    "datesChanged": "Dates changed — re-sync photos?"
+    "datesChanged": "Dates changed — re-sync photos?",
+    "starting": "Starting the photo scan…",
+    "back": "Back to the trip",
+    "noDates": {
+      "title": "This trip has no dates yet",
+      "description": "Set a start and an end date, then re-sync its photos."
+    },
+    "notConfigured": {
+      "title": "Connect Immich first",
+      "description": "TravStats needs your Immich server and key before it can scan your photos.",
+      "action": "Open settings"
+    },
+    "tooLong": {
+      "title": "This trip is too long for one scan",
+      "description": "A scan covers at most 62 days. Re-sync a shorter stretch by changing the trip's dates."
+    },
+    "failed": {
+      "title": "The scan could not be started",
+      "description": "Nothing was changed. Try again in a moment."
+    }
   }
 }
