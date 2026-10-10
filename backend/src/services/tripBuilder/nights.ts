@@ -23,7 +23,13 @@ import {
   nightsOf,
 } from "../../shared/tour/builderNightPlan";
 import { distanceKm } from "../photoJourneys/cluster";
-import { HOME_RADIUS_KM, NIGHT_BOUNDARY_H } from "./thresholds";
+import {
+  HOME_RADIUS_KM,
+  NIGHT_BOUNDARY_H,
+  NIGHT_DRIVE_FIRST_BEFORE,
+  NIGHT_DRIVE_LAST_AFTER,
+  NIGHT_DRIVE_MIN_KM,
+} from "./thresholds";
 import type {
   AreaPlan,
   Day,
@@ -307,6 +313,44 @@ const ruleHome: NightRule = (ctx, night) => {
   return place !== null && isHomePlace(ctx, place, night) ? entry(NIGHT_HOME, "home") : null;
 };
 
+/** Minutes after local midnight on the night's own clock: 00:00–03:59 reads as 24:00–27:59. */
+function nightClockMinutes(photo: PhotoPoint): number {
+  return minutesOf(photo.local) + (photo.day > photo.nightDay ? 24 * 60 : 0);
+}
+
+/**
+ * Whether a flight lies between two photos: they are in different areas, or a
+ * precise take-off falls between them.
+ */
+function flightBetween(ctx: NightContext, from: PhotoPoint, to: PhotoPoint): boolean {
+  if (ctx.areaOfPhoto.get(from.id) !== ctx.areaOfPhoto.get(to.id)) return true;
+  return ctx.input.anchors.some(
+    (anchor) => anchor.depMs !== null && anchor.depMs > from.tMs && anchor.depMs < to.tMs
+  );
+}
+
+/**
+ * 6. A night drive. P is at one station and the next morning's first photo Q
+ * at another 150 km or more away; P was taken at 18:00 or later and Q before
+ * 09:00 (00:00–03:59 reads as 24:00–27:59); no flight lies between them. The
+ * night goes to the station driven toward.
+ */
+const ruleNightDrive: NightRule = (ctx, night) => {
+  const last = ctx.lastByNight.get(night);
+  const next = ctx.firstMovementByNight.get(addDays(night, 1));
+  if (last === undefined || next === undefined || last.flags.atSea) return null;
+  if (last.lat === null || last.lon === null || next.lat === null || next.lon === null) return null;
+  const from = placeOf(ctx, last);
+  const to = placeOf(ctx, next);
+  if (from === null || to === null || from === to) return null;
+  const km = distanceKm({ lat: last.lat, lon: last.lon }, { lat: next.lat, lon: next.lon });
+  if (km < NIGHT_DRIVE_MIN_KM) return null;
+  if (nightClockMinutes(last) < minutesOf(NIGHT_DRIVE_LAST_AFTER)) return null;
+  if (nightClockMinutes(next) >= minutesOf(NIGHT_DRIVE_FIRST_BEFORE)) return null;
+  if (flightBetween(ctx, last, next)) return null;
+  return entry(answerFor(ctx, to, night), "nightDrive");
+};
+
 /** 7. The station of P. A photo no station owns leaves the night unknown. */
 function ruleLastPhoto(ctx: NightContext, night: Day): NightEntry {
   const last = ctx.lastByNight.get(night);
@@ -329,6 +373,7 @@ export function attributeNights(input: NightInputs): NightAttribution {
       ruleUnknown(ctx, night) ??
       ruleFerry(ctx, night) ??
       ruleHome(ctx, night) ??
+      ruleNightDrive(ctx, night) ??
       ruleLastPhoto(ctx, night);
   }
   return { nights, pulls: ctx.pulls };
