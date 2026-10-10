@@ -9,6 +9,10 @@
  * scenario tests run it over synthetic photos.
  */
 import type { ReportProgress } from "../jobs/jobRegistry";
+import { AppError } from "../../middleware/errorHandler";
+import { getImmichConnection } from "../immich/immichResolver";
+import { ImmichError, type ImmichErrorKind } from "../immich/types";
+import { resolveBuilderDeps } from "./resolveDeps";
 import { roadtripAreaNames } from "../../shared/tour/builderNightPlan";
 import type { AirportData } from "../airportLookup";
 import type { GeocodeParts } from "../geo/nominatim";
@@ -460,4 +464,32 @@ export async function buildDraftWith(
     flightIds: new Set(listed.map((a) => a.id)),
     stationIndex: stationIndexOf(areas),
   };
+}
+
+export { resolveBuilderDeps };
+
+/** `jobErrorOf` reads a lowercase message as the job's error code, so each Immich kind has a stable one. */
+const IMMICH_JOB_CODES: Record<ImmichErrorKind, string> = {
+  unreachable: "immich_unreachable",
+  auth: "immich_auth",
+  notFound: "immich_not_found",
+  protocol: "immich_protocol",
+  invalidUrl: "immich_invalid_url",
+};
+
+/** The scan job's entry point: resolve the user's connection, then build the draft. */
+export async function buildTripDraft(
+  userId: string,
+  input: ScanInput,
+  report: BuildReport
+): Promise<StoredDraft> {
+  const conn = await getImmichConnection(userId);
+  if (!conn) throw new AppError("Immich is not configured", 409);
+  try {
+    const deps = await resolveBuilderDeps(userId, input, conn);
+    return await buildDraftWith(deps, userId, input, report);
+  } catch (error) {
+    if (error instanceof ImmichError) throw new AppError(IMMICH_JOB_CODES[error.kind], 502);
+    throw error;
+  }
 }
