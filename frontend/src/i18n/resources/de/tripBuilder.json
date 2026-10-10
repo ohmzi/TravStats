@@ -22,7 +22,7 @@
     },
     "scopesMissing": "Deinem Immich-API-Schlüssel fehlen Berechtigungen, die der Scan braucht:",
     "unverified": "TravStats konnte die Berechtigungen deines Schlüssels nicht prüfen. Der Scan zeigt es.",
-    "roadtripsOff": "Roadtrips sind ausgeschaltet, deshalb enthält der Entwurf keine Kilometer und Nächte. Schalte sie unter Einstellungen › Beta ein.",
+    "roadtripsOff": "Roadtrips sind ausgeschaltet, deshalb enthält der Entwurf keine Kilometer und Nächte. Bietet deine Instanz sie an, schalte sie unter Einstellungen › Bereiche ein.",
     "coverLater": "Ein Titelbild kannst du nach dem Speichern hinzufügen.",
     "needDates": "Lege Start- und Enddatum fest, um Fotos zu scannen.",
     "tooLong": "Fotos lassen sich für höchstens 62 Tage auf einmal scannen. Kürze den Zeitraum.",

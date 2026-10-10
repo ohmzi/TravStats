@@ -22,7 +22,7 @@
     },
     "scopesMissing": "Your Immich API key lacks permissions the scan needs:",
     "unverified": "TravStats could not verify your key's permissions. The scan will find out.",
-    "roadtripsOff": "Roadtrips are off, so the draft has no kilometres or nights. Turn them on in Settings › Beta.",
+    "roadtripsOff": "Roadtrips are off, so the draft has no kilometres or nights. If your instance offers them, turn them on under Settings › Modules.",
     "coverLater": "Add a cover after saving.",
     "needDates": "Set a start and an end date to scan photos.",
     "tooLong": "Photos can be scanned for up to 62 days at a time. Shorten the dates.",
