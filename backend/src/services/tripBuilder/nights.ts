@@ -242,6 +242,26 @@ const ruleAfterLanding: NightRule = (ctx, night) => {
 const ruleUnknown: NightRule = (ctx, night) =>
   ctx.lastByNight.has(night) ? null : unknownEntry(ctx, night);
 
+/**
+ * Whether a night at `place` is a night at home: `home` itself, a station the
+ * area marked home, or one whose median lies within 30 km of the residence.
+ */
+function isHomePlace(ctx: NightContext, place: string, night: Day): boolean {
+  if (place === NIGHT_HOME) return true;
+  const station = ctx.stations.get(place)?.station;
+  if (station === undefined) return false;
+  const home = ctx.input.homeAt(night);
+  return station.kind === "home" || (home !== null && distanceKm(station, home) <= HOME_RADIUS_KM);
+}
+
+/** 5. P is in the home cluster: the night was spent at home. */
+const ruleHome: NightRule = (ctx, night) => {
+  const last = ctx.lastByNight.get(night);
+  if (last === undefined || last.flags.atSea) return null;
+  const place = placeOf(ctx, last);
+  return place !== null && isHomePlace(ctx, place, night) ? entry(NIGHT_HOME, "home") : null;
+};
+
 /** 7. The station of P. A photo no station owns leaves the night unknown. */
 function ruleLastPhoto(ctx: NightContext, night: Day): NightEntry {
   const last = ctx.lastByNight.get(night);
@@ -262,6 +282,7 @@ export function attributeNights(input: NightInputs): NightAttribution {
       ruleFlight(ctx, night) ??
       ruleAfterLanding(ctx, night) ??
       ruleUnknown(ctx, night) ??
+      ruleHome(ctx, night) ??
       ruleLastPhoto(ctx, night);
   }
   return { nights, pulls: ctx.pulls };
