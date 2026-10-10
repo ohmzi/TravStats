@@ -10,6 +10,7 @@ import { z } from "zod";
 
 import { registry } from "../registry";
 import { includedRow, prismaColumns } from "../prismaColumns";
+import { tripRoadtripStationResponse } from "../tripRoadtripStationSchema";
 import { createFlightSchema, updateFlightSchema, airportSchema } from "../../../schemas/flight";
 import { localDateInputSchema, localTimeInputSchema } from "../../../shared/time/wire";
 import {
@@ -274,6 +275,13 @@ export const tripResponse = registry.register(
         .array(tripPhotoResponse)
         .optional()
         .describe("GET /trips/{id}: the gallery, the cover's internal row left out"),
+      roadtripStations: z
+        .array(tripRoadtripStationResponse)
+        .optional()
+        .describe(
+          "GET /trips/{id}: the stations of the trip's roadtrips that are not timeline stops; " +
+            "empty while roadtrips are off"
+        ),
       times: tripTimesSchema
         .optional()
         .describe("The trip's first and last day; on the list, detail, create and update"),
