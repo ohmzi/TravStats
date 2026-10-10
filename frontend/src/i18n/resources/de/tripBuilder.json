@@ -1,4 +1,33 @@
 {
+  "popup": {
+    "heading": "Fotos aus Immich",
+    "inspect": {
+      "label": "Immich auswerten",
+      "sub": "Liest aus, wann und wo deine Fotos entstanden sind, und entwirft daraus Route und Nächte. Gespeichert wird erst, wenn du bestätigst."
+    },
+    "album": {
+      "label": "Album in Immich anlegen",
+      "sub": "Legt ein Album mit dem Namen der Reise an und fügt die Fotos hinzu.",
+      "blockedShared": "Alben lassen sich nur über deine eigene Immich-Verbindung anlegen, nicht über eine geteilte.",
+      "blockedScopes": "Dein API-Schlüssel darf keine Alben anlegen. Er braucht album.read, album.create und albumAsset.create.",
+      "blockedNotConfigured": "Immich ist nicht verbunden."
+    },
+    "checking": "Deine Immich-Verbindung wird geprüft …",
+    "checkFailed": "Immich konnte gerade nicht geprüft werden. Versuch den Schalter gleich noch einmal.",
+    "unpaired": {
+      "title": "Immich ist noch nicht verbunden",
+      "description": "Verbinde deine Immich-Bibliothek in den Einstellungen. Dieses Formular bleibt dabei hier geöffnet.",
+      "banner": "Trage die Immich-Adresse und einen API-Schlüssel unter Einstellungen › Dienste ein.",
+      "link": "Immich-Einstellungen in neuem Tab öffnen"
+    },
+    "scopesMissing": "Deinem Immich-API-Schlüssel fehlen Berechtigungen, die der Scan braucht:",
+    "unverified": "TravStats konnte die Berechtigungen deines Schlüssels nicht prüfen. Der Scan zeigt es.",
+    "roadtripsOff": "Roadtrips sind ausgeschaltet, deshalb enthält der Entwurf keine Kilometer und Nächte. Schalte sie unter Einstellungen › Beta ein.",
+    "coverLater": "Ein Titelbild kannst du nach dem Speichern hinzufügen.",
+    "needDates": "Lege Start- und Enddatum fest, um Fotos zu scannen.",
+    "tooLong": "Fotos lassen sich für höchstens 62 Tage auf einmal scannen. Kürze den Zeitraum.",
+    "scan": "Fotos scannen"
+  },
   "timeline": {
     "roadtrip": "Roadtrip",
     "state": "Übernachtung",

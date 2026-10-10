@@ -1,4 +1,33 @@
 {
+  "popup": {
+    "heading": "Photos from Immich",
+    "inspect": {
+      "label": "Inspect Immich",
+      "sub": "Reads when and where your photos were taken and drafts the route and the nights. Nothing is saved until you confirm."
+    },
+    "album": {
+      "label": "Create album in Immich",
+      "sub": "Makes an album named like the trip and adds its photos.",
+      "blockedShared": "Albums can only be created on your own Immich connection, not on a shared one.",
+      "blockedScopes": "Your API key cannot create albums. It needs album.read, album.create and albumAsset.create.",
+      "blockedNotConfigured": "Immich is not connected."
+    },
+    "checking": "Checking your Immich connection…",
+    "checkFailed": "Immich could not be checked just now. Try the switch again in a moment.",
+    "unpaired": {
+      "title": "Immich is not connected yet",
+      "description": "Connect your Immich library in Settings. This form stays open here while you do.",
+      "banner": "Add the Immich address and an API key under Settings › Services.",
+      "link": "Open Immich settings in a new tab"
+    },
+    "scopesMissing": "Your Immich API key lacks permissions the scan needs:",
+    "unverified": "TravStats could not verify your key's permissions. The scan will find out.",
+    "roadtripsOff": "Roadtrips are off, so the draft has no kilometres or nights. Turn them on in Settings › Beta.",
+    "coverLater": "Add a cover after saving.",
+    "needDates": "Set a start and an end date to scan photos.",
+    "tooLong": "Photos can be scanned for up to 62 days at a time. Shorten the dates.",
+    "scan": "Scan photos"
+  },
   "timeline": {
     "roadtrip": "Roadtrip",
     "state": "Night",
