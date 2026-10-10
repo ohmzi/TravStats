@@ -15,7 +15,27 @@
  * told apart by their state ("Springfield, Westshire").
  */
 import { prisma } from "../../db";
-import type { Bbox, CityCluster, ExistingTitle } from "./types";
+import type { GeocodeParts } from "../geo/nominatim";
+import { distanceKm } from "../photoJourneys/cluster";
+import { isHomeCluster } from "./home";
+import { MAX_GEOCODE_LOOKUPS, TITLE_REUSE_KM } from "./thresholds";
+import type {
+  Bbox,
+  CityCluster,
+  ExistingTitle,
+  HomeAtDay,
+  NamedCluster,
+  TitleSource,
+} from "./types";
+
+export interface NameClusterDeps {
+  /** The user's roadtrip station titles near the clusters (`loadExistingTitles`). */
+  existingTitles: readonly ExistingTitle[];
+  /** `reverseGeocode` (services/geo/nominatim.ts): never throws, null when it has no answer. */
+  reverseGeocode(lat: number, lon: number): Promise<GeocodeParts | null>;
+  /** The residence on the first day of the window, or null without a home. */
+  home: HomeAtDay | null;
+}
 
 const KM_PER_DEGREE = (Math.PI * 6371) / 180;
 const MAX_BBOX_LATITUDE = 89.9;
@@ -68,4 +88,82 @@ export async function loadExistingTitles(userId: string, bbox: Bbox): Promise<Ex
     if (trimmed && lat !== null && lon !== null) titles.push({ title: trimmed, lat, lon });
   }
   return titles;
+}
+
+interface Title {
+  text: string;
+  source: TitleSource;
+}
+
+/** The nearest of the user's own titles within `TITLE_REUSE_KM`; the first wins a tie. */
+function reusedTitle(cluster: CityCluster, existing: readonly ExistingTitle[]): Title | null {
+  let nearest: ExistingTitle | null = null;
+  let nearestKm = Infinity;
+  for (const candidate of existing) {
+    const km = distanceKm(cluster, candidate);
+    if (km <= TITLE_REUSE_KM && km < nearestKm) {
+      nearest = candidate;
+      nearestKm = km;
+    }
+  }
+  return nearest === null ? null : { text: nearest.title, source: "existing" };
+}
+
+function immichTitle(cluster: CityCluster): Title | null {
+  const city = cluster.immichCity?.trim();
+  return city ? { text: city, source: "immich" } : null;
+}
+
+/** "Kelmore, Westshire" → "Kelmore". */
+function townOf(home: HomeAtDay): string {
+  return home.name.split(",")[0].trim() || home.name.trim();
+}
+
+async function geocodedCity(deps: NameClusterDeps, cluster: CityCluster): Promise<string | null> {
+  try {
+    const parts = await deps.reverseGeocode(cluster.lat, cluster.lon);
+    return parts?.city?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** The clusters with a title, in the order given. */
+export async function nameClusters(
+  clusters: readonly CityCluster[],
+  deps: NameClusterDeps
+): Promise<NamedCluster[]> {
+  const titles = new Map<string, Title>();
+  const isHome = new Map(
+    clusters.map((cluster) => [cluster.id, isHomeCluster(cluster, deps.home)])
+  );
+  const unresolved: CityCluster[] = [];
+
+  for (const cluster of clusters) {
+    const known = reusedTitle(cluster, deps.existingTitles) ?? immichTitle(cluster);
+    if (known) titles.set(cluster.id, known);
+    else if (deps.home && isHome.get(cluster.id)) {
+      titles.set(cluster.id, { text: townOf(deps.home), source: "home" });
+    } else unresolved.push(cluster);
+  }
+
+  // The biggest clusters are the stops that matter when the lookups run out.
+  const biggestFirst = [...unresolved].sort((a, b) => b.photoIds.length - a.photoIds.length);
+  for (const cluster of biggestFirst.slice(0, MAX_GEOCODE_LOOKUPS)) {
+    const city = await geocodedCity(deps, cluster);
+    if (city) titles.set(cluster.id, { text: city, source: "geocode" });
+  }
+
+  return clusters.map((cluster) => {
+    const title = titles.get(cluster.id) ?? {
+      text: `${cluster.lat.toFixed(2)}, ${cluster.lon.toFixed(2)}`,
+      source: "coords" as const,
+    };
+    return {
+      ...cluster,
+      title: title.text,
+      titleSource: title.source,
+      isHome: isHome.get(cluster.id) === true,
+    };
+  });
 }
