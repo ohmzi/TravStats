@@ -192,44 +192,16 @@ export function createCustomOsrm(baseUrl: string, fetchImpl: typeof fetch = fetc
       const profile = OSRM_PROFILE_BY_MODE[req.mode];
       const coordinates = `${req.from.lon},${req.from.lat};${req.to.lon},${req.to.lat}`;
 
-      const url = new URL(base.toString());
-      url.pathname = `${basePath}/route/v1/${profile}/${coordinates}`;
-      url.searchParams.set("geometries", "geojson");
-      url.searchParams.set("overview", "full");
-
-      let response: Response;
-      try {
-        response = await fetchImpl(url.toString());
-      } catch (err) {
-        logger.warn(
-          { provider: "custom", error: err instanceof Error ? err.message : String(err) },
-          "custom OSRM request failed"
-        );
-        return null;
-      }
-
-      if (!response.ok) {
-        logger.warn(
-          { provider: "custom", status: response.status },
-          "custom OSRM returned a non-200 response"
-        );
-        return null;
-      }
-
-      let body: unknown;
-      try {
-        body = await response.json();
-      } catch (_err) {
-        logger.warn(
-          { provider: "custom", status: response.status },
-          "custom OSRM response body was not valid JSON"
-        );
-        return null;
-      }
+      const url = osrmUrl(`/route/v1/${profile}/${coordinates}`, {
+        geometries: "geojson",
+        overview: "full",
+      });
+      const body = await getJson(url, "route");
+      if (body === null) return null;
 
       if (!isOsrmResponse(body)) {
         logger.warn(
-          { provider: "custom", status: response.status },
+          { provider: "custom", what: "route" },
           "custom OSRM response did not match the expected shape"
         );
         return null;

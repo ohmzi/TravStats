@@ -1,7 +1,7 @@
 import { createOpenRouteService } from "../openRouteService";
 import { createGraphHopper } from "../graphHopper";
 import { createCustomOsrm } from "../customOsrm";
-import { RouteRequest } from "../types";
+import { RouteProvider, RouteRequest } from "../types";
 import logger from "../../../../utils/logger";
 
 /**
@@ -617,4 +617,51 @@ describe("hosted routing adapters", () => {
     expect(typeof custom.probe).toBe("function");
     expect(typeof custom.snap).toBe("function");
   });
+});
+
+describe("createCustomOsrm warnings", () => {
+  // Synthetic coordinates (public repository): two invented towns.
+  const NORTHVALE = { lat: -45.05, lon: 168.7 };
+  const PORT_CARROW = { lat: -44.4, lon: 171.25 };
+
+  const requests = {
+    route: (provider: RouteProvider) =>
+      provider.route({ from: NORTHVALE, to: PORT_CARROW, mode: "road" }),
+    probe: (provider: RouteProvider) => provider.probe?.(NORTHVALE, PORT_CARROW),
+    snap: (provider: RouteProvider) => provider.snap?.(NORTHVALE),
+  };
+
+  const failures: Record<string, () => Promise<Response>> = {
+    "an unreachable router": async () => {
+      throw new Error("connect ECONNREFUSED");
+    },
+    "a refusal": async () => jsonResponse(400, { code: "InvalidQuery" }),
+    "a body that is not JSON": async () => malformedResponse(200),
+    "a body of the wrong shape": async () => jsonResponse(200, { code: "Ok" }),
+  };
+
+  it.each(["route", "probe", "snap"] as const)(
+    "names the %s request in the one warning each failure logs",
+    async (what) => {
+      const warn = jest.spyOn(logger, "warn").mockImplementation(() => logger);
+      try {
+        for (const [failure, fetchImpl] of Object.entries(failures)) {
+          warn.mockClear();
+
+          await requests[what](
+            createCustomOsrm("http://osrm.local:5000", fetchImpl as typeof fetch)
+          );
+
+          // One line per failure, tagged with the request, so a log reader can tell them apart.
+          expect({ failure, calls: warn.mock.calls.length }).toEqual({ failure, calls: 1 });
+          expect(warn).toHaveBeenCalledWith(
+            expect.objectContaining({ provider: "custom", what }),
+            expect.any(String)
+          );
+        }
+      } finally {
+        warn.mockRestore();
+      }
+    }
+  );
 });
