@@ -20,6 +20,7 @@ import { rejectDemoWrites } from "../middleware/demoGuard";
 import { immichImportLimiter, immichProxyLimiter } from "../middleware/rateLimit";
 import { AppError } from "../middleware/errorHandler";
 import {
+  commitBodySchema,
   draftIdParamSchema,
   previewIndexParamSchema,
   previewSizeSchema,
@@ -33,8 +34,17 @@ import { getImmichConnection } from "../services/immich/immichResolver";
 import { startJob } from "../services/jobs/jobRegistry";
 import { buildTripDraft, progressReporter } from "../services/tripBuilder/buildDraft";
 import { builderCapabilities } from "../services/tripBuilder/capabilities";
-import { deleteDraft, expiresAtOf, getDraft, putDraft } from "../services/tripBuilder/draftStore";
-import type { ScanJobResult } from "../services/tripBuilder/types";
+import { runCommitJob } from "../services/tripBuilder/commit";
+import { prepareCommit } from "../services/tripBuilder/commitPlan";
+import {
+  attachCommitJob,
+  beginCommit,
+  deleteDraft,
+  expiresAtOf,
+  getDraft,
+  putDraft,
+} from "../services/tripBuilder/draftStore";
+import type { BeginCommit, ScanJobResult } from "../services/tripBuilder/types";
 import { resolveTrip } from "./trips/resolveTrip";
 
 const router = Router();
@@ -147,6 +157,66 @@ router.get(
         sendPlaceholder(res, error.kind === "notFound" ? 404 : 502);
         return;
       }
+      next(error);
+    }
+  }
+);
+
+/** What `beginCommit` said, when it did not say "start": the same answer to every caller. */
+function answerCommitState(res: Response, state: BeginCommit): void {
+  switch (state.kind) {
+    case "inProgress":
+      res.status(202).json({ jobId: state.jobId });
+      return;
+    case "committed":
+      throw new AppError("This draft was already committed", 409, "ALREADY_COMMITTED", undefined, {
+        tripId: state.result.tripId,
+      });
+    case "busy":
+      throw new AppError("Another commit is running on this draft", 409, "COMMIT_IN_PROGRESS");
+    case "missing":
+      throw draftExpired();
+    default:
+      throw new AppError(
+        "The draft changed under the commit; try again",
+        409,
+        "COMMIT_IN_PROGRESS"
+      );
+  }
+}
+
+/**
+ * Create the trip from a reviewed draft. The handler is database-only and
+ * answers inside the browser's ten seconds; the job does the Immich and
+ * routing work. One `commitKey` per review session makes a retry idempotent:
+ * the same key meets the same job, another key meets 409, and once the trip is
+ * written any key meets 409 ALREADY_COMMITTED with its id.
+ */
+router.post(
+  "/drafts/:id/commit",
+  immichImportLimiter,
+  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.userId!;
+      const id = draftIdParamSchema.parse(req.params.id);
+      const body = commitBodySchema.parse(req.body);
+      const draft = getDraft(userId, id);
+      if (!draft) throw draftExpired();
+      if (draft.status !== "ready") {
+        answerCommitState(res, beginCommit(userId, id, body.commitKey));
+        return;
+      }
+
+      const plan = await prepareCommit(userId, draft, body);
+      const begun = beginCommit(userId, id, body.commitKey);
+      if (begun.kind !== "start") {
+        answerCommitState(res, begun);
+        return;
+      }
+      const job = startJob("tripBuilder.commit", userId, () => runCommitJob(draft, plan));
+      attachCommitJob(id, job.id);
+      res.status(202).json({ jobId: job.id });
+    } catch (error) {
       next(error);
     }
   }

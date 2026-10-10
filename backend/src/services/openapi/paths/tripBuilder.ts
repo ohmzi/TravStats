@@ -7,7 +7,7 @@
 import { z } from "zod";
 
 import { registry } from "../registry";
-import { scanBodySchema } from "../../../schemas/tripBuilder";
+import { commitBodySchema, scanBodySchema } from "../../../schemas/tripBuilder";
 import { BUILDER_LEG_MODES, STATION_KINDS } from "../../tripBuilder/types";
 import { errorContent } from "./shared";
 
@@ -358,5 +358,40 @@ registry.registerPath({
     400: { description: "Invalid index, size or id", content: errorContent },
     404: { description: "Draft expired or index past the list", content: errorContent },
     409: { description: '`{error: "notConfigured"}`: no Immich connection', content: errorContent },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/trip-builder/drafts/{id}/commit",
+  summary: "Create the trip from a reviewed draft",
+  description:
+    "Validates against the draft without calling Immich, then starts a commit job and " +
+    'answers 202. The job result is `{status:"committed", tripId, roadtrips, stopIds, ' +
+    "flightsAssigned, flightsMovedFrom, routing, photoJourneysResolved, unknownNights, " +
+    'album}` or `{status:"blocked", reason, missingScopes}`, which wrote nothing. Idempotent ' +
+    "per `commitKey`: the same key meets the running job, another key meets 409 " +
+    "COMMIT_IN_PROGRESS, and a written trip meets 409 ALREADY_COMMITTED with `tripId`. " +
+    "Only flights, findings, areas and stations the draft offered are accepted.",
+  tags: tag,
+  request: {
+    params: draftParams,
+    body: { content: { "application/json": { schema: commitBodySchema } } },
+  },
+  responses: {
+    202: { description: "The commit job", content: { "application/json": { schema: jobStarted } } },
+    400: {
+      description:
+        "`code` VALIDATION_FAILED, NIGHT_PLAN_INVALID (with `reason`, `stationKey`, `day`), " +
+        "STATIONS_INVALID or DRAFT_MISMATCH (with `field`)",
+      content: errorContent,
+    },
+    404: expired,
+    409: {
+      description:
+        "`code` WINDOW_CHANGED, ALREADY_COMMITTED (with `tripId`), COMMIT_IN_PROGRESS or ROADTRIPS_HIDDEN",
+      content: errorContent,
+    },
+    429: { description: "Too many requests", content: errorContent },
   },
 });
