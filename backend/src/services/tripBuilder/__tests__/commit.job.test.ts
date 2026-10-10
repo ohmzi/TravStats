@@ -1,0 +1,257 @@
+jest.mock("../albumWrite", () => ({
+  ...jest.requireActual("../albumWrite"),
+  preflightAlbum: jest.fn(),
+  writeTripAlbum: jest.fn(),
+}));
+jest.mock("../../tour/routing/resolveProvider", () => ({
+  resolveRouteProvider: jest.fn(),
+  describeRoutingAvailability: jest.fn(),
+}));
+
+import { prisma } from "../../../db";
+import { setClockForTests } from "../../../shared/time/clock";
+import { hashPassword } from "../../../utils/password";
+import * as replaceModule from "../../roadtrip/replaceStations";
+import { resolveRouteProvider } from "../../tour/routing/resolveProvider";
+import { preflightAlbum, writeTripAlbum } from "../albumWrite";
+import { runCommitJob } from "../commit";
+import { beginCommit, clearDraftsForTests, getDraft, putDraft } from "../draftStore";
+import {
+  COMMIT_KEY,
+  CREATED_AT,
+  DRAFT_ID,
+  JOURNEY_ID,
+  OTHER_COMMIT_KEY,
+  fixtureDraft,
+  fixturePlan,
+} from "./commitFixtures";
+
+const mockPreflight = preflightAlbum as jest.Mock;
+const mockWriteAlbum = writeTripAlbum as jest.Mock;
+const mockProvider = resolveRouteProvider as jest.Mock;
+const ALBUM = {
+  status: "linked",
+  immichAlbumId: "album-1",
+  albumName: "Northvale loop",
+  reused: false,
+  added: 2,
+  alreadyIn: 0,
+  refused: 0,
+};
+
+describe("runCommitJob", () => {
+  let userId: string;
+  let flightId: string;
+
+  beforeAll(async () => {
+    await prisma.user.deleteMany({ where: { username: "tb-job" } });
+    userId = (
+      await prisma.user.create({
+        data: { username: "tb-job", passwordHash: await hashPassword("password123") },
+      })
+    ).id;
+  });
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    clearDraftsForTests();
+    setClockForTests("2031-12-01T00:00:00Z");
+    mockProvider.mockResolvedValue(null);
+    mockPreflight.mockResolvedValue({ ok: true, client: {}, immichUserId: "immich-user" });
+    mockWriteAlbum.mockResolvedValue(ALBUM);
+    flightId = (
+      await prisma.flight.create({
+        data: {
+          userId,
+          flightNumber: "ZZ101",
+          depLat: -44.72,
+          depLon: 169.17,
+          arrLat: -38.02,
+          arrLon: 177.01,
+        },
+      })
+    ).id;
+  });
+
+  afterEach(async () => {
+    jest.restoreAllMocks();
+    setClockForTests(null);
+    await prisma.photoJourney.deleteMany({ where: { userId } });
+    await prisma.flight.deleteMany({ where: { userId } });
+    await prisma.trip.deleteMany({ where: { userId } });
+  });
+
+  afterAll(async () => {
+    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.$disconnect();
+  });
+
+  /** Puts the draft in the store and begins the commit, as the route does. */
+  function begin(albumCreate: boolean, extra: Partial<ReturnType<typeof fixturePlan>> = {}) {
+    const draft = fixtureDraft(userId, [flightId], { createdAt: CREATED_AT });
+    setClockForTests(new Date(CREATED_AT + 60_000));
+    putDraft(draft);
+    beginCommit(userId, DRAFT_ID, COMMIT_KEY);
+    const plan = {
+      ...fixturePlan(userId, [flightId]),
+      album: { create: albumCreate, name: "Northvale loop" },
+      ...extra,
+    };
+    return { draft, plan };
+  }
+
+  it("writes the trip, links the album and answers one committed result", async () => {
+    const { draft, plan } = begin(true);
+
+    const result = await runCommitJob(draft, { ...plan, unknownNights: 2 });
+
+    expect(result).toMatchObject({
+      status: "committed",
+      created: true,
+      flightsAssigned: 1,
+      unknownNights: 2,
+      album: ALBUM,
+      routing: { routed: 0, straight: 1, ferry: 1, providerAvailable: false },
+    });
+    if (result.status !== "committed") throw new Error("unreachable");
+    expect(await prisma.trip.count({ where: { id: result.tripId } })).toBe(1);
+    expect(mockPreflight).toHaveBeenCalledWith(userId, draft.immichUserId);
+    expect(mockWriteAlbum).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tripId: result.tripId,
+        albumName: "Northvale loop",
+        description: "TravStats trip · 2031-05-02 – 2031-05-05",
+        assetIds: ["photo-a", "photo-b"],
+        immichUserId: "immich-user",
+      })
+    );
+    expect(getDraft(userId, DRAFT_ID)?.status).toBe("committed");
+  });
+
+  it("skips Immich entirely when no album was asked for", async () => {
+    const { draft, plan } = begin(false);
+    const result = await runCommitJob(draft, plan);
+    expect(result).toMatchObject({
+      status: "committed",
+      album: { status: "skipped", skipReason: "notRequested" },
+    });
+    expect(mockPreflight).not.toHaveBeenCalled();
+    expect(mockWriteAlbum).not.toHaveBeenCalled();
+  });
+
+  it("is blocked before any write when the preflight says so, and the draft can be committed again", async () => {
+    mockPreflight.mockResolvedValue({
+      ok: false,
+      blocked: { status: "blocked", reason: "missingScopes", missingScopes: ["album.create"] },
+    });
+    const { draft, plan } = begin(true);
+
+    const result = await runCommitJob(draft, plan);
+
+    expect(result).toEqual({
+      status: "blocked",
+      reason: "missingScopes",
+      missingScopes: ["album.create"],
+    });
+    expect(await prisma.trip.count({ where: { userId } })).toBe(0);
+    expect((await prisma.flight.findUniqueOrThrow({ where: { id: flightId } })).tripId).toBeNull();
+    expect(getDraft(userId, DRAFT_ID)?.status).toBe("ready");
+    expect(beginCommit(userId, DRAFT_ID, OTHER_COMMIT_KEY)).toEqual({ kind: "start" });
+  });
+
+  it("fails with COMMIT_FAILED when phase B rolls back, and returns the draft to ready", async () => {
+    jest
+      .spyOn(replaceModule, "replaceStationsInTx")
+      .mockRejectedValueOnce(new Error("station write failed"));
+    const { draft, plan } = begin(false);
+
+    await expect(runCommitJob(draft, plan)).rejects.toMatchObject({
+      statusCode: 500,
+      code: "COMMIT_FAILED",
+    });
+
+    expect(await prisma.trip.count({ where: { userId } })).toBe(0);
+    expect(getDraft(userId, DRAFT_ID)?.status).toBe("ready");
+  });
+
+  it("keeps the trip committed when the album step throws, and refuses a second commit", async () => {
+    mockWriteAlbum.mockRejectedValue(new Error("immich exploded"));
+    const { draft, plan } = begin(true);
+
+    const result = await runCommitJob(draft, plan);
+
+    expect(result).toMatchObject({
+      status: "committed",
+      album: { status: "failed", error: { kind: "internal" } },
+    });
+    if (result.status !== "committed") throw new Error("unreachable");
+    expect(getDraft(userId, DRAFT_ID)?.status).toBe("committed");
+    expect(beginCommit(userId, DRAFT_ID, OTHER_COMMIT_KEY)).toMatchObject({
+      kind: "committed",
+      result: { tripId: result.tripId },
+    });
+    expect(await prisma.trip.count({ where: { userId } })).toBe(1);
+  });
+
+  it("keeps the trip committed when routing fails, reporting the legs as unrouted", async () => {
+    mockProvider.mockRejectedValue(new Error("routing down"));
+    const { draft, plan } = begin(false);
+
+    const result = await runCommitJob(draft, plan);
+
+    expect(result).toMatchObject({
+      status: "committed",
+      routing: { routed: 0, straight: 1, ferry: 1, providerAvailable: false },
+    });
+    expect(getDraft(userId, DRAFT_ID)?.status).toBe("committed");
+  });
+
+  it("recomputes the status of the trip a flight was moved off", async () => {
+    const old = await prisma.trip.create({
+      data: {
+        userId,
+        name: "Old trip",
+        status: "planned",
+        startDate: new Date("2031-05-02T00:00:00.000Z"),
+        endDate: new Date("2031-05-05T00:00:00.000Z"),
+      },
+    });
+    await prisma.flight.update({ where: { id: flightId }, data: { tripId: old.id } });
+    const { draft, plan } = begin(false);
+
+    const result = await runCommitJob(draft, plan);
+
+    expect(result).toMatchObject({ flightsMovedFrom: [{ tripId: old.id, name: "Old trip" }] });
+    // Pinned at 2031-12-01, a trip that ended in May is completed, not planned.
+    expect((await prisma.trip.findUniqueOrThrow({ where: { id: old.id } })).status).toBe(
+      "completed"
+    );
+  });
+
+  it("accepts the ticked photo-journey findings of the window", async () => {
+    await prisma.photoJourney.create({
+      data: {
+        id: JOURNEY_ID,
+        userId,
+        kind: "trip",
+        status: "pending",
+        startDate: new Date("2031-05-02T08:00:00.000Z"),
+        endDate: new Date("2031-05-03T20:00:00.000Z"),
+        photoCount: 12,
+        locatedCount: 10,
+        lat: -45.05,
+        lon: 168.7,
+        previewAssetIds: [],
+        fingerprint: "fp-job",
+      },
+    });
+    const { draft, plan } = begin(false, { photoJourneyIds: [JOURNEY_ID] });
+
+    const result = await runCommitJob(draft, plan);
+
+    expect(result).toMatchObject({ status: "committed", photoJourneysResolved: 1 });
+    expect(
+      (await prisma.photoJourney.findUniqueOrThrow({ where: { id: JOURNEY_ID } })).status
+    ).toBe("accepted");
+  });
+});

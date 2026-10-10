@@ -2,25 +2,43 @@
  * Phase B of a commit (spec 2026-10-09 §A, §D): every TravStats row of the
  * trip in ONE transaction. A throw anywhere rolls the trip, its flights, its
  * stops and its roadtrips back together, so the trip either exists completely
- * or not at all. Phases C and D live further down this file's neighbours and
- * only ever add to what B wrote.
+ * or not at all. Phase C (routing, statuses, findings) and phase D (the
+ * album) follow it further down this file, in `runCommitJob`, and only ever
+ * add to what B wrote.
  *
  * Companion rows (`prepareTripCreate`) are find-or-create and may be written
  * before the transaction; a rollback leaves them behind, where they are
  * reused. That is deliberate and harmless.
  */
 import { prisma, type DbTransaction } from "../../db";
+import { AppError } from "../../middleware/errorHandler";
+import { now } from "../../shared/time/clock";
 import { toDbDate } from "../../shared/time/localDate";
+import logger from "../../utils/logger";
 import { insertRoadtrip } from "../roadtrip/createRoadtrip";
 import { replaceStationsInTx } from "../roadtrip/replaceStations";
 import { editedTripDays, stationTimeColumns } from "../timeModel/tripColumns";
-import { insertTrip, prepareTripCreate, type PreparedTripCreate } from "../trip/createTrip";
-import { now } from "../../shared/time/clock";
 import { autoRouteNewLegs } from "../tour/routing/autoRouteLegs";
 import { resolveRouteProvider } from "../tour/routing/resolveProvider";
+import { insertTrip, prepareTripCreate, type PreparedTripCreate } from "../trip/createTrip";
+import { recomputeTripStatus } from "../tripStatusService";
+import {
+  albumDescription,
+  preflightAlbum,
+  writeTripAlbum,
+  type AlbumPreflight,
+} from "./albumWrite";
 import { journeyBounds } from "./builderQueries";
+import { abortCommit, finishCommit } from "./draftStore";
 import { COMMIT_TX_TIMEOUT_MS, ROUTE_BUDGET_MS, ROUTE_CHUNK_LEGS } from "./thresholds";
-import type { CommitPlan, CommitResult, PhaseBResult, PhaseBRoadtrip } from "./types";
+import type {
+  CommitJobResult,
+  CommitPlan,
+  CommitResult,
+  PhaseBResult,
+  PhaseBRoadtrip,
+  StoredDraft,
+} from "./types";
 
 async function writeTrip(
   tx: DbTransaction,
@@ -156,6 +174,14 @@ export async function writeCommit(plan: CommitPlan): Promise<PhaseBResult> {
   );
 }
 
+/** How many legs phase B created, and how many of those are ferries. */
+function legTotals(written: PhaseBResult): { created: number; ferry: number } {
+  return {
+    created: written.roadtrips.reduce((n, r) => n + r.createdLegs.length, 0),
+    ferry: written.roadtrips.reduce((n, r) => n + r.ferryLegs, 0),
+  };
+}
+
 /**
  * Phase C, routing: the legs phase B created are routed along the road in
  * chunks of 25 until the two-minute budget is spent. A leg stored as `ferry`
@@ -167,8 +193,7 @@ export async function routeCommittedLegs(
   userId: string,
   written: PhaseBResult
 ): Promise<CommitResult["routing"]> {
-  const created = written.roadtrips.reduce((n, r) => n + r.createdLegs.length, 0);
-  const ferry = written.roadtrips.reduce((n, r) => n + r.ferryLegs, 0);
+  const { created, ferry } = legTotals(written);
   const provider = await resolveRouteProvider(userId);
   if (provider === null || created === 0) {
     return {
@@ -222,4 +247,134 @@ export async function resolvePhotoJourneys(
     data: { status: "accepted", createdTripId: tripId, resolvedAt: now() },
   });
   return count;
+}
+
+/**
+ * What the draft remembers right after phase B. Later phases only add to it.
+ * Read afterwards for the trip id alone: that is what answers a second commit.
+ *
+ * Its routing is the answer if routing never gets to run: every road leg is
+ * still a straight line, no router was reached, and the page says so.
+ */
+function resultAfterB(plan: CommitPlan, written: PhaseBResult): CommitResult {
+  const { created, ferry } = legTotals(written);
+  return {
+    tripId: written.tripId,
+    created: written.created,
+    roadtrips: written.roadtrips.map(({ id, name, stations, nights }) => ({
+      id,
+      name,
+      stations,
+      nights,
+    })),
+    stopIds: written.stopIds,
+    flightsAssigned: written.flightsAssigned,
+    flightsMovedFrom: written.flightsMovedFrom,
+    routing: { routed: 0, straight: Math.max(0, created - ferry), ferry, providerAvailable: false },
+    photoJourneysResolved: 0,
+    unknownNights: plan.unknownNights,
+    album: { status: "skipped", skipReason: "notRequested" },
+  };
+}
+
+const errorText = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+/** Phase C. Each step is wrapped on its own: one failing must not skip the others. */
+async function afterCommit(
+  plan: CommitPlan,
+  written: PhaseBResult,
+  result: CommitResult
+): Promise<void> {
+  try {
+    result.routing = await routeCommittedLegs(plan.userId, written);
+  } catch (error) {
+    logger.warn(
+      { operation: "trip_builder.route_failed", error: errorText(error) },
+      "Routing the new legs failed"
+    );
+  }
+  const tripIds = new Set([written.tripId, ...written.flightsMovedFrom.map((trip) => trip.tripId)]);
+  for (const tripId of tripIds) {
+    try {
+      await recomputeTripStatus(tripId);
+    } catch (error) {
+      logger.warn(
+        { operation: "trip_builder.restatus_failed", tripId, error: errorText(error) },
+        "Recomputing a trip status failed"
+      );
+    }
+  }
+  try {
+    result.photoJourneysResolved = await resolvePhotoJourneys(
+      plan.userId,
+      written.tripId,
+      plan.photoJourneyIds,
+      plan.window
+    );
+  } catch (error) {
+    logger.warn(
+      { operation: "trip_builder.findings_failed", error: errorText(error) },
+      "Resolving photo findings failed"
+    );
+  }
+}
+
+/**
+ * The commit job. P preflights Immich without writing; B writes every
+ * TravStats row in one transaction; `finishCommit` marks the draft committed
+ * the moment B is safe, so nothing later can make the trip be created twice;
+ * C and D (routing, statuses, findings, the album) only add to the result.
+ *
+ * `blocked` is a SUCCESS that wrote nothing: the page offers to fix the key or
+ * to save the trip without its album.
+ */
+export async function runCommitJob(draft: StoredDraft, plan: CommitPlan): Promise<CommitJobResult> {
+  let album: Extract<AlbumPreflight, { ok: true }> | null = null;
+  if (plan.album.create) {
+    const preflight = await preflightAlbum(plan.userId, draft.immichUserId);
+    if (!preflight.ok) {
+      abortCommit(draft.id);
+      return preflight.blocked;
+    }
+    album = preflight;
+  }
+
+  let written: PhaseBResult;
+  try {
+    written = await writeCommit(plan);
+  } catch (error) {
+    abortCommit(draft.id);
+    logger.error(
+      { operation: "trip_builder.commit_failed", draftId: draft.id, error: errorText(error) },
+      "Commit rolled back"
+    );
+    throw new AppError("Commit failed", 500, "COMMIT_FAILED");
+  }
+
+  const result = resultAfterB(plan, written);
+  finishCommit(draft.id, result);
+
+  await afterCommit(plan, written, result);
+
+  if (album) {
+    try {
+      result.album = await writeTripAlbum({
+        userId: plan.userId,
+        tripId: written.tripId,
+        albumName: plan.album.name,
+        description: albumDescription(plan.window.startDay, plan.window.endDay),
+        assetIds: draft.albumAssetIds,
+        client: album.client,
+        immichUserId: album.immichUserId,
+      });
+    } catch (error) {
+      logger.error(
+        { operation: "trip_builder.album_threw", error: errorText(error) },
+        "The album step threw"
+      );
+      result.album = { status: "failed", error: { kind: "internal" } };
+    }
+  }
+  return { status: "committed", ...result };
 }
