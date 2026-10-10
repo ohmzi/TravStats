@@ -372,3 +372,32 @@ export function validateNightPlan(
   }
   return errors;
 }
+
+/**
+ * The leg mode between each pair of consecutive station rows (spec §C.10).
+ *
+ * The draft's `legModes[i]` joins `stationKeys[i]` to `stationKeys[i + 1]`,
+ * but the rows are not the stations: a station split by a night spent
+ * elsewhere is two rows. So each pair of rows takes the mode of the draft leg
+ * that joins their two stations, a station's own split is a 0 km `road` leg,
+ * and a pair no draft leg joins (a station was merged, deleted or reordered)
+ * is `road`. The result has one entry fewer than there are rows.
+ */
+export function rowLegModes(
+  stationKeys: readonly string[],
+  legModes: readonly ("road" | "ferry")[],
+  rows: readonly StationRow[]
+): Array<"road" | "ferry"> {
+  const modes: Array<"road" | "ferry"> = [];
+  for (let i = 0; i + 1 < rows.length; i++) {
+    const from = rows[i].stationKey;
+    const to = rows[i + 1].stationKey;
+    let mode: "road" | "ferry" = "road";
+    if (from !== to) {
+      const leg = stationKeys.findIndex((key, j) => key === from && stationKeys[j + 1] === to);
+      if (leg >= 0) mode = legModes[leg] ?? "road";
+    }
+    modes.push(mode);
+  }
+  return modes;
+}
