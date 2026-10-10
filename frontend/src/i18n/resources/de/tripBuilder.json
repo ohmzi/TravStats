@@ -47,5 +47,10 @@
     "dates": "Zeitraum",
     "notes": "Notizen",
     "open": "Roadtrip öffnen"
+  },
+  "errors": {
+    "commit": {
+      "tripChanged": "Die Reise hat sich seit dem Scan geändert. Scanne noch einmal; deine Änderungen bleiben erhalten."
+    }
   }
 }

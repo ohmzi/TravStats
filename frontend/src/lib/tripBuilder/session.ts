@@ -3,9 +3,13 @@ import type { LauncherHandoff, ScanBody, ScanTarget } from "../../types/tripBuil
 /**
  * The photo trip builder's use of `sessionStorage` (spec 2026-10-09 §A).
  *
- * Two keys: `tb:job:<jobId>` carries what the popup knew when it started the
+ * Four keys. `tb:job:<jobId>` carries what the popup knew when it started the
  * scan (the form, the target, where Back returns), and `tb:draft:<draftId>`
  * carries the review's edits and its commit key, so a reload resumes them.
+ * `tb:carry:<jobId>` carries the edits and commit key of a review that started
+ * a re-scan, for the new draft to pick up, and `tb:scan:<draftId>` remembers how
+ * a draft was asked for (the scan and its handoff), so an expired one can be
+ * scanned again. The last two are named in `reviewSession.ts`.
  *
  * Storage can be absent, blocked or full (a private window, cleared site
  * data). Every access is wrapped: a read that fails is "nothing there", a
@@ -52,7 +56,7 @@ function isScanTarget(value: unknown): value is ScanTarget {
 }
 
 /** The request `scan` was started with, kept so a scan that failed early can be run again. */
-function isScanBody(value: unknown): value is ScanBody {
+export function isScanBody(value: unknown): value is ScanBody {
   return (
     isRecord(value) &&
     typeof value.name === "string" &&

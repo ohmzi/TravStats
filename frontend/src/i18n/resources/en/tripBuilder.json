@@ -47,5 +47,10 @@
     "dates": "Dates",
     "notes": "Notes",
     "open": "Open roadtrip"
+  },
+  "errors": {
+    "commit": {
+      "tripChanged": "This trip changed since the scan. Scan again — your edits are kept."
+    }
   }
 }
