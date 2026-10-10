@@ -13,11 +13,20 @@
  *
  * Pure. The photos, areas, flights and home come in already built.
  */
-import { addDays, nightsOf, NIGHT_HOME, NIGHT_UNKNOWN } from "../../shared/tour/builderNightPlan";
+import { localDay, toLocal } from "../../shared/time/instant";
+import { isValidZone } from "../../shared/time/zonedParts";
+import {
+  addDays,
+  NIGHT_FLIGHT,
+  NIGHT_HOME,
+  NIGHT_UNKNOWN,
+  nightsOf,
+} from "../../shared/tour/builderNightPlan";
 import type {
   AreaPlan,
   Day,
   DayPull,
+  FlightAnchor,
   NightAttribution,
   NightEntry,
   NightInputs,
@@ -137,6 +146,45 @@ function unknownEntry(ctx: NightContext, night: Day): NightEntry {
   return entry(NIGHT_UNKNOWN, "unknown", gapNeighbours(ctx, night));
 }
 
+interface FlightEnds {
+  depDay: Day;
+  arrDay: Day;
+  /** The arrival's `HH:MM` on the arrival airport's clock; null when the flight has none. */
+  arrClock: string | null;
+}
+
+/**
+ * A flight's local departure and arrival days. A flight with exact instants
+ * (`precise`) is read from those instants on the airports' clocks, so a delay
+ * past midnight moves its day; any other is read as recorded.
+ */
+function flightEnds(anchor: FlightAnchor): FlightEnds {
+  if (
+    anchor.precise &&
+    anchor.depMs !== null &&
+    anchor.arrMs !== null &&
+    isValidZone(anchor.depZone) &&
+    isValidZone(anchor.arrZone)
+  ) {
+    const arrival = toLocal(new Date(anchor.arrMs), anchor.arrZone).local;
+    return {
+      depDay: localDay(new Date(anchor.depMs), anchor.depZone),
+      arrDay: arrival.slice(0, 10),
+      arrClock: arrival.slice(11, 16),
+    };
+  }
+  return { depDay: anchor.depDay, arrDay: anchor.arrDay, arrClock: anchor.arrClock };
+}
+
+/** 1. A flight took off on or before the night's day and landed after it: airborne at midnight. */
+const ruleFlight: NightRule = (ctx, night) => {
+  const airborne = ctx.input.anchors.some((anchor) => {
+    const { depDay, arrDay } = flightEnds(anchor);
+    return depDay <= night && night < arrDay;
+  });
+  return airborne ? entry(NIGHT_FLIGHT, "flight") : null;
+};
+
 /** 3. No photo at all on this night: unknown, with the stations either side as suggestions. */
 const ruleUnknown: NightRule = (ctx, night) =>
   ctx.lastByNight.has(night) ? null : unknownEntry(ctx, night);
@@ -157,7 +205,7 @@ export function attributeNights(input: NightInputs): NightAttribution {
   const ctx = buildContext(input);
   const nights: Record<Day, NightEntry> = {};
   for (const night of nightsOf(input.window)) {
-    nights[night] = ruleUnknown(ctx, night) ?? ruleLastPhoto(ctx, night);
+    nights[night] = ruleFlight(ctx, night) ?? ruleUnknown(ctx, night) ?? ruleLastPhoto(ctx, night);
   }
   return { nights, pulls: ctx.pulls };
 }
