@@ -17,6 +17,8 @@ import {
 const mockDomains = loadVisibleDomains as jest.Mock;
 const FLIGHT = "ff0f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b";
 const OTHER_AREA = "2031-05-09#1";
+const K_HOME = "-904|3369|2031-05-02";
+const K_AIRPORT = "-881|3402|2031-05-05";
 
 describe("prepareCommit", () => {
   let userId: string;
@@ -115,11 +117,40 @@ describe("prepareCommit", () => {
   });
 
   it("turns a stops area into timeline stops, leaving home and airport stations out and merging runs of one title", async () => {
+    // The traveller's home must never reach the timeline, so the area is
+    // bracketed by a home and an airport station the scan offered.
+    const home = {
+      key: K_HOME,
+      title: "Kelmore",
+      lat: -45.1,
+      lon: 168.6,
+      kind: "home" as const,
+      firstDay: "2031-05-02",
+      lastDay: "2031-05-02",
+    };
+    const airport = {
+      key: K_AIRPORT,
+      title: "Kelmore Airport",
+      lat: -44.1,
+      lon: 170.0,
+      kind: "airport" as const,
+      firstDay: "2031-05-05",
+      lastDay: "2031-05-05",
+    };
     const body = fixtureBody([flightId]);
     body.areas[0].as = "stops";
     body.areas[0].stations[1].title = "Northvale";
+    body.areas[0].stations = [home, ...body.areas[0].stations, airport];
+    body.areas[0].legModes = ["road", "road", "ferry", "road"];
     body.nights = {};
-    const result = await plan(body);
+    const offered = fixtureDraft(userId, [flightId], {
+      stationIndex: new Map([
+        ...draft().stationIndex,
+        [home.key, { areaKey: AREA_KEY, firstDay: home.firstDay, lastDay: home.lastDay }],
+        [airport.key, { areaKey: AREA_KEY, firstDay: airport.firstDay, lastDay: airport.lastDay }],
+      ]),
+    });
+    const result = await plan(body, offered);
 
     expect(result.roadtrips).toEqual([]);
     expect(result.stops).toEqual([
@@ -138,6 +169,29 @@ describe("prepareCommit", () => {
         lat: -44.2,
         lon: 169.95,
         startDay: "2031-05-05",
+        endDay: "2031-05-05",
+        notes: null,
+      },
+    ]);
+  });
+
+  it("merges the two stops either side of a dropped station into one when they share a title", async () => {
+    const body = fixtureBody([flightId]);
+    body.areas[0].as = "stops";
+    body.areas[0].stations[1].kind = "airport";
+    body.areas[0].stations[2].title = "Northvale";
+    body.nights = {};
+    const result = await plan(body);
+
+    // The airport is dropped first and the run is merged after, so the one
+    // Northvale stop spans the days the dropped station covered (2031-05-04).
+    expect(result.stops).toEqual([
+      {
+        areaKey: AREA_KEY,
+        title: "Northvale",
+        lat: -45.05,
+        lon: 168.7,
+        startDay: "2031-05-02",
         endDay: "2031-05-05",
         notes: null,
       },
