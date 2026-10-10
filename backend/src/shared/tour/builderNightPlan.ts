@@ -176,3 +176,80 @@ export function roadtripAreaNames(
   }
   return names;
 }
+
+/** The days `nights` gives to one station, earliest first. */
+function nightsAssignedTo(key: string, nights: Readonly<Record<string, NightAssign>>): string[] {
+  return Object.keys(nights)
+    .filter((day) => nights[day] === key)
+    .sort();
+}
+
+/** Sorted days grouped into runs of consecutive calendar days. */
+function consecutiveRuns(days: readonly string[]): string[][] {
+  const runs: string[][] = [];
+  for (const day of days) {
+    const run = runs[runs.length - 1];
+    if (run !== undefined && addDays(run[run.length - 1], 1) === day) run.push(day);
+    else runs.push([day]);
+  }
+  return runs;
+}
+
+/**
+ * What a set of night answers writes as roadtrip stations (spec §C.10).
+ *
+ * `nights[day]` is the source of truth; the dates are derived from it so a
+ * station can never claim a night another station holds.
+ *
+ * - A station with no night is a pass station: one row from its `firstDay` to
+ *   its `lastDay`.
+ * - A station with nights is slept: one row per run of consecutive nights,
+ *   `startDate` the first night and `endDate` the last night + 1, which is
+ *   exactly the span `countRoadtripNights` counts. A gap in its nights (an
+ *   unknown night, a night spent elsewhere) splits it into rows at the same
+ *   coordinates; the 0 km leg between them is fine.
+ *
+ * Rows come ordered by start day, then by the stations' order, then by run.
+ */
+export function deriveStationRows(
+  stations: readonly NightPlanStation[],
+  nights: Readonly<Record<string, NightAssign>>
+): StationRow[] {
+  const placed: Array<{ row: StationRow; stationIndex: number; runIndex: number }> = [];
+  stations.forEach((station, stationIndex) => {
+    const shared = {
+      stationKey: station.key,
+      title: station.title,
+      lat: station.lat,
+      lon: station.lon,
+      ...(station.notes !== undefined ? { notes: station.notes } : {}),
+    };
+    const runs = consecutiveRuns(nightsAssignedTo(station.key, nights));
+    if (runs.length === 0) {
+      const row = {
+        key: station.key,
+        ...shared,
+        startDate: station.firstDay,
+        endDate: station.lastDay,
+        slept: false,
+      };
+      placed.push({ row, stationIndex, runIndex: 0 });
+      return;
+    }
+    runs.forEach((run, runIndex) => {
+      const row = {
+        key: runIndex === 0 ? station.key : `${station.key}@${runIndex + 1}`,
+        ...shared,
+        startDate: run[0],
+        endDate: addDays(run[run.length - 1], 1),
+        slept: true,
+      };
+      placed.push({ row, stationIndex, runIndex });
+    });
+  });
+  placed.sort((a, b) => {
+    if (a.row.startDate !== b.row.startDate) return a.row.startDate < b.row.startDate ? -1 : 1;
+    return a.stationIndex - b.stationIndex || a.runIndex - b.runIndex;
+  });
+  return placed.map(({ row }) => row);
+}
