@@ -10,6 +10,7 @@
  * Pure: the router's answers, the sea photos and the country test come in.
  */
 import { distanceKm } from "../photoJourneys/cluster";
+import type { RouteProbe } from "../tour/routing/types";
 import type { Coord } from "../tour/tourDistance";
 import {
   FERRY_CHIP_MIN_CHORD_KM,
@@ -18,7 +19,14 @@ import {
   FERRY_MIN_SEA_PHOTOS,
   FERRY_PROBE_SHARE,
 } from "./thresholds";
-import type { CountryAt, LegEvidence, PhotoPoint, PlanLeg } from "./types";
+import type {
+  CountryAt,
+  LegEvidence,
+  PhotoPoint,
+  PlanLeg,
+  PlanStation,
+  StationSpan,
+} from "./types";
 
 /** How many at-sea photos were taken after `fromLastMs` and before `toFirstMs`. */
 export function countSeaPhotosBetween(
@@ -97,4 +105,41 @@ export function looksLikeWaterCrossing(a: Coord, b: Coord, countryAt: CountryAt)
   }
   const waterShare = water / (steps + 1);
   return waterShare >= FERRY_CHIP_WATER_FRACTION || longestRun * stepKm >= FERRY_CHIP_WATER_RUN_KM;
+}
+
+/**
+ * The legs between consecutive stations, each with the mode it starts out in:
+ * `legs[i]` joins `stations[i]` and `stations[i + 1]`.
+ *
+ * `probes[i]` is the road router's answer for leg `i` (null without one).
+ * `spanMs` holds each photographed station's first and last photo; an added
+ * airport or home station has none, so no sea photo can fall "between" it and
+ * its neighbour. `seaPhotos` are the at-sea photos of the area.
+ */
+export function buildLegs(input: {
+  stations: readonly Pick<PlanStation, "key" | "lat" | "lon">[];
+  spanMs: ReadonlyMap<string, StationSpan>;
+  probes: ReadonlyArray<RouteProbe | null>;
+  seaPhotos: readonly Pick<PhotoPoint, "tMs">[];
+  countryAt: CountryAt;
+}): PlanLeg[] {
+  const legs: PlanLeg[] = [];
+  for (let i = 0; i + 1 < input.stations.length; i++) {
+    const from = input.stations[i];
+    const to = input.stations[i + 1];
+    const fromSpan = input.spanMs.get(from.key);
+    const toSpan = input.spanMs.get(to.key);
+    const chordKm = distanceKm(from, to);
+    const decided = decideLegMode({
+      chordKm,
+      probe: input.probes[i] ?? null,
+      seaPhotosBetween:
+        fromSpan && toSpan
+          ? countSeaPhotosBetween(fromSpan.lastMs, toSpan.firstMs, input.seaPhotos)
+          : 0,
+      waterChip: looksLikeWaterCrossing(from, to, input.countryAt),
+    });
+    legs.push({ fromKey: from.key, toKey: to.key, chordKm, ...decided });
+  }
+  return legs;
 }

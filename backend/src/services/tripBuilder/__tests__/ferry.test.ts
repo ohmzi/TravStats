@@ -1,4 +1,4 @@
-import { countSeaPhotosBetween, decideLegMode, looksLikeWaterCrossing } from "../ferry";
+import { buildLegs, countSeaPhotosBetween, decideLegMode, looksLikeWaterCrossing } from "../ferry";
 import type { CountryAt, LegEvidence } from "../types";
 
 // Synthetic fixtures only (public repository): invented crossings, shifted years.
@@ -139,5 +139,102 @@ describe("looksLikeWaterCrossing", () => {
     const a = { lat: -16.8, lon: 179.7 };
     const b = { lat: -16.8, lon: -179.7 };
     expect(looksLikeWaterCrossing(a, b, sea)).toBe(true);
+  });
+});
+
+describe("buildLegs", () => {
+  // Synthetic places (public repository): three invented towns in a row.
+  const NORTHVALE = { key: "n", lat: -45.05, lon: 168.7 };
+  const ELMSTEAD = { key: "e", lat: -44.8, lon: 169.9 };
+  const PORT_CARROW = { key: "p", lat: -44.4, lon: 171.25 };
+  const LAND: CountryAt = () => "NZ";
+  const spans = new Map([
+    ["n", { firstMs: Date.UTC(2031, 4, 2, 9), lastMs: Date.UTC(2031, 4, 2, 21, 40) }],
+    ["e", { firstMs: Date.UTC(2031, 4, 3, 7, 10), lastMs: Date.UTC(2031, 4, 3, 20, 0) }],
+    ["p", { firstMs: Date.UTC(2031, 4, 4, 8), lastMs: Date.UTC(2031, 4, 4, 18) }],
+  ]);
+
+  it("joins each station to the next and measures the chord between them", () => {
+    const legs = buildLegs({
+      stations: [NORTHVALE, ELMSTEAD, PORT_CARROW],
+      spanMs: spans,
+      probes: [null, null],
+      seaPhotos: [],
+      countryAt: LAND,
+    });
+    expect(legs.map((l) => [l.fromKey, l.toKey, l.mode, l.ferryEvidence, l.routedKm])).toEqual([
+      ["n", "e", "road", null, null],
+      ["e", "p", "road", null, null],
+    ]);
+    expect(legs[0].chordKm).toBeCloseTo(98.5, 1);
+    expect(legs[1].chordKm).toBeCloseTo(115.8, 1);
+  });
+
+  it("makes the leg a ferry the router says is mostly ferry and keeps its routed km", () => {
+    const legs = buildLegs({
+      stations: [NORTHVALE, ELMSTEAD, PORT_CARROW],
+      spanMs: spans,
+      probes: [
+        { distanceKm: 131, ferryKm: 70 },
+        { distanceKm: 140, ferryKm: 0 },
+      ],
+      seaPhotos: [],
+      countryAt: LAND,
+    });
+    expect(legs.map((l) => [l.mode, l.ferryEvidence, l.routedKm])).toEqual([
+      ["ferry", "router", 131],
+      ["road", null, 140],
+    ]);
+  });
+
+  it("makes the leg a ferry when two photos were taken at sea between its stations", () => {
+    const sea = [{ tMs: Date.UTC(2031, 4, 2, 23, 30) }, { tMs: Date.UTC(2031, 4, 3, 3, 15) }];
+    const legs = buildLegs({
+      stations: [NORTHVALE, ELMSTEAD, PORT_CARROW],
+      spanMs: spans,
+      probes: [null, null],
+      seaPhotos: sea,
+      countryAt: LAND,
+    });
+    expect(legs.map((l) => [l.mode, l.ferryEvidence])).toEqual([
+      ["ferry", "seaPhotos"],
+      ["road", null],
+    ]);
+  });
+
+  it("leaves a leg a road with the chip when only the water test fires", () => {
+    // 35 km of water on the first chord (169.1°E to 169.55°E), none on the second.
+    const bayAndBridge: CountryAt = (_lat, lon) => (lon > 169.1 && lon < 169.55 ? null : "NZ");
+    const legs = buildLegs({
+      stations: [NORTHVALE, ELMSTEAD, PORT_CARROW],
+      spanMs: spans,
+      probes: [null, null],
+      seaPhotos: [],
+      countryAt: bayAndBridge,
+    });
+    expect(legs.map((l) => [l.mode, l.ferryEvidence])).toEqual([
+      ["road", "chip"],
+      ["road", null],
+    ]);
+  });
+
+  it("counts no sea photo between a station that was added and its neighbour", () => {
+    const airport = { key: "airport", lat: -45.02, lon: 168.74 };
+    const sea = [{ tMs: Date.UTC(2031, 4, 2, 5) }, { tMs: Date.UTC(2031, 4, 2, 6) }];
+    const legs = buildLegs({
+      stations: [airport, NORTHVALE],
+      spanMs: spans,
+      probes: [null],
+      seaPhotos: sea,
+      countryAt: LAND,
+    });
+    expect(legs.map((l) => l.mode)).toEqual(["road"]);
+  });
+
+  it("has no legs for fewer than two stations and tolerates missing probes", () => {
+    const base = { spanMs: spans, probes: [], seaPhotos: [], countryAt: LAND };
+    expect(buildLegs({ ...base, stations: [] })).toEqual([]);
+    expect(buildLegs({ ...base, stations: [NORTHVALE] })).toEqual([]);
+    expect(buildLegs({ ...base, stations: [NORTHVALE, ELMSTEAD] })).toHaveLength(1);
   });
 });
