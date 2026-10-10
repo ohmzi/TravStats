@@ -366,6 +366,19 @@
     },
     "notSeenStops": {
       "title": "Timeline stops not seen in your photos"
+    },
+    "album": {
+      "target": {
+        "linked": "Updates the album linked to this trip",
+        "byName": "Adds to your album with this name",
+        "create": "Creates a new album"
+      },
+      "adds": "Adds {{added}} new photos ({{already}} already in the album)",
+      "removeOutside_one": "Remove {{count}} photo outside the trip dates from the album",
+      "removeOutside_other": "Remove {{count}} photos outside the trip dates from the album",
+      "reasonCreatedByTravstats": "TravStats created this album, so removal is on.",
+      "reasonForeign": "TravStats did not create this album, so removal is off. Turn it on to tidy this one up too.",
+      "needsScope": "Needs the {{scope}} permission on your Immich key."
     }
   }
 }

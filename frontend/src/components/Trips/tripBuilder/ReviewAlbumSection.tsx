@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import { useTranslation } from "../../../hooks/useTranslation";
 import type { AlbumCapabilityReason, DraftAlbum } from "../../../types/tripBuilder";
 import { Field, Input, Switch } from "../../ui/Field";
+import AlbumSyncPanel from "./AlbumSyncPanel";
 import ReviewSection from "./ReviewSection";
 
 const BLOCKED: Record<AlbumCapabilityReason, string> = {
@@ -81,6 +82,7 @@ export default function ReviewAlbumSection({
       {album.assetCount === 0 && (
         <span className="t-caption">{t("tripBuilder:review.album.empty")}</span>
       )}
+      <AlbumSyncPanel />
     </ReviewSection>
   );
 }

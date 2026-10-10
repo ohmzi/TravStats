@@ -366,6 +366,19 @@
     },
     "notSeenStops": {
       "title": "Zeitleisten-Stopps, die auf deinen Fotos fehlen"
+    },
+    "album": {
+      "target": {
+        "linked": "Aktualisiert das mit dieser Reise verknüpfte Album",
+        "byName": "Fügt zu deinem Album mit diesem Namen hinzu",
+        "create": "Legt ein neues Album an"
+      },
+      "adds": "Fügt {{added}} neue Fotos hinzu ({{already}} sind schon im Album)",
+      "removeOutside_one": "{{count}} Foto außerhalb der Reisedaten aus dem Album entfernen",
+      "removeOutside_other": "{{count}} Fotos außerhalb der Reisedaten aus dem Album entfernen",
+      "reasonCreatedByTravstats": "TravStats hat dieses Album angelegt, deshalb ist das Entfernen an.",
+      "reasonForeign": "Dieses Album stammt nicht von TravStats, deshalb ist das Entfernen aus. Schalte es ein, um auch hier aufzuräumen.",
+      "needsScope": "Braucht die Berechtigung {{scope}} für deinen Immich-Schlüssel."
     }
   }
 }

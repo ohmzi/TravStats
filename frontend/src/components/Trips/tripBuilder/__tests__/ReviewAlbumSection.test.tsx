@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
+import { initialReviewState } from "../../../../lib/tripBuilder/draftEdits";
+import { existingDraft } from "../../../../lib/tripBuilder/__tests__/existingFixture";
 import type { DraftAlbum } from "../../../../types/tripBuilder";
+import { ExistingDiffProvider } from "../ExistingDiffContext";
 import ReviewAlbumSection from "../ReviewAlbumSection";
 
 vi.mock("../../../../hooks/useTranslation", () => ({
@@ -20,6 +23,8 @@ const ALBUM: DraftAlbum = {
   allowed: true,
   missingScopes: [],
 };
+
+const ALBUM_VALUE = { create: true, name: "Southern loop" };
 
 function renderAlbum(album: DraftAlbum = ALBUM, value = { create: true, name: "Southern loop" }) {
   const onChange = vi.fn();
@@ -99,5 +104,23 @@ describe("ReviewAlbumSection", () => {
   it("says no album is made when there are no photos", () => {
     renderAlbum({ ...ALBUM, assetCount: 0, images: 0, videos: 0 });
     expect(screen.getByText("tripBuilder:review.album.empty")).toBeInTheDocument();
+  });
+
+  it("carries the re-sync's removal switch when the trip already exists", () => {
+    const draft = existingDraft();
+    render(
+      <ExistingDiffProvider draft={draft} state={initialReviewState(draft)} onEdit={vi.fn()}>
+        <ReviewAlbumSection album={draft.album!} value={ALBUM_VALUE} onChange={vi.fn()} />
+      </ExistingDiffProvider>
+    );
+    expect(screen.getAllByRole("switch")).toHaveLength(2);
+    expect(
+      screen.getByText('tripBuilder:existing.album.removeOutside {"count":3}')
+    ).toBeInTheDocument();
+  });
+
+  it("has no removal switch for a new trip", () => {
+    renderAlbum();
+    expect(screen.getAllByRole("switch")).toHaveLength(1);
   });
 });
