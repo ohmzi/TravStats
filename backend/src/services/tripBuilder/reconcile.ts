@@ -328,6 +328,18 @@ export interface StopArea {
   >;
 }
 
+/** The first to the last day over a `stops` area's ground stations, which are not empty. */
+export function groundSpan(ground: ReadonlyArray<{ firstDay: Day; lastDay: Day }>): {
+  startDate: Day;
+  endDate: Day;
+} {
+  const [first] = ground;
+  return {
+    startDate: ground.reduce((min, s) => (s.firstDay < min ? s.firstDay : min), first.firstDay),
+    endDate: ground.reduce((max, s) => (s.lastDay > max ? s.lastDay : max), first.lastDay),
+  };
+}
+
 /**
  * The one stop a `stops` area stands for: its first ground station, over the
  * area's first to last ground day. Home and airport stations are not stops. The
@@ -343,8 +355,7 @@ export function derivedStopOf(area: StopArea): DerivedStation | null {
     titleSource: first.titleSource,
     lat: first.lat,
     lon: first.lon,
-    startDate: ground.reduce((min, s) => (s.firstDay < min ? s.firstDay : min), first.firstDay),
-    endDate: ground.reduce((max, s) => (s.lastDay > max ? s.lastDay : max), first.lastDay),
+    ...groundSpan(ground),
     slept: false,
   };
 }

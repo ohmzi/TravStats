@@ -7,7 +7,7 @@ import { prepareCommit } from "../commitPlan";
 import { annotateDraftForExisting } from "../existingDraft";
 import { loadExistingState } from "../existingState";
 import { extendPlanForExisting } from "../commitPlanExisting";
-import type { CommitPlan, StoredDraft } from "../types";
+import type { CommitPlan, DraftStation, StoredDraft } from "../types";
 import {
   addStation,
   createExistingFixture,
@@ -15,7 +15,7 @@ import {
   FX,
   type ExistingFixture,
 } from "./existingDb";
-import { area, derivedStations, draft, K } from "./existingDraftFixture";
+import { area, derivedStation, derivedStations, draft, K } from "./existingDraftFixture";
 
 const mockDomains = loadVisibleDomains as jest.Mock;
 
@@ -273,6 +273,43 @@ describe("extendPlanForExisting", () => {
     });
   });
 
+  it("refuses to leave a stored roadtrip with one station: the matched stations deleted, the rest removed", async () => {
+    const [first] = body().areas[0].stations;
+    await expect(
+      extendPlanForExisting(
+        fx.userId,
+        await storedDraft(),
+        body({ stations: [first], legModes: [], keepNotSeen: [], removeNotSeen: [fx.station.c] }),
+        basePlan()
+      )
+    ).rejects.toMatchObject({ statusCode: 400, code: "STATIONS_INVALID", field: "areas.0" });
+  });
+
+  it("refuses to leave a stored roadtrip with no station at all", async () => {
+    await expect(
+      extendPlanForExisting(
+        fx.userId,
+        await storedDraft(),
+        body({ stations: [], legModes: [], keepNotSeen: [], removeNotSeen: [fx.station.c] }),
+        basePlan()
+      )
+    ).rejects.toMatchObject({ statusCode: 400, code: "STATIONS_INVALID", field: "areas.0" });
+  });
+
+  it("counts a kept not-seen station towards the two a roadtrip needs", async () => {
+    const [first] = body().areas[0].stations;
+    const [write] =
+      (
+        await extendPlanForExisting(
+          fx.userId,
+          await storedDraft(),
+          body({ stations: [first], legModes: [], keepNotSeen: [fx.station.c], removeNotSeen: [] }),
+          basePlan()
+        )
+      ).existing?.roadtrips ?? [];
+    expect(write.stations.map((s) => s.id)).toEqual([fx.station.a, fx.station.c]);
+  });
+
   it("refuses a roadtrip id the draft did not give that area", async () => {
     await expect(
       extendPlanForExisting(
@@ -361,6 +398,24 @@ describe("extendPlanForExisting", () => {
       expect(plan.existing?.roadtrips[0]).toMatchObject({ noop: true });
     });
 
+    it("still holds a stored roadtrip to two stations, though its rows alone may be fewer", async () => {
+      const single = northvaleOnly();
+      const [onlyArea] = single.areas;
+      const shrunk: CommitBody = {
+        ...single,
+        areas: [
+          {
+            ...onlyArea,
+            keepNotSeen: [],
+            removeNotSeen: [fx.station.b, fx.station.c, fx.station.s],
+          },
+        ],
+      };
+      await expect(
+        prepareCommit(fx.userId, await storedDraft(derivedStations().slice(0, 1)), shrunk)
+      ).rejects.toMatchObject({ statusCode: 400, code: "STATIONS_INVALID", field: "areas.0" });
+    });
+
     it("still needs two rows for a roadtrip that would be new", async () => {
       const single = northvaleOnly();
       const [onlyArea] = single.areas;
@@ -410,7 +465,8 @@ describe("extendPlanForExisting: timeline stops", () => {
     await dropFixtureUser(`${USER}-stops`);
   });
 
-  async function stopsDraft(): Promise<StoredDraft> {
+  /** `later` are the area's other ground stations, after the one that matches the stored museum stop. */
+  async function stopsDraft(later: DraftStation[] = []): Promise<StoredDraft> {
     const stopsArea = area({
       key: "2031-05-06#1",
       defaultAs: "stops",
@@ -431,6 +487,7 @@ describe("extendPlanForExisting: timeline stops", () => {
           previewIdx: [],
           notes: null,
         },
+        ...later,
       ],
     });
     const state = await loadExistingState(fx.userId, fx.tripId);
@@ -565,6 +622,101 @@ describe("extendPlanForExisting: timeline stops", () => {
     const plan = await extendPlanForExisting(fx.userId, await stopsDraft(), body, same);
     expect(plan.existing?.stopUpdates).toEqual([]);
     expect(plan.existing?.stopsDiff).toMatchObject({ updated: 0, unchanged: 1 });
+  });
+
+  /**
+   * A `stops` area with two ground stations of different titles. The review shows it as one stop
+   * (the first station's title, over the first to the last ground day), and the commit must write
+   * that stop, not the first title's run alone with the rest added as new stops.
+   */
+  const library = (firstDay: string, lastDay: string): DraftStation =>
+    derivedStation(
+      "-911|3364|2031-05-07",
+      "Kelmore Library",
+      { lat: FX.kelmore.lat - 0.01, lon: FX.kelmore.lon },
+      firstDay,
+      lastDay,
+      { notes: null }
+    );
+
+  /** The plan `prepareCommit` builds for that area: one stop per run of equal titles. */
+  const twoTitlePlan = (libraryDays: [string, string]): CommitPlan => {
+    const plan = stopsPlan();
+    return {
+      ...plan,
+      stops: [
+        ...plan.stops,
+        {
+          areaKey: "2031-05-06#1",
+          title: "Kelmore Library",
+          lat: FX.kelmore.lat - 0.01,
+          lon: FX.kelmore.lon,
+          startDay: libraryDays[0],
+          endDay: libraryDays[1],
+          notes: null,
+        },
+      ],
+    };
+  };
+
+  const twoTitleBody = (libraryDays: [string, string]): CommitBody => {
+    const body = stopsBody();
+    body.areas[0].stations.push({
+      key: "-911|3364|2031-05-07",
+      title: "Kelmore Library",
+      lat: FX.kelmore.lat - 0.01,
+      lon: FX.kelmore.lon,
+      kind: "visit",
+      firstDay: libraryDays[0],
+      lastDay: libraryDays[1],
+    });
+    return body;
+  };
+
+  it("writes a matched stops area as the one stop the review showed: first title, first to last ground day", async () => {
+    const days: [string, string] = ["2031-05-07", "2031-05-08"];
+    const plan = await extendPlanForExisting(
+      fx.userId,
+      await stopsDraft([library(...days)]),
+      twoTitleBody(days),
+      twoTitlePlan(days)
+    );
+    expect(plan.existing?.stopUpdates).toEqual([
+      {
+        areaKey: "2031-05-06#1",
+        stopId: fx.stop.museum,
+        title: "Kelmore Museum",
+        notes: null,
+        startDay: "2031-05-06",
+        endDay: "2031-05-08",
+      },
+    ]);
+    // the area's second title is part of that stop, not a new one
+    expect(plan.stops).toEqual([]);
+    expect(plan.existing?.stopsDiff).toEqual({
+      updated: 1,
+      unchanged: 0,
+      added: 0,
+      removed: 1,
+      kept: 0,
+    });
+  });
+
+  it("leaves a matched stops area alone, and adds nothing, when its first-to-last span is what is stored", async () => {
+    const days: [string, string] = ["2031-05-06", "2031-05-06"];
+    const body = twoTitleBody(days);
+    body.areas[0].stations[0].lastDay = "2031-05-06";
+    const same = twoTitlePlan(days);
+    same.stops[0] = { ...same.stops[0], endDay: "2031-05-06" };
+    const plan = await extendPlanForExisting(
+      fx.userId,
+      await stopsDraft([library(...days)]),
+      body,
+      same
+    );
+    expect(plan.existing?.stopUpdates).toEqual([]);
+    expect(plan.stops).toEqual([]);
+    expect(plan.existing?.stopsDiff).toMatchObject({ updated: 0, unchanged: 1, added: 0 });
   });
 
   it("refuses a body that did not decide every not-seen stop", async () => {

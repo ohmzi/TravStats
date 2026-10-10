@@ -34,7 +34,7 @@ import type {
   RoadtripDiff,
   StoredExisting,
 } from "./existingTypes";
-import { interleaveKept, matchStatus, stopAsStation } from "./reconcile";
+import { groundSpan, interleaveKept, matchStatus, stopAsStation } from "./reconcile";
 import type { CommitPlan, DraftArea, StoredDraft, StopPlan } from "./types";
 
 const mismatch = (field: "areas" | "stations"): AppError =>
@@ -187,6 +187,17 @@ function buildRoadtripWrite(
   }
   diff.removed = [...currentIds].filter((id) => !finalIds.includes(id)).length;
 
+  // `prepareCommit` cannot ask this of an area that updates a stored roadtrip, because its kept
+  // stations are not rows there. The final list is the one place that sees them all.
+  if (stations.filter((s) => s.night.kind !== "via").length < 2) {
+    throw new AppError(
+      "A roadtrip needs at least two valid stations",
+      400,
+      "STATIONS_INVALID",
+      `areas.${body.areas.indexOf(area)}`
+    );
+  }
+
   // Leg modes: positional on the final list. A stored leg keeps its mode unless the user changed
   // it from what the draft showed (then it is reset, so it comes back straight and is routed again);
   // a new leg takes the mode of the derived pair it joins, if it joins one.
@@ -288,15 +299,15 @@ function buildStopWrites(
     }
     const stop = state.stops.find((s) => s.id === anchor.existingId);
     if (!stop) throw tripChanged();
-    const first = remaining.find((p) => p.areaKey === area.key);
-    if (!first) continue;
-    remaining = remaining.filter((p) => p !== first);
+    // The review showed this area as the one stop `derivedStopOf` makes of it, so that is the stop
+    // written: the anchor's title over the first to the last ground day. The area's other title
+    // runs are part of it, not stops of their own.
+    const { startDate: startDay, endDate: endDay } = groundSpan(ground);
+    remaining = remaining.filter((p) => p.areaKey !== area.key);
     const notes = anchor.notes === undefined ? stop.notes : anchor.notes;
     const changed =
-      matchStatus(
-        { startDate: first.startDay, endDate: first.endDay, slept: false },
-        stopAsStation(stop)
-      ) === "changed" ||
+      matchStatus({ startDate: startDay, endDate: endDay, slept: false }, stopAsStation(stop)) ===
+        "changed" ||
       stop.title !== anchor.title ||
       stop.notes !== notes;
     if (changed) {
@@ -305,8 +316,8 @@ function buildStopWrites(
         stopId: stop.id,
         title: anchor.title,
         notes,
-        startDay: first.startDay,
-        endDay: first.endDay,
+        startDay,
+        endDay,
       });
       diff.updated += 1;
     } else {
