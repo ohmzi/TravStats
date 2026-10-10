@@ -533,124 +533,152 @@ the underway card that still reads it.
 
 ### A trip is built from its photos
 
-The Create Trip form can read the photos taken inside the trip's dates from Immich and draft the
-trip from them: where each day was spent, how the logged flights cut the ground travel into
-stretches, and where each night was slept. Nothing is saved until the review page's button is
-pressed. The same flow adds to a trip that already exists and re-syncs it after the dates change or
-more photos arrive, and there the review reads as a diff: unchanged, changed, new, and "not in
-your photos". Almost all of it is new files, so rebasing is mostly a matter of checking the seams
-listed at the end.
+The Create Trip form can read the photos taken inside the trip's dates from
+Immich and draft the trip from them: where each day was spent, how the logged
+flights cut the ground travel into stretches, and where each night was slept.
+Nothing is saved until the review page's button is pressed. The same flow adds
+to a trip that already exists and re-syncs it after the dates change or more
+photos arrive, and there the review reads as a diff: unchanged, changed, new,
+and "not in your photos". Almost all of it is new files, so rebasing is mostly a
+matter of checking the seams listed at the end.
 
 **How it runs.**
 
-- **Form.** The Create Trip form carries a "Photos from Immich" block with two switches, "Inspect
-  Immich" and "Create album in Immich", both off, and nothing is asked of the server until one
-  goes on; the answer can switch it back off, with the reason beside it. The import chooser's
-  "Build it from your photos" route is always offered, fetches nothing to be offered, and opens
-  the form with Inspect already on, so the check runs at once.
-- **Scan.** `POST /api/v1/trip-builder/scan` starts a read-only job (`tripBuilder.scan`). It
-  fetches the window's assets, gives every photo one instant and one zone, keeps the user's own
-  photos, cuts the ground movement at every flight of the logbook, clusters the places, builds the
-  stations and legs, and decides each night. The result is a draft held **in memory**, bound to its
-  owner (two hours untouched, six at most, three per user). A server restart therefore turns a
-  review into "expired, scan again", never into a corrupt trip. There is no migration.
-- **Review.** `/trips/builder` shows the draft by area and day. The edits are a pure reducer
-  (`frontend/src/lib/tripBuilder/draftEdits.ts`) whose list is kept in `sessionStorage` under the
-  stable station and area keys, so a reload resumes and a re-scan with other dates puts the edits
-  back where they still apply.
-- **Commit.** `tripBuilder.commit` runs in four phases: **P** preflights Immich without writing,
-  and where the album cannot be made, nothing is written at all; **B** writes the trip, its
-  flights, stops and roadtrips in **one transaction**; **C** routes the legs and recomputes
-  statuses; **D** does the album. The draft is marked committed straight away after B, so a
-  failure later can never leave it open to a second commit; a failed album is reported and retried
-  on its own (`POST /api/v1/trip-builder/trips/:tripId/album`).
+- **Form.** The Create Trip form carries a "Photos from Immich" block with two
+  switches, "Inspect Immich" and "Create album in Immich", both off, and nothing
+  is asked of the server until one goes on; the answer can switch it back off,
+  with the reason beside it. The import chooser's "Build it from your photos"
+  route is always offered, fetches nothing to be offered, and opens the form
+  with Inspect already on, so the check runs at once.
+- **Scan.** `POST /api/v1/trip-builder/scan` starts a read-only job
+  (`tripBuilder.scan`). It fetches the window's assets, gives every photo one
+  instant and one zone, keeps the user's own photos, cuts the ground movement at
+  every flight of the logbook, clusters the places, builds the stations and
+  legs, and decides each night. The result is a draft held **in memory**, bound
+  to its owner (two hours untouched, six at most, three per user). A server
+  restart therefore turns a review into "expired, scan again", never into a
+  corrupt trip. There is no migration.
+- **Review.** `/trips/builder` shows the draft by area and day. The edits are a
+  pure reducer (`frontend/src/lib/tripBuilder/draftEdits.ts`) whose list is kept
+  in `sessionStorage` under the stable station and area keys, so a reload
+  resumes and a re-scan with other dates puts the edits back where they still
+  apply.
+- **Commit.** `tripBuilder.commit` runs in four phases: **P** preflights Immich
+  without writing, and where the album cannot be made, nothing is written at
+  all; **B** writes the trip, its flights, stops and roadtrips in **one
+  transaction**; **C** routes the legs and recomputes statuses; **D** does the
+  album. The draft is marked committed straight away after B, so a failure later
+  can never leave it open to a second commit; a failed album is reported and
+  retried on its own (`POST /api/v1/trip-builder/trips/:tripId/album`).
 
 **What the scan decides, and the rules inside it.**
 
-- **Flights are the spine, and the air is not ground.** Every logged flight cuts the ground photos
-  into areas before anything else is decided, and a road leg never crosses a flight. Photos taken
-  while airborne are excluded from the clusters and never become stations — they count in the
-  scan's `excluded.inFlight` and stay in the album — and a night the plane is airborne across is a
-  flight night before any photo has a say.
-- **One roadtrip per ground area, named after the trip.** Each area becomes one roadtrip, or a
-  timeline stop when roadtrips are off or when the area is one city with the home legs off.
-  Exactly one roadtrip takes the trip's own name; several read `"<trip> · <main city>"`, the main
-  city being the area with the most nights, then the most photos, and a duplicate gains a short
-  day suffix. A re-scan uses the `·` form when a roadtrip of the trip's own name already exists.
-- **Nights are decided in one order.** An airborne night is a flight night; a landing on the day
-  that lands after the last ground photo takes it; with no ground photo to name it the night stays
-  `unknown`; otherwise ferry, home, a late night-drive and finally the last photo's station take
-  it. A stored stay always beats a derived free night, a night can only go to a station whose
-  photos touch it, and the plan is derived and validated by the same mirrored file as rule 4, so
-  the review and the commit write the same nights.
+- **Flights are the spine, and the air is not ground.** Every logged flight cuts
+  the ground photos into areas before anything else is decided, and a road leg
+  never crosses a flight. Photos taken while airborne are excluded from the
+  clusters and never become stations — they count in the scan's
+  `excluded.inFlight` and stay in the album — and a night the plane is airborne
+  across is a flight night before any photo has a say.
+- **One roadtrip per ground area, named after the trip.** Each area becomes one
+  roadtrip, or a timeline stop when roadtrips are off or when the area is one
+  city with the home legs off. Exactly one roadtrip takes the trip's own name;
+  several read `"<trip> · <main city>"`, the main city being the area with the
+  most nights, then the most photos, and a duplicate gains a short day suffix. A
+  re-scan uses the `·` form when a roadtrip of the trip's own name already
+  exists.
+- **Nights are decided in one order.** An airborne night is a flight night; a
+  flight that lands in the night — after the night's last ground photo, or when
+  it has no photo at all — takes it, the night being spent where it landed
+  (home, the first station of the area the flight opens, else `unknown`);
+  otherwise ferry, home, a late night-drive and finally the last photo's station
+  take it. A stored stay always beats a derived free night, a night can only go
+  to a station whose photos touch it, and the plan is derived and validated by
+  the same mirrored file as rule 4, so the review and the commit write the same
+  nights.
 
 **Rules to keep when forking this in turn.**
 
-1. **Nothing is written before the user confirms** the reviewed draft, to TravStats or to Immich.
-2. **Albums are made and changed only through the user's own Immich key** (`source === "user"`),
-   never through the admin, global or environment connection, which is the operator's library.
-   Removing photos from an album is further gated on the album being one TravStats made — its
-   Immich description starts with the marker `TravStats trip ·`, written at creation — and on the
+1. **Nothing is written before the user confirms** the reviewed draft, to
+   TravStats or to Immich.
+2. **Albums are made and changed only through the user's own Immich key**
+   (`source === "user"`), never through the admin, global or environment
+   connection, which is the operator's library. Removing photos from an album is
+   further gated on the album being one TravStats made — its Immich description
+   starts with the marker `TravStats trip ·`, written at creation — and on the
    `albumAsset.delete` scope.
-3. **No Immich asset id crosses the API.** A thumbnail is the draft's id and an index; the stored
-   draft is the permission.
-4. **The night plan is one rule in two files.** `shared/tour/builderNightPlan.ts` exists in both
-   trees, identical but for its first comment, and a test fails when they differ. The review
-   derives what it shows from it and the commit derives and validates again with the same code.
-5. **Time goes through `shared/time`.** A photo's day is the day on the clock of the place it was
-   taken; durations use instants; a night is the day of the local time minus four hours. The lint
-   rules that forbid host-zone code apply to all of it.
-6. **The numbers live in `services/tripBuilder/thresholds.ts`**, and a test pins the ones that
-   were accepted by hand against a real trip.
-7. **A re-derivation must not destroy good data.** Re-syncing an existing trip keeps the stored
-   stations by id, with their titles, notes, stays, places and coordinates, and the hand-corrected
-   legs, and it deletes nothing that the new scan merely fails to see.
-8. **A commit is idempotent.** One key per review session: the same key while it runs returns the
-   same job, and after it succeeded every key answers "already created".
-9. **Fixtures are invented** (made-up places, years after the present, flight numbers like ZZ101).
-   This repository is public; no real trip, place or album name belongs in a test or here.
-10. **Mind the shared budgets.** A scan covers at most 62 days, and the import rate limit of 20 per
-    15 minutes is shared with the other Immich imports, so repeated scans can meet a 429.
+3. **No Immich asset id crosses the API.** A thumbnail is the draft's id and an
+   index; the stored draft is the permission.
+4. **The night plan is one rule in two files.**
+   `shared/tour/builderNightPlan.ts` exists in both trees, identical but for its
+   first comment, and a test fails when they differ. The review derives what it
+   shows from it and the commit derives and validates again with the same code.
+5. **Time goes through `shared/time`.** A photo's day is the day on the clock of
+   the place it was taken; durations use instants; a night is the day of the
+   local time minus four hours. The lint rules that forbid host-zone code apply
+   to all of it.
+6. **The numbers live in `services/tripBuilder/thresholds.ts`**, and a test pins
+   the ones that were accepted by hand against a real trip.
+7. **A re-derivation must not destroy good data.** Re-syncing an existing trip
+   keeps the stored stations by id, with their titles, notes, stays, places and
+   coordinates, and the hand-corrected legs, and it deletes nothing that the new
+   scan merely fails to see.
+8. **A commit is idempotent.** One key per review session: the same key while it
+   runs returns the same job, and after it succeeded every key answers "already
+   created".
+9. **Fixtures are invented** (made-up places, years after the present, flight
+   numbers like ZZ101). This repository is public; no real trip, place or album
+   name belongs in a test or here.
+10. **Mind the shared budgets.** A scan covers at most 62 days, and the import
+    rate limit of 20 per 15 minutes is shared with the other Immich imports, so
+    repeated scans can meet a 429.
 
-**When the trip already exists, the review is a diff.** A re-scan against a trip reconciles the
-derived plan with what is stored: every station and stop pair is `same`, `changed`, `new`, or
-`notSeen` ("not in your photos"), a row carries its pill, and a "Show unchanged" toggle folds the
-`same` rows so a re-sync with few changes reads short. A matched station keeps its id and the
-user's fields (rule 7); a `notSeen` one defaults to keep, and only a station that lies entirely
-outside the new dates is offered for removal. The commit refuses a trip that changed under it:
-`TRIP_CHANGED` (409) fires when the trip no longer holds exactly the stored ids the draft offered,
-because deleting by omission is only safe against an unchanged list. Album members outside the new
-dates are listed and can be taken out under rule 2's marker and scope, and only ids the server's
-own window computation classified as outside are ever removed — never ids the client sent, and
-never a member with no capture time.
+**When the trip already exists, the review is a diff.** A re-scan against a trip
+reconciles the derived plan with what is stored: every station and stop pair is
+`same`, `changed`, `new`, or `notSeen` ("not in your photos"), a row carries its
+pill, and a "Show unchanged" toggle folds the `same` rows so a re-sync with few
+changes reads short. A matched station keeps its id and the user's fields (rule
+7); a `notSeen` one defaults to keep, and only a station that lies entirely
+outside the new dates is offered for removal. The commit refuses a trip that
+changed under it: `TRIP_CHANGED` (409) fires when the trip no longer holds
+exactly the stored ids the draft offered, because deleting by omission is only
+safe against an unchanged list. Album members outside the new dates are listed
+and can be taken out under rule 2's marker and scope, and only ids the server's
+own window computation classified as outside are ever removed — never ids the
+client sent, and never a member with no capture time.
 
-**Entry points and deletion.** A re-sync starts from the trip page's head, from a roadtrip's
-figures band when the roadtrip is filed on a trip, and from the toast after an edit moved a trip's
-dates ("Dates changed — re-sync photos?"). All of them open `/trips/:id/resync`, which scans the
-trip's saved dates and reviews as an update; it refuses cleanly when the trip has no dates, when
-Immich is not connected, or when the trip is longer than one 62-day scan. Deleting a builder trip
-never deletes the Immich album — the album is the user's, on the user's server — and its roadtrips
-are only detached from it, because a roadtrip outlives its trip.
+**Entry points and deletion.** A re-sync starts from the trip page's head, from
+a roadtrip's figures band when the roadtrip is filed on a trip, and from the
+toast after an edit moved a trip's dates ("Dates changed — re-sync photos?").
+All of them open `/trips/:id/resync`, which scans the trip's saved dates and
+reviews as an update; it refuses cleanly when the trip has no dates, when Immich
+is not connected, or when the trip is longer than one 62-day scan. Deleting a
+builder trip never deletes the Immich album — the album is the user's, on the
+user's server — and its roadtrips are only detached from it, because a roadtrip
+outlives its trip.
 
-**Known limits of a re-sync.** An `unknown` night that a kept `notSeen` slept station covers still
-counts as unknown in the draft and in `unknownNights`. `trips.updated_at` may still move, because
-the base writer updates the trip row unconditionally: the "zero writes except `lastSyncedAt`"
-promise holds for the roadtrip stations, the stops and the album, and a guard that skips the
-update when the window was not applied and the countries add nothing belongs in that base writer.
-A coordinate-fallback title is detected by pattern (`isCoordinateTitle`); if `nameClusters` ever
-formats one differently, that one regex is what to adjust.
+**Known limits of a re-sync.** An `unknown` night that a kept `notSeen` slept
+station covers still counts as unknown in the draft and in `unknownNights`.
+`trips.updated_at` may still move, because the base writer updates the trip row
+unconditionally: the "zero writes except `lastSyncedAt`" promise holds for the
+roadtrip stations, the stops and the album, and a guard that skips the update
+when the window was not applied and the countries add nothing belongs in that
+base writer. A coordinate-fallback title is detected by pattern
+(`isCoordinateTitle`); if `nameClusters` ever formats one differently, that one
+regex is what to adjust.
 
-**Where it touches code upstream also changes.** These are the places to look at after a rebase:
-trip creation, now in `services/trip/createTrip.ts` and called by `POST /trips`; the rename of a
-trip, which also renames its `"<trip> · <city>"` roadtrips; `replaceStations`, which now has an
-in-transaction form that sets a leg's mode before anything routes, and only on a leg the write
-creates — a mode sent for any other leg fails the transaction, so a stale plan cannot leave a
-ferry carrying a road's geometry; the Immich client, which gained the window search and the album
-writes; the connection test, which reports the key's capabilities; the `JobKind` union and the
-`ApiErrorCode` union; the router mounts and the response-shape baseline; `GET /trips/:id`, which
-carries `roadtripStations` (the trip timeline's roadtrip-owned stations, empty while roadtrips are
-off); `TripModal`, `App.tsx` and the trip page's header; and the new `tripBuilder` i18n namespace,
-registered in `i18n/config.ts`.
+**Where it touches code upstream also changes.** These are the places to look at
+after a rebase: trip creation, now in `services/trip/createTrip.ts` and called
+by `POST /trips`; the rename of a trip, which also renames its `"<trip> ·
+<city>"` roadtrips; `replaceStations`, which now has an in-transaction form that
+sets a leg's mode before anything routes, and only on a leg the write creates —
+a mode sent for any other leg fails the transaction, so a stale plan cannot
+leave a ferry carrying a road's geometry; the Immich client, which gained the
+window search and the album writes; the connection test, which reports the key's
+capabilities; the `JobKind` union and the `ApiErrorCode` union; the router
+mounts and the response-shape baseline; `GET /trips/:id`, which carries
+`roadtripStations` (the trip timeline's roadtrip-owned stations, empty while
+roadtrips are off); `TripModal`, `App.tsx` and the trip page's header; and the
+new `tripBuilder` i18n namespace, registered in `i18n/config.ts`.
 
 ### Smaller things
 
@@ -711,11 +739,13 @@ Note that Immich's own album counts exclude Live Photo motion parts, so an album
 holding N still reads as fewer than N; the count is Immich's, and re-adding an
 asset reports `duplicate`, which is the reliable membership test.
 
-**Albums can be written, with the user's own key only.** The trip builder can make an Immich
-album for a trip and add its photos, and a re-sync can take photos that fall outside the new dates
-out of it. Every such step checks that the connection is the user's own and that the key grants
-the scopes it needs; with a shared connection or a missing scope the builder says so and saves the
-trip without the album. The album is linked to the trip afterwards, in `link` mode like any other.
+**Albums can be written, with the user's own key only.** The trip builder can
+make an Immich album for a trip and add its photos, and a re-sync can take
+photos that fall outside the new dates out of it. Every such step checks that
+the connection is the user's own and that the key grants the scopes it needs;
+with a shared connection or a missing scope the builder says so and saves the
+trip without the album. The album is linked to the trip afterwards, in `link`
+mode like any other.
 
 ## Running it
 
