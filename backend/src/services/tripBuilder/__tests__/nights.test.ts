@@ -1,14 +1,15 @@
 import { attributeNights } from "../nights";
 import {
   area,
+  EASTMERE,
+  KEY_EASTMERE,
   KEY_NORTHVALE,
-  KEY_PORT_CARROW,
-  NORTHVALE,
   nightInputs,
-  PORT_CARROW,
+  NORTHVALE,
   photo,
   ROADSIDE,
   station,
+  STRAIT,
 } from "./nightsFixtures";
 
 // Synthetic fixtures only (public repository): invented towns, shifted years.
@@ -62,21 +63,21 @@ describe("attributeNights: the station of the night's last photo", () => {
       endDay: "2031-05-04",
       stations: [
         station(KEY_NORTHVALE, "Northvale", NORTHVALE, "2031-05-02", "2031-05-02"),
-        station(KEY_PORT_CARROW, "Port Carrow", PORT_CARROW, "2031-05-03", "2031-05-04"),
+        station(KEY_EASTMERE, "Eastmere", EASTMERE, "2031-05-03", "2031-05-04"),
       ],
       photos: [
         photo("a1", "2031-05-02 19:30", NORTHVALE),
-        photo("b1", "2031-05-03 09:00", PORT_CARROW),
-        photo("b2", "2031-05-03 21:00", PORT_CARROW),
+        photo("b1", "2031-05-03 09:00", EASTMERE),
+        photo("b2", "2031-05-03 21:00", EASTMERE),
       ],
-      placeOf: { a1: KEY_NORTHVALE, b1: KEY_PORT_CARROW, b2: KEY_PORT_CARROW },
+      placeOf: { a1: KEY_NORTHVALE, b1: KEY_EASTMERE, b2: KEY_EASTMERE },
     });
 
     const { nights } = attributeNights(nightInputs("2031-05-02", "2031-05-04", [here]));
 
     expect([nights["2031-05-02"].assign, nights["2031-05-03"].assign]).toEqual([
       KEY_NORTHVALE,
-      KEY_PORT_CARROW,
+      KEY_EASTMERE,
     ]);
   });
 });
@@ -88,13 +89,13 @@ describe("attributeNights: a night with no photo", () => {
       endDay: "2031-05-05",
       stations: [
         station(KEY_NORTHVALE, "Northvale", NORTHVALE, "2031-05-02", "2031-05-02"),
-        station(KEY_PORT_CARROW, "Port Carrow", PORT_CARROW, "2031-05-04", "2031-05-04"),
+        station(KEY_EASTMERE, "Eastmere", EASTMERE, "2031-05-04", "2031-05-04"),
       ],
       photos: [
         photo("a1", "2031-05-02 19:30", NORTHVALE),
-        photo("b1", "2031-05-04 20:00", PORT_CARROW),
+        photo("b1", "2031-05-04 20:00", EASTMERE),
       ],
-      placeOf: { a1: KEY_NORTHVALE, b1: KEY_PORT_CARROW },
+      placeOf: { a1: KEY_NORTHVALE, b1: KEY_EASTMERE },
     });
 
     const { nights } = attributeNights(nightInputs("2031-05-02", "2031-05-05", [here]));
@@ -102,12 +103,12 @@ describe("attributeNights: a night with no photo", () => {
     expect(nights["2031-05-03"]).toEqual({
       assign: "unknown",
       reason: "unknown",
-      suggestedStationKeys: [KEY_NORTHVALE, KEY_PORT_CARROW],
+      suggestedStationKeys: [KEY_NORTHVALE, KEY_EASTMERE],
     });
     // The nights either side of it still have their photos.
     expect([nights["2031-05-02"].assign, nights["2031-05-04"].assign]).toEqual([
       KEY_NORTHVALE,
-      KEY_PORT_CARROW,
+      KEY_EASTMERE,
     ]);
   });
 
@@ -117,21 +118,21 @@ describe("attributeNights: a night with no photo", () => {
       endDay: "2031-05-06",
       stations: [
         station(KEY_NORTHVALE, "Northvale", NORTHVALE, "2031-05-02", "2031-05-02"),
-        station(KEY_PORT_CARROW, "Port Carrow", PORT_CARROW, "2031-05-05", "2031-05-06"),
+        station(KEY_EASTMERE, "Eastmere", EASTMERE, "2031-05-05", "2031-05-06"),
       ],
       photos: [
         photo("a1", "2031-05-02 19:30", NORTHVALE),
-        photo("b1", "2031-05-05 19:00", PORT_CARROW),
+        photo("b1", "2031-05-05 19:00", EASTMERE),
       ],
-      placeOf: { a1: KEY_NORTHVALE, b1: KEY_PORT_CARROW },
+      placeOf: { a1: KEY_NORTHVALE, b1: KEY_EASTMERE },
     });
 
     const { nights } = attributeNights(nightInputs("2031-05-02", "2031-05-06", [here]));
 
     // Northvale's last photo day is the 2nd, so it can have the 3rd and no later night;
-    // Port Carrow's first is the 5th, so it can have the 4th and no earlier one.
+    // Eastmere's first is the 5th, so it can have the 4th and no earlier one.
     expect(nights["2031-05-03"].suggestedStationKeys).toEqual([KEY_NORTHVALE]);
-    expect(nights["2031-05-04"].suggestedStationKeys).toEqual([KEY_PORT_CARROW]);
+    expect(nights["2031-05-04"].suggestedStationKeys).toEqual([KEY_EASTMERE]);
     expect([nights["2031-05-03"].assign, nights["2031-05-04"].assign]).toEqual([
       "unknown",
       "unknown",
@@ -175,19 +176,19 @@ describe("attributeNights: the station a last photo belongs to", () => {
       endDay: "2031-05-04",
       stations: [
         station(KEY_NORTHVALE, "Northvale", NORTHVALE, "2031-05-02", "2031-05-02"),
-        station(KEY_PORT_CARROW, "Port Carrow", PORT_CARROW, "2031-05-03", "2031-05-03"),
+        station(KEY_EASTMERE, "Eastmere", EASTMERE, "2031-05-03", "2031-05-03"),
       ],
       photos: [
         photo("a1", "2031-05-02 10:00", NORTHVALE),
         photo("t1", "2031-05-02 21:40", ROADSIDE),
-        photo("b1", "2031-05-03 09:00", PORT_CARROW),
+        photo("b1", "2031-05-03 09:00", EASTMERE),
       ],
-      placeOf: { a1: KEY_NORTHVALE, t1: KEY_PORT_CARROW, b1: KEY_PORT_CARROW },
+      placeOf: { a1: KEY_NORTHVALE, t1: KEY_EASTMERE, b1: KEY_EASTMERE },
     });
 
     const { nights } = attributeNights(nightInputs("2031-05-02", "2031-05-04", [here]));
 
-    expect(nights["2031-05-02"].assign).toBe(KEY_PORT_CARROW);
+    expect(nights["2031-05-02"].assign).toBe(KEY_EASTMERE);
   });
 
   it("gives the night of a photo in a home-only area to home", () => {
@@ -250,5 +251,60 @@ describe("attributeNights: the station a last photo belongs to", () => {
     const { nights } = attributeNights(nightInputs("2031-05-02", "2031-05-04", [here]));
 
     expect(nights["2031-05-02"].assign).toBe("unknown");
+  });
+});
+
+describe("attributeNights: a night whose last photo is at sea", () => {
+  it("is unknown when an at-sea photo comes after the night's station photos", () => {
+    const here = area({
+      startDay: "2031-05-02",
+      endDay: "2031-05-04",
+      stations: [station(KEY_NORTHVALE, "Northvale", NORTHVALE, "2031-05-02", "2031-05-03")],
+      photos: [
+        photo("a1", "2031-05-02 10:00", NORTHVALE),
+        photo("a2", "2031-05-02 19:30", NORTHVALE),
+        photo("a3", "2031-05-03 09:00", NORTHVALE),
+      ],
+      sea: [photo("s1", "2031-05-02 22:30", STRAIT, { atSea: true })],
+      placeOf: { a1: KEY_NORTHVALE, a2: KEY_NORTHVALE, a3: KEY_NORTHVALE },
+    });
+
+    const { nights } = attributeNights(nightInputs("2031-05-02", "2031-05-04", [here]));
+
+    // The last photo of the 2nd is the one on the water, which no station owns: the earlier
+    // Northvale photos do not decide the night, they are only offered as the suggestion.
+    expect(nights["2031-05-02"]).toEqual({
+      assign: "unknown",
+      reason: "unknown",
+      suggestedStationKeys: [KEY_NORTHVALE],
+    });
+    expect(nights["2031-05-03"].assign).toBe(KEY_NORTHVALE);
+  });
+
+  it("is unknown when the night's only photo is at sea", () => {
+    const here = area({
+      startDay: "2031-05-02",
+      endDay: "2031-05-05",
+      stations: [station(KEY_NORTHVALE, "Northvale", NORTHVALE, "2031-05-02", "2031-05-04")],
+      photos: [
+        photo("a1", "2031-05-02 19:30", NORTHVALE),
+        photo("a2", "2031-05-04 09:00", NORTHVALE),
+      ],
+      sea: [photo("s1", "2031-05-03 21:00", STRAIT, { atSea: true })],
+      placeOf: { a1: KEY_NORTHVALE, a2: KEY_NORTHVALE },
+    });
+
+    const { nights } = attributeNights(nightInputs("2031-05-02", "2031-05-05", [here]));
+
+    expect(nights["2031-05-03"]).toEqual({
+      assign: "unknown",
+      reason: "unknown",
+      suggestedStationKeys: [KEY_NORTHVALE],
+    });
+    // The nights either side of it still have their photos.
+    expect([nights["2031-05-02"].assign, nights["2031-05-04"].assign]).toEqual([
+      KEY_NORTHVALE,
+      KEY_NORTHVALE,
+    ]);
   });
 });

@@ -2,16 +2,25 @@
  * Hand-built inputs for the night tests. Everything here is synthetic (the
  * repository is public): invented towns around 45°S 168°E, years from 2031.
  *
- * Distances the tests lean on: Northvale to Port Carrow is 214 km, so a drive
+ * The photo, the station, the flight, the area and the residence are the test
+ * tree's own builders (`placeFixtures`, `planFixtures`, `photoFixtures`) with
+ * only what the night rules vary set on top, so a change to `PhotoPoint`,
+ * `PlanStation`, `FlightAnchor` or `AreaPlan` is still made once. What lives
+ * here is what no other fixture file has: the places the night rules measure
+ * against, the clock (every time here reads UTC, so a flight's instants and a
+ * photo's compare directly), the `area()` assembly with its `photoStation` and
+ * `spanMs` maps, and `nightInputs`.
+ *
+ * Distances the tests lean on: Northvale to Eastmere is 214 km, so a drive
  * between them can be a night drive; Northvale to the roadside is 110 km, too
  * short for one; Kelmore, the invented residence, is 356 km from Northvale and
- * its airport is 10 km from it.
+ * its airport is 10 km from it. Eastmere is not `photoFixtures`' Port Carrow,
+ * which is 50 km from Northvale.
  */
+import type { Coord } from "../../tour/tourDistance";
 import type {
-  AreaHome,
   AreaPlan,
   FlightAnchor,
-  GroundArea,
   HomeAtDay,
   NightInputs,
   PhotoPoint,
@@ -21,31 +30,29 @@ import type {
   StationKind,
   StationSpan,
 } from "../types";
+import { makeAnchor, msAt } from "./photoFixtures";
+import { KELMORE, NORTHVALE, photo as placePhoto } from "./placeFixtures";
+import { groundArea, HOME, planOf, station as planStation, WINDOW } from "./planFixtures";
 
-export interface Place {
-  lat: number;
-  lon: number;
-}
+export type Place = Coord;
 
-export const KELMORE: Place = { lat: -43.53, lon: 172.64 };
+export { KELMORE, NORTHVALE };
 export const KELMORE_AIRPORT: Place = { lat: -43.49, lon: 172.53 };
-export const NORTHVALE: Place = { lat: -45.05, lon: 168.7 };
 export const NORTHVALE_AIRPORT: Place = { lat: -45.02, lon: 168.74 };
-export const PORT_CARROW: Place = { lat: -44.4, lon: 171.25 };
-/** On the road between Northvale and Port Carrow, belonging to neither. */
+/** 214 km from Northvale (`photoFixtures`' Port Carrow is 50 km from it). */
+export const EASTMERE: Place = { lat: -44.4, lon: 171.25 };
+/** On the road between Northvale and Eastmere, belonging to neither. */
 export const ROADSIDE: Place = { lat: -44.7, lon: 170.0 };
-/** Out on the strait between Northvale and Port Carrow. */
+/** Out on the strait between Northvale and Eastmere. */
 export const STRAIT: Place = { lat: -44.75, lon: 170.2 };
 
 export const KEY_KELMORE = "-871|3453|2031-05-02";
 export const KEY_NORTHVALE = "-901|3374|2031-05-02";
-export const KEY_PORT_CARROW = "-888|3425|2031-05-04";
-
-const HOUR_MS = 3_600_000;
+export const KEY_EASTMERE = "-888|3425|2031-05-04";
 
 /** `YYYY-MM-DD HH:MM` read as a UTC instant: the fixtures keep every clock on UTC. */
 export function utc(local: string): number {
-  return Date.parse(`${local.replace(" ", "T")}:00Z`);
+  return msAt(local, 0);
 }
 
 /** A photo at `local` (on a UTC clock) at `at`; null is an unlocated one. */
@@ -55,42 +62,14 @@ export function photo(
   at: Place | null,
   over: { atSea?: boolean } = {}
 ): PhotoPoint {
-  const tMs = utc(local);
-  return {
-    id,
-    type: "IMAGE",
-    ownerId: "owner-1",
-    visibility: "timeline",
-    tMs,
+  return placePhoto(id, local, at ?? { lat: null, lon: null }, {
+    tMs: utc(local),
     zone: "UTC",
-    local,
-    day: local.slice(0, 10),
-    nightDay: new Date(tMs - 4 * HOUR_MS).toISOString().slice(0, 10),
-    lat: at?.lat ?? null,
-    lon: at?.lon ?? null,
-    city: null,
-    state: null,
-    country: null,
-    make: null,
-    model: null,
-    originalFileName: `${id}.jpg`,
-    isFavorite: false,
-    duplicateId: null,
-    flags: {
-      clockCase: "A",
-      zoneSource: "gps",
-      dayGuessed: false,
-      exifZoneOverridden: false,
-      located: at !== null,
-      duplicate: false,
-      misdated: null,
-      atSea: over.atSea ?? false,
-      inFlight: false,
-      layover: false,
-    },
-  };
+    flags: { atSea: over.atSea ?? false },
+  });
 }
 
+/** A station at `at` whose days are known and whose clock minutes are not. */
 export function station(
   key: string,
   title: string,
@@ -100,23 +79,17 @@ export function station(
   kind: StationKind = "visit",
   over: Partial<PlanStation> = {}
 ): PlanStation {
-  return {
-    key,
+  return planStation(key, {
     title,
-    titleSource: "immich",
     kind,
     lat: at.lat,
     lon: at.lon,
-    snappedKm: null,
     firstDay,
     lastDay,
     firstLocal: null,
     lastLocal: null,
-    photoCount: 10,
-    previewIdx: [],
-    notes: null,
     ...over,
-  };
+  });
 }
 
 export function leg(fromKey: string, toKey: string, mode: "road" | "ferry" = "road"): PlanLeg {
@@ -129,9 +102,6 @@ export function leg(fromKey: string, toKey: string, mode: "road" | "ferry" = "ro
     ferryEvidence: mode === "ferry" ? "router" : null,
   };
 }
-
-const NO_HOME_END = { offered: false, defaultOn: false };
-const NO_HOME: AreaHome = { start: NO_HOME_END, end: NO_HOME_END, unconfirmed: false };
 
 export interface AreaSpec {
   startDay: string;
@@ -167,35 +137,28 @@ export function area(spec: AreaSpec): AreaFixture {
     });
   }
   const all = [...times.values()];
-  const ground: GroundArea = {
-    photoIds: spec.photos.map((p) => p.id),
-    seaPhotoIds: (spec.sea ?? []).map((p) => p.id),
-    afterFlightId: spec.afterFlightId ?? null,
-    beforeFlightId: spec.beforeFlightId ?? null,
-    startMs: Math.min(...all),
-    endMs: Math.max(...all),
-    startDay: spec.startDay,
-    endDay: spec.endDay,
-  };
-  const plan: AreaPlan = {
+  const plan = planOf(spec.stations, {
     key: spec.key ?? `${spec.startDay}#1`,
-    area: ground,
-    segments: [],
-    stations: spec.stations,
+    area: groundArea({
+      photoIds: spec.photos.map((p) => p.id),
+      seaPhotoIds: (spec.sea ?? []).map((p) => p.id),
+      afterFlightId: spec.afterFlightId ?? null,
+      beforeFlightId: spec.beforeFlightId ?? null,
+      startMs: Math.min(...all),
+      endMs: Math.max(...all),
+      startDay: spec.startDay,
+      endDay: spec.endDay,
+    }),
     photoStation: new Map(Object.entries(spec.placeOf)),
-    stationCluster: new Map(),
     spanMs,
-    previewPhotoIds: new Map(),
-    passedThrough: new Map(),
     legs: spec.legs ?? [],
-    home: NO_HOME,
-  };
+  });
   return { plan, photos: [...spec.photos, ...(spec.sea ?? [])] };
 }
 
-/** A flight on day granularity: no instants, no clocks, unless `over` says so. */
+/** Flight ZZ101 on day granularity: no instants, no clocks, unless `over` says so. */
 export function flight(id: string, over: Partial<FlightAnchor> = {}): FlightAnchor {
-  return {
+  return makeAnchor({
     id,
     label: "ZZ101 ZKE→ZNV",
     depIata: "ZKE",
@@ -211,15 +174,8 @@ export function flight(id: string, over: Partial<FlightAnchor> = {}): FlightAnch
     precise: false,
     depMs: null,
     arrMs: null,
-    hasActualDep: false,
-    hasActualArr: false,
-    tripId: null,
-    tripName: null,
-    listed: true,
-    defaultAssign: true,
-    locked: false,
     ...over,
-  };
+  });
 }
 
 /** A flight with exact instants, given as `YYYY-MM-DD HH:MM` on a UTC clock. */
@@ -241,17 +197,12 @@ export function preciseFlight(
   });
 }
 
-export const KELMORE_HOME: HomeAtDay = {
-  name: "Kelmore, Westshire",
-  lat: KELMORE.lat,
-  lon: KELMORE.lon,
-  confirmed: true,
-  zone: "UTC",
-  airports: new Set(["ZKE"]),
-};
+/** The residence of `planFixtures`, on a UTC clock and with the airport the fixture flights leave from. */
+export const KELMORE_HOME: HomeAtDay = { ...HOME, zone: "UTC", airports: new Set(["ZKE"]) };
 
 export function scanWindow(startDay: string, endDay: string): ScanWindow {
   return {
+    ...WINDOW,
     startDay,
     endDay,
     contextFromDay: startDay,
