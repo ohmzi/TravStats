@@ -34,6 +34,7 @@ import {
   roadsPhase,
 } from "./areaPlans";
 import { assembleWarnings, movementOutsideDates, type UnrecordedFlight } from "./draftWarnings";
+import { applyExistingTarget, type ExistingDeps } from "./existingDraft";
 import { indexPreviews } from "./stations";
 import type { RoadAccess } from "./probe";
 import { DRAFT_IDLE_TTL_MS, MISDATED_LOOKUP_PAD_DAYS } from "./thresholds";
@@ -98,6 +99,8 @@ export interface BuilderDeps extends CollectDeps {
   overlappingTrips(window: ScanWindow, excludeTripId: string | null): Promise<OverlapTrip[]>;
   pendingPhotoJourneys(window: ScanWindow): Promise<DraftPhotoJourney[]>;
   targetTrip: { id: string; name: string; countries: string[]; roadtripNames: string[] } | null;
+  /** The stored state and Immich client for an existing-trip scan; absent or null for a new trip. */
+  existing?: ExistingDeps | null;
   album: AlbumDeps | null;
   newId(): string;
   nowMs(): number;
@@ -450,6 +453,17 @@ export async function buildDraftWith(
     warnings,
   };
 
+  const applied = await applyExistingTarget(
+    deps.existing,
+    {
+      windowAssetIds: collected.clean.albumAssetIds,
+      contextIds: new Set(collected.clean.context.map((p) => p.id)),
+      fetchFrom: collected.window.fetchFrom,
+      fetchTo: collected.window.fetchTo,
+    },
+    dto
+  );
+
   return {
     id,
     ownerId: userId,
@@ -459,7 +473,8 @@ export async function buildDraftWith(
     input,
     immichUserId: deps.immichUserId,
     connSource: deps.connSource,
-    dto,
+    dto: applied.dto,
+    existing: applied.existing,
     previewAssetIds: previews.previewAssetIds,
     albumAssetIds: photos.map((p) => p.id),
     flightIds: new Set(listed.map((a) => a.id)),

@@ -13,6 +13,10 @@ jest.mock("../builderQueries", () => ({
   ...jest.requireActual("../builderQueries"),
   loadTargetTrip: jest.fn(),
 }));
+jest.mock("../existingState", () => ({
+  ...jest.requireActual("../existingState"),
+  loadExistingState: jest.fn(),
+}));
 
 import { prisma } from "../../../db";
 import logger from "../../../utils/logger";
@@ -24,6 +28,7 @@ import { getCountryResolver } from "../../geo/countryFromCoordinates";
 import { loadVisibleDomains } from "../../domainVisibility";
 import { buildTripDraft } from "../buildDraft";
 import { loadTargetTrip } from "../builderQueries";
+import { loadExistingState } from "../existingState";
 import { resolveRoadProbes } from "../probe";
 import { resolveBuilderDeps } from "../resolveDeps";
 import type { ScanInput } from "../types";
@@ -84,6 +89,7 @@ describe("resolveBuilderDeps", () => {
       connSource: "user",
       roadtripsVisible: true,
       album: null,
+      existing: null,
     });
     expect(deps.countryAt(-45, 168)).toBe("NZ");
 
@@ -129,6 +135,30 @@ describe("resolveBuilderDeps", () => {
     );
     expect(deps.targetTrip).toEqual(trip);
     expect(loadTargetTrip).toHaveBeenCalledWith(USER, trip.id);
+  });
+
+  it("reads what an existing trip holds, with the Immich user and client to preview its album", async () => {
+    const tripId = "7e5d9a14-3b2c-4d8f-9a1e-5c6b7d8e9f01";
+    const state = { tripId, tripName: "Spring", albums: [] };
+    (loadExistingState as jest.Mock).mockResolvedValue(state);
+
+    const deps = await resolveBuilderDeps(
+      USER,
+      { ...INPUT, target: { kind: "existing", tripId } },
+      CONN
+    );
+
+    expect(loadExistingState).toHaveBeenCalledWith(USER, tripId, expect.any(Function));
+    expect(deps.existing).toEqual({
+      state,
+      client: mockClient.mock.results[0].value,
+      immichUserId: ME,
+    });
+  });
+
+  it("reads no trip state for a new trip", async () => {
+    await resolveBuilderDeps(USER, INPUT, CONN);
+    expect(loadExistingState).not.toHaveBeenCalled();
   });
 });
 

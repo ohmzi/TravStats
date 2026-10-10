@@ -16,6 +16,7 @@ import { loadHomePeriods } from "../home/homeStore";
 import { CAPABILITY_TIMEOUT_MS } from "../immich/immichCapabilities";
 import { createImmichClient } from "../immich/immichClient";
 import type { ImmichConnection } from "../immich/types";
+import { albumDescriber } from "./albumResync";
 import type { AlbumDeps, BuilderDeps } from "./buildDraft";
 import {
   albumGateOf,
@@ -24,6 +25,7 @@ import {
   overlappingTripsOf,
   pendingJourneysOf,
 } from "./builderQueries";
+import { loadExistingState } from "./existingState";
 import { loadFlights } from "./loadFlights";
 import { loadExistingTitles } from "./nameClusters";
 import { resolveRoadProbes } from "./probe";
@@ -67,6 +69,14 @@ export async function resolveBuilderDeps(
     loadTargetTrip(userId, targetTripId),
   ]);
   const album = input.createAlbum ? await albumDepsOf(conn, me.id, targetTripId, userId) : null;
+  const existing =
+    targetTripId === null
+      ? null
+      : {
+          state: await loadExistingState(userId, targetTripId, albumDescriber(client, me.id)),
+          client,
+          immichUserId: me.id,
+        };
 
   return {
     immich: client,
@@ -85,6 +95,7 @@ export async function resolveBuilderDeps(
     overlappingTrips: (window, exclude) => overlappingTripsOf(userId, window, exclude),
     pendingPhotoJourneys: (window) => pendingJourneysOf(userId, window),
     targetTrip,
+    existing,
     album,
     newId: randomUUID,
     nowMs: () => now().getTime(),
