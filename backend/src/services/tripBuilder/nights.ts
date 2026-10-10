@@ -266,3 +266,29 @@ export function attributeNights(input: NightInputs): NightAttribution {
   }
   return { nights, pulls: ctx.pulls };
 }
+
+/**
+ * `plans` with each pulled station's first day, and its area's, moved back to
+ * the night the traveller reached it (rule 2). Returns new plans; the inputs
+ * are not touched, and a pull never moves a first day later.
+ */
+export function applyDayPulls(plans: readonly AreaPlan[], pulls: readonly DayPull[]): AreaPlan[] {
+  return plans.map((plan) => {
+    const mine = pulls.filter((pull) => pull.areaKey === plan.key);
+    if (mine.length === 0) return plan;
+    const stations = plan.stations.map((station) => {
+      const earliest = mine
+        .filter((pull) => pull.stationKey === station.key)
+        .map((pull) => pull.firstDay)
+        .sort()[0];
+      return earliest !== undefined && earliest < station.firstDay
+        ? { ...station, firstDay: earliest }
+        : station;
+    });
+    const startDay = mine.reduce(
+      (day, pull) => (pull.firstDay < day ? pull.firstDay : day),
+      plan.area.startDay
+    );
+    return { ...plan, stations, area: { ...plan.area, startDay } };
+  });
+}
