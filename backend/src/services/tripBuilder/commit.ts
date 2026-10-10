@@ -29,7 +29,9 @@ import {
   type AlbumPreflight,
 } from "./albumWrite";
 import { journeyBounds } from "./builderQueries";
+import { writeExistingTarget } from "./commitExisting";
 import { abortCommit, finishCommit } from "./draftStore";
+import type { RoadtripDiff } from "./existingTypes";
 import { COMMIT_TX_TIMEOUT_MS, ROUTE_BUDGET_MS, ROUTE_CHUNK_LEGS } from "./thresholds";
 import type {
   CommitJobResult,
@@ -168,7 +170,20 @@ export async function writeCommit(plan: CommitPlan): Promise<PhaseBResult> {
       const flights = await assignFlights(tx, plan, tripId);
       const stopIds = await writeStops(tx, plan, tripId);
       const roadtrips = await writeRoadtrips(tx, plan, tripId);
-      return { tripId, created: plan.target.kind === "new", roadtrips, stopIds, ...flights };
+      let stopsDiff: RoadtripDiff | undefined;
+      if (plan.existing) {
+        const updated = await writeExistingTarget(tx, plan.userId, plan.existing);
+        roadtrips.push(...updated.roadtrips);
+        stopsDiff = updated.stopsDiff;
+      }
+      return {
+        tripId,
+        created: plan.target.kind === "new",
+        roadtrips,
+        stopIds,
+        stopsDiff,
+        ...flights,
+      };
     },
     { timeout: COMMIT_TX_TIMEOUT_MS }
   );
@@ -261,13 +276,15 @@ function resultAfterB(plan: CommitPlan, written: PhaseBResult): CommitResult {
   return {
     tripId: written.tripId,
     created: written.created,
-    roadtrips: written.roadtrips.map(({ id, name, stations, nights }) => ({
+    roadtrips: written.roadtrips.map(({ id, name, stations, nights, diff }) => ({
       id,
       name,
       stations,
       nights,
+      ...(diff ? { diff } : {}),
     })),
     stopIds: written.stopIds,
+    ...(written.stopsDiff ? { stops: written.stopsDiff } : {}),
     flightsAssigned: written.flightsAssigned,
     flightsMovedFrom: written.flightsMovedFrom,
     routing: { routed: 0, straight: Math.max(0, created - ferry), ferry, providerAvailable: false },
