@@ -25,6 +25,8 @@ import {
  *   - `GET /route/v1/{profile}/…?overview=false&steps=true` adds
  *     `routes[0].legs[].steps[]`, each with a `mode` (`driving`, `ferry`, …)
  *     and a `distance` in metres; `probe` sums the ferry steps.
+ *   - `GET /nearest/v1/{profile}/{lon},{lat}?number=1` answers
+ *     `waypoints[0].location`, a `[lon,lat]` pair on the road; `snap` returns it.
  *
  * Scope note: this targets OSRM only. Valhalla speaks a different protocol
  * (a `/route` POST with a JSON body, `trip`/`legs`/`shape` response shaped
@@ -117,6 +119,16 @@ function readProbe(value: unknown): RouteProbe | null {
     }
   }
   return { distanceKm: first.distance / 1000, ferryKm: ferryMetres / 1000 };
+}
+
+/** The nearest road point of an OSRM `/nearest` answer, or null when it names none. */
+function readNearest(value: unknown): Coord | null {
+  if (typeof value !== "object" || value === null) return null;
+  const waypoints = (value as { waypoints?: unknown }).waypoints;
+  if (!Array.isArray(waypoints) || waypoints.length === 0) return null;
+  const location = (waypoints[0] as { location?: unknown } | null)?.location;
+  if (!isFiniteCoordinatePair(location)) return null;
+  return { lat: location[1], lon: location[0] };
 }
 
 export function createCustomOsrm(baseUrl: string, fetchImpl: typeof fetch = fetch): RouteProvider {
@@ -246,6 +258,20 @@ export function createCustomOsrm(baseUrl: string, fetchImpl: typeof fetch = fetc
         );
       }
       return probe;
+    },
+
+    async snap(c: Coord): Promise<Coord | null> {
+      const profile = OSRM_PROFILE_BY_MODE.road;
+      const url = osrmUrl(`/nearest/v1/${profile}/${c.lon},${c.lat}`, { number: "1" });
+      const body = await getJson(url, "snap");
+      const snapped = readNearest(body);
+      if (snapped === null && body !== null) {
+        logger.warn(
+          { provider: "custom", what: "snap" },
+          "custom OSRM response did not match the expected shape"
+        );
+      }
+      return snapped;
     },
   };
 }

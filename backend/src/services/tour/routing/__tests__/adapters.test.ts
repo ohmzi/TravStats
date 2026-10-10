@@ -545,3 +545,76 @@ describe("createCustomOsrm probe", () => {
     expect(await customWith(noDistance).probe?.(NORTHVALE, PORT_CARROW)).toBeNull();
   });
 });
+
+describe("createCustomOsrm snap", () => {
+  // Synthetic coordinate (public repository): an invented quay.
+  const QUAY = { lat: -45.05, lon: 168.7 };
+
+  const nearestFixture = {
+    code: "Ok",
+    waypoints: [{ location: [168.7123, -45.0511], distance: 14.2, name: "Quay Road", hint: "xyz" }],
+  };
+
+  function customWith(fetchImpl: unknown, baseUrl = "http://osrm.local:5000") {
+    return createCustomOsrm(baseUrl, fetchImpl as typeof fetch);
+  }
+
+  it("asks for the single nearest point of the car network", async () => {
+    const fetchImpl = jest.fn(async () => jsonResponse(200, nearestFixture));
+
+    await customWith(fetchImpl, "http://osrm.local:5000/").snap?.(QUAY);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const [url] = fetchImpl.mock.calls[0];
+    expect(String(url)).toBe("http://osrm.local:5000/nearest/v1/car/168.7,-45.05?number=1");
+  });
+
+  it("keeps a base URL's own path and query string beside its parameters", async () => {
+    const fetchImpl = jest.fn(async () => jsonResponse(200, nearestFixture));
+
+    await customWith(fetchImpl, "http://osrm.local:5000/proxy?token=abc123").snap?.(QUAY);
+
+    const [url] = fetchImpl.mock.calls[0];
+    expect(String(url)).toBe(
+      "http://osrm.local:5000/proxy/nearest/v1/car/168.7,-45.05?token=abc123&number=1"
+    );
+  });
+
+  it("returns the road point as latitude and longitude, not as OSRM's [lon, lat]", async () => {
+    const fetchImpl = jest.fn(async () => jsonResponse(200, nearestFixture));
+
+    expect(await customWith(fetchImpl).snap?.(QUAY)).toEqual({ lat: -45.0511, lon: 168.7123 });
+  });
+
+  it("answers null when OSRM refuses, names no point or cannot be reached", async () => {
+    const refused = jest.fn(async () => jsonResponse(400, { code: "NoSegment" }));
+    const noPoint = jest.fn(async () => jsonResponse(200, { code: "Ok", waypoints: [] }));
+    const broken = jest.fn(async () =>
+      jsonResponse(200, { code: "Ok", waypoints: [{ location: ["168.7", -45.05] }] })
+    );
+    const garbled = jest.fn(async () => malformedResponse(200));
+    const down = jest.fn(async () => {
+      throw new Error("connect ECONNREFUSED");
+    });
+
+    for (const fetchImpl of [refused, noPoint, broken, garbled, down]) {
+      expect(await customWith(fetchImpl).snap?.(QUAY)).toBeNull();
+    }
+  });
+});
+
+describe("hosted routing adapters", () => {
+  it("offer neither probe nor snap: only the self-hosted OSRM can be asked that often", () => {
+    const hosted = [
+      createOpenRouteService("test-key", jest.fn() as unknown as typeof fetch),
+      createGraphHopper("test-key", jest.fn() as unknown as typeof fetch),
+    ];
+    for (const provider of hosted) {
+      expect(provider.probe).toBeUndefined();
+      expect(provider.snap).toBeUndefined();
+    }
+    const custom = createCustomOsrm("http://osrm.local:5000");
+    expect(typeof custom.probe).toBe("function");
+    expect(typeof custom.snap).toBe("function");
+  });
+});
