@@ -1,5 +1,5 @@
 import type { LocalMinute, PhotoPoint } from "../types";
-import { makePhoto, type PhotoInput } from "./photoFixtures";
+import { makePhoto, NORTHVALE, type PhotoInput } from "./photoFixtures";
 
 /**
  * Synthetic places for the city-cluster tests (public repository: invented
@@ -34,4 +34,21 @@ export function photo(
     flags: { located: at.lat !== null && at.lon !== null, ...flags },
     ...rest,
   });
+}
+
+/** One step of a walk: a photo id, when it was taken, and the city cluster it falls in. */
+export type Step = readonly [id: string, local: LocalMinute, clusterId: string];
+
+/** Photos at the steps (all at Northvale's coordinates), and the cluster each one belongs to. */
+export function walk(steps: readonly Step[]): {
+  photos: PhotoPoint[];
+  clusterOf: Map<string, string>;
+  byId: Map<string, PhotoPoint>;
+} {
+  const photos = steps.map(([id, local]) => photo(id, local, NORTHVALE));
+  return {
+    photos,
+    clusterOf: new Map(steps.map(([id, , clusterId]) => [id, clusterId] as const)),
+    byId: new Map(photos.map((p) => [p.id, p] as const)),
+  };
 }
