@@ -27,10 +27,11 @@ export const TRIP_DOCUMENT_IMPORT_READY = false;
  * last resort, not the default it is today.
  */
 export function useTripImportAdapter(onTripsChanged: () => void): DomainImportAdapter {
-  const { t } = useTranslation(["import", "trips", "common"]);
+  const { t } = useTranslation(["import", "trips", "common", "tripBuilder"]);
   const addToast = useToastStore((s) => s.addToast);
   const [proposals, setProposals] = useState<ProposedTrip[] | null>(null);
   const [detecting, setDetecting] = useState(false);
+  const [photosOpen, setPhotosOpen] = useState(false);
 
   const handleDetect = useCallback((): void => {
     setDetecting(true);
@@ -77,6 +78,26 @@ export function useTripImportAdapter(onTripsChanged: () => void): DomainImportAd
               onClose={() => setProposals(null)}
               onCommitted={() => {
                 setProposals(null);
+                onTripsChanged();
+              }}
+            />
+          ) : null,
+      },
+      {
+        id: "from-photos",
+        icon: "📷",
+        title: t("tripBuilder:chooser.title"),
+        description: t("tripBuilder:chooser.description"),
+        actionLabel: t("tripBuilder:chooser.action"),
+        onSelect: () => setPhotosOpen(true),
+        render: () =>
+          photosOpen ? (
+            <TripModal
+              trip={null}
+              initialInspect
+              onClose={() => setPhotosOpen(false)}
+              onSaved={() => {
+                setPhotosOpen(false);
                 onTripsChanged();
               }}
             />

@@ -33,6 +33,11 @@
     "notConfigured": "Immich is not connected. Add its address and an API key in Settings.",
     "failed": "The scan could not be started. Nothing was saved."
   },
+  "chooser": {
+    "title": "Build it from your photos",
+    "description": "Scans the photos in your Immich library for the trip's dates and drafts the route, the nights and an album. You review everything before anything is saved.",
+    "action": "Start from photos"
+  },
   "timeline": {
     "roadtrip": "Roadtrip",
     "state": "Night",
