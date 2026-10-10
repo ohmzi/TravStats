@@ -12,9 +12,14 @@ import { tripEntrySpan } from "../../lib/tripEntrySpan";
 import { formatDate } from "../../lib/displayFormat";
 import { dayInput } from "../../lib/api/timeInput";
 import { saveErrorMessage } from "../../lib/saveErrorMessage";
+import TripBuilderLauncher from "./tripBuilder/TripBuilderLauncher";
+import TripImmichOptions from "./tripBuilder/TripImmichOptions";
+import { useImmichBuild } from "./tripBuilder/useImmichBuild";
 
 interface TripModalProps {
   trip: Trip | null; // null = create mode
+  /** Create mode only: opens with "Inspect Immich" already on (the chooser's "from photos" route). */
+  initialInspect?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -53,8 +58,13 @@ function fromDateInput(value: string): string | null {
   return dayInput(value);
 }
 
-export default function TripModal({ trip, onClose, onSaved }: TripModalProps): JSX.Element {
-  const { t } = useTranslation(["trips", "common"]);
+export default function TripModal({
+  trip,
+  initialInspect = false,
+  onClose,
+  onSaved,
+}: TripModalProps): JSX.Element {
+  const { t } = useTranslation(["trips", "common", "tripBuilder"]);
   const addToast = useToastStore((s) => s.addToast);
 
   const [tab, setTab] = useState<ModalTab>("general");
@@ -142,6 +152,8 @@ export default function TripModal({ trip, onClose, onSaved }: TripModalProps): J
   // form and got a 200 (SRV-TRIP-DATE-001); the server refuses that now, and
   // this says WHICH field is wrong instead of raising a generic save toast.
   const datesOutOfOrder = Boolean(startDate && endDate && endDate < startDate);
+  // The two Immich switches of a new trip; with one on, Save scans the photos first.
+  const build = useImmichBuild(trip === null && initialInspect, startDate, endDate);
 
   const handleSave = async (): Promise<void> => {
     setSaveTried(true);
@@ -174,7 +186,7 @@ export default function TripModal({ trip, onClose, onSaved }: TripModalProps): J
           ...(removeCover ? { coverImageUrl: null } : {}),
         });
       } else {
-        savedTrip = await tripsApi.create({
+        const input = {
           name: name.trim(),
           description: description.trim() || undefined,
           color,
@@ -186,7 +198,10 @@ export default function TripModal({ trip, onClose, onSaved }: TripModalProps): J
           tags,
           companions,
           notes: notes.trim() || undefined,
-        });
+        };
+        // A switch is on: the photos are scanned and reviewed before the trip is written.
+        if (build.scanning) return build.launch(input);
+        savedTrip = await tripsApi.create(input);
       }
 
       // Upload a freshly picked cover against the now-guaranteed trip id.
@@ -349,6 +364,8 @@ export default function TripModal({ trip, onClose, onSaved }: TripModalProps): J
                 </button>
               )}
 
+              {!trip && <TripImmichOptions build={build} />}
+
               <div className="grid grid-cols-2 gap-3">
                 <Field label={t("trips:modal.originLabel")}>
                   <input
@@ -417,7 +434,7 @@ export default function TripModal({ trip, onClose, onSaved }: TripModalProps): J
 
           {tab === "appearance" && (
             <>
-              <Field label={t("trips:modal.coverLabel")}>
+              <Field label={t("trips:modal.coverLabel")} hidden={build.scanning}>
                 <input
                   ref={coverInputRef}
                   type="file"
@@ -514,14 +531,15 @@ export default function TripModal({ trip, onClose, onSaved }: TripModalProps): J
           </button>
           <button
             onClick={() => void handleSave()}
-            disabled={saving || datesOutOfOrder}
+            disabled={saving || datesOutOfOrder || build.busy}
             type="button"
             className="px-4 py-2 rounded-lg text-sm font-medium bg-(--accent) text-(--bg-base) disabled:opacity-50"
           >
-            {saving ? "…" : t("trips:modal.save")}
+            {saving ? "…" : build.scanning ? t("tripBuilder:popup.scan") : t("trips:modal.save")}
           </button>
         </div>
       </div>
+      {build.launchProps && <TripBuilderLauncher {...build.launchProps} onClose={onClose} />}
     </div>
   );
 }
@@ -529,10 +547,13 @@ export default function TripModal({ trip, onClose, onSaved }: TripModalProps): J
 interface FieldProps {
   label: string;
   hint?: string;
+  /** The cover picker steps aside during a photo scan: a buffered file cannot cross the hand-off. */
+  hidden?: boolean;
   children: React.ReactNode;
 }
 
-function Field({ label, hint, children }: FieldProps): JSX.Element {
+function Field({ label, hint, hidden, children }: FieldProps): JSX.Element | null {
+  if (hidden) return null;
   return (
     <div>
       <label
