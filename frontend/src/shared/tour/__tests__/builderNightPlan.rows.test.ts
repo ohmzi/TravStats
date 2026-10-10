@@ -101,6 +101,18 @@ describe("deriveStationRows", () => {
     expect(rows.map((r) => r.slept)).toEqual([false, false]);
   });
 
+  it("ignores a day key that is not a calendar date rather than throwing on it", () => {
+    const nights = {
+      "2031-13-45": NORTHVALE.key,
+      garbage: NORTHVALE.key,
+      "2031-05-03": NORTHVALE.key,
+    };
+    const rows = deriveStationRows([NORTHVALE], nights);
+    expect(rows.map((r) => [r.startDate, r.endDate, r.slept])).toEqual([
+      ["2031-05-03", "2031-05-04", true],
+    ]);
+  });
+
   it("orders rows by start day, then by the stations' order", () => {
     const nights = { "2031-05-02": NORTHVALE.key, "2031-05-04": PORT_CARROW.key };
     const rows = deriveStationRows([KELMORE_HOME, NORTHVALE, PORT_CARROW], nights);

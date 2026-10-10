@@ -174,4 +174,32 @@ describe("validateNightPlan", () => {
   it("accepts an empty plan", () => {
     expect(validateNightPlan([NORTHVALE, PORT_CARROW], {}, [AREA], WINDOW)).toEqual([]);
   });
+
+  // The nights come from the request body, so a day key can be anything.
+  const NOT_DAYS = ["garbage", "2031-13-45", "2031-02-30", "2031-5-2", "2031-05-02T00:00", ""];
+
+  it("reports a day key that is not a calendar date instead of throwing", () => {
+    for (const bad of NOT_DAYS) {
+      const errors = validateNightPlan(
+        [NORTHVALE, PORT_CARROW],
+        { [bad]: NORTHVALE.key },
+        [AREA],
+        WINDOW
+      );
+      expect(errors).toEqual([{ code: "nightOutsideWindow", stationKey: NORTHVALE.key, day: bad }]);
+    }
+  });
+
+  it("writes no row for a malformed day key and still checks the real nights beside it", () => {
+    const nights = {
+      "2031-05-02": NORTHVALE.key,
+      "2031-13-45": NORTHVALE.key,
+      "2031-05-03": NORTHVALE.key,
+      "2031-05-05": NORTHVALE.key,
+    };
+    expect(validateNightPlan([NORTHVALE, PORT_CARROW], nights, [AREA], WINDOW)).toEqual([
+      { code: "nightOutsideWindow", stationKey: NORTHVALE.key, day: "2031-13-45" },
+      { code: "nightNotAdjacent", stationKey: NORTHVALE.key, day: "2031-05-05" },
+    ]);
+  });
 });

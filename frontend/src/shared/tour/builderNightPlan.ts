@@ -177,10 +177,25 @@ export function roadtripAreaNames(
   return names;
 }
 
-/** The days `nights` gives to one station, earliest first. */
+/**
+ * Whether `day` is a real calendar date written `YYYY-MM-DD`. Parsing it must
+ * give a time (`addDays` throws on "2031-13-45"), and the day must survive the
+ * round trip: "2031-02-30" parses, but as 2 March. Only a ten-character
+ * `YYYY-MM-DD` string can equal what `addDays` writes back, so no separate
+ * pattern check is needed.
+ */
+function isCalendarDay(day: string): boolean {
+  return !Number.isNaN(Date.parse(`${day}T00:00:00Z`)) && addDays(day, 0) === day;
+}
+
+/**
+ * The days `nights` gives to one station, earliest first. A key that is not a
+ * calendar date is no night at all: it can come from a request body, and
+ * `validateNightPlan` reports it as a night outside the window.
+ */
 function nightsAssignedTo(key: string, nights: Readonly<Record<string, NightAssign>>): string[] {
   return Object.keys(nights)
-    .filter((day) => nights[day] === key)
+    .filter((day) => nights[day] === key && isCalendarDay(day))
     .sort();
 }
 
@@ -210,6 +225,7 @@ function consecutiveRuns(days: readonly string[]): string[][] {
  *   coordinates; the 0 km leg between them is fine.
  *
  * Rows come ordered by start day, then by the stations' order, then by run.
+ * A key of `nights` that is not a calendar date is not a night and gives no row.
  */
 export function deriveStationRows(
   stations: readonly NightPlanStation[],
@@ -278,7 +294,9 @@ export function deriveStationRows(
  *
  * Checks 3 to 5 look only at nights inside the window; checks 4 and 5 only at
  * nights that name a known station. Checks 6 and 7 read the rows the nights
- * as sent would write.
+ * as sent would write. The nights come from a request body, so a key that is
+ * not a calendar date ("garbage", "2031-13-45") is a night outside the window
+ * and writes no row, so no key of `nights` makes this function throw.
  */
 export function validateNightPlan(
   stations: readonly NightPlanStation[],
