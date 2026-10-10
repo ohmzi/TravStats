@@ -30,7 +30,10 @@ export type JobKind =
   | "journal.weather"
   | "timeModel.backfill"
   | "timeZones.reResolveDryRun"
-  | "timeZones.reResolveApply";
+  | "timeZones.reResolveApply"
+  | "tripBuilder.scan"
+  | "tripBuilder.commit"
+  | "tripBuilder.album";
 
 export type JobStatus = "running" | "succeeded" | "failed";
 

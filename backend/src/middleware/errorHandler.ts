@@ -255,7 +255,25 @@ export type ApiErrorCode =
    *  or a section or the account's total is over its byte cap (413). The web
    *  keeps its local value either way. */
   | "WEB_PREFS_INVALID"
-  | "WEB_PREFS_TOO_LARGE";
+  | "WEB_PREFS_TOO_LARGE"
+  /** Trip builder (spec 2026-10-09): the draft is gone, expired, or never the caller's (404). */
+  | "DRAFT_EXPIRED"
+  /** The nights do not form a plan; `extra` names the first reason, station and day (400). */
+  | "NIGHT_PLAN_INVALID"
+  /** A roadtrip's stations fail `stationsSchema`, or fewer than two remain (400). */
+  | "STATIONS_INVALID"
+  /** The commit names something the draft never offered; `field` says what (400). */
+  | "DRAFT_MISMATCH"
+  /** The trip's dates are not the window the draft was scanned for (409). */
+  | "WINDOW_CHANGED"
+  /** The draft already created its trip; `extra.tripId` names it (409). */
+  | "ALREADY_COMMITTED"
+  /** Another commit key is running on this draft (409). */
+  | "COMMIT_IN_PROGRESS"
+  /** A roadtrip area was sent while roadtrips are hidden for this user (409). */
+  | "ROADTRIPS_HIDDEN"
+  /** Phase B rolled back; nothing was written (the job's error). */
+  | "COMMIT_FAILED";
 
 interface AuthRequest extends Request {
   user?: {
