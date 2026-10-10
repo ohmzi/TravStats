@@ -651,7 +651,7 @@ TripBuilderDraft = { id, expiresAt, window, options, target, tripName, countries
 - Not configured: the switch reverts, and `EmptyState kind="unpaired"` shows with a link opening `/settings/services?section=externalServices` in a **new tab**, so the form is kept.
 - Album blocked (shared connection or missing scopes): disabled with the reason.
 - `canCreate:null`: enabled, with "couldn't verify permissions".
-- Roadtrips hidden: a note "Roadtrips are off, so no km/nights — turn on in Settings › Beta".
+- Roadtrips hidden: a note "Roadtrips are off, so no km/nights — turn on in Settings › Modules".
 - When a toggle is on, the Save label becomes "Scan photos" and the cover picker is hidden. The note reads "add a cover after saving", because a buffered file can't go into sessionStorage.
 - The flag `immichOpts.active` makes `handleSave` render `<TripBuilderLauncher/>` instead of calling `tripsApi.create`. `useNavigate` lives **only** in the launcher, so the Router-less TripModal tests are unaffected. The launcher navigates first, then calls `onClose()`.
 
