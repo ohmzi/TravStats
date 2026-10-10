@@ -1,0 +1,38 @@
+import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+
+import type { ExcludedCounts } from "../../../../types/tripBuilder";
+import ReviewExcluded from "../ReviewExcluded";
+
+vi.mock("../../../../hooks/useTranslation", () => ({
+  useTranslation: () => ({
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key} ${JSON.stringify(params)}` : key,
+  }),
+}));
+
+const NONE: ExcludedCounts = {
+  partner: 0,
+  hiddenLivePart: 0,
+  misdated: 0,
+  inFlight: 0,
+  atSea: 0,
+  unlocated: 0,
+  dayGuessed: 0,
+};
+
+describe("ReviewExcluded", () => {
+  it("draws nothing when nothing was left out", () => {
+    const { container } = render(<ReviewExcluded excluded={NONE} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("lists each reason with its count, in a fixed order, and skips the ones at zero", () => {
+    render(<ReviewExcluded excluded={{ ...NONE, unlocated: 2, partner: 5, inFlight: 3 }} />);
+    expect(screen.getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      'tripBuilder:review.excluded.partner {"count":5}',
+      'tripBuilder:review.excluded.inFlight {"count":3}',
+      'tripBuilder:review.excluded.unlocated {"count":2}',
+    ]);
+  });
+});
