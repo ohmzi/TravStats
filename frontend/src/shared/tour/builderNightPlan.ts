@@ -141,7 +141,9 @@ const AREA_NAME_SEPARATOR = " · ";
  * - Several: `"<trip> · <main city>"` (the trip's name again for an area with
  *   no main city). A name that two areas share, or one already taken, gets
  *   ` (<d MMM>)` of the area's first day, and a last numeric suffix keeps two
- *   areas that start on the same day apart.
+ *   areas that start on the same day apart. That last pass checks the taken
+ *   names too, so the ` (<d MMM>)` and numbered forms never repeat a name the
+ *   trip already holds.
  *
  * Keyed by `AreaNameInput.key`; `areas` come in travel order.
  */
@@ -164,7 +166,7 @@ export function roadtripAreaNames(
     const clashes = takenNames.has(base) || bases.some((other, j) => j !== i && other === base);
     names[area.key] = clashes ? `${base} (${dayMonthLabel(area.startDay)})` : base;
   });
-  const seen = new Set<string>();
+  const seen = new Set(takenNames);
   for (const area of areas) {
     const wanted = names[area.key];
     let name = wanted;

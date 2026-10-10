@@ -63,6 +63,24 @@ describe("roadtripAreaNames", () => {
     });
   });
 
+  it("does not hand out a date-form name the trip already holds", () => {
+    const again = { key: "2031-05-09#1", mainCity: "Northvale", startDay: "2031-05-09" };
+    const taken = new Set(["Southern loop · Northvale (2 May)"]);
+    expect(roadtripAreaNames([NORTHVALE, again], "Southern loop", taken)).toEqual({
+      "2031-05-02#1": "Southern loop · Northvale (2 May) 2",
+      "2031-05-09#1": "Southern loop · Northvale (9 May)",
+    });
+  });
+
+  it("does not hand out a numbered name the trip already holds", () => {
+    const twin = { key: "2031-05-02#2", mainCity: "Northvale", startDay: "2031-05-02" };
+    const taken = new Set(["Southern loop · Northvale (2 May) 2"]);
+    expect(roadtripAreaNames([NORTHVALE, twin], "Southern loop", taken)).toEqual({
+      "2031-05-02#1": "Southern loop · Northvale (2 May)",
+      "2031-05-02#2": "Southern loop · Northvale (2 May) 3",
+    });
+  });
+
   it("numbers two areas of one city that start on the same day", () => {
     const twin = { key: "2031-05-02#2", mainCity: "Northvale", startDay: "2031-05-02" };
     expect(roadtripAreaNames([NORTHVALE, twin], "Southern loop", new Set())).toEqual({

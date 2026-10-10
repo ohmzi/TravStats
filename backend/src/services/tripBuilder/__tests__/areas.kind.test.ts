@@ -92,6 +92,40 @@ describe("mainCityOf", () => {
     expect(mainCityOf(stations, nights)).toBe("Northvale");
   });
 
+  it("adds up the nights of every station of one title, which can outweigh a single other station", () => {
+    // Per station each has one night and Port Carrow's 5 photos beat 4; per city Northvale has 2 nights.
+    const split = [
+      station("n1", { photoCount: 4 }),
+      station("n2", { photoCount: 4 }),
+      portCarrow("p1"),
+    ];
+    const nights = {
+      "2031-05-02": entry("n1"),
+      "2031-05-03": entry("p1"),
+      "2031-05-04": entry("n2"),
+    };
+    expect(mainCityOf(split, nights)).toBe("Northvale");
+  });
+
+  it("adds up the photos of every station of one title when nobody slept", () => {
+    // Per station Port Carrow's 5 photos beat 3; per city Northvale has 3 + 3. The titles differ in case and spacing.
+    const split = [
+      station("n1", { photoCount: 3 }),
+      station("n2", { title: " northvale ", photoCount: 3 }),
+      portCarrow("p1"),
+    ];
+    expect(mainCityOf(split, {})).toBe("Northvale");
+  });
+
+  it("returns the first city when nights and photos are level", () => {
+    const nights = { "2031-05-02": entry("n1"), "2031-05-03": entry("p1") };
+    const level = [station("n1", { photoCount: 5 }), portCarrow("p1")];
+    expect(mainCityOf(level, nights)).toBe("Northvale");
+    expect(mainCityOf([...level].reverse(), nights)).toBe("Port Carrow");
+    expect(mainCityOf(level, {})).toBe("Northvale");
+    expect(mainCityOf([...level].reverse(), {})).toBe("Port Carrow");
+  });
+
   it("is null when the area has no city", () => {
     const onlyAnchors = [
       station("h1", { kind: "home", title: "Kelmore" }),
