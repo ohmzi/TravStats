@@ -18,7 +18,7 @@ import { prisma } from "../../db";
 import type { GeocodeParts } from "../geo/nominatim";
 import { distanceKm } from "../photoJourneys/cluster";
 import { isHomeCluster } from "./home";
-import { MAX_GEOCODE_LOOKUPS, TITLE_REUSE_KM } from "./thresholds";
+import { CITY_LINK_KM, MAX_GEOCODE_LOOKUPS, TITLE_REUSE_KM } from "./thresholds";
 import type {
   Bbox,
   CityCluster,
@@ -128,6 +128,35 @@ async function geocodedCity(deps: NameClusterDeps, cluster: CityCluster): Promis
   }
 }
 
+/** Tells apart clusters that share a title but lie more than `CITY_LINK_KM` from each other. */
+function qualifyRepeatedTitles(named: NamedCluster[]): NamedCluster[] {
+  const sameTitle = new Map<string, NamedCluster[]>();
+  for (const cluster of named) {
+    const key = cluster.title.toLowerCase();
+    const group = sameTitle.get(key);
+    if (group) group.push(cluster);
+    else sameTitle.set(key, [cluster]);
+  }
+
+  const qualified = new Map<string, string>();
+  for (const group of sameTitle.values()) {
+    if (group.length < 2) continue;
+    for (const cluster of group) {
+      // A title the user typed or a coordinate pair is left as it is.
+      if (cluster.titleSource !== "immich" && cluster.titleSource !== "geocode") continue;
+      const apart = group.some(
+        (other) => other !== cluster && distanceKm(cluster, other) > CITY_LINK_KM
+      );
+      const qualifier = cluster.immichState ?? cluster.immichCountry;
+      if (apart && qualifier) qualified.set(cluster.id, `${cluster.title}, ${qualifier}`);
+    }
+  }
+  return named.map((cluster) => {
+    const title = qualified.get(cluster.id);
+    return title === undefined ? cluster : { ...cluster, title };
+  });
+}
+
 /** The clusters with a title, in the order given. */
 export async function nameClusters(
   clusters: readonly CityCluster[],
@@ -154,16 +183,18 @@ export async function nameClusters(
     if (city) titles.set(cluster.id, { text: city, source: "geocode" });
   }
 
-  return clusters.map((cluster) => {
-    const title = titles.get(cluster.id) ?? {
-      text: `${cluster.lat.toFixed(2)}, ${cluster.lon.toFixed(2)}`,
-      source: "coords" as const,
-    };
-    return {
-      ...cluster,
-      title: title.text,
-      titleSource: title.source,
-      isHome: isHome.get(cluster.id) === true,
-    };
-  });
+  return qualifyRepeatedTitles(
+    clusters.map((cluster) => {
+      const title = titles.get(cluster.id) ?? {
+        text: `${cluster.lat.toFixed(2)}, ${cluster.lon.toFixed(2)}`,
+        source: "coords" as const,
+      };
+      return {
+        ...cluster,
+        title: title.text,
+        titleSource: title.source,
+        isHome: isHome.get(cluster.id) === true,
+      };
+    })
+  );
 }
