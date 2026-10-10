@@ -50,6 +50,11 @@ function airborne(flight: FlightAnchor, rule: InFlightRule): InFlightClass {
   return { inFlight: true, flightId: flight.id, rule, side: null };
 }
 
+/** On the ground and tied to no flight. */
+function noFlight(): InFlightClass {
+  return { inFlight: false, flightId: null, rule: null, side: null };
+}
+
 /**
  * Between departure and arrival a photo is in the air, except two stretches of ground: the last
  * ARRIVAL_TOLERANCE_MIN minutes before landing within ARRIVAL_TOLERANCE_KM of the arrival airport
@@ -165,6 +170,25 @@ function impreciseVerdict(
   return airborne(flight, "corridor");
 }
 
+/** The verdict of the first of `anchors`, in the order given, that `judge` has one on. */
+function firstVerdict(
+  anchors: readonly FlightAnchor[],
+  judge: (flight: FlightAnchor) => InFlightClass | null
+): InFlightClass | null {
+  for (const flight of anchors) {
+    const verdict = judge(flight);
+    if (verdict) return verdict;
+  }
+  return null;
+}
+
+/**
+ * What the flights say about the photo, in two passes. First the exact verdict (in the air,
+ * arrival tolerance, departure grace) of any precise flight. Only when none has one, the
+ * heuristics: for each flight in departure order, the delay window of a precise flight or the
+ * corridor of a day-level one. So a guess about an earlier flight (it may have run late, the
+ * photo may lie on its corridor) never pre-empts the exact verdict of a later one.
+ */
 function verdictFor(
   photo: PhotoPoint,
   anchors: readonly FlightAnchor[],
@@ -172,22 +196,26 @@ function verdictFor(
   references: ReadonlyMap<string, TimeOrderReference>
 ): InFlightClass {
   const at = coordOf(photo);
-  if (at) {
-    for (const flight of anchors) {
-      const verdict = flight.precise
-        ? (preciseVerdict(photo, at, flight) ?? delayVerdict(photo, at, flight, photos))
-        : impreciseVerdict(photo, at, flight, photos, references.get(flight.id) ?? NO_REFERENCE);
-      if (verdict) return verdict;
-    }
-  }
-  return { inFlight: false, flightId: null, rule: null, side: null };
+  if (!at) return noFlight();
+  return (
+    firstVerdict(anchors, (flight) =>
+      flight.precise ? preciseVerdict(photo, at, flight) : null
+    ) ??
+    firstVerdict(anchors, (flight) =>
+      flight.precise
+        ? delayVerdict(photo, at, flight, photos)
+        : impreciseVerdict(photo, at, flight, photos, references.get(flight.id) ?? NO_REFERENCE)
+    ) ??
+    noFlight()
+  );
 }
 
 /**
  * Judges every photo against the flights: in the air or on the ground, by which rule, and for a
  * ground photo pinned to one side of a flight, which side. `photos` is every located,
- * non-duplicate, non-misdated photo of the window; `anchors` are the flights in departure order
- * (the first flight that has a verdict wins). The answer holds an entry for each photo.
+ * non-duplicate, non-misdated photo of the window; `anchors` are the flights in departure order.
+ * A photo is judged by the exact verdicts of all flights before any heuristic, see `verdictFor`.
+ * The answer holds an entry for each photo.
  */
 export function classifyInFlight(
   photos: readonly PhotoPoint[],

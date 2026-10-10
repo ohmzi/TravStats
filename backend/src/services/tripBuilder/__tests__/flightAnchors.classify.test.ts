@@ -256,3 +256,72 @@ describe("classifyInFlight: a flight known only by its day", () => {
     );
   });
 });
+
+describe("classifyInFlight: the return flight of a delayed outbound", () => {
+  // ZZ101 landed at 09:30, so its delay window runs to 12:30 on the same track. The return
+  // ZZ102 leaves Port Carrow at 11:00, inside that window.
+  const back = preciseFlight("zz102", "2031-05-02 11:00", "2031-05-02 12:00", PCR, NVL);
+  const flights = [zz101, back];
+
+  it("files a photo in the air on the return flight under that flight, not the outbound's delay", () => {
+    expect(verdict(photo("home", "2031-05-02 11:30", midAir), flights)).toEqual({
+      inFlight: true,
+      flightId: "zz102",
+      rule: "precise",
+      side: null,
+    });
+  });
+
+  it("still gives the outbound's delay to a photo no flight explains exactly", () => {
+    expect(verdict(photo("between", "2031-05-02 10:15", midAir), flights)).toEqual({
+      inFlight: true,
+      flightId: "zz101",
+      rule: "delay",
+      side: null,
+    });
+  });
+});
+
+describe("classifyInFlight: a precise flight and a flight known only by its day on one day", () => {
+  // ZZ103 is recorded without a time: Northvale to Port Carrow on 2031-05-03. The precise ZZ105
+  // flies back on the same day and leaves at 11:00. Both tracks are the same line.
+  const out = datedFlight("zz103", "2031-05-03", "2031-05-03", NVL, PCR);
+  const back = preciseFlight("zz105", "2031-05-03 11:00", "2031-05-03 12:00", PCR, NVL);
+
+  it("gives a photo the precise flight explains to that flight, though the corridor of the day-level flight matches it too", () => {
+    const shot = photo("home", "2031-05-03 11:30", midAir);
+    expect(verdict(shot, [out])).toEqual({
+      inFlight: true,
+      flightId: "zz103",
+      rule: "corridor",
+      side: null,
+    });
+    expect(verdict(shot, [out, back])).toEqual({
+      inFlight: true,
+      flightId: "zz105",
+      rule: "precise",
+      side: null,
+    });
+  });
+});
+
+describe("classifyInFlight: the exact instants of a precise flight", () => {
+  // Both ends of the window are open (a photo must be after the departure and before the
+  // arrival), so a photo at the very instant is on the ground: the documented strict inequality.
+  // The delay window opens just after the arrival, so a minute later the same place is in the air.
+  it("leaves a photo at exactly the departure instant on the ground", () => {
+    const atDeparture = photo("dep", "2031-05-02 08:30", midAir);
+    expect(atDeparture.tMs).toBe(zz101.depMs);
+    expect(verdict(atDeparture, [zz101])).toEqual(GROUND);
+    expect(verdict(photo("dep-1", "2031-05-02 08:29", midAir), [zz101])).toEqual(GROUND);
+    expect(verdict(photo("dep+1", "2031-05-02 08:31", midAir), [zz101])?.rule).toBe("precise");
+  });
+
+  it("leaves a photo at exactly the arrival instant on the ground", () => {
+    const atArrival = photo("arr", "2031-05-02 09:30", midAir);
+    expect(atArrival.tMs).toBe(zz101.arrMs);
+    expect(verdict(atArrival, [zz101])).toEqual(GROUND);
+    expect(verdict(photo("arr-1", "2031-05-02 09:29", midAir), [zz101])?.rule).toBe("precise");
+    expect(verdict(photo("arr+1", "2031-05-02 09:31", midAir), [zz101])?.rule).toBe("delay");
+  });
+});
