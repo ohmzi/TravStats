@@ -208,74 +208,50 @@ function byId(a: FlightAnchor, b: FlightAnchor): number {
 }
 
 /**
- * A total order on the flights by day: departure day, then clock (a flight with no clock first),
- * then id. Flights that differ in nothing else are told apart by `inConnectionOrder`.
+ * A total order on the flights: departure day, then id. `inDepartureOrder` takes the flights in
+ * this order wherever the data leave it open.
  */
-function compareByDay(a: FlightAnchor, b: FlightAnchor): number {
+function byDay(a: FlightAnchor, b: FlightAnchor): number {
   if (a.depDay !== b.depDay) return a.depDay < b.depDay ? -1 : 1;
-  const clockA = a.depClock ?? "";
-  const clockB = b.depClock ?? "";
-  if (clockA !== clockB) return clockA < clockB ? -1 : 1;
   return byId(a, b);
 }
 
 /**
- * Flights that share a day and have no clock cannot be told apart by time, only by how they
- * connect: the next one leaves from an airport that none of the others lands at, ties by id.
- * Connections that run in a circle leave nothing to go first, and the flights still left keep
- * their id order.
+ * What the data say about which of two flights leaves first: negative when `a` does, positive
+ * when `b` does, 0 when they leave it open. The first evidence that decides wins: both departure
+ * instants; the departure day; both departure clocks; the connection (one lands where the other
+ * leaves, and not the other way round). So the instants fix the places of the precise flights,
+ * and a flight known only by its day takes its place among the flights of its day by its clock
+ * when it has one, else by how it connects to them.
  */
-function inConnectionOrder(run: readonly FlightAnchor[]): FlightAnchor[] {
-  const remaining = [...run].sort(byId);
-  const ordered: FlightAnchor[] = [];
-  while (remaining.length > 0) {
-    const next = remaining.findIndex(
-      (flight) => !remaining.some((other) => other !== flight && sharesAirport(other, flight))
-    );
-    if (next < 0) return [...ordered, ...remaining];
-    ordered.push(...remaining.splice(next, 1));
+function knownOrder(a: FlightAnchor, b: FlightAnchor): number {
+  if (a.depMs !== null && b.depMs !== null && a.depMs !== b.depMs)
+    return a.depMs < b.depMs ? -1 : 1;
+  if (a.depDay !== b.depDay) return a.depDay < b.depDay ? -1 : 1;
+  if (a.depClock !== null && b.depClock !== null && a.depClock !== b.depClock) {
+    return a.depClock < b.depClock ? -1 : 1;
   }
-  return ordered;
+  const forward = sharesAirport(a, b);
+  const backward = sharesAirport(b, a);
+  return forward === backward ? 0 : forward ? -1 : 1;
 }
 
 /**
- * The flights known only by their day, in order. Within a day the flights with no clock come
- * first, in connection order, then the others by clock.
- */
-function sortedByDay(flights: readonly FlightAnchor[]): FlightAnchor[] {
-  const days = new Map<string, FlightAnchor[]>();
-  for (const flight of [...flights].sort(compareByDay)) {
-    const day = days.get(flight.depDay);
-    if (day) day.push(flight);
-    else days.set(flight.depDay, [flight]);
-  }
-  return [...days.values()].flatMap((day) => [
-    ...inConnectionOrder(day.filter((flight) => flight.depClock === null)),
-    ...day.filter((flight) => flight.depClock !== null),
-  ]);
-}
-
-/**
- * The flights in departure order, the same whatever order they arrive in. The flights with a
- * departure instant come in that order (a tie by day, clock, id). The others are known only by
- * their day and come in `sortedByDay` order. The two lists merge by departure day, the flights
- * with an instant first on a day they share. Merging two sorted lists, instead of comparing a
- * flight with an instant against one without, keeps the order consistent: a pairwise comparison
- * of the two kinds can run in a circle.
+ * The flights in departure order, the same whatever order they arrive in. This is no sort over
+ * `knownOrder`: it leaves pairs open and can disagree with itself (a clock against an instant,
+ * connections in a circle), and a sort over such a comparison depends on the order it is given.
+ * Instead each step takes, from the flights left in `byDay` order, the first that no other
+ * flight left surely precedes. When every flight left is preceded by another (connections in a
+ * circle) the first of them goes.
  */
 function inDepartureOrder(anchors: readonly FlightAnchor[]): FlightAnchor[] {
-  const timed = anchors
-    .filter((flight) => flight.depMs !== null)
-    .sort((a, b) => (a.depMs ?? 0) - (b.depMs ?? 0) || compareByDay(a, b));
-  const dated = sortedByDay(anchors.filter((flight) => flight.depMs === null));
+  const remaining = [...anchors].sort(byDay);
   const flights: FlightAnchor[] = [];
-  let nextTimed = 0;
-  let nextDated = 0;
-  while (nextTimed < timed.length || nextDated < dated.length) {
-    const datedFirst =
-      nextTimed === timed.length ||
-      (nextDated < dated.length && dated[nextDated].depDay < timed[nextTimed].depDay);
-    flights.push(datedFirst ? dated[nextDated++] : timed[nextTimed++]);
+  while (remaining.length > 0) {
+    const open = remaining.findIndex(
+      (flight) => !remaining.some((other) => other !== flight && knownOrder(other, flight) < 0)
+    );
+    flights.push(...remaining.splice(Math.max(open, 0), 1));
   }
   return flights;
 }

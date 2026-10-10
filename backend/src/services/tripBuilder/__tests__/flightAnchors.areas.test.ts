@@ -375,7 +375,7 @@ describe("splitIntoAreas: the order of the flights does not depend on how they a
   const datedThird = datedFlight("b-third", day, day, KEL, WMT);
 
   it.each(arrivals([timedFirst, timedSecond, datedThird]))(
-    "places a day-level leg after the precise legs of its day when handed over as %s",
+    "puts a day-level last leg after the precise legs it connects from when handed over as %s",
     (_order, flights) => {
       const { areas, layovers } = split(photos, flights);
       expect(layovers.map((layover) => [layover.inFlightId, layover.outFlightId])).toEqual([
@@ -388,6 +388,178 @@ describe("splitIntoAreas: the order of the flights does not depend on how they a
           [["wmt-1"], "b-third", null],
         ]
       );
+    }
+  );
+
+  // A day-level leg between two precise ones: it comes second because it connects, or because of
+  // its clock, and not because it is the one without an instant.
+  describe.each([
+    ["no clock", null],
+    ["a clock of 12:00", "12:00"],
+  ])("a day-level middle leg with %s", (_clock, depClock) => {
+    const outbound = preciseFlight("c-first", `${day} 08:30`, `${day} 09:30`, NVL, PCR);
+    const middle = datedFlight("b-middle", day, day, PCR, KEL, { depClock });
+    const onward = preciseFlight("a-last", `${day} 17:30`, `${day} 18:40`, KEL, WMT);
+
+    it.each(arrivals([outbound, middle, onward]))(
+      "sits between the precise legs it connects when handed over as %s",
+      (_order, flights) => {
+        const { areas, layovers } = split(photos, flights);
+        expect(layovers.map((layover) => [layover.inFlightId, layover.outFlightId])).toEqual([
+          ["c-first", "b-middle"],
+          ["b-middle", "a-last"],
+        ]);
+        expect(
+          areas.map((area) => [area.photoIds, area.afterFlightId, area.beforeFlightId])
+        ).toEqual([
+          [["nvl-1"], null, "c-first"],
+          [["wmt-1"], "a-last", null],
+        ]);
+      }
+    );
+  });
+
+  // Two legs of one day, NVL to PCR then PCR to KEL, one known only by its day: the legs connect
+  // in both directions of the ids and of the arrival, with the day-level leg's clock (when it has
+  // one) agreeing with the precise leg's time.
+  const landed = photo("kel-1", `${day} 17:30`, offsetKm(KEL, 6, 0));
+  const twoLegs: [string, (first: string, second: string) => FlightAnchor[]][] = [
+    [
+      "a day-level first leg with no clock",
+      (first, second) => [
+        datedFlight(first, day, day, NVL, PCR),
+        preciseFlight(second, `${day} 15:00`, `${day} 16:10`, PCR, KEL),
+      ],
+    ],
+    [
+      "a day-level first leg at 07:00",
+      (first, second) => [
+        datedFlight(first, day, day, NVL, PCR, { depClock: "07:00" }),
+        preciseFlight(second, `${day} 15:00`, `${day} 16:10`, PCR, KEL),
+      ],
+    ],
+    [
+      "a day-level second leg with no clock",
+      (first, second) => [
+        preciseFlight(first, `${day} 08:30`, `${day} 09:30`, NVL, PCR),
+        datedFlight(second, day, day, PCR, KEL),
+      ],
+    ],
+    [
+      "a day-level second leg at 16:00",
+      (first, second) => [
+        preciseFlight(first, `${day} 08:30`, `${day} 09:30`, NVL, PCR),
+        datedFlight(second, day, day, PCR, KEL, { depClock: "16:00" }),
+      ],
+    ],
+  ];
+  const twoLegCases: [string, FlightAnchor[], string, string][] = twoLegs.flatMap(
+    ([label, build]) =>
+      [
+        ["a-first", "b-second"],
+        ["b-first", "a-second"],
+      ].flatMap(([first, second]) =>
+        arrivals(build(first, second)).map(
+          ([order, flights]): [string, FlightAnchor[], string, string] => [
+            `${label}, ids ${first} and ${second}, handed over as ${order}`,
+            flights,
+            first,
+            second,
+          ]
+        )
+      )
+  );
+
+  it.each(twoLegCases)("reads %s as a connection", (_name, flights, first, second) => {
+    const { areas, layovers } = split([before, ...carrow, landed], flights);
+    expect(layovers).toEqual([
+      { inFlightId: first, outFlightId: second, airportIata: "PCR", photoIds: ["pcr-1", "pcr-2"] },
+    ]);
+    expect(areas.map((area) => [area.photoIds, area.afterFlightId, area.beforeFlightId])).toEqual([
+      [["nvl-1"], null, first],
+      [["kel-1"], second, null],
+    ]);
+  });
+
+  // In the four tests below the ids sort the legs against the evidence, so only the evidence can
+  // put them right. Each area comes out as [photo ids, afterFlightId, beforeFlightId].
+  const legsAreas = (flights: FlightAnchor[], shots: PhotoPoint[]) =>
+    split(shots, flights).areas.map((area) => [
+      area.photoIds,
+      area.afterFlightId,
+      area.beforeFlightId,
+    ]);
+
+  it.each(
+    arrivals([
+      preciseFlight("b-out", `${day} 08:30`, `${day} 09:30`, NVL, PCR),
+      // Leaves later, but from a place whose clock runs hours behind: it reads 02:00.
+      preciseFlight("a-on", `${day} 13:00`, `${day} 14:10`, PCR, KEL, { depClock: "02:00" }),
+    ])
+  )(
+    "orders precise legs by their instants, not their clocks, when handed over as %s",
+    (_order, flights) => {
+      expect(legsAreas(flights, [before, ...carrow, landed])).toEqual([
+        [["nvl-1"], null, "b-out"],
+        [["kel-1"], "a-on", null],
+      ]);
+    }
+  );
+
+  it.each(
+    arrivals([
+      datedFlight("a-later", "2031-05-04", "2031-05-04", NVL, PCR),
+      datedFlight("b-earlier", "2031-05-03", "2031-05-03", PCR, KEL),
+    ])
+  )(
+    "orders day-level legs by their day before their connection when handed over as %s",
+    (_order, flights) => {
+      // a-later lands where b-earlier leaves, but it flies a day after it.
+      const shots = [
+        photo("start", "2031-05-03 08:00", offsetKm(PCR, 4, 0)),
+        photo("k", "2031-05-03 18:00", offsetKm(KEL, 3, 0)),
+        photo("n", "2031-05-04 07:00", offsetKm(NVL, 5, 0)),
+        photo("p", "2031-05-04 16:00", offsetKm(PCR, 6, 0)),
+      ];
+      expect(legsAreas(flights, shots)).toEqual([
+        [["start"], null, "b-earlier"],
+        [["k", "n"], "b-earlier", "a-later"],
+        [["p"], "a-later", null],
+      ]);
+    }
+  );
+
+  it.each(
+    arrivals([
+      datedFlight("a-late-leg", day, day, KEL, WMT, { depClock: "16:00" }),
+      datedFlight("b-early-leg", day, day, NVL, PCR, { depClock: "07:00" }),
+    ])
+  )(
+    "orders day-level legs of one day by their clocks when handed over as %s",
+    (_order, flights) => {
+      const shots = [before, carrow[0], kelmore[0], westmouth];
+      expect(legsAreas(flights, shots)).toEqual([
+        [["nvl-1"], null, "b-early-leg"],
+        [["pcr-1", "kel-1"], "b-early-leg", "a-late-leg"],
+        [["wmt-1"], "a-late-leg", null],
+      ]);
+    }
+  );
+
+  it.each(
+    arrivals([
+      datedFlight("b-ring", day, day, NVL, PCR),
+      datedFlight("c-ring", day, day, PCR, KEL),
+      datedFlight("d-ring", day, day, KEL, NVL),
+      datedFlight("a-after", "2031-05-04", "2031-05-04", KEL, WMT),
+    ])
+  )(
+    "keeps the day order when a circle leaves nothing to go first, handed over as %s",
+    (_order, flights) => {
+      // The circle holds the first three legs; the leg of the next day, whose id sorts first, is last.
+      const shots = [before, ...carrow, ...kelmore, photo("wmt-2", "2031-05-04 10:00", WMT)];
+      const areas = legsAreas(flights, shots);
+      expect(areas[areas.length - 1]).toEqual([["wmt-2"], "a-after", null]);
     }
   );
 
