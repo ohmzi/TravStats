@@ -17,7 +17,7 @@
 import { prisma } from "../../db";
 import type { GeocodeParts } from "../geo/nominatim";
 import { distanceKm } from "../photoJourneys/cluster";
-import { isHomeCluster } from "./home";
+import { isHomeCluster, townOf } from "./home";
 import { CITY_LINK_KM, MAX_GEOCODE_LOOKUPS, TITLE_REUSE_KM } from "./thresholds";
 import type {
   Bbox,
@@ -112,11 +112,6 @@ function reusedTitle(cluster: CityCluster, existing: readonly ExistingTitle[]): 
 function immichTitle(cluster: CityCluster): Title | null {
   const city = cluster.immichCity?.trim();
   return city ? { text: city, source: "immich" } : null;
-}
-
-/** "Kelmore, Westshire" → "Kelmore". */
-function townOf(home: HomeAtDay): string {
-  return home.name.split(",")[0].trim() || home.name.trim();
 }
 
 async function geocodedCity(deps: NameClusterDeps, cluster: CityCluster): Promise<string | null> {

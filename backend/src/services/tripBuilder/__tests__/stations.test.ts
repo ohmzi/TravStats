@@ -1,4 +1,10 @@
-import { claimKey, defaultStationNotes, pickPreviewIds, stationKeyOf } from "../stations";
+import {
+  claimKey,
+  defaultStationNotes,
+  passStation,
+  pickPreviewIds,
+  stationKeyOf,
+} from "../stations";
 import { NORTHVALE, photo } from "./placeFixtures";
 
 describe("stationKeyOf", () => {
@@ -25,6 +31,52 @@ describe("claimKey", () => {
   it("does not collide with a key somebody else already took", () => {
     const taken = new Set(["a", "a~2"]);
     expect(claimKey("a", taken)).toBe("a~3");
+  });
+});
+
+describe("passStation", () => {
+  it("makes a photo-less station with a claimed key, dated to the one day", () => {
+    const taken = new Set<string>();
+    const station = passStation({
+      kind: "airport",
+      title: "Northvale",
+      titleSource: "airport",
+      at: { lat: -45.05, lon: 168.7 },
+      day: "2031-05-02",
+      taken,
+    });
+    expect(station).toEqual({
+      key: "-901|3374|2031-05-02",
+      title: "Northvale",
+      titleSource: "airport",
+      kind: "airport",
+      lat: -45.05,
+      lon: 168.7,
+      snappedKm: null,
+      firstDay: "2031-05-02",
+      lastDay: "2031-05-02",
+      firstLocal: null,
+      lastLocal: null,
+      photoCount: 0,
+      previewIdx: [],
+      notes: null,
+    });
+    expect([...taken]).toEqual(["-901|3374|2031-05-02"]);
+  });
+
+  it("takes ~2 for a second pass station at the same place and day", () => {
+    const taken = new Set<string>();
+    const make = () =>
+      passStation({
+        kind: "home",
+        title: "Kelmore",
+        titleSource: "home",
+        at: { lat: -45.05, lon: 168.7 },
+        day: "2031-05-02",
+        taken,
+      });
+    expect(make().key).toBe("-901|3374|2031-05-02");
+    expect(make().key).toBe("-901|3374|2031-05-02~2");
   });
 });
 

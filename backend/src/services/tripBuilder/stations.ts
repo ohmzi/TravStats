@@ -7,6 +7,7 @@
  * re-scan, a snap onto the road and the after-landing pull of its first day.
  * A repeat of a key gets `~2`, `~3` … from one `taken` set per scan.
  */
+import type { Coord } from "../tour/tourDistance";
 import { medianPoint } from "./medians";
 import { MAX_PREVIEWS, PREVIEWS_PER_STATION, STATION_KEY_GRID_DEG } from "./thresholds";
 import { NIGHT_HOME } from "./types";
@@ -22,6 +23,7 @@ import type {
   StationBuild,
   StationKind,
   StationSpan,
+  TitleSource,
 } from "./types";
 
 /** `round(lat/0.05)|round(lon/0.05)|firstDay`: the station's identity across re-scans. */
@@ -35,6 +37,39 @@ export function claimKey(base: string, taken: Set<string>): string {
   for (let n = 2; taken.has(key); n++) key = `${base}~${n}`;
   taken.add(key);
   return key;
+}
+
+export interface PassStationInput {
+  kind: Extract<StationKind, "airport" | "home">;
+  title: string;
+  titleSource: TitleSource;
+  at: Coord;
+  day: Day;
+  taken: Set<string>;
+}
+
+/**
+ * A station the plan adds rather than finds: an airport anchor or a Home pass
+ * station. It has no photos of its own, so no clock, preview or notes; it is
+ * dated to the one day it stands on and takes its key from `taken`.
+ */
+export function passStation(input: PassStationInput): PlanStation {
+  return {
+    key: claimKey(stationKeyOf(input.at.lat, input.at.lon, input.day), input.taken),
+    title: input.title,
+    titleSource: input.titleSource,
+    kind: input.kind,
+    lat: input.at.lat,
+    lon: input.at.lon,
+    snappedKm: null,
+    firstDay: input.day,
+    lastDay: input.day,
+    firstLocal: null,
+    lastLocal: null,
+    photoCount: 0,
+    previewIdx: [],
+    notes: null,
+  };
 }
 
 /** `count` items spread evenly through `items`, in order. */

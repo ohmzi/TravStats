@@ -11,7 +11,7 @@ import { airportDisplayName } from "../../utils/airportDisplay";
 import type { AirportData } from "../airportLookup";
 import { distanceKm } from "../photoJourneys/cluster";
 import type { Coord } from "../tour/tourDistance";
-import { claimKey, stationKeyOf } from "./stations";
+import { passStation } from "./stations";
 import { AIRPORT_ANCHOR_KM } from "./thresholds";
 import type { Day, FlightAnchor, GroundArea, PlanStation } from "./types";
 
@@ -34,22 +34,14 @@ function airportStation(
   const airport = iata === null ? undefined : input.airports.get(iata.toUpperCase());
   const title = airportDisplayName(airport) ?? (iata ? `${iata} airport` : null);
   if (title === null) return null;
-  return {
-    key: claimKey(stationKeyOf(at.lat, at.lon, day), input.taken),
+  return passStation({
+    kind: "airport",
     title,
     titleSource: "airport",
-    kind: "airport",
-    lat: at.lat,
-    lon: at.lon,
-    snappedKm: null,
-    firstDay: day,
-    lastDay: day,
-    firstLocal: null,
-    lastLocal: null,
-    photoCount: 0,
-    previewIdx: [],
-    notes: null,
-  };
+    at,
+    day,
+    taken: input.taken,
+  });
 }
 
 /**

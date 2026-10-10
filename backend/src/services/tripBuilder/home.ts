@@ -9,7 +9,7 @@ import { addDays, NIGHT_UNKNOWN } from "../../shared/tour/builderNightPlan";
 import { periodAt, type HomePeriod } from "../../utils/homeAirport";
 import { distanceKm } from "../photoJourneys/cluster";
 import type { Coord } from "../tour/tourDistance";
-import { claimKey, stationKeyOf } from "./stations";
+import { passStation } from "./stations";
 import {
   HOME_LEG_MAX_KM,
   HOME_RADIUS_KM,
@@ -88,7 +88,9 @@ interface EndPlan {
 }
 
 /** "Kelmore, Westshire" → "Kelmore". */
-const townOf = (home: HomeAtDay): string => home.name.split(",")[0].trim() || home.name.trim();
+export function townOf(home: HomeAtDay): string {
+  return home.name.split(",")[0].trim() || home.name.trim();
+}
 
 /** The first (start) or last (end) movement photo of the area that has a position. */
 function edgePhoto(input: AreaHomeInput, side: Side): (PhotoPoint & Coord) | null {
@@ -143,23 +145,14 @@ function relabelAsHome(station: PlanStation, cluster: NamedCluster, home: HomeAt
 }
 
 function addedHomeStation(input: AreaHomeInput, home: HomeAtDay, day: Day): PlanStation {
-  const title = !home.confirmed && input.homeAirportName ? input.homeAirportName : townOf(home);
-  return {
-    key: claimKey(stationKeyOf(home.lat, home.lon, day), input.taken),
-    title,
-    titleSource: "home",
+  return passStation({
     kind: "home",
-    lat: home.lat,
-    lon: home.lon,
-    snappedKm: null,
-    firstDay: day,
-    lastDay: day,
-    firstLocal: null,
-    lastLocal: null,
-    photoCount: 0,
-    previewIdx: [],
-    notes: null,
-  };
+    title: !home.confirmed && input.homeAirportName ? input.homeAirportName : townOf(home),
+    titleSource: "home",
+    at: home,
+    day,
+    taken: input.taken,
+  });
 }
 
 function planEnd(input: AreaHomeInput, side: Side, stations: PlanStation[]): EndPlan {

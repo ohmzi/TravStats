@@ -1,5 +1,5 @@
 import type { HomePeriod } from "../../../utils/homeAirport";
-import { homeAt, isHomeCluster } from "../home";
+import { homeAt, isHomeCluster, townOf } from "../home";
 import type { HomeAtDay } from "../types";
 import { KELMORE } from "./placeFixtures";
 
@@ -65,5 +65,28 @@ describe("isHomeCluster", () => {
 
   it("is never home without a home", () => {
     expect(isHomeCluster(KELMORE, null)).toBe(false);
+  });
+});
+
+describe("townOf", () => {
+  const at = (name: string): HomeAtDay => ({
+    name,
+    lat: KELMORE.lat,
+    lon: KELMORE.lon,
+    confirmed: true,
+    zone: "Pacific/Auckland",
+    airports: new Set(),
+  });
+
+  it("keeps the town of a 'Town, Province' residence", () => {
+    expect(townOf(at("Kelmore, Westshire"))).toBe("Kelmore");
+  });
+
+  it("keeps a residence with no province whole", () => {
+    expect(townOf(at("Northvale"))).toBe("Northvale");
+  });
+
+  it("falls back to the whole name when nothing precedes the comma", () => {
+    expect(townOf(at(", Westshire"))).toBe(", Westshire");
   });
 });
