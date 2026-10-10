@@ -29,6 +29,7 @@ import type {
   TripBuilderDraft,
 } from "../../types/tripBuilder";
 import type { CreateTripInput } from "../api/trips";
+import { logEdit } from "./editLog";
 import {
   rename,
   setAlbum,
@@ -43,6 +44,14 @@ import {
 } from "./editsBasic";
 import { assignNight, setAreaKind } from "./editsNights";
 import { fold, merge, remove, toggleHome, toggleSlept } from "./editsStructure";
+import {
+  applyExistingEdit,
+  initialExistingState,
+  refusesExistingEdit,
+  withExistingFields,
+  type ExistingEdit,
+  type ExistingReviewState,
+} from "./existingReview";
 import { effectiveNights } from "./planRules";
 import { syncArea } from "./reviewRules";
 
@@ -65,7 +74,8 @@ export type DraftEdit =
   | { type: "setAlbum"; create: boolean; name: string }
   | { type: "setCountries"; countries: string[] }
   | { type: "togglePhotoJourney"; id: string; ticked: boolean }
-  | { type: "setTripName"; name: string };
+  | { type: "setTripName"; name: string }
+  | ExistingEdit;
 
 /** One area as the user is shaping it. `legs[i]` joins `stations[i]` and `stations[i + 1]`. */
 export interface ReviewArea {
@@ -96,6 +106,8 @@ export interface ReviewState {
   photoJourneyTicks: Record<string, boolean>;
   /** Null when the scan did not ask for an album. */
   album: { create: boolean; name: string } | null;
+  /** Re-sync only (spec §K.5): the keep/remove choices and the album removal switch; null for a new trip. */
+  existing: ExistingReviewState | null;
 }
 
 function initialArea(area: DraftArea): ReviewArea {
@@ -128,6 +140,7 @@ export function initialReviewState(draft: TripBuilderDraft): ReviewState {
     ),
     photoJourneyTicks: Object.fromEntries(draft.photoJourneys.map((j) => [j.id, true])),
     album: draft.album === null ? null : { create: draft.album.allowed, name: draft.album.name },
+    existing: initialExistingState(draft),
   };
 }
 
@@ -136,6 +149,11 @@ export function applyEdit(
   state: ReviewState,
   edit: DraftEdit
 ): ReviewState {
+  if (edit.type === "setKeepNotSeen" || edit.type === "setRemoveOutside") {
+    const existing = applyExistingEdit(state.existing, draft, edit);
+    return existing === state.existing ? state : logEdit({ ...state, existing }, edit);
+  }
+  if (refusesExistingEdit(draft, edit)) return state;
   switch (edit.type) {
     case "rename":
       return rename(draft, state, edit);
@@ -262,7 +280,7 @@ export function buildCommitBody(
   commitKey: string
 ): CommitBody {
   const fallbackName = state.tripName.trim() || draft.tripName;
-  return {
+  const body: CommitBody = {
     commitKey,
     window: { startDay: draft.window.startDay, endDay: draft.window.endDay },
     target: commitTarget(draft, state, form),
@@ -279,4 +297,5 @@ export function buildCommitBody(
       name: (state.album?.name ?? "").trim() || fallbackName,
     },
   };
+  return withExistingFields(body, draft, state);
 }
