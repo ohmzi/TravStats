@@ -217,30 +217,42 @@ describe("annotateDraftForExisting: other cases", () => {
   });
 
   it("gives a not-seen station a key that cannot collide with a derived one", () => {
+    // The first stored station is the derived Northvale (same place, overlapping days), so it
+    // matches. The second is at the same place and first day but is not what the photos show:
+    // its own key would be the derived station's key, so it has to be claimed with a suffix.
+    const matched = stored({
+      id: "st-a",
+      title: "Northvale",
+      lat: -45.05,
+      lon: 168.7,
+      startDate: "2031-05-02",
+      endDate: "2031-05-03",
+      night: "pass",
+    });
     const clash = stored({
       id: "st-x",
-      title: "Northvale again",
+      title: "Elsewhere",
       lat: -45.05,
       lon: 168.7,
       startDate: "2031-05-02",
       endDate: "2031-05-02",
       night: "pass",
     });
-    const only = roadtrip.stations.slice(0, 1).map((s) => ({
-      ...s,
-      id: "st-a",
-      startDate: "2031-05-20",
-      endDate: "2031-05-21",
-      title: "Elsewhere",
-      lat: -46.5,
-      lon: 170.9,
-    }));
-    const rt: ExistingRoadtrip = { ...roadtrip, stations: [...only, clash] };
+    const rt: ExistingRoadtrip = { ...roadtrip, stations: [matched, clash] };
     const { dto } = annotateDraftForExisting(
       draft(TRIP, [area({ stations: derivedStations().slice(0, 1) })]),
       state({ roadtrips: [rt] })
     );
-    const keys = [...dto.areas[0].stations, ...(dto.areas[0].notSeen ?? [])].map((s) => s.key);
+    const [only] = dto.areas;
+    expect(only.stations.map((s) => [s.key, s.status, s.existingId])).toEqual([
+      [K.northvale, "changed", "st-a"],
+    ]);
+    const [elsewhere] = only.notSeen ?? [];
+    expect(only.notSeen).toHaveLength(1);
+    expect(elsewhere).toMatchObject({ title: "Elsewhere", status: "notSeen", existingId: "st-x" });
+    expect(elsewhere.key).not.toBe(K.northvale);
+    expect(elsewhere.key).toMatch(/~\d+$/);
+    const keys = [...only.stations, ...(only.notSeen ?? [])].map((s) => s.key);
     expect(new Set(keys).size).toBe(keys.length);
   });
 });
