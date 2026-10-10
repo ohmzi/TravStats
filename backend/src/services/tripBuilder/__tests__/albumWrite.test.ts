@@ -36,12 +36,22 @@ describe("albumDescription", () => {
 });
 
 describe("preflightAlbum", () => {
+  let warned: jest.SpyInstance;
+  let errored: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    warned = jest.spyOn(logger, "warn").mockImplementation(() => logger);
+    errored = jest.spyOn(logger, "error").mockImplementation(() => logger);
     mockConnection.mockResolvedValue(userConn);
     mockCreateClient.mockReturnValue(client);
     client.whoami.mockResolvedValue({ id: ME, email: "me@example.test", name: "Me" });
     client.getMyApiKey.mockResolvedValue({ permissions: FULL });
+  });
+
+  afterEach(() => {
+    warned.mockRestore();
+    errored.mockRestore();
   });
 
   const blocked = (reason: string, missingScopes: string[] = []) => ({
@@ -90,11 +100,68 @@ describe("preflightAlbum", () => {
     client.getMyApiKey.mockResolvedValue(null);
     expect(await preflightAlbum("u1", ME)).toMatchObject({ ok: true });
   });
+
+  it("leaves the operator a warning when Immich does not answer", async () => {
+    client.whoami.mockRejectedValue(
+      new ImmichError("unreachable", "Immich is unreachable (GET /users/me)", 503)
+    );
+    expect(await preflightAlbum("u1", ME)).toEqual(blocked("unreachable"));
+    expect(warned).toHaveBeenCalledWith(
+      {
+        operation: "trip_builder.preflight_failed",
+        kind: "unreachable",
+        status: 503,
+        error: "Immich is unreachable (GET /users/me)",
+      },
+      expect.any(String)
+    );
+    expect(errored).not.toHaveBeenCalled();
+  });
+
+  it.each(["protocol", "notFound", "invalidUrl"] as const)(
+    "tells the operator it was a '%s' failure, not an outage, though the user hears 'unreachable'",
+    async (kind) => {
+      client.getMyApiKey.mockRejectedValue(new ImmichError(kind, `Immich said ${kind}`, 502));
+      expect(await preflightAlbum("u1", ME)).toEqual(blocked("unreachable"));
+      expect(warned).toHaveBeenCalledWith(
+        {
+          operation: "trip_builder.preflight_failed",
+          kind,
+          status: 502,
+          error: `Immich said ${kind}`,
+        },
+        expect.any(String)
+      );
+      expect(errored).not.toHaveBeenCalled();
+    }
+  );
+
+  it("logs an error, not a warning, when the server itself threw", async () => {
+    mockConnection.mockRejectedValue(new Error("could not decrypt the stored key"));
+    expect(await preflightAlbum("u1", ME)).toEqual(blocked("unreachable"));
+    expect(errored).toHaveBeenCalledWith(
+      {
+        operation: "trip_builder.preflight_failed",
+        error: "could not decrypt the stored key",
+      },
+      expect.any(String)
+    );
+    expect(warned).not.toHaveBeenCalled();
+  });
+
+  it("does not log an auth answer: that is the user's key, not a fault", async () => {
+    client.whoami.mockRejectedValue(new ImmichError("auth", "rejected", 401));
+    await preflightAlbum("u1", ME);
+    expect(warned).not.toHaveBeenCalled();
+    expect(errored).not.toHaveBeenCalled();
+  });
 });
 
 describe("writeTripAlbum", () => {
   let userId: string;
   let tripId: string;
+  let warned: jest.SpyInstance;
+  let errored: jest.SpyInstance;
 
   beforeAll(async () => {
     await prisma.user.deleteMany({ where: { username: "tb-album" } });
@@ -107,6 +174,8 @@ describe("writeTripAlbum", () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    warned = jest.spyOn(logger, "warn").mockImplementation(() => logger);
+    errored = jest.spyOn(logger, "error").mockImplementation(() => logger);
     setClockForTests("2031-05-20T08:30:00Z");
     tripId = (await prisma.trip.create({ data: { userId, name: "Northvale loop" } })).id;
     client.findOwnedAlbumByName.mockResolvedValue(null);
@@ -126,6 +195,8 @@ describe("writeTripAlbum", () => {
   });
 
   afterEach(async () => {
+    warned.mockRestore();
+    errored.mockRestore();
     setClockForTests(null);
     await prisma.trip.deleteMany({ where: { userId } });
   });
@@ -243,14 +314,28 @@ describe("writeTripAlbum", () => {
     expect(await links()).toHaveLength(0);
   });
 
+  it.each(["unreachable", "protocol", "notFound", "auth"] as const)(
+    "leaves a '%s' failure in the log with its kind and status, and nothing that names an asset",
+    async (kind) => {
+      client.addAssetsToAlbum.mockRejectedValue(
+        new ImmichError(kind, "Immich refused a1 with the key", 502)
+      );
+      expect(await write()).toMatchObject({ status: "failed", error: { kind } });
+      expect(warned).toHaveBeenCalledWith(
+        { operation: "trip_builder.album_failed", kind, status: 502 },
+        expect.any(String)
+      );
+      expect(errored).not.toHaveBeenCalled();
+    }
+  );
+
   it("reports anything else as an internal failure instead of throwing", async () => {
-    const logged = jest.spyOn(logger, "error").mockImplementation(() => logger);
     client.getAlbum.mockRejectedValue(new Error("boom"));
     expect(await write()).toEqual({ status: "failed", error: { kind: "internal" } });
-    expect(logged).toHaveBeenCalledWith(
+    expect(errored).toHaveBeenCalledWith(
       expect.objectContaining({ operation: "trip_builder.album_failed", error: "boom" }),
       "Writing the trip album failed"
     );
-    logged.mockRestore();
+    expect(warned).not.toHaveBeenCalled();
   });
 });

@@ -40,6 +40,36 @@ function blocked(reason: PreflightBlockReason, missingScopes: string[] = []): Al
   return { ok: false, blocked: { status: "blocked", reason, missingScopes } };
 }
 
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * The page says "unreachable" for every preflight failure that is not an auth
+ * answer, so this log is the operator's only trace of the cause: a warning
+ * carrying the ImmichError's kind (an outage is `unreachable`; `protocol`,
+ * `notFound` and `invalidUrl` are Immich answering oddly), or an error for a
+ * fault in this server.
+ */
+function logPreflightFailure(error: unknown): void {
+  if (error instanceof ImmichError) {
+    logger.warn(
+      {
+        operation: "trip_builder.preflight_failed",
+        kind: error.kind,
+        status: error.status,
+        error: error.message,
+      },
+      "The Immich preflight for the trip album did not complete"
+    );
+    return;
+  }
+  logger.error(
+    { operation: "trip_builder.preflight_failed", error: messageOf(error) },
+    "The Immich preflight for the trip album failed unexpectedly"
+  );
+}
+
 /**
  * Re-resolves the connection and checks it can still write an album, with
  * four-second calls and no writes. `expectedImmichUserId` is the Immich user
@@ -68,12 +98,18 @@ export async function preflightAlbum(
       const scope = error.detail?.missingScope;
       return scope ? blocked("missingScopes", [scope]) : blocked("connectionChanged");
     }
+    logPreflightFailure(error);
     return blocked("unreachable");
   }
 }
 
 function failed(error: unknown): AlbumOutcome {
   if (error instanceof ImmichError) {
+    // Kind and status only: the message can name an album or an asset.
+    logger.warn(
+      { operation: "trip_builder.album_failed", kind: error.kind, status: error.status },
+      "Immich did not take the trip album write"
+    );
     const scope = error.detail?.missingScope;
     return {
       status: "failed",
@@ -81,10 +117,7 @@ function failed(error: unknown): AlbumOutcome {
     };
   }
   logger.error(
-    {
-      operation: "trip_builder.album_failed",
-      error: error instanceof Error ? error.message : String(error),
-    },
+    { operation: "trip_builder.album_failed", error: messageOf(error) },
     "Writing the trip album failed"
   );
   return { status: "failed", error: { kind: "internal" } };
