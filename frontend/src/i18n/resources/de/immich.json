@@ -23,7 +23,7 @@
   "modeImportHint": "Fotos werden kopiert und liegen im Backup.",
   "capability": {
     "canCreate": "Kann Reisealben anlegen ✓",
-    "missingScopes": "Für Alben fehlt: {{scopes}}",
+    "missingScopes": "Fehlende Berechtigungen für Alben: {{scopes}}",
     "sharedConnection": "Alben nur mit deinem eigenen Schlüssel",
     "unverified": "Berechtigungen konnten nicht geprüft werden"
   },
