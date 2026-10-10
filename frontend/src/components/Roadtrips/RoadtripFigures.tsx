@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import FigureBand, { type FigureBandCell } from "../ui/FigureBand";
 import { Icon } from "../ui/Icon";
+import ResyncFromImmich from "../Trips/tripBuilder/ResyncFromImmich";
 import { useTranslation } from "../../hooks/useTranslation";
 import { daysAhead, spanDays } from "../../lib/roadtrip/roadtripView";
 import type { RoadtripDetail } from "../../types/roadtrip";
@@ -137,6 +138,7 @@ export default function RoadtripFigures({
             </span>
           )}
           {!detail.routingAvailable && <span>{t("roadtrips:detail.noRouting")}</span>}
+          {journey && <ResyncFromImmich tripId={journey.id} />}
         </>
       }
     />
