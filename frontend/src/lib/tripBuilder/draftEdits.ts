@@ -18,12 +18,17 @@ import type { RoadtripVehicle } from "../../shared/tour/roadtrip";
 import type {
   AreaChoice,
   BuilderLegMode,
+  CommitArea,
+  CommitBody,
+  CommitStation,
+  CommitTarget,
   Day,
   DraftArea,
   DraftLeg,
   DraftStation,
   TripBuilderDraft,
 } from "../../types/tripBuilder";
+import type { CreateTripInput } from "../api/trips";
 import {
   rename,
   setAlbum,
@@ -38,6 +43,7 @@ import {
 } from "./editsBasic";
 import { assignNight, setAreaKind } from "./editsNights";
 import { fold, merge, remove, toggleHome, toggleSlept } from "./editsStructure";
+import { effectiveNights } from "./planRules";
 import { syncArea } from "./reviewRules";
 
 export { logEdit } from "./editLog";
@@ -188,4 +194,89 @@ export function reapplyEdits(
     kept += 1;
   }
   return { state, kept, total: edits.length };
+}
+
+function commitStation(station: DraftStation): CommitStation {
+  return {
+    key: station.key,
+    title: station.title,
+    lat: station.lat,
+    lon: station.lon,
+    kind: station.kind,
+    firstDay: station.firstDay,
+    lastDay: station.lastDay,
+    notes: station.notes,
+  };
+}
+
+function commitArea(area: ReviewArea, fallbackName: string): CommitArea {
+  return {
+    key: area.key,
+    as: area.as,
+    name: area.name.trim() || fallbackName,
+    vehicle: area.vehicle,
+    homeStart: area.homeStart,
+    homeEnd: area.homeEnd,
+    stations: area.stations.map(commitStation),
+    legModes: area.legModes,
+  };
+}
+
+function commitTarget(
+  draft: TripBuilderDraft,
+  state: ReviewState,
+  form: CreateTripInput
+): CommitTarget {
+  if (draft.target.kind === "existing") {
+    const moved =
+      (form.startDate !== undefined && form.startDate !== draft.window.startDay) ||
+      (form.endDate !== undefined && form.endDate !== draft.window.endDay);
+    return {
+      kind: "existing",
+      tripId: draft.target.tripId,
+      applyWindow: moved,
+      countries: state.countries,
+    };
+  }
+  return {
+    kind: "new",
+    trip: {
+      ...form,
+      name: state.tripName.trim(),
+      startDate: draft.window.startDay,
+      endDate: draft.window.endDay,
+      countries: state.countries,
+    },
+  };
+}
+
+/**
+ * What `POST /trip-builder/drafts/:id/commit` takes. Every area goes, `skip`
+ * ones too; the nights go as the commit will read them (`effectiveNights`);
+ * flights already on the target trip stay where they are.
+ */
+export function buildCommitBody(
+  draft: TripBuilderDraft,
+  state: ReviewState,
+  form: CreateTripInput,
+  commitKey: string
+): CommitBody {
+  const fallbackName = state.tripName.trim() || draft.tripName;
+  return {
+    commitKey,
+    window: { startDay: draft.window.startDay, endDay: draft.window.endDay },
+    target: commitTarget(draft, state, form),
+    flightIds: draft.flights
+      .filter((flight) => !flight.locked && state.flightTicks[flight.id] === true)
+      .map((flight) => flight.id),
+    nights: effectiveNights(state),
+    areas: state.areas.map((area) => commitArea(area, fallbackName)),
+    photoJourneyIds: draft.photoJourneys
+      .filter((journey) => state.photoJourneyTicks[journey.id] === true)
+      .map((journey) => journey.id),
+    album: {
+      create: state.album?.create === true,
+      name: (state.album?.name ?? "").trim() || fallbackName,
+    },
+  };
 }
