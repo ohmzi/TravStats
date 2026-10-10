@@ -24,7 +24,23 @@ async function writeTrip(
   prepared: PreparedTripCreate | null
 ): Promise<string> {
   if (prepared) return (await insertTrip(tx, prepared)).id;
-  throw new Error("An existing trip is updated by writeExistingTrip");
+  if (plan.target.kind !== "existing")
+    throw new Error("A new-trip commit was prepared without a trip");
+  const { tripId, applyWindow, countries } = plan.target;
+  const stored = await tx.trip.findFirstOrThrow({
+    where: { id: tripId, userId: plan.userId },
+    select: { startDate: true, endDate: true, startDay: true, endDay: true },
+  });
+  // The same rule PATCH /trips/:id follows: a day sent back unchanged keeps
+  // its stored anchor and zone, a changed one becomes a typed day.
+  const days = applyWindow
+    ? editedTripDays(
+        { startDate: toDbDate(plan.window.startDay), endDate: toDbDate(plan.window.endDay) },
+        stored
+      )
+    : {};
+  await tx.trip.update({ where: { id: tripId }, data: { ...days, countries } });
+  return tripId;
 }
 
 async function assignFlights(
@@ -135,5 +151,3 @@ export async function writeCommit(plan: CommitPlan): Promise<PhaseBResult> {
     { timeout: COMMIT_TX_TIMEOUT_MS }
   );
 }
-
-void editedTripDays;
