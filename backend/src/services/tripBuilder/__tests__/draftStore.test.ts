@@ -128,12 +128,16 @@ describe("putDraft", () => {
     expect(getDraft("user-51", "d51")).not.toBeNull();
   });
 
-  it("sweeps drafts that have already expired", () => {
+  it("sweeps drafts that have already expired, without anyone reading them", () => {
     putDraft(draft("old"));
     at(7 * HOUR);
     putDraft(
       draft("new", ALICE, { createdAt: CREATED_AT + 7 * HOUR, touchedAt: CREATED_AT + 7 * HOUR })
     );
+    // getDraft also drops an expired draft lazily, so reading "old" now would
+    // prove nothing. Rewinding the clock makes it live again unless putDraft
+    // itself removed it, which is the only way an unread draft is released.
+    at(0);
     expect(getDraft(ALICE, "old")).toBeNull();
   });
 });
