@@ -42,6 +42,30 @@ export interface ImmichAlbumWriteResult {
   refused: Array<{ id: string; error: string }>;
 }
 
+/** What `DELETE /albums/:id/assets` did, summed over its chunks. */
+export interface ImmichAlbumRemoveResult {
+  removed: number;
+  /** Not in the album (already gone): what a retry normally hears. */
+  notInAlbum: number;
+  /** Every other per-id error (`no_permission`, `unknown`, …). */
+  refused: Array<{ id: string; error: string }>;
+}
+
+/**
+ * An album as a re-sync reads it: who owns it (the first album user — Immich
+ * always lists the owner first), what its description says, and how many assets
+ * it holds. `ImmichAlbum` stays the lean list entry.
+ */
+export interface ImmichAlbumInfo {
+  id: string;
+  albumName: string;
+  /** `""` when Immich has none. */
+  description: string;
+  ownerId: string | null;
+  assetCount: number;
+  thumbnailAssetId: string | null;
+}
+
 /** Immich's `visibility` (v3). `hidden` is the motion half of a Live Photo. */
 export type ImmichVisibility = "timeline" | "archive" | "hidden" | "locked";
 

@@ -6,8 +6,9 @@
  * know Immich's paths and payload shapes — when Immich shifts its API again (it
  * has before: `/api/asset` -> `/api/assets`), they are the entire blast radius.
  *
- * Read-only except album create and add-to-album: the trip builder (spec
- * 2026-10-09) writes ONE album per trip and nothing else to Immich.
+ * Read-only except the album writes (create, add and remove assets, set the
+ * description): the trip builder (spec 2026-10-09) writes ONE album per trip and
+ * nothing else to Immich.
  *
  * Two shapes worth remembering:
  *  - `AlbumResponseDto` carries NO asset array. Album contents come from

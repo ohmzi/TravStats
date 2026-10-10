@@ -1,8 +1,9 @@
 /**
  * The album calls of the Immich client (spec 2026-10-09): read an album, find the
- * user's own by name, create one, put assets in it. They live apart from
- * `immichClient.ts` so that file stays under the size limit; `createImmichClient`
- * attaches them, so callers see one client.
+ * user's own by name, create one, put assets in it and (on a re-sync) take them
+ * out and refresh its description. They live apart from `immichClient.ts` so that
+ * file stays under the size limit; `createImmichClient` attaches them, so callers
+ * see one client.
  *
  * The trip builder writes ONE album per trip and nothing else to Immich; these
  * are the only calls that write.
@@ -10,7 +11,13 @@
 import axios, { AxiosRequestConfig } from "axios";
 import { ALBUM_ADD_CHUNK } from "../tripBuilder/thresholds";
 import { asNumberOrNull, asString, isRecord, toImmichError } from "./immichWire";
-import { ImmichAlbum, ImmichAlbumWriteResult, ImmichError } from "./types";
+import {
+  ImmichAlbum,
+  ImmichAlbumInfo,
+  ImmichAlbumRemoveResult,
+  ImmichAlbumWriteResult,
+  ImmichError,
+} from "./types";
 
 export interface ImmichAlbumCalls {
   /** One album by id: its name and asset count (`AlbumResponseDto` carries no asset array). */
@@ -38,6 +45,16 @@ export interface ImmichAlbumCalls {
    * the chunks before it stay added, which a retry then hears as `duplicate`.
    */
   addAssetsToAlbum(albumId: string, ids: readonly string[]): Promise<ImmichAlbumWriteResult>;
+  /**
+   * `DELETE /albums/:id/assets` (scope `albumAsset.delete`): take assets out of an
+   * album, `ALBUM_ADD_CHUNK` ids per call. An id that is not in the album comes back
+   * `not_found` and is counted, not refused — a retry is safe.
+   */
+  removeAssetsFromAlbum(albumId: string, ids: readonly string[]): Promise<ImmichAlbumRemoveResult>;
+  /** `GET /albums/:id` with what a re-sync needs of it. */
+  getAlbumInfo(albumId: string): Promise<ImmichAlbumInfo>;
+  /** `PATCH /albums/:id` (scope `album.update`): only the description. */
+  setAlbumDescription(albumId: string, description: string): Promise<void>;
 }
 
 /** One album as the app reads it; null for an entry without a usable id. */
@@ -165,6 +182,65 @@ export function createAlbumCalls(
         }
       }
       return result;
+    },
+
+    async removeAssetsFromAlbum(
+      albumId: string,
+      ids: readonly string[]
+    ): Promise<ImmichAlbumRemoveResult> {
+      const result: ImmichAlbumRemoveResult = { removed: 0, notInAlbum: 0, refused: [] };
+      for (let i = 0; i < ids.length; i += ALBUM_ADD_CHUNK) {
+        const chunk = ids.slice(i, i + ALBUM_ADD_CHUNK);
+        let data: unknown;
+        try {
+          ({ data } = await axios.delete(url(`/albums/${encodeURIComponent(albumId)}/assets`), {
+            ...jsonConfig,
+            data: { ids: chunk },
+          }));
+        } catch (error) {
+          throw toImmichError(error, `albums/${albumId}/assets delete`);
+        }
+        if (!Array.isArray(data)) {
+          throw new ImmichError("protocol", "Immich returned an unexpected album-remove payload");
+        }
+        for (const raw of data) {
+          if (!isRecord(raw) || typeof raw.id !== "string") continue;
+          if (raw.success === true) result.removed += 1;
+          else if (raw.error === "not_found") result.notInAlbum += 1;
+          else result.refused.push({ id: raw.id, error: asString(raw.error, "unknown") });
+        }
+      }
+      return result;
+    },
+
+    async getAlbumInfo(albumId: string): Promise<ImmichAlbumInfo> {
+      let data: unknown;
+      try {
+        ({ data } = await axios.get(url(`/albums/${encodeURIComponent(albumId)}`), jsonConfig));
+      } catch (error) {
+        throw toImmichError(error, `albums/${albumId}`);
+      }
+      const album = mapAlbum(data);
+      if (!album || !isRecord(data)) {
+        throw new ImmichError("protocol", "Immich returned an unexpected album payload");
+      }
+      return {
+        ...album,
+        description: asString(data.description, ""),
+        ownerId: albumOwnerId(data),
+      };
+    },
+
+    async setAlbumDescription(albumId: string, description: string): Promise<void> {
+      try {
+        await axios.patch(
+          url(`/albums/${encodeURIComponent(albumId)}`),
+          { description },
+          jsonConfig
+        );
+      } catch (error) {
+        throw toImmichError(error, `albums/${albumId} patch`);
+      }
     },
   };
 }
