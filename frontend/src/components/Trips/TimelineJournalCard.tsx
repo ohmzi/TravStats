@@ -60,7 +60,7 @@ export function JournalCard({
       icon="📝"
       bg="rgba(96,165,250,0.15)"
       /* The same blue the timeline's own dot uses for a diary entry
-         (`dotColor` in TripDetailPage). Read from the token layer rather
+         (`dotColor` in timelineDotColor.ts). Read from the token layer rather
          than repeated as a literal: a second copy of a colour is a second
          colour, as soon as one of them is adjusted. */
       iconColor="var(--ts-info)"

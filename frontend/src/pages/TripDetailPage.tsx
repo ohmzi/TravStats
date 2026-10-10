@@ -19,6 +19,7 @@ import { computeRailStates } from "../lib/timelineRail";
 import { buildTimelineEvents, type TimelineEvent } from "../lib/tripTimelineEvents";
 import { ExpandableEventCard } from "../components/Trip/ExpandableEventCard";
 import { JournalCard, RowActions } from "../components/Trips/TimelineJournalCard";
+import { dotColor } from "../components/Trips/timelineDotColor";
 import { useToastStore } from "../store/toastStore";
 import { useEnabledDomains } from "../hooks/useEnabledDomains";
 import { usePlacesVisible } from "../hooks/usePlacesVisible";
@@ -614,28 +615,6 @@ function TimelineTab({ trip, onChanged, t, language }: TimelineTabProps): JSX.El
       {confirmDialog}
     </>
   );
-}
-
-function dotColor(ev: TimelineEvent): string {
-  switch (ev.kind) {
-    case "flight":
-      return "var(--domain-flight, var(--accent))";
-    case "cruise":
-      return "var(--domain-cruise, #6fa0d6)";
-    case "rail":
-      return "var(--domain-rail)";
-    case "rental-pickup":
-    case "rental-return":
-      return "var(--ts-domain-rental)";
-    case "stop":
-    case "place-visit":
-      return "var(--domain-poi, #5ec2b2)";
-    case "journal":
-      return "#60a5fa";
-    case "lodging-checkin":
-    case "lodging-checkout":
-      return "var(--domain-lodging, #d4778f)";
-  }
 }
 
 function EventCard({
