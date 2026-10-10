@@ -9,7 +9,15 @@ jest.mock("../../../utils/logger", () => ({
 }));
 
 import type { RouteProvider } from "../../tour/routing/types";
-import { mapWithConcurrency, resolveRoadProbes } from "../probe";
+import {
+  mapWithConcurrency,
+  probeLegs,
+  resolveRoadProbes,
+  snapStations,
+  stationsWithoutRoute,
+  type RoadProbes,
+} from "../probe";
+import type { PlanStation, StationKind } from "../types";
 
 // Synthetic coordinates (public repository): two invented towns.
 const NORTHVALE = { lat: -45.05, lon: 168.7 };
@@ -144,5 +152,183 @@ describe("mapWithConcurrency", () => {
       return n;
     });
     await expect(failing).rejects.toThrow("boom");
+  });
+});
+
+function station(key: string, kind: StationKind, at = NORTHVALE): PlanStation {
+  return {
+    key,
+    title: key,
+    titleSource: "immich",
+    kind,
+    lat: at.lat,
+    lon: at.lon,
+    snappedKm: null,
+    firstDay: "2031-05-02",
+    lastDay: "2031-05-02",
+    firstLocal: "2031-05-02 09:00",
+    lastLocal: "2031-05-02 17:00",
+    photoCount: 12,
+    previewIdx: [],
+    notes: null,
+  };
+}
+
+/** Roads a given number of degrees of latitude from every station (0.018° ≈ 2 km). */
+function roadsAt(offsetDeg: number | null): RoadProbes {
+  return {
+    probe: jest.fn(async () => ({ distanceKm: 100, ferryKm: 0 })),
+    snap: jest.fn(async (c: { lat: number; lon: number }) =>
+      offsetDeg === null ? null : { lat: c.lat + offsetDeg, lon: c.lon }
+    ),
+  };
+}
+
+describe("snapStations", () => {
+  it("moves a station 2 km from the road onto it and says how far it moved", async () => {
+    const probes = roadsAt(0.018);
+
+    const { stations, noRoadData } = await snapStations([station("n", "visit")], probes);
+
+    expect(noRoadData).toEqual([]);
+    expect(stations[0].lat).toBeCloseTo(-45.032, 6);
+    expect(stations[0].lon).toBe(168.7);
+    expect(stations[0].snappedKm).toBeCloseTo(2, 1);
+  });
+
+  it("leaves a station within 0.9 km of the road where it is", async () => {
+    const { stations, noRoadData } = await snapStations([station("n", "visit")], roadsAt(0.004));
+
+    expect(stations[0].lat).toBe(-45.05);
+    expect(stations[0].snappedKm).toBeNull();
+    expect(noRoadData).toEqual([]);
+  });
+
+  it("leaves a station more than 10 km from any road and reports it", async () => {
+    const probes = roadsAt(0.108);
+
+    const { stations, noRoadData } = await snapStations(
+      [station("n", "visit"), station("p", "brief", PORT_CARROW)],
+      probes
+    );
+
+    expect(stations.map((s) => [s.lat, s.snappedKm])).toEqual([
+      [-45.05, null],
+      [-44.4, null],
+    ]);
+    expect(noRoadData).toEqual(["n", "p"]);
+  });
+
+  it("reports a station the router has no road for", async () => {
+    const { stations, noRoadData } = await snapStations([station("n", "dayTrip")], roadsAt(null));
+
+    expect(stations[0].lat).toBe(-45.05);
+    expect(noRoadData).toEqual(["n"]);
+  });
+
+  it("does not ask about an airport or a home station", async () => {
+    const probes = roadsAt(0.018);
+
+    const { stations, noRoadData } = await snapStations(
+      [station("a", "airport"), station("h", "home")],
+      probes
+    );
+
+    expect(probes.snap).not.toHaveBeenCalled();
+    expect(stations.map((s) => s.snappedKm)).toEqual([null, null]);
+    expect(noRoadData).toEqual([]);
+  });
+
+  it("treats a probe that throws as no road", async () => {
+    const probes: RoadProbes = {
+      probe: jest.fn(async () => null),
+      snap: jest.fn(async () => {
+        throw new Error("socket hang up");
+      }),
+    };
+
+    const { noRoadData } = await snapStations([station("n", "visit")], probes);
+
+    expect(noRoadData).toEqual(["n"]);
+  });
+
+  it("changes and reports nothing without probes", async () => {
+    const input = [station("n", "visit")];
+
+    const { stations, noRoadData } = await snapStations(input, null);
+
+    expect(stations).toEqual(input);
+    expect(noRoadData).toEqual([]);
+  });
+});
+
+describe("probeLegs", () => {
+  const three = [station("n", "visit"), station("e", "visit"), station("p", "visit", PORT_CARROW)];
+
+  it("asks about each consecutive pair, in order", async () => {
+    const probe = jest.fn(async (a: { lat: number }, b: { lat: number }) => ({
+      distanceKm: Math.abs(b.lat - a.lat),
+      ferryKm: 0,
+    }));
+
+    const legs = await probeLegs(three, { probe, snap: jest.fn(async () => null) });
+
+    expect(legs).toHaveLength(2);
+    expect(probe).toHaveBeenCalledTimes(2);
+    expect(probe.mock.calls[0][0]).toMatchObject({ lat: -45.05 });
+    expect(legs[1]?.distanceKm).toBeCloseTo(0.65, 6);
+  });
+
+  it("is null for a leg the router cannot answer, whether it says so or throws", async () => {
+    const answers = [null, new Error("socket hang up")];
+    const probe = jest.fn(async () => {
+      const next = answers.shift();
+      if (next instanceof Error) throw next;
+      return next ?? null;
+    });
+
+    const legs = await probeLegs(three, { probe, snap: jest.fn(async () => null) });
+
+    expect(legs).toEqual([null, null]);
+  });
+
+  it("asks nothing and answers null for every leg without probes", async () => {
+    expect(await probeLegs(three, null)).toEqual([null, null]);
+    expect(await probeLegs([], null)).toEqual([]);
+    expect(await probeLegs([three[0]], null)).toEqual([]);
+  });
+
+  it("asks at most four legs at a time", async () => {
+    const many = Array.from({ length: 10 }, (_, i) => station(`s${i}`, "visit"));
+    let running = 0;
+    let peak = 0;
+    const probe = jest.fn(async () => {
+      running++;
+      peak = Math.max(peak, running);
+      await sleep(5);
+      running--;
+      return { distanceKm: 1, ferryKm: 0 };
+    });
+
+    const legs = await probeLegs(many, { probe, snap: jest.fn(async () => null) });
+
+    expect(legs).toHaveLength(9);
+    expect(peak).toBe(4);
+  });
+});
+
+describe("stationsWithoutRoute", () => {
+  const keyed = [{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }];
+  const found = { distanceKm: 40, ferryKm: 0 };
+
+  it("names both ends of each leg with no route, once each, in order", () => {
+    expect(stationsWithoutRoute(keyed, [null, found, null])).toEqual(["a", "b", "c", "d"]);
+    expect(stationsWithoutRoute(keyed, [found, null, found])).toEqual(["b", "c"]);
+    expect(stationsWithoutRoute(keyed, [null, null, found])).toEqual(["a", "b", "c"]);
+  });
+
+  it("names nothing when every leg has a route", () => {
+    expect(stationsWithoutRoute(keyed, [found, found, found])).toEqual([]);
+    expect(stationsWithoutRoute([], [])).toEqual([]);
   });
 });
