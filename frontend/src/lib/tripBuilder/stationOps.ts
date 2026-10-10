@@ -8,6 +8,11 @@
  * React, so the reducer and its tests stay small.
  */
 import type { NightAssign, NightPlanStation } from "../../shared/tour/builderNightPlan";
+import {
+  defaultStationNotes,
+  MAX_STATION_PREVIEWS,
+  SAME_PLACE_KM,
+} from "../../shared/tour/builderStations";
 import { greatCircleKm } from "../../shared/flightDuration";
 import type {
   BuilderLegMode,
@@ -16,11 +21,9 @@ import type {
   FerryEvidence,
 } from "../../types/tripBuilder";
 
-/** Thumbnails per station card (`PREVIEWS_PER_STATION` of the server's thresholds). */
-export const MAX_STATION_PREVIEWS = 6;
-
-/** The return from an excursion counts as the same place when it is this close (`CITY_LINK_KM` of the server's thresholds). */
-const SAME_PLACE_KM = 30;
+// The scan's note wording and the preview cap are the server's own: they live in the file both
+// trees share, so they cannot drift. Re-exported because this module's callers ask for them here.
+export { defaultStationNotes, MAX_STATION_PREVIEWS };
 
 export interface Chain {
   stations: DraftStation[];
@@ -78,17 +81,26 @@ export function toPlanStation(
   };
 }
 
-/** The note a scan pre-fills (mirror of `defaultStationNotes` in the server's `stations.ts`). */
-export function defaultStationNotes(
-  station: Pick<DraftStation, "firstLocal" | "lastLocal" | "photoCount">
-): string | null {
-  if (!station.firstLocal || !station.lastLocal) return null;
-  const photos = station.photoCount === 1 ? "1 photo" : `${station.photoCount} photos`;
-  return `First photo ${station.firstLocal.slice(11, 16)} · last ${station.lastLocal.slice(11, 16)} · ${photos}`;
-}
-
 const untouched = (station: DraftStation): boolean =>
   station.notes === null || station.notes === defaultStationNotes(station);
+
+/**
+ * The note of two stops made one. A note the scan wrote is written again from the joined stop; a
+ * note the user typed is kept, and two of them are kept both, the first above the second, so
+ * merging two annotated days loses neither. A note the user cleared does not hide the other.
+ */
+function mergedNotes(
+  first: DraftStation,
+  second: DraftStation,
+  joined: DraftStation
+): string | null {
+  const written = [first, second].flatMap((station) =>
+    untouched(station) || station.notes === null ? [] : [station.notes]
+  );
+  if (written.length === 0) return defaultStationNotes(joined);
+  const kept = [...new Set(written.filter((note) => note.trim() !== ""))];
+  return kept.length > 0 ? kept.join("\n") : "";
+}
 
 const WITH_PHOTOS: ReadonlySet<DraftStation["kind"]> = new Set(["visit", "brief", "dayTrip"]);
 
@@ -115,11 +127,7 @@ function absorb(first: DraftStation, second: DraftStation): DraftStation {
     ),
     ...(kind === "dayTrip" && excursionOf !== undefined ? { excursionOf } : {}),
   };
-  if (untouched(first) && untouched(second)) {
-    joined.notes = defaultStationNotes(joined);
-  } else {
-    joined.notes = untouched(first) ? second.notes : first.notes;
-  }
+  joined.notes = mergedNotes(first, second, joined);
   return joined;
 }
 

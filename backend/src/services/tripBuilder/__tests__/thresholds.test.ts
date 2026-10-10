@@ -1,3 +1,4 @@
+import { MAX_STATION_PREVIEWS, SAME_PLACE_KM } from "../../../shared/tour/builderStations";
 import * as thresholds from "../thresholds";
 import { BUILD_PHASES, STATION_KINDS } from "../types";
 
@@ -36,6 +37,13 @@ describe("trip builder thresholds", () => {
   it("never addresses more thumbnails than the preview route accepts", () => {
     expect(thresholds.MAX_PREVIEWS).toBe(400);
     expect(thresholds.PREVIEWS_PER_STATION).toBeLessThanOrEqual(thresholds.MAX_PREVIEWS);
+  });
+
+  it("gives the review page the same limits for a station card as the scan uses", () => {
+    // `shared/tour/builderStations.ts` is mirrored into the frontend, so it cannot import
+    // these: the review page's merge and fold read its copies of the two numbers.
+    expect(MAX_STATION_PREVIEWS).toBe(thresholds.PREVIEWS_PER_STATION);
+    expect(SAME_PLACE_KM).toBe(thresholds.CITY_LINK_KM);
   });
 
   it("lets a draft live 2 h untouched and 6 h at most", () => {

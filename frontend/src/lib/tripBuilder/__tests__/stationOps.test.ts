@@ -161,6 +161,29 @@ describe("mergeWithNext", () => {
     expect(mergeWithNext(chainOf([first, theirs]), 0)?.stations[0].notes).toBe("Rain all day");
   });
 
+  it("keeps both notes, the first above the second, when the user wrote one on each", () => {
+    const mine = { ...first, notes: "Slept in the van" };
+    const theirs = { ...second, notes: "Rain all day" };
+    expect(mergeWithNext(chainOf([mine, theirs]), 0)?.stations[0].notes).toBe(
+      "Slept in the van\nRain all day"
+    );
+  });
+
+  it("writes a note the user typed on both stations once", () => {
+    const mine = { ...first, notes: "Slept in the van" };
+    const theirs = { ...second, notes: "Slept in the van" };
+    expect(mergeWithNext(chainOf([mine, theirs]), 0)?.stations[0].notes).toBe("Slept in the van");
+  });
+
+  it("does not let a note the user cleared swallow the other one", () => {
+    const cleared = { ...first, notes: "" };
+    const theirs = { ...second, notes: "Rain all day" };
+    expect(mergeWithNext(chainOf([cleared, theirs]), 0)?.stations[0].notes).toBe("Rain all day");
+    expect(mergeWithNext(chainOf([cleared, { ...second, notes: "" }]), 0)?.stations[0].notes).toBe(
+      ""
+    );
+  });
+
   it("joins the leg that left the second station to the merged one, without its route", () => {
     const chain = chainOf([first, second, C], ["road", "ferry"]);
     const next = mergeWithNext(chain, 0) as Chain;

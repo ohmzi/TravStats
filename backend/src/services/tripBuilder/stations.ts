@@ -7,6 +7,7 @@
  * re-scan, a snap onto the road and the after-landing pull of its first day.
  * A repeat of a key gets `~2`, `~3` … from one `taken` set per scan.
  */
+import { defaultStationNotes } from "../../shared/tour/builderStations";
 import type { Coord } from "../tour/tourDistance";
 import { medianPoint } from "./medians";
 import { MAX_PREVIEWS, PREVIEWS_PER_STATION, STATION_KEY_GRID_DEG } from "./thresholds";
@@ -14,7 +15,6 @@ import { NIGHT_HOME } from "./types";
 import type {
   AreaPlan,
   Day,
-  DraftStation,
   NamedCluster,
   PassedThrough,
   PhotoPoint,
@@ -97,15 +97,6 @@ export function pickPreviewIds(
     max - favourites.length
   );
   return [...favourites, ...others].map((photo) => photo.id);
-}
-
-/** "First photo 16:00 · last 08:00 · 3 photos", or null for a station with no photos of its own. */
-export function defaultStationNotes(
-  station: Pick<DraftStation, "firstLocal" | "lastLocal" | "photoCount">
-): string | null {
-  if (!station.firstLocal || !station.lastLocal) return null;
-  const photos = station.photoCount === 1 ? "1 photo" : `${station.photoCount} photos`;
-  return `First photo ${station.firstLocal.slice(11, 16)} · last ${station.lastLocal.slice(11, 16)} · ${photos}`;
 }
 
 export interface BuildStationsInput {

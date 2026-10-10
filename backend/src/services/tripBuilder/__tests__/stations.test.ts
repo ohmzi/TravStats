@@ -1,10 +1,4 @@
-import {
-  claimKey,
-  defaultStationNotes,
-  passStation,
-  pickPreviewIds,
-  stationKeyOf,
-} from "../stations";
+import { claimKey, passStation, pickPreviewIds, stationKeyOf } from "../stations";
 import { NORTHVALE, photo } from "./placeFixtures";
 
 describe("stationKeyOf", () => {
@@ -77,29 +71,6 @@ describe("passStation", () => {
       });
     expect(make().key).toBe("-901|3374|2031-05-02");
     expect(make().key).toBe("-901|3374|2031-05-02~2");
-  });
-});
-
-describe("defaultStationNotes", () => {
-  it("reads first and last photo and the count", () => {
-    expect(
-      defaultStationNotes({
-        firstLocal: "2031-05-04 16:00",
-        lastLocal: "2031-05-05 08:30",
-        photoCount: 3,
-      })
-    ).toBe("First photo 16:00 · last 08:30 · 3 photos");
-  });
-
-  it("says '1 photo' for one and has nothing for a station without photos of its own", () => {
-    expect(
-      defaultStationNotes({
-        firstLocal: "2031-05-04 16:00",
-        lastLocal: "2031-05-04 16:00",
-        photoCount: 1,
-      })
-    ).toBe("First photo 16:00 · last 16:00 · 1 photo");
-    expect(defaultStationNotes({ firstLocal: null, lastLocal: null, photoCount: 0 })).toBeNull();
   });
 });
 
