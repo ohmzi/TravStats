@@ -3,6 +3,10 @@ jest.mock("../albumWrite", () => ({
   preflightAlbum: jest.fn(),
   writeTripAlbum: jest.fn(),
 }));
+jest.mock("../albumResync", () => ({
+  ...jest.requireActual("../albumResync"),
+  resyncTripAlbum: jest.fn(),
+}));
 jest.mock("../../tour/routing/resolveProvider", () => ({
   resolveRouteProvider: jest.fn(),
   describeRoutingAvailability: jest.fn(),
@@ -13,9 +17,11 @@ import { setClockForTests } from "../../../shared/time/clock";
 import { hashPassword } from "../../../utils/password";
 import * as replaceModule from "../../roadtrip/replaceStations";
 import { resolveRouteProvider } from "../../tour/routing/resolveProvider";
+import { resyncTripAlbum } from "../albumResync";
 import { preflightAlbum, writeTripAlbum } from "../albumWrite";
 import { runCommitJob } from "../commit";
 import { beginCommit, clearDraftsForTests, getDraft, putDraft } from "../draftStore";
+import type { StoredExisting } from "../existingTypes";
 import {
   COMMIT_KEY,
   CREATED_AT,
@@ -28,6 +34,7 @@ import {
 
 const mockPreflight = preflightAlbum as jest.Mock;
 const mockWriteAlbum = writeTripAlbum as jest.Mock;
+const mockResync = resyncTripAlbum as jest.Mock;
 const mockProvider = resolveRouteProvider as jest.Mock;
 const ALBUM = {
   status: "linked",
@@ -59,6 +66,7 @@ describe("runCommitJob", () => {
     mockProvider.mockResolvedValue(null);
     mockPreflight.mockResolvedValue({ ok: true, client: {}, immichUserId: "immich-user" });
     mockWriteAlbum.mockResolvedValue(ALBUM);
+    mockResync.mockResolvedValue({ ...ALBUM, reused: true, removed: 0 });
     flightId = (
       await prisma.flight.create({
         data: {
@@ -253,5 +261,90 @@ describe("runCommitJob", () => {
     expect(
       (await prisma.photoJourney.findUniqueOrThrow({ where: { id: JOURNEY_ID } })).status
     ).toBe("accepted");
+  });
+
+  describe("phase D for an existing trip", () => {
+    /** A re-sync commit of the fixture plan into a stored trip, as the review page would send it. */
+    async function beginExisting(removeOutside: boolean, scanned: StoredExisting["album"]) {
+      const trip = await prisma.trip.create({
+        data: { userId, name: "Northvale loop", countries: ["NZ"] },
+      });
+      const { draft, plan } = begin(true, {
+        target: {
+          kind: "existing",
+          tripId: trip.id,
+          tripName: "Northvale loop",
+          applyWindow: false,
+          countries: ["NZ"],
+        },
+        existing: {
+          tripId: trip.id,
+          roadtrips: [],
+          stopUpdates: [],
+          stopRemoveIds: [],
+          stopsDiff: { updated: 0, unchanged: 0, added: 0, removed: 0, kept: 0 },
+          album: { removeOutside },
+        },
+      });
+      const existing: StoredExisting = {
+        tripId: trip.id,
+        roadtrips: new Map(),
+        stops: { matchedIds: new Set(), notSeenIds: new Set() },
+        album: scanned,
+      };
+      return { trip, plan, draft: { ...draft, existing } };
+    }
+
+    it("re-syncs the trip's album with the ids the scan computed instead of writing a new one", async () => {
+      const { trip, draft, plan } = await beginExisting(true, {
+        immichAlbumId: "album-1",
+        outsideIds: ["o1", "o2"],
+      });
+
+      const result = await runCommitJob(draft, plan);
+
+      expect(mockResync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId,
+          tripId: trip.id,
+          tripName: "Northvale loop",
+          albumName: "Northvale loop",
+          window: { startDay: "2031-05-02", endDay: "2031-05-05" },
+          assetIds: ["photo-a", "photo-b"],
+          outsideIds: ["o1", "o2"],
+          scanAlbumId: "album-1",
+          removeOutside: true,
+          immichUserId: "immich-user",
+        })
+      );
+      expect(mockWriteAlbum).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        status: "committed",
+        created: false,
+        album: { status: "linked", reused: true, removed: 0 },
+      });
+    });
+
+    it("asks for no removal unless the plan carries the switch, and none when the scan saw no album", async () => {
+      const { draft, plan } = await beginExisting(false, null);
+
+      await runCommitJob(draft, plan);
+
+      expect(mockResync).toHaveBeenCalledWith(
+        expect.objectContaining({ outsideIds: [], scanAlbumId: null, removeOutside: false })
+      );
+    });
+
+    it("keeps the trip committed when the re-sync throws", async () => {
+      mockResync.mockRejectedValue(new Error("immich exploded"));
+      const { draft, plan } = await beginExisting(false, null);
+
+      const result = await runCommitJob(draft, plan);
+
+      expect(result).toMatchObject({
+        status: "committed",
+        album: { status: "failed", error: { kind: "internal" } },
+      });
+    });
   });
 });

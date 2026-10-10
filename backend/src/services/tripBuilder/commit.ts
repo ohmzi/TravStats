@@ -22,6 +22,7 @@ import { autoRouteNewLegs } from "../tour/routing/autoRouteLegs";
 import { resolveRouteProvider } from "../tour/routing/resolveProvider";
 import { insertTrip, prepareTripCreate, type PreparedTripCreate } from "../trip/createTrip";
 import { recomputeTripStatus } from "../tripStatusService";
+import { resyncTripAlbum } from "./albumResync";
 import {
   albumDescription,
   preflightAlbum,
@@ -376,7 +377,7 @@ export async function runCommitJob(draft: StoredDraft, plan: CommitPlan): Promis
 
   if (album) {
     try {
-      result.album = await writeTripAlbum({
+      const albumInput = {
         userId: plan.userId,
         tripId: written.tripId,
         albumName: plan.album.name,
@@ -384,7 +385,18 @@ export async function runCommitJob(draft: StoredDraft, plan: CommitPlan): Promis
         assetIds: draft.albumAssetIds,
         client: album.client,
         immichUserId: album.immichUserId,
-      });
+      };
+      result.album =
+        plan.target.kind === "existing" && draft.existing
+          ? await resyncTripAlbum({
+              ...albumInput,
+              tripName: plan.target.tripName,
+              window: plan.window,
+              outsideIds: draft.existing.album?.outsideIds ?? [],
+              scanAlbumId: draft.existing.album?.immichAlbumId ?? null,
+              removeOutside: plan.existing?.album.removeOutside === true,
+            })
+          : await writeTripAlbum(albumInput);
     } catch (error) {
       logger.error(
         { operation: "trip_builder.album_threw", error: errorText(error) },
