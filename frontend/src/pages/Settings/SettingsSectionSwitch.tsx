@@ -24,7 +24,6 @@ import DevicesSection from "../../components/Settings/DevicesSection";
 import AboutSection from "../../components/Settings/AboutSection";
 import ImportSection from "../../components/Settings/ImportSection";
 import TripsSection from "../../components/Settings/TripsSection";
-import TripSpendSection from "../../components/Settings/TripSpendSection";
 import FeaturesSection from "../../components/Settings/FeaturesSection";
 import CruisePreferencesSection from "../../components/Settings/CruisePreferencesSection";
 import LoyaltySection from "../../components/Settings/LoyaltySection";
@@ -111,8 +110,6 @@ export default function SettingsSectionSwitch({
       return <ImportSection />;
     case "trips":
       return <TripsSection />;
-    case "tripSpend":
-      return <TripSpendSection />;
     case "notifications":
       return <NotificationsSection />;
     case "about":

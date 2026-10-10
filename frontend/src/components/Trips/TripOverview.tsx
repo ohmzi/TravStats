@@ -16,7 +16,6 @@ import { Icon, type IconName } from "../ui/Icon";
 import DetailSection from "../ui/DetailSection";
 import PeopleList from "../ui/PeopleList";
 import TripSummaryPanel from "./TripSummaryPanel";
-import TripSpendingCard from "./TripSpendingCard";
 import { useTripRoadtrips } from "../Roadtrips/useTripRoadtrips";
 import DocumentsSection from "../documents/DocumentsSection";
 
@@ -242,7 +241,6 @@ export default function TripOverview({
           ))}
         </div>
       )}
-      <TripSpendingCard tripId={trip.id} language={language} />
 
       <div className={`grid grid-cols-1 gap-6 ${hasSide ? "lg:grid-cols-[1.6fr_1fr]" : ""}`}>
         <div className="flex min-w-0 flex-col gap-6">
