@@ -402,7 +402,10 @@ registry.registerPath({
   summary: "Retry a trip's Immich album",
   description:
     "Rebuilds the asset list from the trip's own days and links the album, finding it again " +
-    "by its exact owned name, so a retry never duplicates anything. The job result is " +
+    "by its exact owned name, so a retry never duplicates anything. While a retry for the " +
+    "trip is still running, another press answers 202 with that running job's `jobId` and " +
+    "starts nothing (the running job keeps its name), so a double press or a second tab " +
+    "cannot create a second album. The job result is " +
     '`{status: "linked" | "skipped" | "failed" | "blocked", immichAlbumId?, albumName?, ' +
     "reused?, added?, alreadyIn?, refused?, error?, missingScopes?}`. Only the user's own " +
     "Immich key may write.",

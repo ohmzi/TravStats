@@ -33,7 +33,7 @@ import { createImmichClient } from "../services/immich/immichClient";
 import { ImmichError } from "../services/immich/types";
 import logger from "../utils/logger";
 import { getImmichConnection } from "../services/immich/immichResolver";
-import { startJob } from "../services/jobs/jobRegistry";
+import { getJob, startJob } from "../services/jobs/jobRegistry";
 import { buildTripDraft, progressReporter } from "../services/tripBuilder/buildDraft";
 import { builderCapabilities } from "../services/tripBuilder/capabilities";
 import { retryTripAlbum } from "../services/tripBuilder/albumWrite";
@@ -228,8 +228,19 @@ router.post(
 const tripIdParamSchema = z.string().uuid();
 
 /**
+ * The album job each (user, trip) has running. The retry finds its album by
+ * name and then creates it, which is not atomic against Immich, so two jobs
+ * for one trip could each find nothing and each create one. A press made while
+ * a job runs therefore meets that job. Whether it still runs is asked of the
+ * job registry, so nothing here needs clearing: a finished, failed or dropped
+ * job simply stops answering "running".
+ */
+const runningAlbumJobs = new Map<string, string>();
+
+/**
  * Retry a trip's album after it failed or was blocked. The asset list is
- * rebuilt from the trip's own days, so the retry needs no draft.
+ * rebuilt from the trip's own days, so the retry needs no draft. Pressing it
+ * again while it runs answers with the running job; its name is the one used.
  */
 router.post(
   "/trips/:tripId/album",
@@ -240,9 +251,18 @@ router.post(
       const tripId = tripIdParamSchema.parse(req.params.tripId);
       const body = albumRetryBodySchema.parse(req.body ?? {});
       await resolveTrip(userId, tripId);
+
+      // No await from here to `set`, so two presses cannot both see "none running".
+      const key = `${userId}:${tripId}`;
+      const runningId = runningAlbumJobs.get(key);
+      if (runningId && getJob(runningId, userId)?.status === "running") {
+        res.status(202).json({ jobId: runningId });
+        return;
+      }
       const job = startJob("tripBuilder.album", userId, () =>
         retryTripAlbum(userId, tripId, body.name)
       );
+      runningAlbumJobs.set(key, job.id);
       res.status(202).json({ jobId: job.id });
     } catch (error) {
       next(error);

@@ -27,6 +27,7 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
   let userId: string;
   let cookie: string;
   let tripId: string;
+  let otherTripId: string;
   let foreignTripId: string;
 
   beforeAll(async () => {
@@ -40,6 +41,7 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
     userId = user.id;
     cookie = `auth_token=${generateToken(user.id)}`;
     tripId = (await prisma.trip.create({ data: { userId, name: "Northvale loop" } })).id;
+    otherTripId = (await prisma.trip.create({ data: { userId, name: "Port Carrow weekend" } })).id;
     foreignTripId = (await prisma.trip.create({ data: { userId: stranger.id, name: "Theirs" } }))
       .id;
   });
@@ -90,5 +92,41 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
     expect((await post(tripId, { name: "" })).status).toBe(400);
     expect((await post("not-a-uuid")).status).toBe(400);
     expect(mockRetry).not.toHaveBeenCalled();
+  });
+
+  it("answers a second press while a retry runs with the running job and starts nothing", async () => {
+    mockRetry.mockReturnValue(new Promise(() => undefined));
+    const first = await post(tripId);
+    const again = await post(tripId, { name: "Another name" });
+    expect(again.status).toBe(202);
+    expect(again.body.jobId).toBe(first.body.jobId);
+    expect(mockRetry).toHaveBeenCalledTimes(1);
+    expect(mockRetry).toHaveBeenCalledWith(userId, tripId, undefined);
+  });
+
+  it("collapses two presses made in the same instant into one job", async () => {
+    mockRetry.mockReturnValue(new Promise(() => undefined));
+    const [a, b] = await Promise.all([post(tripId), post(tripId)]);
+    expect([a.status, b.status]).toEqual([202, 202]);
+    expect(a.body.jobId).toBe(b.body.jobId);
+    expect(mockRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts a new job once the running one has settled", async () => {
+    const first = await post(tripId);
+    await settleAllJobs();
+    const second = await post(tripId);
+    await settleAllJobs();
+    expect(second.status).toBe(202);
+    expect(second.body.jobId).not.toBe(first.body.jobId);
+    expect(mockRetry).toHaveBeenCalledTimes(2);
+  });
+
+  it("lets another trip's retry run while one is running", async () => {
+    mockRetry.mockReturnValue(new Promise(() => undefined));
+    const first = await post(tripId);
+    const other = await post(otherTripId);
+    expect(other.body.jobId).not.toBe(first.body.jobId);
+    expect(mockRetry).toHaveBeenCalledTimes(2);
   });
 });
