@@ -19,7 +19,16 @@ import { authenticate, requireWriteScope, AuthRequest } from "../middleware/auth
 import { rejectDemoWrites } from "../middleware/demoGuard";
 import { immichImportLimiter, immichProxyLimiter } from "../middleware/rateLimit";
 import { AppError } from "../middleware/errorHandler";
-import { draftIdParamSchema, scanBodySchema } from "../schemas/tripBuilder";
+import {
+  draftIdParamSchema,
+  previewIndexParamSchema,
+  previewSizeSchema,
+  scanBodySchema,
+} from "../schemas/tripBuilder";
+import { sendPlaceholder, streamAsset } from "../services/immich/assetStream";
+import { createImmichClient } from "../services/immich/immichClient";
+import { ImmichError } from "../services/immich/types";
+import logger from "../utils/logger";
 import { getImmichConnection } from "../services/immich/immichResolver";
 import { startJob } from "../services/jobs/jobRegistry";
 import { buildTripDraft, progressReporter } from "../services/tripBuilder/buildDraft";
@@ -97,5 +106,50 @@ router.delete("/drafts/:id", (req: AuthRequest, res: Response, next: NextFunctio
     next(error);
   }
 });
+
+/**
+ * Stream one thumbnail of a draft. **The draft is the grant**: the caller owns
+ * it, and the asset id comes from the draft's stored list at the requested
+ * INDEX, never from the request, so owning a draft cannot be turned into
+ * reading the library. Originals are not served here.
+ */
+router.get(
+  "/drafts/:id/preview/:index/file",
+  immichProxyLimiter,
+  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.userId!;
+      const id = draftIdParamSchema.safeParse(req.params.id);
+      const index = previewIndexParamSchema.safeParse(req.params.index);
+      const size = previewSizeSchema.safeParse(req.query.size);
+      if (!id.success || !index.success || !size.success) {
+        throw new AppError("Invalid preview request", 400);
+      }
+      const draft = getDraft(userId, id.data);
+      if (!draft) throw draftExpired();
+      const assetId = draft.previewAssetIds[index.data];
+      if (assetId === undefined) throw new AppError("notFound", 404);
+
+      const etag = `"${assetId}-${size.data}"`;
+      if (req.headers["if-none-match"] === etag) {
+        res.status(304).end();
+        return;
+      }
+      const conn = await getImmichConnection(userId);
+      if (!conn) {
+        res.status(409).json({ error: "notConfigured" });
+        return;
+      }
+      await streamAsset(res, createImmichClient(conn), assetId, size.data, etag);
+    } catch (error) {
+      if (error instanceof ImmichError) {
+        logger.warn({ message: "immich_proxy_upstream_failure", context: { kind: error.kind } });
+        sendPlaceholder(res, error.kind === "notFound" ? 404 : 502);
+        return;
+      }
+      next(error);
+    }
+  }
+);
 
 export default router;

@@ -88,12 +88,10 @@ const localMinute = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
   .openapi({ example: "2031-05-02 10:15" });
-const stationKey = z
-  .string()
-  .openapi({
-    example: "-901|3374|2031-05-02",
-    description: "round(lat/0.05)|round(lon/0.05)|first photo day, `~n` on a repeat",
-  });
+const stationKey = z.string().openapi({
+  example: "-901|3374|2031-05-02",
+  description: "round(lat/0.05)|round(lon/0.05)|first photo day, `~n` on a repeat",
+});
 
 const draftStation = z.object({
   key: stationKey,
@@ -339,4 +337,26 @@ registry.registerPath({
   tags: tag,
   request: { params: draftParams },
   responses: { 204: { description: "Discarded (or never there)" } },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/trip-builder/drafts/{id}/preview/{index}/file",
+  summary: "Stream one thumbnail of a draft",
+  description:
+    "The draft is the grant: the caller owns it, and the asset id comes from the draft's " +
+    "stored list at the given INDEX (0 to 399), never from the request. Thumbnail or " +
+    "preview only. Same private immutable caching and 1x1 placeholder on an upstream " +
+    "failure as the other Immich proxies.",
+  tags: tag,
+  request: {
+    params: z.object({ id: z.string().uuid(), index: z.coerce.number().int().min(0).max(399) }),
+    query: z.object({ size: z.enum(["thumbnail", "preview"]).optional() }),
+  },
+  responses: {
+    200: { description: "Image bytes", content: { "image/*": { schema: z.string() } } },
+    400: { description: "Invalid index, size or id", content: errorContent },
+    404: { description: "Draft expired or index past the list", content: errorContent },
+    409: { description: '`{error: "notConfigured"}`: no Immich connection', content: errorContent },
+  },
 });
