@@ -7,11 +7,13 @@ import { TRIP_COLORS as PALETTE } from "../../lib/tripColors";
 import CompanionPicker from "../CompanionPicker";
 import TagInput from "../TagInput";
 import SuggestionChips from "../common/SuggestionChips";
+import { useFormDirty } from "../../hooks/useFormDirty";
 import { useTripEntrySuggestions } from "../../hooks/useTripEntrySuggestions";
 import { tripEntrySpan } from "../../lib/tripEntrySpan";
 import { formatDate } from "../../lib/displayFormat";
 import { dayInput } from "../../lib/api/timeInput";
 import { saveErrorMessage } from "../../lib/saveErrorMessage";
+import EditBuildButton from "./tripBuilder/EditBuildButton";
 import TripBuilderLauncher from "./tripBuilder/TripBuilderLauncher";
 import TripImmichOptions from "./tripBuilder/TripImmichOptions";
 import { useImmichBuild } from "./tripBuilder/useImmichBuild";
@@ -154,6 +156,23 @@ export default function TripModal({
   const datesOutOfOrder = Boolean(startDate && endDate && endDate < startDate);
   // The two Immich switches of a new trip; with one on, Save scans the photos first.
   const build = useImmichBuild(trip === null && initialInspect, startDate, endDate);
+  // What Save sends for an existing trip. A change in it, or a picked cover, is an unsaved edit:
+  // the Immich trip builder reads the saved trip, so its button waits for a saved form.
+  const updateInput = {
+    name: name.trim(),
+    description: description.trim() || null,
+    color,
+    category: category === "" ? null : category,
+    startDate: fromDateInput(startDate),
+    endDate: fromDateInput(endDate),
+    originLabel: originLabel.trim() || null,
+    destinationLabel: destinationLabel.trim() || null,
+    tags,
+    companions,
+    notes: notes.trim() || null,
+    ...(removeCover ? { coverImageUrl: null } : {}),
+  };
+  const unsaved = useFormDirty([updateInput, coverFile]);
 
   const handleSave = async (): Promise<void> => {
     setSaveTried(true);
@@ -171,20 +190,7 @@ export default function TripModal({
       // cover when the user explicitly removed it.
       let savedTrip: Trip;
       if (trip) {
-        savedTrip = await tripsApi.update(trip.id, {
-          name: name.trim(),
-          description: description.trim() || null,
-          color,
-          category: category === "" ? null : category,
-          startDate: fromDateInput(startDate),
-          endDate: fromDateInput(endDate),
-          originLabel: originLabel.trim() || null,
-          destinationLabel: destinationLabel.trim() || null,
-          tags,
-          companions,
-          notes: notes.trim() || null,
-          ...(removeCover ? { coverImageUrl: null } : {}),
-        });
+        savedTrip = await tripsApi.update(trip.id, updateInput);
       } else {
         const input = {
           name: name.trim(),
@@ -365,6 +371,7 @@ export default function TripModal({
               )}
 
               {!trip && <TripImmichOptions build={build} />}
+              {trip && <EditBuildButton trip={trip} unsaved={unsaved} onLaunched={onClose} />}
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label={t("trips:modal.originLabel")}>

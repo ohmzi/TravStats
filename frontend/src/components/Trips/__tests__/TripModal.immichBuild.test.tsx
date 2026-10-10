@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { Trip } from "../../../types";
@@ -216,5 +216,133 @@ describe("TripModal with the Immich switches", () => {
 
     expect(screen.queryByRole("switch")).toBeNull();
     expect(screen.queryByText("tripBuilder:popup.heading")).toBeNull();
+  });
+});
+
+// Synthetic fixtures only (public repository): an invented trip in a shifted year.
+const SAVED = {
+  id: "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c",
+  userId: "u1",
+  name: "Southern loop",
+  color: "#818cf8",
+  startDate: "2031-05-02T00:00:00.000Z",
+  endDate: "2031-05-07T00:00:00.000Z",
+  tags: [],
+  companions: [],
+  createdAt: "2031-01-01T00:00:00.000Z",
+} as unknown as Trip;
+
+const buildButton = (): HTMLElement =>
+  screen.getByRole("button", { name: "tripBuilder:editBuild.button" });
+const nameInput = (): HTMLElement => screen.getByPlaceholderText("trips:modal.namePlaceholder");
+const openTab = (name: RegExp): void => {
+  fireEvent.click(screen.getByRole("tab", { name }));
+};
+
+/**
+ * Edit mode of the trip form offers "Build from Immich photos…" (spec §G). Most
+ * cases render the form bare, as the other TripModal tests do: the button must
+ * not need a router until it is pressed.
+ */
+describe("TripModal, edit mode: Build from Immich photos…", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    mocks.scan.mockReset().mockResolvedValue({ jobId: JOB });
+    mocks.addToast.mockReset();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("is offered for a saved trip with dates", () => {
+    render(<TripModal trip={SAVED} onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(buildButton()).toBeEnabled();
+  });
+
+  it("waits while the form has edits that are not saved, and says so", () => {
+    render(<TripModal trip={SAVED} onClose={vi.fn()} onSaved={vi.fn()} />);
+    fireEvent.change(nameInput(), { target: { value: "Southern loop 2" } });
+    expect(buildButton()).toBeDisabled();
+    expect(screen.getByText("tripBuilder:editBuild.unsaved")).toBeInTheDocument();
+  });
+
+  it("is offered again when the edit is put back", () => {
+    render(<TripModal trip={SAVED} onClose={vi.fn()} onSaved={vi.fn()} />);
+    fireEvent.change(nameInput(), { target: { value: "Southern loop 2" } });
+    fireEvent.change(nameInput(), { target: { value: "Southern loop" } });
+    expect(buildButton()).toBeEnabled();
+  });
+
+  it("keeps waiting after a visit to another tab", () => {
+    render(<TripModal trip={SAVED} onClose={vi.fn()} onSaved={vi.fn()} />);
+    fireEvent.change(nameInput(), { target: { value: "Southern loop 2" } });
+    openTab(/trips:modalTabs\.people/);
+    openTab(/trips:modalTabs\.general/);
+    expect(buildButton()).toBeDisabled();
+  });
+
+  it("counts an edit made on another tab", () => {
+    render(<TripModal trip={SAVED} onClose={vi.fn()} onSaved={vi.fn()} />);
+    openTab(/trips:modalTabs\.notes/);
+    fireEvent.change(screen.getByPlaceholderText("trips:modal.notesPlaceholder"), {
+      target: { value: "Ferry at nine." },
+    });
+    openTab(/trips:modalTabs\.general/);
+    expect(buildButton()).toBeDisabled();
+  });
+
+  it("counts a cover that was picked", () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:cover");
+    vi.spyOn(URL, "revokeObjectURL").mockReturnValue(undefined);
+    render(<TripModal trip={SAVED} onClose={vi.fn()} onSaved={vi.fn()} />);
+    openTab(/trips:modalTabs\.appearance/);
+    const file = new File(["x"], "cover.jpg", { type: "image/jpeg" });
+    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, {
+      target: { files: [file] },
+    });
+    openTab(/trips:modalTabs\.general/);
+    expect(buildButton()).toBeDisabled();
+  });
+
+  it("counts a cover that was removed", () => {
+    const covered = { ...SAVED, coverImageUrl: "/covers/southern-loop.jpg" } as Trip;
+    render(<TripModal trip={covered} onClose={vi.fn()} onSaved={vi.fn()} />);
+    openTab(/trips:modalTabs\.appearance/);
+    fireEvent.click(screen.getByText("trips:modal.coverRemove"));
+    openTab(/trips:modalTabs\.general/);
+    expect(buildButton()).toBeDisabled();
+  });
+
+  it("is not offered when a trip is being made", () => {
+    render(<TripModal trip={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "tripBuilder:editBuild.button" })).toBeNull();
+  });
+
+  it("scans the saved trip, opens the review and closes the form", async () => {
+    const onClose = vi.fn();
+    render(
+      <MemoryRouter initialEntries={["/trips"]}>
+        <Routes>
+          <Route
+            path="/trips"
+            element={<TripModal trip={SAVED} onClose={onClose} onSaved={vi.fn()} />}
+          />
+          <Route path="/trips/builder" element={<Where />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(buildButton());
+
+    await waitFor(() =>
+      expect(screen.getByTestId("where").textContent).toBe(`/trips/builder?job=${JOB}`)
+    );
+    expect(mocks.scan).toHaveBeenCalledWith({
+      name: "Southern loop",
+      startDay: "2031-05-02",
+      endDay: "2031-05-07",
+      inspect: true,
+      createAlbum: true,
+      target: { kind: "existing", tripId: SAVED.id },
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
