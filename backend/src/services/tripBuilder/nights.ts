@@ -285,8 +285,11 @@ export function applyDayPulls(plans: readonly AreaPlan[], pulls: readonly DayPul
         ? { ...station, firstDay: earliest }
         : station;
     });
-    const startDay = mine.reduce(
-      (day, pull) => (pull.firstDay < day ? pull.firstDay : day),
+    // The area starts where its earliest moved station now starts. A pull for a
+    // station the area does not have moves nothing, so it cannot move the area.
+    const startDay = stations.reduce(
+      (day, station, i) =>
+        station !== plan.stations[i] && station.firstDay < day ? station.firstDay : day,
       plan.area.startDay
     );
     return { ...plan, stations, area: { ...plan.area, startDay } };

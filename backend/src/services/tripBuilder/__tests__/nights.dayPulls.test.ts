@@ -89,7 +89,7 @@ describe("applyDayPulls", () => {
       [plan],
       [
         { areaKey: "2031-05-09#1", stationKey: KEY_NORTHVALE, firstDay: "2031-05-01" },
-        { areaKey: plan.key, stationKey: "-1|-1|2031-05-01", firstDay: "2031-05-03" },
+        { areaKey: plan.key, stationKey: "-1|-1|2031-05-01", firstDay: "2031-05-01" },
       ]
     );
 
