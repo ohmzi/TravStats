@@ -169,3 +169,23 @@ export function applyEdit(
       return state;
   }
 }
+
+/**
+ * Plays `edits` onto a fresh state for `draft`, by the keys they name. An edit
+ * whose station, night or flight the new draft no longer has is dropped;
+ * `kept` counts the rest.
+ */
+export function reapplyEdits(
+  draft: TripBuilderDraft,
+  edits: readonly DraftEdit[]
+): { state: ReviewState; kept: number; total: number } {
+  let state = initialReviewState(draft);
+  let kept = 0;
+  for (const edit of edits) {
+    const next = applyEdit(draft, state, edit);
+    if (next === state) continue;
+    state = next;
+    kept += 1;
+  }
+  return { state, kept, total: edits.length };
+}
