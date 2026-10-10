@@ -6,7 +6,7 @@
  * The roadtrip names themselves come from `roadtripAreaNames`
  * (shared/tour/builderNightPlan.ts), fed with `mainCityOf` and each area's start day.
  */
-import type { Day, GroundArea } from "./types";
+import type { AreaKind, AreaPlan, Day, GroundArea, NightEntry, PlanStation } from "./types";
 
 /** `<startDay>#<n>`: how an area is named across a re-scan and in the commit body. */
 export function areaKeyOf(startDay: Day, ordinal: number): string {
@@ -23,4 +23,67 @@ export function keyAreas<T extends { area: GroundArea }>(
     seen.set(part.area.startDay, ordinal);
     return { ...part, key: areaKeyOf(part.area.startDay, ordinal) };
   });
+}
+
+/** A station that stands for a city of the trip: not the way home, not an airport. */
+const isCity = (station: PlanStation): boolean =>
+  station.kind !== "home" && station.kind !== "airport";
+
+const cityIdOf = (station: PlanStation): string => station.title.trim().toLowerCase();
+
+/**
+ * One distinct city, with no home leg switched on, is a single timeline stop
+ * over the area's first to last day; anything more is a roadtrip, if roadtrips
+ * are visible to the user. Home and airport stations are not cities, and an
+ * area with no city at all (only the way home) is a stop too — it has nothing
+ * to drive between.
+ */
+export function decideAreaKind(
+  plan: Pick<AreaPlan, "stations" | "home">,
+  roadtripsVisible: boolean
+): AreaKind {
+  const cities = new Set(plan.stations.filter(isCity).map(cityIdOf));
+  const homeLegs = plan.home.start.defaultOn || plan.home.end.defaultOn;
+  if (cities.size === 0 || (cities.size === 1 && !homeLegs)) return "stops";
+  return roadtripsVisible ? "roadtrip" : "stops";
+}
+
+interface CityTally {
+  title: string;
+  nights: number;
+  photos: number;
+}
+
+/**
+ * The city a roadtrip is named after: the one with the most nights, then the
+ * most photos, then the first. Stations of one title count as one city; home
+ * and airport stations never do. Null when the area has no city.
+ */
+export function mainCityOf(
+  stations: readonly PlanStation[],
+  nights: Readonly<Record<Day, NightEntry>>
+): string | null {
+  const nightsAt = new Map<string, number>();
+  for (const { assign } of Object.values(nights)) {
+    nightsAt.set(assign, (nightsAt.get(assign) ?? 0) + 1);
+  }
+
+  const cities = new Map<string, CityTally>();
+  for (const station of stations.filter(isCity)) {
+    const id = cityIdOf(station);
+    const city = cities.get(id) ?? { title: station.title.trim(), nights: 0, photos: 0 };
+    city.nights += nightsAt.get(station.key) ?? 0;
+    city.photos += station.photoCount;
+    cities.set(id, city);
+  }
+
+  let main: CityTally | null = null;
+  for (const city of cities.values()) {
+    const wins =
+      main === null ||
+      city.nights > main.nights ||
+      (city.nights === main.nights && city.photos > main.photos);
+    if (wins) main = city;
+  }
+  return main === null ? null : main.title;
 }
