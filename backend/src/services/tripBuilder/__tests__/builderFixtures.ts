@@ -2,6 +2,7 @@ import type { HomePeriod } from "../../../utils/homeAirport";
 import type { ImmichAssetDetail } from "../../immich/types";
 import type { Coord } from "../../tour/tourDistance";
 import type { FlightAnchor } from "../types";
+import type { BuilderDeps } from "../buildDraft";
 
 /** The caller's Immich user, and a partner who shares a library with them. */
 export const ME = "0b6f3a52-5d1c-4f43-9c1e-6a7b8c9d0e1f";
@@ -144,5 +145,47 @@ export function preciseFlight(spec: FlightSpec): FlightAnchor {
     listed: spec.listed ?? true,
     defaultAssign: tripId === null,
     locked: false,
+  };
+}
+
+/** The instant the fixtures treat as "now": after every fixture trip's window. */
+export const NOW_MS = Date.parse("2031-05-20T10:00:00Z");
+
+/**
+ * Builder dependencies over fixed assets: no flights, no home, no routing, no
+ * titles to reuse, no geocoder, every country "NZ". A test overrides what it
+ * needs.
+ */
+export function builderDeps(
+  assets: readonly ImmichAssetDetail[],
+  overrides: Partial<BuilderDeps> = {},
+  truncated = false
+): BuilderDeps {
+  return {
+    immich: {
+      searchWindowAssets: async (_range, onPage) => {
+        onPage?.(1, assets.length);
+        return { assets: [...assets], truncated };
+      },
+      searchByFileName: async () => [],
+    },
+    loadFlights: async () => [],
+    homePeriods: [],
+    immichUserId: ME,
+    connSource: "user",
+    countryAt: () => "NZ",
+    existingTitles: async () => [],
+    reverseGeocode: async () => null,
+    airports: async () => new Map(),
+    nearestAirportIata: async () => null,
+    roads: { available: false, canProbe: false, probes: null },
+    roadtripsVisible: true,
+    overlappingTrips: async () => [],
+    pendingPhotoJourneys: async () => [],
+    targetTrip: null,
+    album: null,
+    newId: () => "5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a",
+    nowMs: () => NOW_MS,
+    ...overrides,
   };
 }
