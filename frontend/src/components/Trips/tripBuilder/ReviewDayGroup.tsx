@@ -8,6 +8,7 @@ import { effectiveNights } from "../../../lib/tripBuilder/planRules";
 import { nightChoices, type DayStation } from "../../../lib/tripBuilder/reviewView";
 import { foldDayTrip, mergeWithNext } from "../../../lib/tripBuilder/stationOps";
 import type { Day, DraftDay, TripBuilderDraft } from "../../../types/tripBuilder";
+import { useExistingDiff } from "./ExistingDiffContext";
 import ReviewLegRow from "./ReviewLegRow";
 import ReviewNightChip from "./ReviewNightChip";
 import ReviewStationRow from "./ReviewStationRow";
@@ -43,11 +44,15 @@ export default function ReviewDayGroup({
 }: ReviewDayGroupProps): JSX.Element {
   const { t } = useTranslation(["tripBuilder"]);
   const fmt = useDisplayFormat();
+  const { infoFor } = useExistingDiff();
   const chain = { stations: area.stations, legs: area.legs };
   const flights = day.flightIds.flatMap((id) => draft.flights.filter((f) => f.id === id));
   const places = day.stationKeys
     .flatMap((key) => state.areas.flatMap((a) => a.stations).filter((s) => s.key === key))
     .map((s) => s.title);
+
+  // A collapsed unchanged station leaves with the leg that leads to it, not only its row.
+  const drawn = rows.filter(({ station }) => !infoFor(station).hidden);
 
   return (
     <section
@@ -79,7 +84,7 @@ export default function ReviewDayGroup({
         </span>
       )}
 
-      {rows.map(({ station, index }) => (
+      {drawn.map(({ station, index }) => (
         <div key={station.key} className="flex flex-col" style={{ gap: "var(--ts-space-sm)" }}>
           {index > 0 && area.legs[index - 1] !== undefined && (
             <ReviewLegRow
