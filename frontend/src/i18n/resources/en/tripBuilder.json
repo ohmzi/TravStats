@@ -28,6 +28,11 @@
     "tooLong": "Photos can be scanned for up to 62 days at a time. Shorten the dates.",
     "scan": "Scan photos"
   },
+  "launch": {
+    "needDates": "Set a start and an end date before scanning photos.",
+    "notConfigured": "Immich is not connected. Add its address and an API key in Settings.",
+    "failed": "The scan could not be started. Nothing was saved."
+  },
   "timeline": {
     "roadtrip": "Roadtrip",
     "state": "Night",

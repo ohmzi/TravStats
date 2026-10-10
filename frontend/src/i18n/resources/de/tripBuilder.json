@@ -28,6 +28,11 @@
     "tooLong": "Fotos lassen sich für höchstens 62 Tage auf einmal scannen. Kürze den Zeitraum.",
     "scan": "Fotos scannen"
   },
+  "launch": {
+    "needDates": "Lege Start- und Enddatum fest, bevor du Fotos scannst.",
+    "notConfigured": "Immich ist nicht verbunden. Trage Adresse und API-Schlüssel in den Einstellungen ein.",
+    "failed": "Der Scan konnte nicht gestartet werden. Es wurde nichts gespeichert."
+  },
   "timeline": {
     "roadtrip": "Roadtrip",
     "state": "Übernachtung",
