@@ -67,6 +67,15 @@ export function isRouteFailure(value: RouteResult | RouteFailure | null): value 
 }
 
 /**
+ * What a provider can say about a leg without drawing it: how far the road
+ * router thinks it is, and how much of that is ferry (spec 2026-10-09 §C.7).
+ */
+export interface RouteProbe {
+  distanceKm: number;
+  ferryKm: number;
+}
+
+/**
  * A routing provider that can answer route queries.
  *
  * Never throws for a routing failure. `null` is "could not route this" with no
@@ -75,6 +84,19 @@ export function isRouteFailure(value: RouteResult | RouteFailure | null): value 
 export interface RouteProvider {
   readonly id: RoutingProviderId;
   route(req: RouteRequest): Promise<RouteResult | RouteFailure | null>;
+  /**
+   * How far the road router thinks `a` → `b` is, and how much of that is
+   * ferry. Optional, and implemented only by the self-hosted OSRM
+   * (`customOsrm.ts`): it is local and has no quota, which a hosted provider
+   * does not allow for the dozens of questions a trip builder scan asks. Never
+   * throws; `null` is "no answer".
+   */
+  probe?(a: Coord, b: Coord): Promise<RouteProbe | null>;
+  /**
+   * The nearest point on a road to `c`, or null when the router has none.
+   * Optional and OSRM-only, for the same reason as `probe`. Never throws.
+   */
+  snap?(c: Coord): Promise<Coord | null>;
 }
 
 export const ROUTING_PROVIDER_IDS = ["openrouteservice", "graphhopper", "custom"] as const;

@@ -1,5 +1,13 @@
 import logger from "../../../utils/logger";
-import { isRoutableMode, RoutableMode, RouteProvider, RouteRequest, RouteResult } from "./types";
+import type { Coord } from "../tourDistance";
+import {
+  isRoutableMode,
+  RoutableMode,
+  RouteProbe,
+  RouteProvider,
+  RouteRequest,
+  RouteResult,
+} from "./types";
 
 /**
  * Custom/self-hosted OSRM adapter (http://project-osrm.org/).
@@ -14,6 +22,9 @@ import { isRoutableMode, RoutableMode, RouteProvider, RouteRequest, RouteResult 
  *   - `routes[0].geometry.coordinates` — `[lon,lat]` pairs, GeoJSON order.
  *   - `routes[0].distance` — metres.
  *   - `routes[0].duration` — seconds.
+ *   - `GET /route/v1/{profile}/…?overview=false&steps=true` adds
+ *     `routes[0].legs[].steps[]`, each with a `mode` (`driving`, `ferry`, …)
+ *     and a `distance` in metres; `probe` sums the ferry steps.
  *
  * Scope note: this targets OSRM only. Valhalla speaks a different protocol
  * (a `/route` POST with a JSON body, `trip`/`legs`/`shape` response shaped
@@ -81,6 +92,33 @@ function isOsrmResponse(value: unknown): value is OsrmResponse {
   return true;
 }
 
+/**
+ * The road distance of an OSRM answer to `steps=true`, and the share of it the
+ * route covers by ferry. Null when the body is not the shape OSRM documents —
+ * a step without a distance would silently under-count the ferry.
+ */
+function readProbe(value: unknown): RouteProbe | null {
+  if (typeof value !== "object" || value === null) return null;
+  const routes = (value as { routes?: unknown }).routes;
+  if (!Array.isArray(routes) || routes.length === 0) return null;
+  const first = routes[0] as { distance?: unknown; legs?: unknown } | null;
+  if (typeof first !== "object" || first === null) return null;
+  if (typeof first.distance !== "number" || !Number.isFinite(first.distance)) return null;
+  if (!Array.isArray(first.legs)) return null;
+
+  let ferryMetres = 0;
+  for (const leg of first.legs) {
+    const steps = (leg as { steps?: unknown } | null)?.steps;
+    if (!Array.isArray(steps)) return null;
+    for (const step of steps) {
+      const { mode, distance } = (step ?? {}) as { mode?: unknown; distance?: unknown };
+      if (typeof distance !== "number" || !Number.isFinite(distance)) return null;
+      if (mode === "ferry") ferryMetres += distance;
+    }
+  }
+  return { distanceKm: first.distance / 1000, ferryKm: ferryMetres / 1000 };
+}
+
 export function createCustomOsrm(baseUrl: string, fetchImpl: typeof fetch = fetch): RouteProvider {
   // Parsed eagerly: a baseUrl that isn't a valid absolute URL fails clearly
   // and immediately at configuration time (URL's own descriptive error),
@@ -94,6 +132,44 @@ export function createCustomOsrm(baseUrl: string, fetchImpl: typeof fetch = fetc
   // the operator's own query string entirely.
   const base = new URL(baseUrl);
   const basePath = base.pathname.replace(/\/+$/, "");
+
+  /** `baseUrl` + `path`, with the operator's own query string kept beside `params`. */
+  function osrmUrl(path: string, params: Record<string, string>): string {
+    const url = new URL(base.toString());
+    url.pathname = `${basePath}${path}`;
+    for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
+    return url.toString();
+  }
+
+  /** The JSON body of a GET, or null (logged) when there is none. */
+  async function getJson(url: string, what: string): Promise<unknown> {
+    let response: Response;
+    try {
+      response = await fetchImpl(url);
+    } catch (err) {
+      logger.warn(
+        { provider: "custom", what, error: err instanceof Error ? err.message : String(err) },
+        "custom OSRM request failed"
+      );
+      return null;
+    }
+    if (!response.ok) {
+      logger.warn(
+        { provider: "custom", what, status: response.status },
+        "custom OSRM returned a non-200 response"
+      );
+      return null;
+    }
+    try {
+      return await response.json();
+    } catch (_err) {
+      logger.warn(
+        { provider: "custom", what, status: response.status },
+        "custom OSRM response body was not valid JSON"
+      );
+      return null;
+    }
+  }
 
   return {
     id: "custom",
@@ -153,6 +229,23 @@ export function createCustomOsrm(baseUrl: string, fetchImpl: typeof fetch = fetc
         distanceKm: route.distance / 1000,
         drivingMinutes: route.duration / 60,
       };
+    },
+
+    async probe(a: Coord, b: Coord): Promise<RouteProbe | null> {
+      const profile = OSRM_PROFILE_BY_MODE.road;
+      const url = osrmUrl(`/route/v1/${profile}/${a.lon},${a.lat};${b.lon},${b.lat}`, {
+        overview: "false",
+        steps: "true",
+      });
+      const body = await getJson(url, "probe");
+      const probe = readProbe(body);
+      if (probe === null && body !== null) {
+        logger.warn(
+          { provider: "custom", what: "probe" },
+          "custom OSRM response did not match the expected shape"
+        );
+      }
+      return probe;
     },
   };
 }

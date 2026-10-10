@@ -436,3 +436,112 @@ describe("createCustomOsrm", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
+
+describe("createCustomOsrm probe", () => {
+  // Synthetic coordinates (public repository): two invented towns.
+  const NORTHVALE = { lat: -45.05, lon: 168.7 };
+  const PORT_CARROW = { lat: -44.4, lon: 171.25 };
+
+  const stepsFixture = {
+    code: "Ok",
+    routes: [
+      {
+        distance: 120400,
+        duration: 7200,
+        legs: [
+          {
+            steps: [
+              { mode: "driving", distance: 40000 },
+              { mode: "ferry", distance: 60000 },
+              { mode: "driving", distance: 20400 },
+            ],
+          },
+          { steps: [{ mode: "ferry", distance: 1500 }] },
+        ],
+      },
+    ],
+  };
+
+  function customWith(fetchImpl: unknown, baseUrl = "http://osrm.local:5000") {
+    return createCustomOsrm(baseUrl, fetchImpl as typeof fetch);
+  }
+
+  it("asks for the steps of the car route and not for its geometry", async () => {
+    const fetchImpl = jest.fn(async () => jsonResponse(200, stepsFixture));
+
+    await customWith(fetchImpl, "http://osrm.local:5000/").probe?.(NORTHVALE, PORT_CARROW);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const [url] = fetchImpl.mock.calls[0];
+    expect(String(url)).toBe(
+      "http://osrm.local:5000/route/v1/car/168.7,-45.05;171.25,-44.4?overview=false&steps=true"
+    );
+  });
+
+  it("keeps a base URL's own path and query string beside its parameters", async () => {
+    const fetchImpl = jest.fn(async () => jsonResponse(200, stepsFixture));
+
+    await customWith(fetchImpl, "http://osrm.local:5000/proxy?token=abc123").probe?.(
+      NORTHVALE,
+      PORT_CARROW
+    );
+
+    const [url] = fetchImpl.mock.calls[0];
+    expect(String(url)).toBe(
+      "http://osrm.local:5000/proxy/route/v1/car/168.7,-45.05;171.25,-44.4?token=abc123&overview=false&steps=true"
+    );
+  });
+
+  it("reports the route's distance and the kilometres its ferry steps cover", async () => {
+    const fetchImpl = jest.fn(async () => jsonResponse(200, stepsFixture));
+
+    const probe = await customWith(fetchImpl).probe?.(NORTHVALE, PORT_CARROW);
+
+    // 60 km on one leg and 1.5 km on the next: every ferry step counts.
+    expect(probe?.distanceKm).toBeCloseTo(120.4, 6);
+    expect(probe?.ferryKm).toBeCloseTo(61.5, 6);
+  });
+
+  it("reports no ferry kilometres for a route that never leaves the road", async () => {
+    const roadOnly = {
+      code: "Ok",
+      routes: [
+        { distance: 8800, duration: 600, legs: [{ steps: [{ mode: "driving", distance: 8800 }] }] },
+      ],
+    };
+    const fetchImpl = jest.fn(async () => jsonResponse(200, roadOnly));
+
+    const probe = await customWith(fetchImpl).probe?.(NORTHVALE, PORT_CARROW);
+
+    expect(probe).toEqual({ distanceKm: 8.8, ferryKm: 0 });
+  });
+
+  it("answers null when OSRM refuses, finds no route or cannot be reached", async () => {
+    const refused = jest.fn(async () => jsonResponse(400, { code: "InvalidQuery" }));
+    const noRoute = jest.fn(async () => jsonResponse(200, { code: "NoRoute", routes: [] }));
+    const down = jest.fn(async () => {
+      throw new Error("connect ECONNREFUSED");
+    });
+
+    expect(await customWith(refused).probe?.(NORTHVALE, PORT_CARROW)).toBeNull();
+    expect(await customWith(noRoute).probe?.(NORTHVALE, PORT_CARROW)).toBeNull();
+    expect(await customWith(down).probe?.(NORTHVALE, PORT_CARROW)).toBeNull();
+  });
+
+  it("answers null for a body that is not JSON or lacks the steps it sums", async () => {
+    const garbled = jest.fn(async () => malformedResponse(200));
+    const noSteps = jest.fn(async () =>
+      jsonResponse(200, { code: "Ok", routes: [{ distance: 5000, duration: 300 }] })
+    );
+    const noDistance = jest.fn(async () =>
+      jsonResponse(200, {
+        code: "Ok",
+        routes: [{ distance: 5000, legs: [{ steps: [{ mode: "ferry" }] }] }],
+      })
+    );
+
+    expect(await customWith(garbled).probe?.(NORTHVALE, PORT_CARROW)).toBeNull();
+    expect(await customWith(noSteps).probe?.(NORTHVALE, PORT_CARROW)).toBeNull();
+    expect(await customWith(noDistance).probe?.(NORTHVALE, PORT_CARROW)).toBeNull();
+  });
+});
