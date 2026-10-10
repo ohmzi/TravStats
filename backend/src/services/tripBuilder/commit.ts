@@ -15,8 +15,12 @@ import { insertRoadtrip } from "../roadtrip/createRoadtrip";
 import { replaceStationsInTx } from "../roadtrip/replaceStations";
 import { editedTripDays, stationTimeColumns } from "../timeModel/tripColumns";
 import { insertTrip, prepareTripCreate, type PreparedTripCreate } from "../trip/createTrip";
-import { COMMIT_TX_TIMEOUT_MS } from "./thresholds";
-import type { CommitPlan, PhaseBResult, PhaseBRoadtrip } from "./types";
+import { now } from "../../shared/time/clock";
+import { autoRouteNewLegs } from "../tour/routing/autoRouteLegs";
+import { resolveRouteProvider } from "../tour/routing/resolveProvider";
+import { journeyBounds } from "./builderQueries";
+import { COMMIT_TX_TIMEOUT_MS, ROUTE_BUDGET_MS, ROUTE_CHUNK_LEGS } from "./thresholds";
+import type { CommitPlan, CommitResult, PhaseBResult, PhaseBRoadtrip } from "./types";
 
 async function writeTrip(
   tx: DbTransaction,
@@ -150,4 +154,72 @@ export async function writeCommit(plan: CommitPlan): Promise<PhaseBResult> {
     },
     { timeout: COMMIT_TX_TIMEOUT_MS }
   );
+}
+
+/**
+ * Phase C, routing: the legs phase B created are routed along the road in
+ * chunks of 25 until the two-minute budget is spent. A leg stored as `ferry`
+ * is never sent to a road router (`autoRouteNewLegs` skips it by its stored
+ * mode), so a crossing keeps its straight chord. Whatever is not routed stays
+ * a straight line, and the counts say how many.
+ */
+export async function routeCommittedLegs(
+  userId: string,
+  written: PhaseBResult
+): Promise<CommitResult["routing"]> {
+  const created = written.roadtrips.reduce((n, r) => n + r.createdLegs.length, 0);
+  const ferry = written.roadtrips.reduce((n, r) => n + r.ferryLegs, 0);
+  const provider = await resolveRouteProvider(userId);
+  if (provider === null || created === 0) {
+    return {
+      routed: 0,
+      straight: Math.max(0, created - ferry),
+      ferry,
+      providerAvailable: provider !== null,
+    };
+  }
+  const deadline = now().getTime() + ROUTE_BUDGET_MS;
+  let routed = 0;
+  for (const roadtrip of written.roadtrips) {
+    for (let i = 0; i < roadtrip.createdLegs.length; i += ROUTE_CHUNK_LEGS) {
+      if (now().getTime() >= deadline) break;
+      routed += await autoRouteNewLegs(
+        userId,
+        roadtrip.id,
+        roadtrip.createdLegs.slice(i, i + ROUTE_CHUNK_LEGS)
+      );
+    }
+  }
+  return {
+    routed,
+    straight: Math.max(0, created - ferry - routed),
+    ferry,
+    providerAvailable: true,
+  };
+}
+
+/**
+ * The ticked photo-journey findings the new trip explains become `accepted`.
+ * The window is applied again here, in the WHERE clause: a finding the draft
+ * never offered, or another user's, is never touched.
+ */
+export async function resolvePhotoJourneys(
+  userId: string,
+  tripId: string,
+  ids: readonly string[],
+  window: CommitPlan["window"]
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const { from, to } = journeyBounds(window);
+  const { count } = await prisma.photoJourney.updateMany({
+    where: {
+      id: { in: [...ids] },
+      userId,
+      status: "pending",
+      startDate: { gte: from },
+      endDate: { lt: to },
+    },
+    data: { status: "accepted", createdTripId: tripId, resolvedAt: now() },
+  });
+  return count;
 }
