@@ -7,6 +7,7 @@
 import { z } from "zod";
 
 import { registry } from "../registry";
+import { scanBodySchema } from "../../../schemas/tripBuilder";
 import { errorContent } from "./shared";
 
 const tag = ["Trip builder"];
@@ -53,5 +54,27 @@ registry.registerPath({
       content: { "application/json": { schema: capabilitiesSchema } },
     },
     401: { description: "Not signed in", content: errorContent },
+  },
+});
+
+const jobStarted = z.object({ jobId: z.string().uuid() });
+
+registry.registerPath({
+  method: "post",
+  path: "/trip-builder/scan",
+  summary: "Scan the Immich library for a trip",
+  description:
+    "Starts a read-only scan job and answers 202 at once. The job result is `{draftId}`; " +
+    "read the draft with `GET /trip-builder/drafts/{id}`. Nothing is written to TravStats " +
+    "or Immich. The window is at most 62 days and at least one of `inspect` and " +
+    "`createAlbum` must be on. Shares the import rate limit.",
+  tags: tag,
+  request: { body: { content: { "application/json": { schema: scanBodySchema } } } },
+  responses: {
+    202: { description: "The scan job", content: { "application/json": { schema: jobStarted } } },
+    400: { description: "Invalid input", content: errorContent },
+    404: { description: "The target trip is not the caller's", content: errorContent },
+    409: { description: '`{error: "notConfigured"}`: no Immich connection', content: errorContent },
+    429: { description: "Too many scans", content: errorContent },
   },
 });
