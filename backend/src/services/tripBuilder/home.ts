@@ -5,7 +5,7 @@
  */
 import { machineInstant } from "../../shared/time/instant";
 import { zoneOfCoordinates } from "../../shared/time/resolveInput";
-import { addDays } from "../../shared/tour/builderNightPlan";
+import { addDays, NIGHT_UNKNOWN } from "../../shared/tour/builderNightPlan";
 import { periodAt, type HomePeriod } from "../../utils/homeAirport";
 import { distanceKm } from "../photoJourneys/cluster";
 import type { Coord } from "../tour/tourDistance";
@@ -18,12 +18,15 @@ import {
 } from "./thresholds";
 import type {
   AreaHome,
+  AreaPlan,
   CityCluster,
   Day,
+  FlightAnchor,
   GroundArea,
   HomeAtDay,
   HomeEnd,
   NamedCluster,
+  NightEntry,
   PhotoPoint,
   PlanStation,
   ScanWindow,
@@ -207,4 +210,30 @@ export function planAreaHome(input: AreaHomeInput): { home: AreaHome; stations: 
     (plan) => plan.end.offered && plan.home !== null && !plan.home.confirmed
   );
   return { home: { start: start.end, end: end.end, unconfirmed }, stations: end.stations };
+}
+
+/**
+ * An area that begins with a landing at a home airport and holds no night away
+ * from home is the way back, not a trip (its photos stay in the album). An
+ * unknown night inside it keeps it: nobody can say it was not spent away.
+ */
+export function isPostReturnArea(
+  plan: AreaPlan,
+  anchorsById: ReadonlyMap<string, FlightAnchor>,
+  nights: Readonly<Record<Day, NightEntry>>,
+  homeAtDay: (day: Day) => HomeAtDay | null
+): boolean {
+  const inbound =
+    plan.area.afterFlightId === null ? undefined : anchorsById.get(plan.area.afterFlightId);
+  const code = inbound?.arrIata?.toUpperCase();
+  if (!inbound || !code || !homeAtDay(inbound.arrDay)?.airports.has(code)) return false;
+
+  const away = new Set(
+    plan.stations.filter((s) => s.kind !== "home" && s.kind !== "airport").map((s) => s.key)
+  );
+  return !Object.entries(nights).some(
+    ([night, entry]) =>
+      away.has(entry.assign) ||
+      (entry.assign === NIGHT_UNKNOWN && night >= plan.area.startDay && night < plan.area.endDay)
+  );
 }
