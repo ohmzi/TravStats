@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { dayOf as tripDayOf } from "../../tripForDate";
 import { MAX_SCAN_DAYS, dayOf, inclusiveDays, scanWindowIssue, windowIssue } from "../scanWindow";
 
 describe("scanWindowIssue", () => {
@@ -42,6 +43,10 @@ describe("dayOf and inclusiveDays", () => {
     expect(dayOf(undefined)).toBeNull();
     expect(dayOf("")).toBeNull();
     expect(dayOf("May 2")).toBeNull();
+  });
+
+  it("is the one day reader the trip-date rule uses, so the two cannot drift", () => {
+    expect(dayOf).toBe(tripDayOf);
   });
 
   it("count both ends, across a month, a year and a leap day", () => {

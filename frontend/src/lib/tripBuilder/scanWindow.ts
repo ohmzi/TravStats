@@ -8,13 +8,11 @@ export type ScanWindowIssue = "missing" | "tooLong";
 /** A bare calendar day, as the server's `scanBodySchema` takes it. */
 const BARE_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** The day an ISO string starts with; the time and zone after it are not read. */
-const DAY_PREFIX = /^\d{4}-\d{2}-\d{2}/;
-
-/** The calendar day an ISO string or a bare day starts with, or null when it starts with none. */
-export function dayOf(value: string | null | undefined): string | null {
-  return value ? (DAY_PREFIX.exec(value)?.[0] ?? null) : null;
-}
+/**
+ * The calendar day an ISO string or a bare day starts with, or null when it starts with none.
+ * Re-exported from the trip-date rule, so there is one prefix rule for both to change.
+ */
+export { dayOf } from "../tripForDate";
 
 /** Days from `startDay` to `endDay`, both included. */
 export function inclusiveDays(startDay: string, endDay: string): number {
