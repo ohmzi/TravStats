@@ -42,6 +42,46 @@ export type AreaKind = Exclude<AreaChoice, "skip">;
 export type BuilderLegMode = "road" | "ferry";
 export type TitleSource = "existing" | "immich" | "geocode" | "coords" | "airport" | "home";
 export type FerryEvidence = "router" | "seaPhotos" | "chip";
+
+// ─── Re-sync of an existing trip (spec §K) ───────────────────────────────────
+
+export const STATION_STATUSES = ["same", "changed", "new", "notSeen"] as const;
+export type StationStatus = (typeof STATION_STATUSES)[number];
+
+/** What a changed pill shows on its left: the stored dates and night. */
+export interface StationBefore {
+  startDate: Day | null;
+  endDate: Day | null;
+  slept: boolean;
+  /** The night is a stay: the stay owns it, whatever the photos say. */
+  stay: boolean;
+}
+
+export interface NotSeenDefault {
+  defaultKeep: boolean;
+  reason: "outsideWindow" | "notInPhotos";
+}
+
+export interface RoadtripDiff {
+  updated: number;
+  unchanged: number;
+  added: number;
+  removed: number;
+  kept: number;
+}
+
+export interface AlbumSyncPreview {
+  target: "linked" | "byName" | "create";
+  toAdd: number;
+  alreadyIn: number;
+  removable: {
+    count: number;
+    defaultOn: boolean;
+    allowed: boolean;
+    missingScope?: string;
+  };
+}
+
 export type PreviewSize = "thumbnail" | "preview";
 export type ScanTarget = { kind: "new" } | { kind: "existing"; tripId: string };
 
@@ -66,6 +106,11 @@ export interface DraftStation {
   /** Indexes for `tripBuilderApi.previewUrl`. */
   previewIdx: number[];
   notes: string | null;
+  /** Re-sync only. */
+  status?: StationStatus;
+  existingId?: string;
+  before?: StationBefore;
+  notSeen?: NotSeenDefault;
 }
 
 export interface DraftLeg {
@@ -102,6 +147,10 @@ export interface DraftArea {
   stations: DraftStation[];
   /** legs[i] joins stations[i] and stations[i + 1]. */
   legs: DraftLeg[];
+  /** Re-sync only: the stored roadtrip this area updates in place. */
+  roadtripId?: string;
+  /** Re-sync only: stored stations the photos do not show. */
+  notSeen?: DraftStation[];
 }
 
 export interface DraftFlight {
@@ -161,6 +210,8 @@ export interface DraftAlbum {
   allowed: boolean;
   blockedReason?: AlbumCapabilityReason;
   missingScopes: string[];
+  /** Re-sync only. */
+  sync?: AlbumSyncPreview;
 }
 
 export interface ExcludedCounts {
@@ -234,6 +285,8 @@ export interface TripBuilderDraft {
   areas: DraftArea[];
   photoJourneys: DraftPhotoJourney[];
   album: DraftAlbum | null;
+  /** Re-sync only: timeline stops the photos do not show. */
+  notSeenStops?: DraftStation[];
   warnings: BuilderWarning[];
 }
 
@@ -271,6 +324,8 @@ export interface CommitStation {
   firstDay: Day;
   lastDay: Day;
   notes?: string | null;
+  /** Re-sync only: the stored station this one updates. */
+  existingId?: string;
 }
 
 export interface CommitArea {
@@ -283,6 +338,10 @@ export interface CommitArea {
   stations: CommitStation[];
   /** legModes[i] joins stations[i] and stations[i + 1]. */
   legModes: BuilderLegMode[];
+  /** Re-sync only. */
+  roadtripId?: string;
+  keepNotSeen?: string[];
+  removeNotSeen?: string[];
 }
 
 export type CommitTarget =
@@ -299,7 +358,9 @@ export interface CommitBody {
   /** Every area, `skip` ones included. */
   areas: CommitArea[];
   photoJourneyIds: string[];
-  album: { create: boolean; name: string };
+  /** Re-sync only: timeline stops the photos do not show. */
+  stops?: { keep: string[]; remove: string[] };
+  album: { create: boolean; name: string; removeOutside?: boolean };
 }
 
 // ─── Job results (GET /jobs/:id → result) ────────────────────────────────────
@@ -320,6 +381,8 @@ export interface AlbumOutcome {
   added?: number;
   alreadyIn?: number;
   refused?: number;
+  removed?: number;
+  removeSkipped?: "missingScope" | "albumChanged" | "failed";
   error?: { kind: AlbumErrorKind; missingScope?: string };
   missingScopes?: string[];
 }
@@ -327,13 +390,20 @@ export interface AlbumOutcome {
 export interface CommitResult {
   tripId: string;
   created: boolean;
-  roadtrips: Array<{ id: string; name: string; stations: number; nights: number }>;
+  roadtrips: Array<{
+    id: string;
+    name: string;
+    stations: number;
+    nights: number;
+    diff?: RoadtripDiff;
+  }>;
   stopIds: string[];
   flightsAssigned: number;
   flightsMovedFrom: Array<{ tripId: string; name: string }>;
   routing: { routed: number; straight: number; ferry: number; providerAvailable: boolean };
   photoJourneysResolved: number;
   unknownNights: number;
+  stops?: RoadtripDiff;
   album: AlbumOutcome;
 }
 
