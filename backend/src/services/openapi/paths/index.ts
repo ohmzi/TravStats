@@ -51,6 +51,7 @@ import "./accounts";
 import "./integrations";
 import "./photoJourneys";
 import "./tripSuggestions";
+import "./tripBuilder";
 import "./catalog";
 import "./misc";
 import "./countryFlags";

@@ -94,6 +94,7 @@
     "tags.ts",
     "templateStatus.ts",
     "training.ts",
+    "tripBuilder.ts",
     "trips.ts",
     "trips/entrySuggestions.ts",
     "trips/photoDto.ts",

@@ -26,6 +26,7 @@ import flightObservedTimesRoutes from "./flights/observedTimes";
 import upcomingRoutes from "./upcoming";
 import photoJourneyRoutes from "./photoJourneys";
 import tripSuggestionRoutes from "./tripSuggestions";
+import tripBuilderRoutes from "./tripBuilder";
 import flightLookupRoutes from "./flightLookup";
 import statsRoutes from "./stats";
 import statsNetworkRouteRoutes from "./stats/networkRoute";
@@ -189,6 +190,8 @@ export const apiMounts: ApiMount[] = [
   { id: "photoJourneys", base: "/api/v1/photo-journeys", router: photoJourneyRoutes },
   // The cross-domain trip-suggestion engine's inbox tab (owner, 2026-09-26).
   { id: "tripSuggestions", base: "/api/v1/trip-suggestions", router: tripSuggestionRoutes },
+  // Trips built from the Immich library (spec 2026-10-09): scan, review, commit.
+  { id: "tripBuilder", base: "/api/v1/trip-builder", router: tripBuilderRoutes },
   { id: "flightLookup", base: "/api/v1/flight-lookup", router: flightLookupRoutes },
   // One arc of the globe (forgejo#132 item 9). Its own base because
   // `routes/stats.ts` may not grow; it brings that router's middlewares along.
