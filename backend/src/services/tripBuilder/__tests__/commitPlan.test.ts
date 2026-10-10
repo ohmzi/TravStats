@@ -285,6 +285,13 @@ describe("prepareCommit", () => {
     const trip = await prisma.trip.create({ data: { userId, name: "Spring", countries: ["AU"] } });
     const d = draft();
     d.input = { ...d.input, target: { kind: "existing", tripId: trip.id } };
+    // What a scan of this trip, which holds no roadtrip or stop yet, leaves behind.
+    d.existing = {
+      tripId: trip.id,
+      roadtrips: new Map(),
+      stops: { matchedIds: new Set(), notSeenIds: new Set() },
+      album: null,
+    };
     const body = fixtureBody([flightId]);
     body.target = { kind: "existing", tripId: trip.id, applyWindow: false };
     const { target } = await plan(body, d);

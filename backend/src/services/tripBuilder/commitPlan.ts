@@ -27,6 +27,7 @@ import {
   type NightPlanStation,
 } from "../../shared/tour/builderNightPlan";
 import { loadVisibleDomains } from "../domainVisibility";
+import { extendPlanForExisting } from "./commitPlanExisting";
 import type {
   CommitPlan,
   CommitTargetPlan,
@@ -199,7 +200,8 @@ function roadtripPlan(area: CommitArea, index: number, nights: CommitBody["night
       night: row.slept ? { kind: "free" } : { kind: "pass" },
     })),
   });
-  if (!parsed.success || parsed.data.stations.length < 2) {
+  // An area that updates a stored roadtrip keeps its other stations, which are not rows here.
+  if (!parsed.success || (parsed.data.stations.length < 2 && area.roadtripId === undefined)) {
     throw new AppError(
       "A roadtrip needs at least two valid stations",
       400,
@@ -275,7 +277,7 @@ export async function prepareCommit(
     return answer === undefined || answer === NIGHT_UNKNOWN;
   }).length;
 
-  return {
+  const plan: CommitPlan = {
     draftId: draft.id,
     userId,
     window: { ...body.window },
@@ -287,4 +289,5 @@ export async function prepareCommit(
     album: { create: body.album.create, name: body.album.name },
     unknownNights,
   };
+  return extendPlanForExisting(userId, draft, body, plan);
 }
