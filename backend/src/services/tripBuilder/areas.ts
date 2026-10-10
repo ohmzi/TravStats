@@ -149,3 +149,33 @@ export function draftLabels(
   const firstCity = areas.flatMap((area) => area.stations).find(isCity)?.title ?? null;
   return { originLabel: firstCity === destinationLabel ? null : firstCity, destinationLabel };
 }
+
+/**
+ * An area as the draft shows it. `plan.legs` must be the legs of `plan.stations`
+ * (the final list, home and airport stations included), one fewer than stations.
+ */
+export function toDraftArea(
+  plan: AreaPlan,
+  defaultAs: AreaKind,
+  suggestedName: string,
+  mainCity: string | null
+): DraftArea {
+  if (plan.legs.length !== Math.max(0, plan.stations.length - 1)) {
+    throw new Error(
+      `Area ${plan.key} has ${plan.legs.length} legs for ${plan.stations.length} stations`
+    );
+  }
+  return {
+    key: plan.key,
+    defaultAs,
+    suggestedName,
+    mainCity,
+    startDay: plan.area.startDay,
+    endDay: plan.area.endDay,
+    ...(plan.area.afterFlightId === null ? {} : { afterFlightId: plan.area.afterFlightId }),
+    ...(plan.area.beforeFlightId === null ? {} : { beforeFlightId: plan.area.beforeFlightId }),
+    home: plan.home,
+    stations: plan.stations,
+    legs: plan.legs,
+  };
+}
