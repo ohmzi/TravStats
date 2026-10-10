@@ -78,4 +78,23 @@ describe("clusterCities: a chain that runs two cities together", () => {
     expect(clusters.map((c) => c.id)).toEqual(["c1", "c2", "c3"]);
     expect(clusters[0].photoIds).toEqual(["h1"]);
   });
+
+  it("numbers a split's pieces around a cluster whose first photo falls between theirs", () => {
+    // Time order: the north piece (n, e), a home photo at 11:30, then the south piece (p, q).
+    // The chain is one linkage group, so its two pieces come out of the split side by side;
+    // only sorting by first photo puts the home photo between them.
+    const input = [
+      ...row("n", -45.0, 3, "Northvale", 6),
+      ...row("e", -44.93, 3, "Northvale East", 9),
+      photo("h1", "2031-05-05 11:30", KELMORE),
+      ...row("p", -44.7, 2, "Port Carrow", 12),
+      ...row("q", -44.45, 2, "Port Carrow", 14),
+    ];
+    const clusters = clusterCities(input);
+    expect(clusters.map((c) => [c.id, c.photoIds[0], c.photoIds.length])).toEqual([
+      ["c1", "n1", 6],
+      ["c2", "h1", 1],
+      ["c3", "p1", 4],
+    ]);
+  });
 });
