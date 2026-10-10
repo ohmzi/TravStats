@@ -1,11 +1,17 @@
-import type { ExistingStation } from "../existingTypes";
+import type { ExistingRoadtrip, ExistingStation, ExistingStop } from "../existingTypes";
 import {
+  derivedStopOf,
   interleaveKept,
   isCoordinateTitle,
   liesOutsideWindow,
+  matchAreasToRoadtrips,
   matchStatus,
   reconcileStations,
+  reconcileStops,
+  reconcileTrip,
   type DerivedStation,
+  type ReconcileArea,
+  type StopArea,
 } from "../reconcile";
 
 // Synthetic fixtures only (public repository). Port Carrow lies about 52 km from
@@ -320,5 +326,209 @@ describe("interleaveKept", () => {
   it("drops a stored station that is neither matched nor kept", () => {
     const order = interleaveKept(["a"], [a, c], new Set());
     expect(order).toEqual([{ kind: "derived", index: 0 }]);
+  });
+});
+
+function roadtrip(id: string, name: string, stations: ExistingStation[]): ExistingRoadtrip {
+  return { id, name, stations, legs: [] };
+}
+
+function area(key: string, name: string, stations: DerivedStation[]): ReconcileArea {
+  return { key, kind: "roadtrip", name, stations };
+}
+
+describe("matchAreasToRoadtrips", () => {
+  const r1 = roadtrip("r1", "Northvale loop", [
+    stored({ id: "r1a", title: "Northvale" }),
+    stored({
+      id: "r1b",
+      title: "Kelmore",
+      ...KELMORE,
+      startDate: "2031-05-04",
+      endDate: "2031-05-05",
+    }),
+  ]);
+  const r2 = roadtrip("r2", "Coast run", [
+    stored({
+      id: "r2a",
+      title: "Port Carrow",
+      ...PORT_CARROW,
+      startDate: "2031-05-06",
+      endDate: "2031-05-08",
+    }),
+    stored({
+      id: "r2b",
+      title: "Tarnside",
+      ...TARNSIDE,
+      startDate: "2031-05-08",
+      endDate: "2031-05-09",
+    }),
+  ]);
+  const northvaleArea = area("2031-05-02#1", "Northvale loop", [
+    derived("k1", "Northvale"),
+    derived("k2", "Kelmore", { ...KELMORE, startDate: "2031-05-04", endDate: "2031-05-05" }),
+  ]);
+  const coastArea = area("2031-05-06#1", "Coast run", [
+    derived("k3", "Port Carrow", {
+      ...PORT_CARROW,
+      startDate: "2031-05-06",
+      endDate: "2031-05-08",
+    }),
+    derived("k4", "Tarnside", { ...TARNSIDE, startDate: "2031-05-08", endDate: "2031-05-09" }),
+  ]);
+
+  it("matches each area to the roadtrip it shares most stations with, whatever the order", () => {
+    const matches = matchAreasToRoadtrips([coastArea, northvaleArea], [r1, r2], WINDOW);
+    expect(matches.map((m) => [m.areaKey, m.roadtripId])).toEqual([
+      ["2031-05-06#1", "r2"],
+      ["2031-05-02#1", "r1"],
+    ]);
+  });
+
+  it("uses a roadtrip once: the area with more stations wins", () => {
+    const weaker = area("2031-05-03#1", "Other", [derived("k9", "Northvale")]);
+    const matches = matchAreasToRoadtrips([weaker, northvaleArea], [r1], WINDOW);
+    expect(matches.map((m) => [m.areaKey, m.roadtripId])).toEqual([["2031-05-02#1", "r1"]]);
+  });
+
+  it("falls back to the roadtrip's name when no station matches", () => {
+    const south = area("2031-05-02#1", "southern loop", [
+      derived("k1", "Elsewhere", { lat: -46.5, lon: 169.9 }),
+    ]);
+    const named = roadtrip("r3", "Southern loop", [
+      stored({ id: "r3a", title: "Faraway", lat: -46.9, lon: 171.0 }),
+    ]);
+    const [match] = matchAreasToRoadtrips([south], [named], WINDOW);
+    expect(match.roadtripId).toBe("r3");
+    expect(match.reconciled.derived[0].status).toBe("new");
+    expect(match.reconciled.notSeen.map((n) => n.stored.id)).toEqual(["r3a"]);
+  });
+
+  it("leaves an area with no partner to become a new roadtrip", () => {
+    const lonely = area("2031-05-02#1", "Brand new", [
+      derived("k1", "Elsewhere", { lat: -46.5, lon: 169.9 }),
+    ]);
+    expect(matchAreasToRoadtrips([lonely], [r1, r2], WINDOW)).toEqual([]);
+  });
+
+  it("only considers areas that would become roadtrips", () => {
+    const asStops: ReconcileArea = { ...northvaleArea, kind: "stops" };
+    expect(matchAreasToRoadtrips([asStops], [r1], WINDOW)).toEqual([]);
+  });
+});
+
+describe("timeline stops", () => {
+  const home = {
+    key: "k-home",
+    title: "Home",
+    titleSource: "home" as const,
+    kind: "home" as const,
+    lat: -45.9,
+    lon: 170.5,
+    firstDay: "2031-05-02",
+    lastDay: "2031-05-02",
+  };
+  const northvale = (key: string, firstDay: string, lastDay: string) => ({
+    key,
+    title: "Northvale",
+    titleSource: "geocode" as const,
+    kind: "visit" as const,
+    ...NORTHVALE,
+    firstDay,
+    lastDay,
+  });
+  const stopArea: StopArea = {
+    key: "2031-05-02#1",
+    stations: [
+      home,
+      northvale("k1", "2031-05-02", "2031-05-04"),
+      northvale("k2", "2031-05-04", "2031-05-05"),
+    ],
+  };
+
+  it("derives one stop over the area's ground days and ignores home and airport stations", () => {
+    expect(derivedStopOf(stopArea)).toEqual({
+      key: "k1",
+      title: "Northvale",
+      titleSource: "geocode",
+      ...NORTHVALE,
+      startDate: "2031-05-02",
+      endDate: "2031-05-05",
+      slept: false,
+    });
+    expect(derivedStopOf({ key: "x", stations: [home] })).toBeNull();
+  });
+
+  const museum: ExistingStop = {
+    id: "s1",
+    title: "Northvale",
+    ...NORTHVALE,
+    startDay: "2031-05-02",
+    endDay: "2031-05-04",
+    notes: null,
+  };
+  const harbour: ExistingStop = {
+    id: "s2",
+    title: "Kelmore Harbour",
+    ...KELMORE,
+    startDay: "2031-05-06",
+    endDay: "2031-05-06",
+    notes: "Ferry café",
+  };
+
+  it("matches a stop, sees its dates changed, and lists the unmatched one as not seen", () => {
+    const result = reconcileStops([stopArea], [museum, harbour], WINDOW);
+    const rec = result.matched.get("2031-05-02#1");
+    expect(rec).toMatchObject({ key: "k1", status: "changed" });
+    expect(rec?.existing?.id).toBe("s1");
+    expect(result.notSeen.map((n) => [n.stored.id, n.defaultKeep])).toEqual([["s2", true]]);
+  });
+
+  it("reports an area whose stop is not stored yet as new", () => {
+    const result = reconcileStops([stopArea], [], WINDOW);
+    expect(result.matched.get("2031-05-02#1")?.status).toBe("new");
+  });
+});
+
+describe("reconcileTrip", () => {
+  it("reconciles roadtrip areas and stop areas against the same trip", () => {
+    const state = {
+      roadtrips: [roadtrip("r1", "Northvale loop", [stored({ id: "r1a", title: "Northvale" })])],
+      stops: [
+        {
+          id: "s1",
+          title: "Kelmore",
+          ...KELMORE,
+          startDay: "2031-05-06",
+          endDay: "2031-05-07",
+          notes: null,
+        },
+      ],
+    };
+    const result = reconcileTrip({
+      window: WINDOW,
+      roadtripAreas: [area("2031-05-02#1", "Northvale loop", [derived("k1", "Northvale")])],
+      stopAreas: [
+        {
+          key: "2031-05-06#1",
+          stations: [
+            {
+              key: "k5",
+              title: "Kelmore",
+              titleSource: "geocode",
+              kind: "visit",
+              ...KELMORE,
+              firstDay: "2031-05-06",
+              lastDay: "2031-05-07",
+            },
+          ],
+        },
+      ],
+      state,
+    });
+    expect(result.roadtrips.map((m) => [m.areaKey, m.roadtripId])).toEqual([
+      ["2031-05-02#1", "r1"],
+    ]);
+    expect(result.stops.matched.get("2031-05-06#1")?.status).toBe("same");
   });
 });

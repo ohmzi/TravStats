@@ -17,12 +17,15 @@
 import { distanceKm } from "../photoJourneys/cluster";
 import {
   isSleptNight,
+  type ExistingRoadtrip,
   type ExistingStation,
+  type ExistingStop,
+  type ExistingTripState,
   type NotSeenReason,
   type StationBefore,
 } from "./existingTypes";
 import { CITY_LINK_KM } from "./thresholds";
-import type { Day, TitleSource } from "./types";
+import type { AreaKind, Day, DraftStation, TitleSource } from "./types";
 
 /** What reconcile needs of a derived station: the first row it would store, and where its title came from. */
 export interface DerivedStation {
@@ -249,4 +252,162 @@ export function interleaveKept(
     previous = s.id;
   }
   return order;
+}
+
+// ─── Areas to roadtrips ──────────────────────────────────────────────────────
+
+export interface ReconcileArea {
+  key: string;
+  kind: AreaKind;
+  /** The name the area would get as a new roadtrip (`suggestedName`). */
+  name: string;
+  stations: readonly DerivedStation[];
+}
+
+export interface RoadtripMatch {
+  areaKey: string;
+  roadtripId: string;
+  reconciled: ReconciledStations;
+}
+
+/**
+ * Each derived area that would become a roadtrip is matched to a roadtrip of the
+ * trip: first by the number of stations the two share (most wins, best pair
+ * first), then by name. A roadtrip serves one area, an area one roadtrip; an
+ * area left over becomes a new roadtrip, and a roadtrip left over is not touched.
+ */
+export function matchAreasToRoadtrips(
+  areas: readonly ReconcileArea[],
+  roadtrips: readonly ExistingRoadtrip[],
+  window: ReconcileWindow
+): RoadtripMatch[] {
+  const scored: Array<{
+    area: ReconcileArea;
+    roadtrip: ExistingRoadtrip;
+    reconciled: ReconciledStations;
+    hits: number;
+  }> = [];
+  for (const area of areas) {
+    if (area.kind !== "roadtrip") continue;
+    for (const roadtrip of roadtrips) {
+      const reconciled = reconcileStations(area.stations, roadtrip.stations, window);
+      const hits = reconciled.derived.filter((d) => d.existing !== undefined).length;
+      scored.push({ area, roadtrip, reconciled, hits });
+    }
+  }
+
+  const usedAreas = new Set<string>();
+  const usedRoadtrips = new Set<string>();
+  const matches: RoadtripMatch[] = [];
+  const take = (s: (typeof scored)[number]): void => {
+    usedAreas.add(s.area.key);
+    usedRoadtrips.add(s.roadtrip.id);
+    matches.push({ areaKey: s.area.key, roadtripId: s.roadtrip.id, reconciled: s.reconciled });
+  };
+
+  for (const s of [...scored].sort((a, b) => b.hits - a.hits)) {
+    if (s.hits === 0 || usedAreas.has(s.area.key) || usedRoadtrips.has(s.roadtrip.id)) continue;
+    take(s);
+  }
+  for (const s of scored) {
+    if (usedAreas.has(s.area.key) || usedRoadtrips.has(s.roadtrip.id)) continue;
+    if (sameTitle(s.area.name, s.roadtrip.name)) take(s);
+  }
+  return matches;
+}
+
+// ─── Timeline stops ──────────────────────────────────────────────────────────
+
+export interface StopArea {
+  key: string;
+  stations: ReadonlyArray<
+    Pick<
+      DraftStation,
+      "key" | "title" | "titleSource" | "kind" | "lat" | "lon" | "firstDay" | "lastDay"
+    >
+  >;
+}
+
+/**
+ * The one stop a `stops` area stands for: its first ground station, over the
+ * area's first to last ground day. Home and airport stations are not stops. The
+ * returned key is the station that carries the stop's status in the review.
+ */
+export function derivedStopOf(area: StopArea): DerivedStation | null {
+  const ground = area.stations.filter((s) => s.kind !== "home" && s.kind !== "airport");
+  if (ground.length === 0) return null;
+  const first = ground[0];
+  return {
+    key: first.key,
+    title: first.title,
+    titleSource: first.titleSource,
+    lat: first.lat,
+    lon: first.lon,
+    startDate: ground.reduce((min, s) => (s.firstDay < min ? s.firstDay : min), first.firstDay),
+    endDate: ground.reduce((max, s) => (s.lastDay > max ? s.lastDay : max), first.lastDay),
+    slept: false,
+  };
+}
+
+/** A timeline stop read as a station that was passed, so the same matching rules apply. */
+export function stopAsStation(stop: ExistingStop): ExistingStation {
+  return {
+    id: stop.id,
+    title: stop.title,
+    lat: stop.lat,
+    lon: stop.lon,
+    startDate: stop.startDay,
+    endDate: stop.endDay,
+    night: "pass",
+    lodgingStayId: null,
+    placeId: null,
+    notes: stop.notes,
+  };
+}
+
+export interface StopsReconcile {
+  /** Area key → how its stop stands (`new` when nothing is stored for it). */
+  matched: Map<string, ReconciledStation>;
+  /** Stored stops no area matched. */
+  notSeen: NotSeenStation[];
+}
+
+export function reconcileStops(
+  areas: readonly StopArea[],
+  stops: readonly ExistingStop[],
+  window: ReconcileWindow
+): StopsReconcile {
+  const derived: DerivedStation[] = [];
+  const areaKeys: string[] = [];
+  for (const area of areas) {
+    const stop = derivedStopOf(area);
+    if (stop === null) continue;
+    derived.push(stop);
+    areaKeys.push(area.key);
+  }
+  const result = reconcileStations(derived, stops.map(stopAsStation), window);
+  const matched = new Map<string, ReconciledStation>();
+  result.derived.forEach((rec, index) => matched.set(areaKeys[index], rec));
+  return { matched, notSeen: result.notSeen };
+}
+
+// ─── The whole trip ──────────────────────────────────────────────────────────
+
+export interface TripReconcileInput {
+  window: ReconcileWindow;
+  roadtripAreas: readonly ReconcileArea[];
+  stopAreas: readonly StopArea[];
+  state: Pick<ExistingTripState, "roadtrips" | "stops">;
+}
+
+export interface TripReconcile {
+  roadtrips: RoadtripMatch[];
+  stops: StopsReconcile;
+}
+
+export function reconcileTrip(input: TripReconcileInput): TripReconcile {
+  return {
+    roadtrips: matchAreasToRoadtrips(input.roadtripAreas, input.state.roadtrips, input.window),
+    stops: reconcileStops(input.stopAreas, input.state.stops, input.window),
+  };
 }
