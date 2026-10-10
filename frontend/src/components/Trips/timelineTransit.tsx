@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { JSX } from "react";
 import { RailTripCard } from "../rail/RailTripCard";
 import { RentalTripCard } from "../rental/RentalTripCard";
+import { RoadtripStationTimelineCard } from "./RoadtripStationTimelineCard";
 import { formatTimelineDate } from "../../lib/tripTimeline";
 import type { TimelineEvent } from "../../lib/tripTimelineEvents";
 import { rentalBandSegments, type RentalBandSegment } from "../../lib/rentalTimelineBands";
@@ -12,7 +13,7 @@ import { rentalBandSegments, type RentalBandSegment } from "../../lib/rentalTime
  * the file-size ratchet freezes at its size.
  */
 
-/** A train ride or a rental end; null for every other entry. */
+/** A train ride, a rental end or a roadtrip station; null for every other entry. */
 export function TransitCard({ ev }: { ev: TimelineEvent }): JSX.Element | null {
   if (ev.kind === "rail") {
     return (
@@ -28,6 +29,7 @@ export function TransitCard({ ev }: { ev: TimelineEvent }): JSX.Element | null {
       />
     );
   }
+  if (ev.kind === "roadtrip-station") return <RoadtripStationTimelineCard ev={ev} />;
   return null;
 }
 
