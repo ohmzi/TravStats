@@ -6,7 +6,18 @@
  * The roadtrip names themselves come from `roadtripAreaNames`
  * (shared/tour/builderNightPlan.ts), fed with `mainCityOf` and each area's start day.
  */
-import type { AreaKind, AreaPlan, Day, GroundArea, NightEntry, PlanStation } from "./types";
+import { daysBetween } from "../../shared/time/localDate";
+import type {
+  AreaKind,
+  AreaPlan,
+  CountryAt,
+  Day,
+  DraftArea,
+  FlightAnchor,
+  GroundArea,
+  NightEntry,
+  PlanStation,
+} from "./types";
 
 /** `<startDay>#<n>`: how an area is named across a re-scan and in the commit body. */
 export function areaKeyOf(startDay: Day, ordinal: number): string {
@@ -86,4 +97,55 @@ export function mainCityOf(
     if (wins) main = city;
   }
   return main === null ? null : main.title;
+}
+
+export interface DraftCountriesInput {
+  stations: readonly PlanStation[];
+  /** The flights ticked in review: their arrival countries are part of the trip. */
+  tickedFlights: readonly FlightAnchor[];
+  countryAt: CountryAt;
+  /** The countries an existing trip already names; they come first. */
+  existing: readonly string[];
+}
+
+/**
+ * The countries a trip names: the existing ones, then where its stations stand
+ * (home and airport stations left out) and where its ticked flights land. Upper-
+ * case two-letter codes, each once; a place the resolver cannot name adds none.
+ */
+export function draftCountries(input: DraftCountriesInput): string[] {
+  const codes: string[] = [];
+  const add = (code: string | null): void => {
+    const upper = code?.toUpperCase() ?? "";
+    if (/^[A-Z]{2}$/.test(upper) && !codes.includes(upper)) codes.push(upper);
+  };
+  input.existing.forEach(add);
+  for (const station of input.stations.filter(isCity)) {
+    add(input.countryAt(station.lat, station.lon));
+  }
+  for (const flight of input.tickedFlights) add(input.countryAt(flight.arr.lat, flight.arr.lon));
+  return codes;
+}
+
+const daySpanOf = (area: DraftArea): number => daysBetween(area.startDay, area.endDay);
+
+/**
+ * The trip's origin and destination labels: the home city (else the first
+ * city of the trip) to the main city of the longest area. Without a home, an
+ * origin that is the destination too is left out rather than say "A → A".
+ */
+export function draftLabels(
+  areas: readonly DraftArea[],
+  homeTitle: string | null
+): { originLabel: string | null; destinationLabel: string | null } {
+  let longest: DraftArea | undefined;
+  for (const area of areas) {
+    if (longest === undefined || daySpanOf(area) > daySpanOf(longest)) longest = area;
+  }
+  const destinationLabel = longest?.mainCity ?? null;
+
+  const home = homeTitle?.trim() || null;
+  if (home !== null) return { originLabel: home, destinationLabel };
+  const firstCity = areas.flatMap((area) => area.stations).find(isCity)?.title ?? null;
+  return { originLabel: firstCity === destinationLabel ? null : firstCity, destinationLabel };
 }
