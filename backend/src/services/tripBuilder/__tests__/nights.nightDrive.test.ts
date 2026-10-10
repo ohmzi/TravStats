@@ -1,4 +1,5 @@
 import { attributeNights } from "../nights";
+import type { FlightAnchor } from "../types";
 import {
   area,
   flight,
@@ -10,6 +11,7 @@ import {
   nightInputs,
   NORTHVALE,
   photo,
+  preciseFlight,
   EASTMERE,
   ROADSIDE,
   station,
@@ -49,6 +51,31 @@ function drive(
   return attributeNights(nightInputs("2031-05-02", "2031-05-04", [trip]));
 }
 
+/**
+ * The 19:10 evening photo at Northvale and the 07:30 morning one at Eastmere,
+ * both in ONE area, with whatever flights `anchors` lists. Only the take-off
+ * times can come between the photos. `afterFlightId` names the flight that
+ * opened the area, which keeps the landing rule from answering for it.
+ */
+function oneAreaDrive(anchors: FlightAnchor[], afterFlightId?: string) {
+  const trip = area({
+    startDay: "2031-05-02",
+    endDay: "2031-05-03",
+    stations: [
+      station(KEY_NORTHVALE, "Northvale", NORTHVALE, "2031-05-02", "2031-05-02"),
+      station(KEY_EASTMERE, "Eastmere", EASTMERE, "2031-05-03", "2031-05-03"),
+    ],
+    photos: [
+      photo("a1", "2031-05-02 19:10", NORTHVALE),
+      photo("b1", "2031-05-03 07:30", EASTMERE),
+      photo("b2", "2031-05-03 20:00", EASTMERE),
+    ],
+    placeOf: { a1: KEY_NORTHVALE, b1: KEY_EASTMERE, b2: KEY_EASTMERE },
+    afterFlightId,
+  });
+  return attributeNights(nightInputs("2031-05-02", "2031-05-04", [trip], { anchors }));
+}
+
 describe("attributeNights: a night drive", () => {
   it("gives the night to the station driven toward after a long evening-to-morning drive", () => {
     const { nights } = drive("2031-05-02 19:10", "2031-05-03 07:30");
@@ -83,6 +110,19 @@ describe("attributeNights: a night drive", () => {
     expect(nights["2031-05-02"]).toEqual({
       assign: KEY_EASTMERE,
       reason: "lastPhoto",
+      suggestedStationKeys: [],
+    });
+  });
+
+  it("counts a 01:30 departure as the end of the evening: 00:00-03:59 reads as 24:00-27:59", () => {
+    // The 01:30 photo is taken on the 3rd but belongs to the night of the 2nd. On
+    // that night's clock it is 25:30, so it is an evening departure; read as a
+    // plain 01:30 it would fall before 18:00 and the drive would not count.
+    const { nights } = drive("2031-05-03 01:30", "2031-05-03 07:00");
+
+    expect(nights["2031-05-02"]).toEqual({
+      assign: KEY_EASTMERE,
+      reason: "nightDrive",
       suggestedStationKeys: [],
     });
   });
@@ -142,6 +182,49 @@ describe("attributeNights: a night drive", () => {
       KEY_NORTHVALE,
       "lastPhoto",
     ]);
+  });
+
+  it("does not drive through a flight inside one area: a precise take-off between the two photos", () => {
+    // Northvale at 19:10 on the 2nd, Eastmere at 07:30 on the 3rd, one area. The
+    // flight takes off at 02:00 on the 3rd, between them, and lands after 04:00,
+    // so it is airborne at no midnight and lands in the night of the 3rd.
+    const hop = preciseFlight("f1", "2031-05-03 02:00", "2031-05-03 05:30");
+
+    const { nights } = oneAreaDrive([hop]);
+
+    expect(nights["2031-05-02"]).toEqual({
+      assign: KEY_NORTHVALE,
+      reason: "lastPhoto",
+      suggestedStationKeys: [],
+    });
+  });
+
+  it("is not stopped by a take-off after the second photo", () => {
+    // The same drive, but the flight takes off at 12:00 on the 3rd, after the
+    // drive has arrived: nothing lies between the two photos.
+    const later = preciseFlight("f1", "2031-05-03 12:00", "2031-05-03 15:30");
+
+    const { nights } = oneAreaDrive([later]);
+
+    expect(nights["2031-05-02"]).toEqual({
+      assign: KEY_EASTMERE,
+      reason: "nightDrive",
+      suggestedStationKeys: [],
+    });
+  });
+
+  it("is not stopped by a take-off before the first photo", () => {
+    // The flight took off at 10:00 on the 2nd and landed at 12:00, before the
+    // 19:10 photo, and the area opens after it: the drive left after the plane.
+    const earlier = preciseFlight("f1", "2031-05-02 10:00", "2031-05-02 12:00");
+
+    const { nights } = oneAreaDrive([earlier], "f1");
+
+    expect(nights["2031-05-02"]).toEqual({
+      assign: KEY_EASTMERE,
+      reason: "nightDrive",
+      suggestedStationKeys: [],
+    });
   });
 
   it("gives a drive that ends at home to home", () => {
