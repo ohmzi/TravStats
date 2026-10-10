@@ -17,7 +17,7 @@ import { ALBUM_SCOPES, scopesMissing } from "../immich/immichCapabilities";
 import { invalidateAlbumAssets } from "../immich/immichAssetCache";
 import { createImmichClient, type ImmichClient } from "../immich/immichClient";
 import { getImmichConnection } from "../immich/immichResolver";
-import { ImmichError } from "../immich/types";
+import { ImmichError, type ImmichAlbum } from "../immich/types";
 import { collectWindow } from "./collect";
 import { loadFlights } from "./loadFlights";
 import { PREFLIGHT_TIMEOUT_MS } from "./thresholds";
@@ -45,7 +45,7 @@ function blocked(reason: PreflightBlockReason, missingScopes: string[] = []): Al
   return { ok: false, blocked: { status: "blocked", reason, missingScopes } };
 }
 
-function messageOf(error: unknown): string {
+export function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
@@ -108,7 +108,8 @@ export async function preflightAlbum(
   }
 }
 
-function failed(error: unknown): AlbumOutcome {
+/** A failed album step is an outcome, never an exception, and leaves a trace in the log for the operator. */
+export function failed(error: unknown): AlbumOutcome {
   if (error instanceof ImmichError) {
     // Kind and status only: the message can name an album or an asset.
     logger.warn(
@@ -129,6 +130,41 @@ function failed(error: unknown): AlbumOutcome {
 }
 
 /**
+ * Records the album on the trip's link row, as Immich reports it now: name,
+ * count, cover and the time of this sync. A first link goes after the trip's
+ * others (`link` mode); an existing one keeps its mode and position. The cover
+ * is refreshed every time because the album proxy serves only assets that are
+ * still in the album, so a stored cover that was removed would 404.
+ */
+export async function upsertAlbumLink(
+  tripId: string,
+  immichAlbumId: string,
+  fresh: Pick<ImmichAlbum, "albumName" | "assetCount" | "thumbnailAssetId">
+): Promise<void> {
+  const last = await prisma.tripImmichAlbum.aggregate({
+    where: { tripId },
+    _max: { sortIdx: true },
+  });
+  const fields = {
+    albumName: fresh.albumName,
+    assetCount: fresh.assetCount,
+    thumbnailAssetId: fresh.thumbnailAssetId,
+    lastSyncedAt: now(),
+  };
+  await prisma.tripImmichAlbum.upsert({
+    where: { tripId_immichAlbumId: { tripId, immichAlbumId } },
+    create: {
+      tripId,
+      immichAlbumId,
+      mode: "link",
+      sortIdx: (last._max.sortIdx ?? -1) + 1,
+      ...fields,
+    },
+    update: fields,
+  });
+}
+
+/**
  * Find the user's own album of this exact name or create it empty, add the
  * assets (Immich reports `duplicate` for those already in, so a retry is
  * safe), read the album back and upsert the link row. Creating the album with
@@ -145,27 +181,7 @@ export async function writeTripAlbum(input: AlbumWriteInput): Promise<AlbumOutco
     const result = await client.addAssetsToAlbum(album.id, input.assetIds);
     const fresh = await client.getAlbum(album.id);
 
-    const last = await prisma.tripImmichAlbum.aggregate({
-      where: { tripId },
-      _max: { sortIdx: true },
-    });
-    const fields = {
-      albumName: fresh.albumName,
-      assetCount: fresh.assetCount,
-      thumbnailAssetId: fresh.thumbnailAssetId,
-      lastSyncedAt: now(),
-    };
-    await prisma.tripImmichAlbum.upsert({
-      where: { tripId_immichAlbumId: { tripId, immichAlbumId: album.id } },
-      create: {
-        tripId,
-        immichAlbumId: album.id,
-        mode: "link",
-        sortIdx: (last._max.sortIdx ?? -1) + 1,
-        ...fields,
-      },
-      update: fields,
-    });
+    await upsertAlbumLink(tripId, album.id, fresh);
     invalidateAlbumAssets(userId, album.id);
     return {
       status: "linked",

@@ -6,6 +6,7 @@ jest.mock("../../../utils/logger", () => ({
 }));
 
 import { prisma } from "../../../db";
+import logger from "../../../utils/logger";
 import { ImmichError } from "../../immich/types";
 import type { ImmichAsset } from "../../immich/types";
 import { albumDescription } from "../albumWrite";
@@ -36,6 +37,8 @@ interface Setup {
   ownerId?: string;
   permissions?: string[] | null;
   byName?: boolean;
+  /** The cover Immich reports for the album now; `"thumb-1"` when omitted. */
+  thumbnailAssetId?: string | null;
 }
 
 function fakeClient(setup: Setup = {}) {
@@ -53,7 +56,7 @@ function fakeClient(setup: Setup = {}) {
       description: setup.description ?? MARKED,
       ownerId: setup.ownerId ?? ME,
       assetCount: members.length,
-      thumbnailAssetId: "thumb-1",
+      thumbnailAssetId: setup.thumbnailAssetId === undefined ? "thumb-1" : setup.thumbnailAssetId,
     })),
     listAlbumAssets: jest.fn(async () => members),
     findOwnedAlbumByName: jest.fn(async () =>
@@ -88,6 +91,7 @@ function fakeClient(setup: Setup = {}) {
 describe("resyncTripAlbum", () => {
   let fx: ExistingFixture;
   beforeEach(async () => {
+    jest.clearAllMocks();
     fx = await createExistingFixture(USER);
     // The fixture links album 000...01; make the test client's album that one.
   });
@@ -117,6 +121,28 @@ describe("resyncTripAlbum", () => {
 
   it("pins the description marker to the one TravStats writes", () => {
     expect(hasTravstatsMarker(albumDescription("2031-05-02", "2031-05-09"))).toBe(true);
+  });
+
+  it("takes the cover from the album as it is now, so a removed photo is not left as the cover", async () => {
+    await prisma.tripImmichAlbum.update({
+      where: { id: fx.linkId },
+      data: { thumbnailAssetId: "o1" },
+    });
+    const { client } = fakeClient({
+      members: [asset("m1"), asset("o1", "2031-03-01T09:00:00.000Z")],
+      thumbnailAssetId: "m1",
+    });
+    await resyncTripAlbum(
+      input(client, { assetIds: ["m1"], outsideIds: ["o1"], removeOutside: true })
+    );
+    expect((await link()).thumbnailAssetId).toBe("m1");
+  });
+
+  it("gives a link that has no cover the album's cover", async () => {
+    expect((await link()).thumbnailAssetId).toBeNull();
+    const { client } = fakeClient({ members: [asset("m1")], thumbnailAssetId: "m1" });
+    await resyncTripAlbum(input(client, { assetIds: ["m1", "n1"] }));
+    expect((await link()).thumbnailAssetId).toBe("m1");
   });
 
   it("adds the new-window photos the album lacks, and says how many were already in", async () => {
@@ -331,5 +357,38 @@ describe("resyncTripAlbum", () => {
     );
     const outcome = await resyncTripAlbum(input(client));
     expect(outcome).toEqual({ status: "failed", error: { kind: "unreachable" } });
+  });
+
+  it.each(["unreachable", "protocol", "notFound", "auth"] as const)(
+    "leaves a '%s' failure in the log with its kind and status, and nothing that names an asset",
+    async (kind) => {
+      const { client } = fakeClient({ members: [] });
+      (client.listAlbumAssets as jest.Mock).mockRejectedValueOnce(
+        new ImmichError(kind, "Immich refused m1 with the key", 502)
+      );
+      expect(await resyncTripAlbum(input(client))).toMatchObject({
+        status: "failed",
+        error: { kind },
+      });
+      expect(logger.warn).toHaveBeenCalledWith(
+        { operation: "trip_builder.album_failed", kind, status: 502 },
+        expect.any(String)
+      );
+      expect(logger.error).not.toHaveBeenCalled();
+    }
+  );
+
+  it("reports anything else as an internal failure, logged as an error", async () => {
+    const { client } = fakeClient({ members: [] });
+    (client.listAlbumAssets as jest.Mock).mockRejectedValueOnce(new Error("boom"));
+    expect(await resyncTripAlbum(input(client))).toEqual({
+      status: "failed",
+      error: { kind: "internal" },
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: "trip_builder.album_failed", error: "boom" }),
+      "Writing the trip album failed"
+    );
+    expect(logger.warn).not.toHaveBeenCalled();
   });
 });

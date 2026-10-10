@@ -6,14 +6,12 @@
  * (`resyncTripAlbum`, Task 155). Both only ever act on ids the SERVER
  * computed — the commit body carries no asset id.
  */
-import { prisma } from "../../db";
-import { now } from "../../shared/time/clock";
 import logger from "../../utils/logger";
 import { invalidateAlbumAssets } from "../immich/immichAssetCache";
 import type { ImmichClient } from "../immich/immichClient";
 import { ALBUM_REMOVE_SCOPE, albumRemovalCapability } from "../immich/immichCapabilities";
 import { ImmichError, type ImmichAlbumInfo } from "../immich/types";
-import { albumDescription } from "./albumWrite";
+import { albumDescription, failed, messageOf, upsertAlbumLink } from "./albumWrite";
 import {
   hasTravstatsMarker,
   type AlbumRemoveSkip,
@@ -210,24 +208,6 @@ export interface ResyncInput {
   immichUserId: string;
 }
 
-function failure(error: unknown): AlbumOutcome {
-  if (error instanceof ImmichError) {
-    const missingScope = error.detail?.missingScope;
-    return {
-      status: "failed",
-      error: { kind: error.kind, ...(missingScope ? { missingScope } : {}) },
-    };
-  }
-  logger.error(
-    {
-      operation: "tripBuilder.album.resync",
-      error: error instanceof Error ? error.message : String(error),
-    },
-    "Album re-sync failed"
-  );
-  return { status: "failed", error: { kind: "internal" } };
-}
-
 /**
  * Removal runs after the additions and only ever takes out ids the scan
  * computed AND that are still members. It never fails the re-sync: the photos
@@ -255,7 +235,7 @@ async function removeOutsideMembers(
       {
         operation: "tripBuilder.album.removeOutside",
         albumId,
-        error: error instanceof Error ? error.message : String(error),
+        error: messageOf(error),
       },
       "Photos outside the trip dates could not be removed from the album"
     );
@@ -276,46 +256,11 @@ async function refreshDescription(
       {
         operation: "tripBuilder.album.description",
         albumId,
-        error: error instanceof Error ? error.message : String(error),
+        error: messageOf(error),
       },
       "The album description was not refreshed"
     );
   }
-}
-
-async function recordLink(
-  input: ResyncInput,
-  target: AlbumTarget,
-  albumId: string,
-  fresh: ImmichAlbumInfo
-): Promise<void> {
-  const syncedAt = now();
-  const synced = {
-    albumName: fresh.albumName,
-    assetCount: fresh.assetCount,
-    lastSyncedAt: syncedAt,
-  };
-  if (target.kind === "linked") {
-    await prisma.tripImmichAlbum.update({ where: { id: target.linkId }, data: synced });
-    return;
-  }
-  const last = await prisma.tripImmichAlbum.findFirst({
-    where: { tripId: input.tripId },
-    orderBy: { sortIdx: "desc" },
-    select: { sortIdx: true },
-  });
-  await prisma.tripImmichAlbum.upsert({
-    where: { tripId_immichAlbumId: { tripId: input.tripId, immichAlbumId: albumId } },
-    update: synced,
-    create: {
-      tripId: input.tripId,
-      immichAlbumId: albumId,
-      thumbnailAssetId: fresh.thumbnailAssetId,
-      mode: "link",
-      sortIdx: (last?.sortIdx ?? -1) + 1,
-      ...synced,
-    },
-  });
 }
 
 /**
@@ -373,7 +318,7 @@ export async function resyncTripAlbum(input: ResyncInput): Promise<AlbumOutcome>
     }
 
     const fresh = await client.getAlbumInfo(albumId);
-    await recordLink(input, target, albumId, fresh);
+    await upsertAlbumLink(input.tripId, albumId, fresh);
     invalidateAlbumAssets(input.userId, albumId);
 
     return {
@@ -388,6 +333,6 @@ export async function resyncTripAlbum(input: ResyncInput): Promise<AlbumOutcome>
       ...(removal.skipped ? { removeSkipped: removal.skipped } : {}),
     };
   } catch (error) {
-    return failure(error);
+    return failed(error);
   }
 }
