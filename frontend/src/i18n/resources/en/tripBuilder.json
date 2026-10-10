@@ -110,7 +110,7 @@
     "pendingPhotoJourneys_one": "{{count}} photo suggestion covers these dates.",
     "pendingPhotoJourneys_other": "{{count}} photo suggestions cover these dates.",
     "possibleUnrecordedFlight": "Between {{from}} and {{to}} you moved far and fast, but no flight is logged ({{fromAirport}} and {{toAirport}} are the nearest airports).",
-    "roadtripsHidden": "Roadtrips are switched off, so areas are saved as timeline stops. Turn them on in Settings › Beta.",
+    "roadtripsHidden": "Roadtrips are switched off, so areas are saved as timeline stops. If your instance offers them, turn them on under Settings › Modules.",
     "suspiciouslyLong": "That trip lasts over 60 days. Check its dates; a typo in the year would swallow this one.",
     "truncated": "Your library has more photos than one scan reads, so the later ones are missing. Scan a shorter window."
   },

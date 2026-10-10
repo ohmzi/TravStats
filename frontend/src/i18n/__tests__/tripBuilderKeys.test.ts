@@ -73,4 +73,22 @@ describe("the trip builder's copy", () => {
     const missing = [...asked].filter((key) => !has(tree, key)).sort();
     expect(missing, `missing from ${lang}/tripBuilder.json`).toEqual([]);
   });
+
+  // Both messages describe the same switched-off state, so they must send the
+  // reader to the same place. The switch lives in Settings › Modules; there is
+  // no Beta section in Settings (the beta switch is an administrator's).
+  it.each(["en", "de"])(
+    "points both roadtrips-off messages at one Settings section, in %s",
+    (lang) => {
+      const tree = locale(lang) as {
+        popup: { roadtripsOff: string };
+        warnings: { roadtripsHidden: string };
+      };
+      const where = (text: string): string | undefined =>
+        /(?:Settings|Einstellungen) › [^\s.]+/.exec(text)?.[0];
+      const popup = where(tree.popup.roadtripsOff);
+      expect(popup, "popup.roadtripsOff names a section").toBeDefined();
+      expect(where(tree.warnings.roadtripsHidden)).toBe(popup);
+    }
+  );
 });
