@@ -6,6 +6,7 @@
 import { NIGHT_UNKNOWN, addDays } from "../../shared/tour/builderNightPlan";
 import type { Day, TripBuilderDraft } from "../../types/tripBuilder";
 import type { ReviewState } from "./draftEdits";
+import { effectiveNights } from "./planRules";
 import { locate, spanOf } from "./reviewRules";
 
 /** Could `stationKey` hold the night of `day`? The bounds of `validateNightPlan`, for one night. */
@@ -32,7 +33,8 @@ export function nightFits(
 /**
  * The unknown night that "slept here" would give a station: the evening of its
  * last photo day, else the night before its first. Null when no unknown night
- * is within its reach.
+ * is within its reach. A night the commit reads as unknown counts: one that
+ * names a station of a skipped area is free for a neighbour.
  */
 export function sleepNight(
   draft: TripBuilderDraft,
@@ -42,8 +44,9 @@ export function sleepNight(
   const at = locate(state.areas, stationKey);
   if (at === null) return null;
   const station = state.areas[at.a].stations[at.i];
+  const nights = effectiveNights(state);
   for (const day of [station.lastDay, addDays(station.firstDay, -1)]) {
-    if (state.nights[day] === NIGHT_UNKNOWN && nightFits(draft, state, day, stationKey)) return day;
+    if (nights[day] === NIGHT_UNKNOWN && nightFits(draft, state, day, stationKey)) return day;
   }
   return null;
 }

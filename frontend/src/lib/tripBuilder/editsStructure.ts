@@ -9,6 +9,7 @@ import type { TripBuilderDraft } from "../../types/tripBuilder";
 import type { DraftEdit, ReviewState } from "./draftEdits";
 import { accept } from "./editLog";
 import { sleepNight } from "./nightRules";
+import { sleptKeys } from "./planRules";
 import { locate, syncArea } from "./reviewRules";
 import {
   addHomeAt,
@@ -94,7 +95,7 @@ export function toggleSlept(
       nights: repointNights(state.nights, [edit.stationKey], NIGHT_UNKNOWN),
     });
   }
-  if (Object.values(state.nights).includes(edit.stationKey)) return accept(state, edit);
+  if (sleptKeys(state).has(edit.stationKey)) return accept(state, edit);
   const day = sleepNight(draft, state, edit.stationKey);
   if (day === null) return state;
   return accept(state, edit, { nights: { ...state.nights, [day]: edit.stationKey } });

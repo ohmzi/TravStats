@@ -5,19 +5,21 @@
  */
 import type { DraftEdit, ReviewState } from "./draftEdits";
 
-/** What two consecutive edits must share to be one. Null for edits that stack (merge, delete, fold). */
+/**
+ * What two consecutive edits must share to be one. Null for edits that stack:
+ * merge, delete and fold, and the two switches that act on the station chain
+ * or the night answers (slept, home). A switch off then on is not the same as
+ * the "on" alone, so the replay of the log needs both.
+ */
 function editTarget(edit: DraftEdit): string | null {
   switch (edit.type) {
     case "rename":
     case "setNote":
-    case "toggleSlept":
       return `${edit.type}:${edit.stationKey}`;
     case "setLegMode":
       return `${edit.type}:${edit.fromKey}>${edit.toKey}`;
     case "assignNight":
       return `${edit.type}:${edit.day}`;
-    case "toggleHome":
-      return `${edit.type}:${edit.areaKey}:${edit.end}`;
     case "setAreaKind":
     case "setAreaName":
     case "setVehicle":

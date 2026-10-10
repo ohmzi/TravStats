@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { applyEdit, initialReviewState, type DraftEdit } from "../draftEdits";
 import { nightFits, sleepNight } from "../nightRules";
 import { effectiveNights, planErrors, sleptKeys } from "../planRules";
-import { KEY, reviewDraft } from "./reviewFixtures";
+import { AREAS, KEY, reviewDraft, station } from "./reviewFixtures";
 
 const draft = reviewDraft();
 const start = initialReviewState(draft);
@@ -143,5 +143,65 @@ describe("setAreaKind", () => {
 
   it("refuses an area that is not there", () => {
     expect(applyEdit(draft, start, { type: "setAreaKind", areaKey: "x", as: "skip" })).toBe(start);
+  });
+});
+
+describe("two areas on consecutive days", () => {
+  // Northvale's area ends on the 3rd and Southbridge's starts on the 4th, so
+  // the night of the 3rd is within reach of the last stop of one and the first
+  // stop of the other. Southbridge's own evening is taken (the 4th is home).
+  const southbridge = station(KEY.southbridge, "Southbridge", "2031-05-04", "2031-05-04", {
+    lat: -45.4,
+    lon: 169.1,
+  });
+  const adjacent = reviewDraft({
+    areas: [
+      AREAS[0],
+      {
+        ...AREAS[1],
+        startDay: "2031-05-04",
+        endDay: "2031-05-04",
+        stations: [southbridge],
+        legs: [],
+      },
+    ],
+  });
+  const base = initialReviewState(adjacent);
+  const nights = {
+    ...base.nights,
+    "2031-05-03": KEY.northvaleAgain,
+    "2031-05-04": "home",
+    "2031-05-05": "unknown",
+  };
+  const skipFirst = applyEdit(
+    adjacent,
+    { ...base, nights },
+    { type: "setAreaKind", areaKey: "2031-05-02#1", as: "skip" }
+  );
+
+  it("offers the night of a skipped area to the stop it is next to", () => {
+    expect(effectiveNights(skipFirst)["2031-05-03"]).toBe("unknown");
+    expect(sleepNight(adjacent, skipFirst, KEY.southbridge)).toBe("2031-05-03");
+  });
+
+  it("lets 'slept here' take it, as the night picker would", () => {
+    const slept = applyEdit(adjacent, skipFirst, {
+      type: "toggleSlept",
+      stationKey: KEY.southbridge,
+      slept: true,
+    });
+    expect(slept).not.toBe(skipFirst);
+    expect(slept.nights["2031-05-03"]).toBe(KEY.southbridge);
+    const picked = applyEdit(adjacent, skipFirst, {
+      type: "assignNight",
+      day: "2031-05-03",
+      assign: KEY.southbridge,
+    });
+    expect(slept.nights).toEqual(picked.nights);
+  });
+
+  it("does not offer it while the first area still holds it", () => {
+    const held = { ...skipFirst, areas: base.areas, nights };
+    expect(sleepNight(adjacent, held, KEY.southbridge)).toBeNull();
   });
 });

@@ -116,6 +116,32 @@ describe("toggleSlept", () => {
   });
 });
 
+describe("the log of the switches", () => {
+  it("keeps both slept switches, so the log replays to the nights the user left", () => {
+    const live = run(
+      { type: "delete", stationKey: KEY.northvaleAgain },
+      { type: "toggleSlept", stationKey: KEY.northvale, slept: false },
+      { type: "toggleSlept", stationKey: KEY.northvale, slept: true }
+    );
+    expect(live.nights["2031-05-02"]).toBe("unknown");
+    expect(live.nights["2031-05-03"]).toBe(KEY.northvale);
+    expect(run(...live.edits)).toEqual(live);
+    expect(live.edits).toHaveLength(3);
+  });
+
+  it("keeps both home switches, so the log replays to the stations the user left", () => {
+    const areaKey = "2031-05-02#1";
+    const live = run(
+      { type: "rename", stationKey: KEY.home, title: "Base camp" },
+      { type: "toggleHome", areaKey, end: "start", on: false },
+      { type: "toggleHome", areaKey, end: "start", on: true }
+    );
+    expect(live.areas[0].stations[0].title).toBe("Kelmore");
+    expect(run(...live.edits)).toEqual(live);
+    expect(live.edits).toHaveLength(3);
+  });
+});
+
 describe("toggleHome", () => {
   it("drops the home station at the start, with its leg", () => {
     const next = run({ type: "toggleHome", areaKey: "2031-05-02#1", end: "start", on: false });
@@ -131,7 +157,7 @@ describe("toggleHome", () => {
     expect(keysOf(0)(next)).toEqual([KEY.home, KEY.northvale, KEY.portCarrow, KEY.northvaleAgain]);
     expect(next.areas[0].homeStart).toBe(true);
     expect(legsFitStations(next.areas[0])).toBe(true);
-    expect(next.edits).toHaveLength(1);
+    expect(next.edits).toHaveLength(2);
   });
 
   it("is accepted without change when the end already is as asked", () => {
