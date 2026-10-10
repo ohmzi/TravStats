@@ -395,5 +395,9 @@
         "failed": "Photos outside the trip dates stayed in the album: removing them failed."
       }
     }
+  },
+  "resync": {
+    "action": "Re-sync from Immich",
+    "datesChanged": "Dates changed — re-sync photos?"
   }
 }

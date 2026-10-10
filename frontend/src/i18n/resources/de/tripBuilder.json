@@ -395,5 +395,9 @@
         "failed": "Fotos außerhalb der Reisedaten sind im Album geblieben: Das Entfernen ist fehlgeschlagen."
       }
     }
+  },
+  "resync": {
+    "action": "Mit Immich abgleichen",
+    "datesChanged": "Daten geändert — Fotos neu abgleichen?"
   }
 }

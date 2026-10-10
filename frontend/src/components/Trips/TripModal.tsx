@@ -17,6 +17,7 @@ import EditBuildButton from "./tripBuilder/EditBuildButton";
 import TripBuilderLauncher from "./tripBuilder/TripBuilderLauncher";
 import TripImmichOptions from "./tripBuilder/TripImmichOptions";
 import { useImmichBuild } from "./tripBuilder/useImmichBuild";
+import { offerResync } from "./tripBuilder/offerResync";
 
 interface TripModalProps {
   trip: Trip | null; // null = create mode
@@ -225,6 +226,7 @@ export default function TripModal({
       }
 
       addToast("success", trip ? t("trips:toasts.updated") : t("trips:toasts.created"));
+      offerResync({ trip, tripId: savedTrip.id, startDate, endDate, addToast, t });
       onSaved();
     } catch (err: unknown) {
       const fallback = trip ? "trips:toasts.updateError" : "trips:toasts.createError";

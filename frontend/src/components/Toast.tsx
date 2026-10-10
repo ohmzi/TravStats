@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useToastStore, type Toast } from "../store/toastStore";
 import { useTranslation } from "../hooks/useTranslation";
 
@@ -33,6 +34,16 @@ const ToastItem = ({ toast }: { toast: Toast }) => {
       <div className="shrink-0 text-lg">{icons[toast.type]}</div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium wrap-break-word">{toast.message}</p>
+        {toast.action && (
+          <Link
+            to={toast.action.to}
+            onClick={() => removeToast(toast.id)}
+            className="text-sm font-semibold underline"
+            style={{ color: "var(--ts-accent)" }}
+          >
+            {toast.action.label}
+          </Link>
+        )}
       </div>
       <button
         onClick={() => removeToast(toast.id)}
