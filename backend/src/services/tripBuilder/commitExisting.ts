@@ -7,8 +7,9 @@
  * keyed by their endpoint stops — keep their routed geometry; only the legs the
  * write creates come back in `createdLegs`, and phase C routes exactly those. A
  * leg whose mode the user changed is deleted first, so it comes back straight and
- * is routed again. Leg modes are written here, by the final order, because the
- * public write only knows the route's default mode.
+ * is routed again, and its new mode goes through `opts.legModes`: the one writer
+ * applies a mode only to a leg the write created and fails the transaction for
+ * any other, so a stale plan cannot leave a ferry carrying a road's geometry.
  */
 import type { DbTransaction } from "../../db";
 import { toDbDate } from "../../shared/time/localDate";
@@ -16,25 +17,8 @@ import type { LegPair } from "../../shared/tour/legPlan";
 import { replaceStationsInTx } from "../roadtrip/replaceStations";
 import { nightsOf, STATION_SELECT } from "../roadtrip/roadtripSummary";
 import { stationTimeColumns } from "../timeModel/tripColumns";
-import type { LegMode } from "../tour/tourDistance";
 import type { ExistingCommitPlan, ExistingRoadtripWrite, RoadtripDiff } from "./existingTypes";
 import type { PhaseBRoadtrip } from "./types";
-
-async function applyLegModes(
-  tx: DbTransaction,
-  routeId: string,
-  orderedIds: readonly string[],
-  modes: ReadonlyArray<LegMode | undefined>
-): Promise<void> {
-  for (let i = 0; i < modes.length; i++) {
-    const mode = modes[i];
-    if (mode === undefined || orderedIds[i + 1] === undefined) continue;
-    await tx.tripRouteLeg.updateMany({
-      where: { routeId, fromStopId: orderedIds[i], toStopId: orderedIds[i + 1] },
-      data: { mode },
-    });
-  }
-}
 
 async function writeMatchedRoadtrip(
   tx: DbTransaction,
@@ -42,21 +26,15 @@ async function writeMatchedRoadtrip(
   write: ExistingRoadtripWrite
 ): Promise<PhaseBRoadtrip> {
   let createdLegs: LegPair[] = [];
-  let orderedIds: string[] = [];
   if (!write.noop) {
     for (const leg of write.resetLegs) {
       await tx.tripRouteLeg.deleteMany({
         where: { routeId: write.roadtripId, fromStopId: leg.fromStopId, toStopId: leg.toStopId },
       });
     }
-    ({ createdLegs } = await replaceStationsInTx(tx, userId, write.roadtripId, write.stations));
-    const ordered = await tx.tripStop.findMany({
-      where: { routeId: write.roadtripId },
-      orderBy: { routeOrderIdx: "asc" },
-      select: { id: true },
-    });
-    orderedIds = ordered.map((row) => row.id);
-    await applyLegModes(tx, write.roadtripId, orderedIds, write.legModes);
+    ({ createdLegs } = await replaceStationsInTx(tx, userId, write.roadtripId, write.stations, {
+      legModes: write.legModes,
+    }));
   }
 
   const rows = await tx.tripStop.findMany({
@@ -66,7 +44,7 @@ async function writeMatchedRoadtrip(
   });
   const created = new Set(createdLegs.map((pair) => `${pair.fromStopId}>${pair.toStopId}`));
   const ferryLegs = write.legModes.filter(
-    (mode, i) => mode === "ferry" && created.has(`${orderedIds[i]}>${orderedIds[i + 1]}`)
+    (mode, i) => mode === "ferry" && created.has(`${rows[i]?.id}>${rows[i + 1]?.id}`)
   ).length;
   return {
     id: write.roadtripId,

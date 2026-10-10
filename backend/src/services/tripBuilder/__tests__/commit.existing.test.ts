@@ -340,6 +340,49 @@ describe("writeCommit for an existing trip", () => {
     expect(result.roadtrips[0].createdLegs).toEqual([{ fromStopId: a, toStopId: b }]);
   });
 
+  it("refuses a mode for a leg it keeps, and writes nothing", async () => {
+    const [a, b, c, s] = [fx.station.a, fx.station.b, fx.station.c, fx.station.s];
+    // A stale snapshot: the leg A>B is stored and not reset, so a ferry mode for
+    // it would leave a ferry carrying a road's geometry. The commit must fail
+    // instead, and the date change made in the same write must roll back with it.
+    await expect(
+      writeCommit(
+        plan({
+          roadtrips: [
+            write(
+              [
+                station(a, "Northvale", FX.northvale, "2031-05-02", "2031-05-05", {
+                  kind: "free",
+                }),
+                station(b, "Port Carrow", FX.portCarrow, "2031-05-05", "2031-05-06", {
+                  kind: "pass",
+                }),
+                station(
+                  c,
+                  "Kelmore",
+                  FX.kelmore,
+                  "2031-05-06",
+                  "2031-05-07",
+                  { kind: "free" },
+                  "Quiet street"
+                ),
+                station(s, "Tarnside Lodge", FX.tarnside, "2031-05-07", "2031-05-09", {
+                  kind: "stay",
+                  lodgingStayId: fx.stayId,
+                }),
+              ],
+              { legModes: ["ferry", undefined, undefined] }
+            ),
+          ],
+        })
+      )
+    ).rejects.toMatchObject({ statusCode: 400 });
+    const leg = (await legs()).find((l) => l.fromStopId === a && l.toStopId === b);
+    expect(leg).toMatchObject({ mode: "road", source: "routed" });
+    const row = await prisma.tripStop.findUniqueOrThrow({ where: { id: a } });
+    expect(row.endDate?.toISOString().slice(0, 10)).toBe("2031-05-04");
+  });
+
   it("writes nothing for a roadtrip marked as unchanged", async () => {
     const before = await prisma.tripStop.findUniqueOrThrow({ where: { id: fx.station.a } });
     const result = await writeCommit(
@@ -357,10 +400,38 @@ describe("writeCommit for an existing trip", () => {
     expect(result.roadtrips[0]).toMatchObject({ id: fx.roadtripId, stations: 4, createdLegs: [] });
   });
 
-  it("counts the nights of the roadtrip it wrote", async () => {
-    const result = await writeCommit(plan({ roadtrips: [write([], { noop: true })] }));
-    // A one night + C one night (free, dated) + the stay (no stay row timing: counted by its own resolver)
-    expect(result.roadtrips[0].nights).toBeGreaterThanOrEqual(2);
+  it("counts the nights of the stations it wrote, read back after the write", async () => {
+    const [a, b, c, s] = [fx.station.a, fx.station.b, fx.station.c, fx.station.s];
+    // Stored: A two nights and C one night make three (B passes through, and the
+    // fixture's stay carries no dates or night count, so it adds none). Extending
+    // A by a night must show in the figure, which a count taken before the write,
+    // from the plan, or a fixed number would miss.
+    const result = await writeCommit(
+      plan({
+        roadtrips: [
+          write([
+            station(a, "Northvale", FX.northvale, "2031-05-02", "2031-05-05", { kind: "free" }),
+            station(b, "Port Carrow", FX.portCarrow, "2031-05-05", "2031-05-06", {
+              kind: "pass",
+            }),
+            station(
+              c,
+              "Kelmore",
+              FX.kelmore,
+              "2031-05-06",
+              "2031-05-07",
+              { kind: "free" },
+              "Quiet street"
+            ),
+            station(s, "Tarnside Lodge", FX.tarnside, "2031-05-07", "2031-05-09", {
+              kind: "stay",
+              lodgingStayId: fx.stayId,
+            }),
+          ]),
+        ],
+      })
+    );
+    expect(result.roadtrips[0]).toMatchObject({ stations: 4, nights: 4 });
   });
 
   it("updates the trip's dates and countries, as for any existing trip", async () => {
