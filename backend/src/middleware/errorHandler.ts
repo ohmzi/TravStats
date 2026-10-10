@@ -272,6 +272,8 @@ export type ApiErrorCode =
   | "COMMIT_IN_PROGRESS"
   /** A roadtrip area was sent while roadtrips are hidden for this user (409). */
   | "ROADTRIPS_HIDDEN"
+  /** A re-sync draft no longer matches the trip: a station or stop was added, moved or removed since the scan (409). */
+  | "TRIP_CHANGED"
   /** Phase B rolled back; nothing was written (the job's error). */
   | "COMMIT_FAILED";
 

@@ -25,6 +25,16 @@ import type { LegPair } from "../../shared/tour/legPlan";
 import type { RoadtripVehicle } from "../../shared/tour/roadtrip";
 import type { ImmichConnectionSource, ImmichErrorKind } from "../immich/types";
 import type { Coord, LegMode } from "../tour/tourDistance";
+import type {
+  AlbumRemoveSkip,
+  AlbumSyncPreview,
+  ExistingCommitPlan,
+  NotSeenDefault,
+  RoadtripDiff,
+  StationBefore,
+  StationStatus,
+  StoredExisting,
+} from "./existingTypes";
 import type { ExcludedCounts, PhotoPoint, RawSegment, ScanWindow, Segment } from "./photoTypes";
 
 export {
@@ -218,6 +228,14 @@ export interface DraftStation {
   previewIdx: number[];
   /** "First photo HH:MM · last HH:MM · N photos", pre-filled; null for an added station. */
   notes: string | null;
+  /** Re-sync only: how this station stands against the stored roadtrip (spec §K.2). */
+  status?: StationStatus;
+  /** Re-sync only: the stored station this one updates in place; absent on `new`. */
+  existingId?: string;
+  /** Re-sync only, `same` and `changed`: what is stored now. */
+  before?: StationBefore;
+  /** Re-sync only, `notSeen`: the default the station is shown with, and why. */
+  notSeen?: NotSeenDefault;
 }
 export type PlanStation = DraftStation;
 
@@ -365,6 +383,10 @@ export interface DraftArea {
   stations: DraftStation[];
   /** legs[i] joins stations[i] and stations[i + 1]. */
   legs: DraftLeg[];
+  /** Re-sync only: the stored roadtrip this area updates in place. */
+  roadtripId?: string;
+  /** Re-sync only: stored stations of that roadtrip the photos do not show. Not part of `stations`/`legs`. */
+  notSeen?: DraftStation[];
 }
 
 export interface DraftFlight {
@@ -413,6 +435,8 @@ export interface DraftAlbum {
   allowed: boolean;
   blockedReason?: AlbumCapabilityReason;
   missingScopes: string[];
+  /** Re-sync only: what updating the album would do. */
+  sync?: AlbumSyncPreview;
 }
 
 export interface DraftStats {
@@ -485,6 +509,8 @@ export interface TripBuilderDraft {
   photoJourneys: DraftPhotoJourney[];
   /** Null unless `createAlbum`. */
   album: DraftAlbum | null;
+  /** Re-sync only: timeline stops of the trip the photos do not show (status `notSeen`). */
+  notSeenStops?: DraftStation[];
   warnings: BuilderWarning[];
 }
 
@@ -538,6 +564,8 @@ export interface StoredDraft {
   flightIds: ReadonlySet<string>;
   /** Every station the draft offered, offered home stations included → its area and days. */
   stationIndex: ReadonlyMap<string, StationIndexEntry>;
+  /** Re-sync only: what the scan matched and offered. SERVER-ONLY. */
+  existing?: StoredExisting;
 }
 
 export type BeginCommit =
@@ -562,6 +590,10 @@ export interface AlbumOutcome {
   added?: number;
   alreadyIn?: number;
   refused?: number;
+  /** Re-sync: members removed because they lie outside the trip dates. */
+  removed?: number;
+  /** Re-sync: removal was ticked but did not run. */
+  removeSkipped?: AlbumRemoveSkip;
   error?: { kind: AlbumErrorKind; missingScope?: string };
   missingScopes?: string[];
 }
@@ -571,6 +603,8 @@ export interface CommitRoadtripSummary {
   name: string;
   stations: number;
   nights: number;
+  /** Re-sync only: what the update did to this roadtrip's stations. */
+  diff?: RoadtripDiff;
 }
 
 export interface CommitResult {
@@ -585,6 +619,8 @@ export interface CommitResult {
   routing: { routed: number; straight: number; ferry: number; providerAvailable: boolean };
   photoJourneysResolved: number;
   unknownNights: number;
+  /** Re-sync only: what the update did to the trip's timeline stops. */
+  stops?: RoadtripDiff;
   album: AlbumOutcome;
 }
 
@@ -651,6 +687,8 @@ export interface CommitPlan {
   photoJourneyIds: string[];
   album: { create: boolean; name: string };
   unknownNights: number;
+  /** Re-sync only: the in-place updates `extendPlanForExisting` split out of `roadtrips` and `stops`. */
+  existing?: ExistingCommitPlan;
 }
 
 export interface PhaseBRoadtrip extends CommitRoadtripSummary {
@@ -667,4 +705,6 @@ export interface PhaseBResult {
   stopIds: string[];
   flightsAssigned: number;
   flightsMovedFrom: Array<{ tripId: string; name: string }>;
+  /** Re-sync only: what the update did to the trip's timeline stops. */
+  stopsDiff?: RoadtripDiff;
 }

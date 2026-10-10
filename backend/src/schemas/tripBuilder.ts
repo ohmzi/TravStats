@@ -111,6 +111,8 @@ export const commitStationSchema = z
     firstDay: builderDaySchema,
     lastDay: builderDaySchema,
     notes: z.string().max(5000).nullish(),
+    /** Re-sync only: the stored station this one updates in place. */
+    existingId: uuid.optional(),
   })
   .strict();
 
@@ -125,6 +127,12 @@ export const commitAreaSchema = z
     stations: z.array(commitStationSchema).max(MAX_STATIONS_PER_AREA),
     /** legModes[i] joins stations[i] and stations[i + 1]. */
     legModes: z.array(z.enum(BUILDER_LEG_MODES)).max(MAX_STATIONS_PER_AREA - 1),
+    /** Re-sync only: the stored roadtrip this area updates in place; absent: a new roadtrip. */
+    roadtripId: uuid.optional(),
+    /** Re-sync only: stored stations the photos do not show, which the user kept … */
+    keepNotSeen: z.array(uuid).max(MAX_STATIONS_PER_AREA).default([]),
+    /** … and the ones the user removed. keep ∪ remove is what the draft offered, nothing else. */
+    removeNotSeen: z.array(uuid).max(MAX_STATIONS_PER_AREA).default([]),
   })
   .strict();
 
@@ -140,6 +148,78 @@ export const commitTargetSchema = z.discriminatedUnion("kind", [
     .strict(),
 ]);
 
+interface ExistingIssueBody {
+  target: { kind: "new" | "existing" };
+  areas: ReadonlyArray<{
+    as: "roadtrip" | "stops" | "skip";
+    roadtripId?: string;
+    keepNotSeen: readonly string[];
+    removeNotSeen: readonly string[];
+    stations: ReadonlyArray<{ existingId?: string }>;
+  }>;
+  stops: { keep: readonly string[]; remove: readonly string[] };
+  album: { removeOutside?: boolean };
+}
+type Flag = (path: Array<string | number>, message: string) => void;
+
+/**
+ * The self-consistency of the re-sync fields. Whether the ids are the ones the
+ * draft offered is `commitPlanExisting.ts`'s question; this only refuses what
+ * can never be right.
+ */
+function existingIssues(body: ExistingIssueBody, flag: Flag): void {
+  const existing = body.target.kind === "existing";
+  const onlyExisting = (path: Array<string | number>, present: boolean): void => {
+    if (present && !existing) flag(path, "Only an existing trip has stored stations");
+  };
+  const listed = new Set<string>();
+  body.areas.forEach((area, a) => {
+    onlyExisting(["areas", a, "roadtripId"], area.roadtripId !== undefined);
+    onlyExisting(["areas", a, "keepNotSeen"], area.keepNotSeen.length > 0);
+    onlyExisting(["areas", a, "removeNotSeen"], area.removeNotSeen.length > 0);
+    if (area.roadtripId !== undefined && area.as === "stops") {
+      flag(["areas", a, "roadtripId"], "A roadtrip cannot become timeline stops");
+    }
+    area.stations.forEach((station, s) => {
+      if (station.existingId === undefined) return;
+      const path = ["areas", a, "stations", s, "existingId"];
+      onlyExisting(path, true);
+      if (existing && area.as === "roadtrip" && area.roadtripId === undefined) {
+        flag(path, "A new roadtrip has no stored stations");
+      }
+      if (listed.has(station.existingId)) flag(path, "A stored station may appear once");
+      listed.add(station.existingId);
+    });
+    const kept = new Set(area.keepNotSeen);
+    area.removeNotSeen.forEach((id, r) => {
+      if (kept.has(id))
+        flag(["areas", a, "removeNotSeen", r], "A station is kept or removed, not both");
+    });
+  });
+  body.areas.forEach((area, a) => {
+    area.keepNotSeen.forEach((id, k) => {
+      if (listed.has(id))
+        flag(["areas", a, "keepNotSeen", k], "A listed station is not 'not seen'");
+    });
+    area.removeNotSeen.forEach((id, r) => {
+      if (listed.has(id))
+        flag(["areas", a, "removeNotSeen", r], "A listed station is not 'not seen'");
+    });
+  });
+  const keptStops = new Set(body.stops.keep);
+  body.stops.remove.forEach((id, r) => {
+    if (keptStops.has(id)) flag(["stops", "remove", r], "A stop is kept or removed, not both");
+  });
+  for (const list of ["keep", "remove"] as const) {
+    body.stops[list].forEach((id, i) => {
+      if (listed.has(id)) flag(["stops", list, i], "A listed stop is not 'not seen'");
+    });
+  }
+  onlyExisting(["stops", "keep"], body.stops.keep.length > 0);
+  onlyExisting(["stops", "remove"], body.stops.remove.length > 0);
+  onlyExisting(["album", "removeOutside"], body.album.removeOutside === true);
+}
+
 /** `POST /trip-builder/drafts/:id/commit`. Every area is sent, `skip` ones included. */
 export const commitBodySchema = z
   .object({
@@ -150,7 +230,22 @@ export const commitBodySchema = z
     nights: z.record(z.string().regex(new RegExp(DAY_PATTERN)), nightAssignSchema),
     areas: z.array(commitAreaSchema).max(MAX_AREAS),
     photoJourneyIds: z.array(uuid).max(MAX_PHOTO_JOURNEYS),
-    album: z.object({ create: z.boolean(), name: label }).strict(),
+    /** Re-sync only: timeline stops the photos do not show, kept or removed. */
+    stops: z
+      .object({
+        keep: z.array(uuid).max(MAX_STATIONS_PER_AREA),
+        remove: z.array(uuid).max(MAX_STATIONS_PER_AREA),
+      })
+      .strict()
+      .default({ keep: [], remove: [] }),
+    album: z
+      .object({
+        create: z.boolean(),
+        name: label,
+        /** Re-sync only: take members outside the trip dates out of the album. The server picks them; no id is sent. */
+        removeOutside: z.boolean().optional(),
+      })
+      .strict(),
   })
   .strict()
   .superRefine((body, ctx) => {
@@ -191,6 +286,7 @@ export const commitBodySchema = z
         }
       }
     });
+    existingIssues(body, flag);
   });
 
 /** `:id` of every draft route; a draft id is a `randomUUID()`. */

@@ -200,9 +200,12 @@ export function fixtureBody(flightIds: readonly string[] = []): CommitBody {
         homeEnd: false,
         stations: STATIONS.map(commitStation),
         legModes: ["road", "ferry"],
+        keepNotSeen: [],
+        removeNotSeen: [],
       },
     ],
     photoJourneyIds: [],
+    stops: { keep: [], remove: [] },
     album: { create: false, name: "Northvale loop" },
   };
 }

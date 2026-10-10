@@ -9,6 +9,15 @@ import { z } from "zod";
 import { registry } from "../registry";
 import { commitBodySchema, scanBodySchema } from "../../../schemas/tripBuilder";
 import { BUILDER_LEG_MODES, STATION_KINDS } from "../../tripBuilder/types";
+import {
+  existingAlbumFields,
+  existingAreaFields,
+  existingDraftFields,
+  existingOutcomeFields,
+  existingResultFields,
+  existingRoadtripSummaryFields,
+  existingStationFields,
+} from "../tripBuilderExistingSchemas";
 import { errorContent } from "./shared";
 
 const tag = ["Trip builder"];
@@ -93,54 +102,58 @@ const stationKey = z.string().openapi({
   description: "round(lat/0.05)|round(lon/0.05)|first photo day, `~n` on a repeat",
 });
 
-const draftStation = z.object({
-  key: stationKey,
-  title: z.string(),
-  titleSource: z.enum(["existing", "immich", "geocode", "coords", "airport", "home"]),
-  kind: z.enum(STATION_KINDS),
-  excursionOf: stationKey.optional(),
-  lat: z.number(),
-  lon: z.number(),
-  snappedKm: z.number().nullable(),
-  firstDay: day,
-  lastDay: day,
-  firstLocal: localMinute.nullable(),
-  lastLocal: localMinute.nullable(),
-  photoCount: z.number().int(),
-  previewIdx: z
-    .array(z.number().int())
-    .describe("Indexes for `GET /drafts/{id}/preview/{index}/file`; never an asset id"),
-  notes: z.string().nullable(),
-});
+const draftStation = z
+  .object({
+    key: stationKey,
+    title: z.string(),
+    titleSource: z.enum(["existing", "immich", "geocode", "coords", "airport", "home"]),
+    kind: z.enum(STATION_KINDS),
+    excursionOf: stationKey.optional(),
+    lat: z.number(),
+    lon: z.number(),
+    snappedKm: z.number().nullable(),
+    firstDay: day,
+    lastDay: day,
+    firstLocal: localMinute.nullable(),
+    lastLocal: localMinute.nullable(),
+    photoCount: z.number().int(),
+    previewIdx: z
+      .array(z.number().int())
+      .describe("Indexes for `GET /drafts/{id}/preview/{index}/file`; never an asset id"),
+    notes: z.string().nullable(),
+  })
+  .extend(existingStationFields);
 const homeEnd = z.object({
   offered: z.boolean(),
   defaultOn: z.boolean(),
   station: draftStation.optional(),
 });
-const draftArea = z.object({
-  key: z.string().regex(/^\d{4}-\d{2}-\d{2}#\d+$/),
-  defaultAs: z.enum(["roadtrip", "stops"]),
-  suggestedName: z.string(),
-  mainCity: z.string().nullable(),
-  startDay: day,
-  endDay: day,
-  afterFlightId: z.string().uuid().optional(),
-  beforeFlightId: z.string().uuid().optional(),
-  home: z.object({ start: homeEnd, end: homeEnd, unconfirmed: z.boolean() }),
-  stations: z.array(draftStation),
-  legs: z
-    .array(
-      z.object({
-        fromKey: stationKey,
-        toKey: stationKey,
-        chordKm: z.number(),
-        routedKm: z.number().nullable(),
-        mode: z.enum(BUILDER_LEG_MODES),
-        ferryEvidence: z.enum(["router", "seaPhotos", "chip"]).nullable(),
-      })
-    )
-    .describe("legs[i] joins stations[i] and stations[i + 1]"),
-});
+const draftArea = z
+  .object({
+    key: z.string().regex(/^\d{4}-\d{2}-\d{2}#\d+$/),
+    defaultAs: z.enum(["roadtrip", "stops"]),
+    suggestedName: z.string(),
+    mainCity: z.string().nullable(),
+    startDay: day,
+    endDay: day,
+    afterFlightId: z.string().uuid().optional(),
+    beforeFlightId: z.string().uuid().optional(),
+    home: z.object({ start: homeEnd, end: homeEnd, unconfirmed: z.boolean() }),
+    stations: z.array(draftStation),
+    legs: z
+      .array(
+        z.object({
+          fromKey: stationKey,
+          toKey: stationKey,
+          chordKm: z.number(),
+          routedKm: z.number().nullable(),
+          mode: z.enum(BUILDER_LEG_MODES),
+          ferryEvidence: z.enum(["router", "seaPhotos", "chip"]).nullable(),
+        })
+      )
+      .describe("legs[i] joins stations[i] and stations[i + 1]"),
+  })
+  .extend(existingAreaFields(draftStation));
 const noParams = z.object({});
 const warning = z.discriminatedUnion("code", [
   z.object({ code: z.literal("truncated"), params: noParams }),
@@ -301,10 +314,80 @@ export const draftSchema = registry.register(
             .optional(),
           missingScopes: scopes,
         })
+        .extend(existingAlbumFields)
         .nullable(),
       warnings: z.array(warning),
     })
+    .extend(existingDraftFields(draftStation))
     .openapi("TripBuilderDraft")
+);
+
+/** `AlbumOutcome`: phase D's answer and the album-retry job's result. */
+const albumOutcome = registry.register(
+  "TripBuilderAlbumOutcome",
+  z
+    .object({
+      status: z.enum(["linked", "skipped", "failed", "blocked"]),
+      skipReason: z.enum(["notRequested", "noAssets"]).optional(),
+      immichAlbumId: z.string().optional(),
+      albumName: z.string().optional(),
+      reused: z.boolean().optional(),
+      added: z.number().int().optional(),
+      alreadyIn: z.number().int().optional(),
+      refused: z.number().int().optional(),
+      error: z
+        .object({
+          kind: z.enum([
+            "unreachable",
+            "auth",
+            "notFound",
+            "protocol",
+            "invalidUrl",
+            "notConfigured",
+            "internal",
+          ]),
+          missingScope: z.string().optional(),
+        })
+        .optional(),
+      missingScopes: scopes.optional(),
+    })
+    .extend(existingOutcomeFields)
+    .openapi("TripBuilderAlbumOutcome")
+);
+
+const commitRoadtripSummary = z
+  .object({
+    id: z.string().uuid(),
+    name: z.string(),
+    stations: z.number().int(),
+    nights: z.number().int(),
+  })
+  .extend(existingRoadtripSummaryFields);
+
+/** The `tripBuilder.commit` job's result when it wrote (`blocked` is the other answer). */
+registry.register(
+  "TripBuilderCommitResult",
+  z
+    .object({
+      status: z.literal("committed"),
+      tripId: z.string().uuid(),
+      created: z.boolean().describe("False for the `existing` target"),
+      roadtrips: z.array(commitRoadtripSummary),
+      stopIds: z.array(z.string().uuid()),
+      flightsAssigned: z.number().int(),
+      flightsMovedFrom: z.array(z.object({ tripId: z.string().uuid(), name: z.string() })),
+      routing: z.object({
+        routed: z.number().int(),
+        straight: z.number().int(),
+        ferry: z.number().int(),
+        providerAvailable: z.boolean(),
+      }),
+      photoJourneysResolved: z.number().int(),
+      unknownNights: z.number().int(),
+      album: albumOutcome,
+    })
+    .extend(existingResultFields)
+    .openapi("TripBuilderCommitResult")
 );
 
 const draftParams = z.object({ id: z.string().uuid() });
@@ -367,12 +450,14 @@ registry.registerPath({
   summary: "Create the trip from a reviewed draft",
   description:
     "Validates against the draft without calling Immich, then starts a commit job and " +
-    'answers 202. The job result is `{status:"committed", tripId, roadtrips, stopIds, ' +
-    "flightsAssigned, flightsMovedFrom, routing, photoJourneysResolved, unknownNights, " +
-    'album}` or `{status:"blocked", reason, missingScopes}`, which wrote nothing. Idempotent ' +
+    'answers 202. The job result is a `TripBuilderCommitResult` (`status: "committed"`) ' +
+    'or `{status:"blocked", reason, missingScopes}`, which wrote nothing. Idempotent ' +
     "per `commitKey`: the same key meets the running job, another key meets 409 " +
     "COMMIT_IN_PROGRESS, and a written trip meets 409 ALREADY_COMMITTED with `tripId`. " +
-    "Only flights, findings, areas and stations the draft offered are accepted.",
+    "Only flights, findings, areas and stations the draft offered are accepted. For an " +
+    "`existing` target, `existingId`, `roadtripId`, `keepNotSeen`/`removeNotSeen`, `stops` and " +
+    "`album.removeOutside` update the trip in place; each must name a row the draft offered, " +
+    "and no request field carries an Immich asset id.",
   tags: tag,
   request: {
     params: draftParams,
@@ -389,7 +474,8 @@ registry.registerPath({
     404: expired,
     409: {
       description:
-        "`code` WINDOW_CHANGED, ALREADY_COMMITTED (with `tripId`), COMMIT_IN_PROGRESS or ROADTRIPS_HIDDEN",
+        "`code` WINDOW_CHANGED, ALREADY_COMMITTED (with `tripId`), COMMIT_IN_PROGRESS, " +
+        "ROADTRIPS_HIDDEN or TRIP_CHANGED (a station or stop was added, moved or removed since the scan)",
       content: errorContent,
     },
     429: { description: "Too many requests", content: errorContent },
@@ -406,9 +492,7 @@ registry.registerPath({
     "trip is still running, another press answers 202 with that running job's `jobId` and " +
     "starts nothing (the running job keeps its name), so a double press or a second tab " +
     "cannot create a second album. The job result is " +
-    '`{status: "linked" | "skipped" | "failed" | "blocked", immichAlbumId?, albumName?, ' +
-    "reused?, added?, alreadyIn?, refused?, error?, missingScopes?}`. Only the user's own " +
-    "Immich key may write.",
+    "a `TripBuilderAlbumOutcome`. Only the user's own Immich key may write.",
   tags: tag,
   request: {
     params: z.object({ tripId: z.string().uuid() }),
