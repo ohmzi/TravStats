@@ -15,6 +15,7 @@ const EXPECTED: Record<Kind, string> = {
   journal: "var(--ts-info)",
   "lodging-checkin": "var(--domain-lodging)",
   "lodging-checkout": "var(--domain-lodging)",
+  "roadtrip-station": "var(--domain-roadtrip)",
 };
 
 describe("timeline dot colours", () => {

@@ -29,5 +29,7 @@ export function dotColor(ev: Pick<TimelineEvent, "kind">): string {
     case "lodging-checkin":
     case "lodging-checkout":
       return "var(--domain-lodging)";
+    case "roadtrip-station":
+      return "var(--domain-roadtrip)";
   }
 }

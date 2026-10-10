@@ -318,6 +318,8 @@ export interface Trip {
   railJourneys?: TripRailJourney[];
   rentalBookings?: import("./rental").TripRental[];
   immichAlbums?: LinkedAlbum[];
+  /** The trip's roadtrip stations that are not timeline stops; `GET /trips/:id` only. */
+  roadtripStations?: import("./tripRoadtripStation").TripRoadtripStationDto[];
 }
 
 export interface TripPhoto {

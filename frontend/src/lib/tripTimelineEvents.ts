@@ -22,6 +22,7 @@ import type { Trip, TripJournalEntry, TripStop } from "../types";
 import type { Place, PlaceVisit } from "../types/place";
 import type { TripRailJourney } from "../types/rail";
 import type { TripRental } from "../types/rental";
+import type { TripRoadtripStationDto } from "../types/tripRoadtripStation";
 
 /**
  * The trip timeline's entries — every dated thing a trip holds, in one
@@ -104,6 +105,14 @@ export type TimelineEvent =
       when: TimeValue;
       place: Place;
       visit: PlaceVisit;
+    }
+  | {
+      id: string;
+      kind: "roadtrip-station";
+      /** `when.utc` — kept for callers that only need an instant to compare. */
+      date: string;
+      when: TimeValue;
+      station: TripRoadtripStationDto;
     };
 
 /** Rentals as entries: the pickup and the return, each on its station's clock. */
@@ -202,6 +211,27 @@ function stopEvents(trip: Trip): TimelineEvent[] {
   return out;
 }
 
+/**
+ * A roadtrip's stations as entries (photo trip builder, spec 2026-10-09 §E).
+ * `GET /trips/:id` lists the stations of the trip's roadtrips that are NOT
+ * timeline stops of the trip: a station adopted onto the trip is already in
+ * `trip.stops`, and drawing it twice is the defect the id check guards
+ * against. The server answers `[]` while roadtrips are off, so no gate is
+ * needed here. A station with no day has no place on a chronology.
+ */
+function roadtripStationEvents(trip: Trip): TimelineEvent[] {
+  const onTimeline = new Set((trip.stops ?? []).map((stop) => stop.id));
+  const out: TimelineEvent[] = [];
+  for (const station of trip.roadtripStations ?? []) {
+    if (onTimeline.has(station.id)) continue;
+    const when = tripStopStart(station);
+    if (!when) continue;
+    const id = `roadtrip-station-${station.id}`;
+    out.push({ id, kind: "roadtrip-station", date: when.utc, when, station });
+  }
+  return out;
+}
+
 function lodgingEvents(trip: Trip): TimelineEvent[] {
   // Each linked stay renders as TWO timeline entries — a check-in and a
   // check-out — so the hotel is visible in the trip's chronology. An undated
@@ -234,6 +264,7 @@ export function buildTimelineEvents(
     ...flightEvents(trip),
     ...cruiseEvents(trip),
     ...stopEvents(trip),
+    ...roadtripStationEvents(trip),
   ];
   for (const { place, visit } of placeVisits) {
     // An undated visit has no place on a chronology; it still shows on the
