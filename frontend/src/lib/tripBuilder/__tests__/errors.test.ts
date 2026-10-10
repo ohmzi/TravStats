@@ -4,6 +4,7 @@ import { JobFailedError } from "../../api/jobs";
 import {
   alreadyCommittedTripId,
   commitFailureKey,
+  commitNeedsRescan,
   rateLimitOf,
   scanFailureKey,
   scanStartFailureKey,
@@ -85,6 +86,20 @@ describe("commitFailureKey", () => {
     expect(commitFailureKey(new JobFailedError("TRIP_CHANGED", 409))).toBe(
       "tripBuilder:errors.commit.tripChanged"
     );
+  });
+});
+
+describe("commitNeedsRescan", () => {
+  it("is true when the trip changed since the scan, refused or failed in the job", () => {
+    expect(commitNeedsRescan(refused(409, { error: "x", code: "TRIP_CHANGED" }))).toBe(true);
+    expect(commitNeedsRescan(new JobFailedError("TRIP_CHANGED", 409))).toBe(true);
+  });
+
+  it("is false for every other failure, which a new scan would not mend", () => {
+    expect(commitNeedsRescan(refused(409, { error: "x", code: "WINDOW_CHANGED" }))).toBe(false);
+    expect(commitNeedsRescan(refused(500))).toBe(false);
+    expect(commitNeedsRescan(new JobFailedError("COMMIT_FAILED", 500))).toBe(false);
+    expect(commitNeedsRescan(new Error("x"))).toBe(false);
   });
 });
 

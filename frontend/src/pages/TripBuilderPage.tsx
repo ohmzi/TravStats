@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AppShell, Button, Card, EmptyState, PageHeader } from "../components/ui";
 import ChangeDatesDialog from "../components/Trips/tripBuilder/ChangeDatesDialog";
 import { ExistingDiffProvider } from "../components/Trips/tripBuilder/ExistingDiffContext";
+import ExistingSuccessSummary from "../components/Trips/tripBuilder/ExistingSuccessSummary";
 import NotSeenList from "../components/Trips/tripBuilder/NotSeenList";
 import ReviewAlbumSection from "../components/Trips/tripBuilder/ReviewAlbumSection";
 import ReviewAreaSection from "../components/Trips/tripBuilder/ReviewAreaSection";
@@ -113,7 +114,8 @@ function SuccessPanel({
     result.unknownNights > 0
       ? t("tripBuilder:review.success.unknownNights", { count: result.unknownNights })
       : null,
-    album.status === "linked"
+    // An updated trip's album has its own line in the diff below.
+    result.created && album.status === "linked"
       ? t("tripBuilder:review.success.albumAdded", {
           added: album.added ?? 0,
           already: album.alreadyIn ?? 0,
@@ -129,6 +131,7 @@ function SuccessPanel({
           : t("tripBuilder:review.success.updated")}
       </h2>
       {facts.length > 0 && <p>{facts.join(" · ")}</p>}
+      <ExistingSuccessSummary result={result} />
       {!result.routing.providerAvailable && result.routing.straight > 0 && (
         <p className="t-caption">{t("tripBuilder:review.success.noRouting")}</p>
       )}
@@ -234,7 +237,7 @@ function ReviewScreen({
       {running
         ? t("tripBuilder:review.saving")
         : draft.target.kind === "existing"
-          ? t("tripBuilder:review.addToTrip")
+          ? t("tripBuilder:existing.header.update")
           : t("tripBuilder:review.createTrip")}
     </Button>
   );
@@ -320,8 +323,16 @@ function ReviewScreen({
       />
 
       {commit.kind === "failed" && (
-        <Card role="alert">
+        <Card
+          role="alert"
+          style={{ display: "flex", flexDirection: "column", gap: "var(--ts-space-md)" }}
+        >
           <p>{commit.message}</p>
+          {commit.canScanAgain && (
+            <div>
+              <Button onClick={() => rescan({})}>{t("tripBuilder:review.failed.scanAgain")}</Button>
+            </div>
+          )}
         </Card>
       )}
       {commit.kind === "blocked" && (

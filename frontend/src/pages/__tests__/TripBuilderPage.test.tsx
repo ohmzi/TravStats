@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, matchRoutes, useLocation } from "react-router-dom";
 
+import { existingDraft } from "../../lib/tripBuilder/__tests__/existingFixture";
 import {
   DRAFT_ID,
   FLIGHT_OUT,
@@ -106,6 +107,25 @@ const RESULT: CommitJobResult = {
   album: { status: "linked", added: 72, alreadyIn: 0 },
 };
 
+const UPDATED: CommitJobResult = {
+  ...RESULT,
+  created: false,
+  roadtrips: [
+    {
+      id: "r1",
+      name: "Northvale loop",
+      stations: 5,
+      nights: 6,
+      diff: { updated: 1, unchanged: 2, added: 1, removed: 0, kept: 1 },
+    },
+  ],
+  flightsAssigned: 0,
+  routing: { routed: 2, straight: 0, ferry: 0, providerAvailable: true },
+  photoJourneysResolved: 0,
+  unknownNights: 0,
+  album: { status: "linked", added: 4, alreadyIn: 36, removed: 3 },
+};
+
 function Where(): JSX.Element {
   const location = useLocation();
   return <span data-testid="where">{location.pathname + location.search}</span>;
@@ -142,6 +162,8 @@ const renderDraft = async (draft: TripBuilderDraft = reviewDraft()) => {
   await reviewShown();
 };
 const createButton = () => screen.getByRole("button", { name: "tripBuilder:review.createTrip" });
+const updateButton = () =>
+  screen.getByRole("button", { name: "tripBuilder:existing.header.update" });
 
 beforeEach(() => {
   for (const fn of [
@@ -329,17 +351,12 @@ describe("the review", () => {
     expect(createButton()).toBeEnabled();
   });
 
-  it("says add to trip for an existing trip", async () => {
-    await renderDraft(
-      reviewDraft({
-        target: {
-          kind: "existing",
-          tripId: "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c",
-          tripName: "Southern loop",
-        },
-      })
-    );
-    expect(screen.getByRole("button", { name: "tripBuilder:review.addToTrip" })).toBeEnabled();
+  it("says update trip for an existing trip, and not create", async () => {
+    await renderDraft(existingDraft());
+    expect(updateButton()).toBeEnabled();
+    expect(
+      screen.queryByRole("button", { name: "tripBuilder:review.createTrip" })
+    ).not.toBeInTheDocument();
   });
 
   it("will not create a trip without a name", async () => {
@@ -450,6 +467,49 @@ describe("saving", () => {
     ]) {
       expect(summary).toHaveTextContent(part);
     }
+    expect(screen.queryByText(/existing\.success/)).not.toBeInTheDocument();
+  });
+
+  it("says what a re-sync changed under the summary, and says the album once", async () => {
+    mocks.waitForJob.mockResolvedValue(UPDATED);
+    await renderDraft(existingDraft());
+    fireEvent.click(updateButton());
+    expect(await screen.findByText("tripBuilder:review.success.updated")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'tripBuilder:existing.success.roadtrip {"name":"Northvale loop","updated":1,"unchanged":2,"added":1,"removed":0,"kept":1}'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('tripBuilder:existing.success.album {"added":4,"alreadyIn":36,"removed":3}')
+    ).toBeInTheDocument();
+    expect(screen.getByText(/review\.success\.stations/)).not.toHaveTextContent("albumAdded");
+  });
+
+  it("offers a new scan, keeping the edits, when the trip changed since the scan", async () => {
+    mocks.commit.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 409, data: { error: "x", code: "TRIP_CHANGED" } },
+    });
+    mocks.scan.mockResolvedValue({ jobId: NEXT_JOB });
+    mocks.waitForJob.mockReturnValue(new Promise(() => undefined));
+    await renderDraft(existingDraft());
+    fireEvent.click(updateButton());
+    expect(await screen.findByText("tripBuilder:errors.commit.tripChanged")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.failed.scanAgain" }));
+    await waitFor(() => expect(where()).toBe(`/trips/builder?job=${NEXT_JOB}`));
+    expect(mocks.scan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startDay: "2031-05-02",
+        endDay: "2031-05-07",
+        target: { kind: "existing", tripId: "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c" },
+      })
+    );
+    expect(JSON.parse(sessionStorage.getItem(`tb:carry:${NEXT_JOB}`) ?? "null")).toMatchObject({
+      edits: [],
+      commitKey: expect.stringMatching(/^[0-9a-f-]{36}$/),
+    });
   });
 
   it("saves an album-only scan on Create, which is its confirmation", async () => {
@@ -540,6 +600,9 @@ describe("saving", () => {
     fireEvent.click(createButton());
     expect(await screen.findByText("tripBuilder:errors.commit.windowChanged")).toBeInTheDocument();
     expect(createButton()).toBeEnabled();
+    expect(
+      screen.queryByRole("button", { name: "tripBuilder:review.failed.scanAgain" })
+    ).not.toBeInTheDocument();
   });
 
   it("gives the wait when the server says to slow down", async () => {

@@ -115,7 +115,6 @@
     "truncated": "Deine Bibliothek hat mehr Fotos, als ein Scan liest, die späteren fehlen. Scanne einen kürzeren Zeitraum."
   },
   "review": {
-    "addToTrip": "Zur Reise hinzufügen",
     "already": "Diese Reise wurde schon angelegt.",
     "album": {
       "blocked": {
@@ -223,6 +222,9 @@
       "scanAgain": "Erneut scannen",
       "startOver": "Starte den Scan erneut bei der Reise.",
       "title": "Dieser Entwurf ist abgelaufen"
+    },
+    "failed": {
+      "scanAgain": "Erneut scannen"
     },
     "flights": {
       "approximate": "Zeiten ungefähr",
@@ -379,6 +381,19 @@
       "reasonCreatedByTravstats": "TravStats hat dieses Album angelegt, deshalb ist das Entfernen an.",
       "reasonForeign": "Dieses Album stammt nicht von TravStats, deshalb ist das Entfernen aus. Schalte es ein, um auch hier aufzuräumen.",
       "needsScope": "Braucht die Berechtigung {{scope}} für deinen Immich-Schlüssel."
+    },
+    "header": {
+      "update": "Reise aktualisieren"
+    },
+    "success": {
+      "roadtrip": "{{name}}: {{updated}} aktualisiert, {{unchanged}} unverändert, {{added}} neu, {{removed}} entfernt, {{kept}} behalten",
+      "stops": "Zeitleisten-Stopps: {{updated}} aktualisiert, {{unchanged}} unverändert, {{added}} neu, {{removed}} entfernt, {{kept}} behalten",
+      "album": "Album: {{added}} hinzugefügt ({{alreadyIn}} schon drin), {{removed}} entfernt",
+      "removeSkipped": {
+        "missingScope": "Fotos außerhalb der Reisedaten sind im Album geblieben: Deinem Immich-Schlüssel fehlt albumAsset.delete.",
+        "albumChanged": "Fotos außerhalb der Reisedaten sind im Album geblieben: Es ist nicht das Album, das geprüft wurde.",
+        "failed": "Fotos außerhalb der Reisedaten sind im Album geblieben: Das Entfernen ist fehlgeschlagen."
+      }
     }
   }
 }

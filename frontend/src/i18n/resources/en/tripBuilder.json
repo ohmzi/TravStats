@@ -115,7 +115,6 @@
     "truncated": "Your library has more photos than one scan reads, so the later ones are missing. Scan a shorter window."
   },
   "review": {
-    "addToTrip": "Add to trip",
     "already": "This trip was already created.",
     "album": {
       "blocked": {
@@ -223,6 +222,9 @@
       "scanAgain": "Scan again",
       "startOver": "Start the scan again from the trip.",
       "title": "This draft has expired"
+    },
+    "failed": {
+      "scanAgain": "Scan again"
     },
     "flights": {
       "approximate": "Times approximate",
@@ -379,6 +381,19 @@
       "reasonCreatedByTravstats": "TravStats created this album, so removal is on.",
       "reasonForeign": "TravStats did not create this album, so removal is off. Turn it on to tidy this one up too.",
       "needsScope": "Needs the {{scope}} permission on your Immich key."
+    },
+    "header": {
+      "update": "Update trip"
+    },
+    "success": {
+      "roadtrip": "{{name}}: {{updated}} updated, {{unchanged}} unchanged, {{added}} added, {{removed}} removed, {{kept}} kept",
+      "stops": "Timeline stops: {{updated}} updated, {{unchanged}} unchanged, {{added}} added, {{removed}} removed, {{kept}} kept",
+      "album": "Album: {{added}} added ({{alreadyIn}} already in), {{removed}} removed",
+      "removeSkipped": {
+        "missingScope": "Photos outside the trip dates stayed in the album: your Immich key lacks albumAsset.delete.",
+        "albumChanged": "Photos outside the trip dates stayed in the album: it is not the album that was checked.",
+        "failed": "Photos outside the trip dates stayed in the album: removing them failed."
+      }
     }
   }
 }

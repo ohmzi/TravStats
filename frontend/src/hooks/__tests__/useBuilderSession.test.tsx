@@ -483,6 +483,30 @@ describe("saving", () => {
     expect(hook.result.current.session.commit).toEqual({
       kind: "failed",
       message: "tripBuilder:errors.commit.windowChanged",
+      canScanAgain: false,
+    });
+  });
+
+  it("offers a new scan when the trip changed since the scan, however that is reported", async () => {
+    mocks.commit.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 409, data: { error: "x", code: "TRIP_CHANGED" } },
+    });
+    const hook = await ready();
+    await act(() => hook.result.current.session.submit());
+    expect(hook.result.current.session.commit).toEqual({
+      kind: "failed",
+      message: "tripBuilder:errors.commit.tripChanged",
+      canScanAgain: true,
+    });
+
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+    mocks.waitForJob.mockRejectedValue(new mocks.JobFailedError("TRIP_CHANGED", 409));
+    await act(() => hook.result.current.session.submit());
+    expect(hook.result.current.session.commit).toEqual({
+      kind: "failed",
+      message: "tripBuilder:errors.commit.tripChanged",
+      canScanAgain: true,
     });
   });
 
@@ -496,6 +520,7 @@ describe("saving", () => {
     expect(hook.result.current.session.commit).toEqual({
       kind: "failed",
       message: 'tripBuilder:errors.rateLimitedMinutes {"count":9}',
+      canScanAgain: false,
     });
   });
 

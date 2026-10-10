@@ -24,6 +24,7 @@ import {
 import {
   alreadyCommittedTripId,
   commitFailureKey,
+  commitNeedsRescan,
   rateLimitOf,
   scanFailureKey,
   scanStartFailureKey,
@@ -72,7 +73,8 @@ export type CommitView =
   | { kind: "idle" }
   | { kind: "running" }
   | { kind: "blocked"; blocked: CommitBlocked }
-  | { kind: "failed"; message: string }
+  /** `canScanAgain`: only a new scan mends it (the trip changed since the scan). */
+  | { kind: "failed"; message: string; canScanAgain: boolean }
   | { kind: "unknown" }
   | { kind: "already"; tripId: string | null }
   | { kind: "done"; result: CommitResult; album: "idle" | "running" };
@@ -349,7 +351,13 @@ export function useBuilderSession(): BuilderSession {
         const tripId = alreadyCommittedTripId(err);
         if (err instanceof JobLostError) setCommit({ kind: "unknown" });
         else if (tripId !== null) setCommit({ kind: "already", tripId });
-        else setCommit({ kind: "failed", message: refusal(err, commitFailureKey(err)) });
+        else {
+          setCommit({
+            kind: "failed",
+            message: refusal(err, commitFailureKey(err)),
+            canScanAgain: commitNeedsRescan(err),
+          });
+        }
       }
     },
     [draft, state, refusal]

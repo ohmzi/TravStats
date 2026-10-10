@@ -50,6 +50,16 @@ export function commitFailureKey(err: unknown): string {
   return saveErrorKey(err, "tripBuilder:errors.commit.failed", COMMIT_KEYS);
 }
 
+/**
+ * The commit was refused because the trip changed after the scan (spec §K): the
+ * draft knows a list that is no longer the trip's, so only a new scan can mend
+ * it. The refusal comes with the request, or from the commit job.
+ */
+export function commitNeedsRescan(err: unknown): boolean {
+  const code = err instanceof JobFailedError ? err.code : apiErrorMachineCode(err);
+  return code === "TRIP_CHANGED";
+}
+
 /** The trip a refused commit says already exists (409 `ALREADY_COMMITTED`). */
 export function alreadyCommittedTripId(err: unknown): string | null {
   if (apiErrorMachineCode(err) !== "ALREADY_COMMITTED") return null;
