@@ -72,6 +72,11 @@ vi.mock("../../hooks/useConfirmDialog", () => ({
 vi.mock("../../components/ui/AppShell", () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
+vi.mock("../../components/Trips/TripMap", () => ({
+  default: (props: { trip: { stops: unknown[] } }) => (
+    <div data-testid="map" data-stops={props.trip.stops.length} />
+  ),
+}));
 vi.mock("../../store/toastStore", () => ({
   useToastStore: (select: (s: { addToast: unknown }) => unknown) =>
     select({ addToast: mocks.addToast }),
@@ -304,6 +309,11 @@ describe("the review", () => {
     expect(screen.queryByText("tripBuilder:review.album.title")).not.toBeInTheDocument();
     expect(document.querySelectorAll("[data-area]")).toHaveLength(0);
     expect(screen.getByText("tripBuilder:review.flights.title")).toBeInTheDocument();
+  });
+
+  it("draws the route on the map beside the list", async () => {
+    await renderDraft();
+    expect(await screen.findByTestId("map")).toHaveAttribute("data-stops", "6");
   });
 
   it("draws every area, and the nights still open", async () => {

@@ -8,6 +8,7 @@ import ReviewAreaSection from "../components/Trips/tripBuilder/ReviewAreaSection
 import ReviewExcluded from "../components/Trips/tripBuilder/ReviewExcluded";
 import ReviewFlightRows from "../components/Trips/tripBuilder/ReviewFlightRows";
 import ReviewHeader from "../components/Trips/tripBuilder/ReviewHeader";
+import ReviewMapPreview from "../components/Trips/tripBuilder/ReviewMapPreview";
 import ReviewNightChip from "../components/Trips/tripBuilder/ReviewNightChip";
 import ReviewPhotoJourneys from "../components/Trips/tripBuilder/ReviewPhotoJourneys";
 import ReviewSection from "../components/Trips/tripBuilder/ReviewSection";
@@ -15,6 +16,7 @@ import ReviewWarnings from "../components/Trips/tripBuilder/ReviewWarnings";
 import { useBuilderSession, type BuilderSession } from "../hooks/useBuilderSession";
 import { useConfirmDialog } from "../hooks/useConfirmDialog";
 import { useTranslation } from "../hooks/useTranslation";
+import { DETAIL_MAP_STICKY_TOP } from "../lib/detailChrome";
 import { useDisplayFormat } from "../lib/displayFormat";
 import { effectiveNights, sleptKeys } from "../lib/tripBuilder/planRules";
 import {
@@ -387,7 +389,15 @@ function ReviewScreen({
           }
         />
       ) : (
-        body
+        <div
+          className="grid items-start lg:grid-cols-[minmax(0,1fr)_minmax(340px,440px)]"
+          style={{ gap: "var(--ts-space-xl)" }}
+        >
+          {body}
+          <aside className="lg:sticky" style={{ top: DETAIL_MAP_STICKY_TOP }}>
+            <ReviewMapPreview state={state} />
+          </aside>
+        </div>
       )}
 
       <ChangeDatesDialog
