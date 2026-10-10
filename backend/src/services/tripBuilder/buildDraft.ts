@@ -9,6 +9,7 @@
  * scenario tests run it over synthetic photos.
  */
 import type { ReportProgress } from "../jobs/jobRegistry";
+import { roadtripAreaNames } from "../../shared/tour/builderNightPlan";
 import type { AirportData } from "../airportLookup";
 import type { GeocodeParts } from "../geo/nominatim";
 import type { ImmichClient, ImmichDateRange } from "../immich/immichClient";
@@ -326,12 +327,29 @@ export async function buildDraftWith(
   const night = nightsPhase(collected, movement, roaded.plans);
 
   const previews = indexPreviews(night.kept);
+  const kinds = new Map(
+    night.kept.map((plan) => [plan.key, decideAreaKind(plan, deps.roadtripsVisible)] as const)
+  );
+  const mainCities = new Map(
+    night.kept.map((plan) => [plan.key, mainCityOf(plan.stations, night.nights)] as const)
+  );
+  const names = roadtripAreaNames(
+    night.kept
+      .filter((plan) => kinds.get(plan.key) === "roadtrip")
+      .map((plan) => ({
+        key: plan.key,
+        mainCity: mainCities.get(plan.key) ?? null,
+        startDay: plan.area.startDay,
+      })),
+    input.name,
+    new Set(deps.targetTrip?.roadtripNames ?? [])
+  );
   const areas = night.kept.map((plan) =>
     toDraftArea(
       withPreviews(plan, previews.previewIdx),
-      decideAreaKind(plan, deps.roadtripsVisible),
-      input.name,
-      mainCityOf(plan.stations, night.nights)
+      kinds.get(plan.key) ?? "stops",
+      names[plan.key] ?? input.name,
+      mainCities.get(plan.key) ?? null
     )
   );
 
