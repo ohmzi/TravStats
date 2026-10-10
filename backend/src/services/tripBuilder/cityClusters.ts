@@ -15,7 +15,12 @@
 import { distanceKm } from "../photoJourneys/cluster";
 import type { Coord } from "../tour/tourDistance";
 import { medianPoint } from "./medians";
-import { CITY_LINK_KM, CLUSTER_GRID_DEG } from "./thresholds";
+import {
+  CITY_LINK_KM,
+  CLUSTER_GRID_DEG,
+  CLUSTER_OVERSIZE_KM,
+  CLUSTER_SPLIT_MIN_PHOTOS,
+} from "./thresholds";
 import type { CityCluster, PhotoPoint } from "./types";
 
 /** A photo with its coordinates narrowed, and its place in the (time-ordered) input. */
@@ -163,6 +168,69 @@ function majority(values: ReadonlyArray<string | null>): string | null {
   return best;
 }
 
+/** A group's members in time order. */
+const inOrder = (members: readonly Placed[]): Placed[] =>
+  [...members].sort((a, b) => a.order - b.order);
+
+function groupByCityAndState(members: readonly Placed[]): Placed[][] {
+  const groups = new Map<string, Placed[]>();
+  for (const member of members) {
+    const key = `${member.photo.city ?? ""}|${member.photo.state ?? ""}`;
+    const group = groups.get(key);
+    if (group) group.push(member);
+    else groups.set(key, [member]);
+  }
+  return [...groups.values()];
+}
+
+function nearestIndex(from: Coord, centres: readonly Coord[]): number {
+  let nearest = 0;
+  let best = Infinity;
+  centres.forEach((centre, index) => {
+    const km = distanceKm(from, centre);
+    if (km < best) {
+      best = km;
+      nearest = index;
+    }
+  });
+  return nearest;
+}
+
+/**
+ * A cluster past `CLUSTER_OVERSIZE_KM` is split by Immich's `city|state`. A
+ * group of fewer than `CLUSTER_SPLIT_MIN_PHOTOS` photos joins the nearest
+ * group, and groups whose medians lie within `CITY_LINK_KM` merge again. When
+ * that leaves one group — Immich names it all one place, or only one name has
+ * enough photos to stand alone — the cluster stays whole.
+ */
+function splitOversized(members: readonly Placed[]): Placed[][] {
+  if (spreadKm(members) <= CLUSTER_OVERSIZE_KM) return [inOrder(members)];
+
+  const groups = groupByCityAndState(members);
+  const large = groups.filter((group) => group.length >= CLUSTER_SPLIT_MIN_PHOTOS);
+  if (large.length < 2) return [inOrder(members)];
+
+  const largeCentres = large.map(medianPoint);
+  const joined = large.map((group) => [...group]);
+  for (const small of groups.filter((group) => group.length < CLUSTER_SPLIT_MIN_PHOTOS)) {
+    joined[nearestIndex(medianPoint(small), largeCentres)].push(...small);
+  }
+
+  const centres = joined.map(medianPoint);
+  const sets = new DisjointSet(joined.length);
+  for (let a = 0; a < joined.length; a++) {
+    for (let b = a + 1; b < joined.length; b++) {
+      if (distanceKm(centres[a], centres[b]) <= CITY_LINK_KM) sets.union(a, b);
+    }
+  }
+  const merged = new Map<number, Placed[]>();
+  joined.forEach((group, index) => {
+    const root = sets.find(index);
+    merged.set(root, [...(merged.get(root) ?? []), ...group]);
+  });
+  return merged.size < 2 ? [inOrder(members)] : [...merged.values()].map(inOrder);
+}
+
 function toCluster(members: readonly Placed[], id: string): CityCluster {
   const centre = medianPoint(members);
   const city = majority(members.map((member) => member.photo.city));
@@ -198,7 +266,10 @@ export function clusterCities(photos: readonly PhotoPoint[]): CityCluster[] {
     else byRoot.set(root, [point]);
   });
 
-  return [...byRoot.values()].map((members, index) => toCluster(members, `c${index + 1}`));
+  return [...byRoot.values()]
+    .flatMap(splitOversized)
+    .sort((a, b) => a[0].order - b[0].order)
+    .map((members, index) => toCluster(members, `c${index + 1}`));
 }
 
 /** Photo id → the id of the cluster it belongs to. */
