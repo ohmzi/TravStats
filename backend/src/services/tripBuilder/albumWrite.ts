@@ -8,13 +8,18 @@
  * album in the operator's account.
  */
 import { prisma } from "../../db";
+import { resolveTrip } from "../../routes/trips/resolveTrip";
 import { now } from "../../shared/time/clock";
+import { fromDbDate } from "../../shared/time/localDate";
 import logger from "../../utils/logger";
+import { loadHomePeriods } from "../home/homeStore";
 import { ALBUM_SCOPES, scopesMissing } from "../immich/immichCapabilities";
 import { invalidateAlbumAssets } from "../immich/immichAssetCache";
 import { createImmichClient, type ImmichClient } from "../immich/immichClient";
 import { getImmichConnection } from "../immich/immichResolver";
 import { ImmichError } from "../immich/types";
+import { collectWindow } from "./collect";
+import { loadFlights } from "./loadFlights";
 import { PREFLIGHT_TIMEOUT_MS } from "./thresholds";
 import type { AlbumOutcome, CommitBlocked, Day, PreflightBlockReason } from "./types";
 
@@ -171,6 +176,69 @@ export async function writeTripAlbum(input: AlbumWriteInput): Promise<AlbumOutco
       alreadyIn: result.duplicate,
       refused: result.refused.length,
     };
+  } catch (error) {
+    return failed(error);
+  }
+}
+
+/** `AlbumOutcome` has no reason field, so a blocked preflight is told through `error` and `missingScopes`. */
+function blockedOutcome(block: CommitBlocked): AlbumOutcome {
+  switch (block.reason) {
+    case "missingScopes":
+      return {
+        status: "blocked",
+        missingScopes: block.missingScopes,
+        error: {
+          kind: "auth",
+          ...(block.missingScopes[0] ? { missingScope: block.missingScopes[0] } : {}),
+        },
+      };
+    case "unreachable":
+      return { status: "blocked", error: { kind: "unreachable" } };
+    default:
+      return { status: "blocked", error: { kind: "notConfigured" } };
+  }
+}
+
+/**
+ * Retry a trip's album after it failed or was blocked. The asset list is
+ * rebuilt from the trip's own days with the scan's fetch-and-clean step, so it
+ * needs no draft and survives a restart. Safe to run again: the album is found
+ * by its exact owned name and Immich reports assets already in it as duplicates.
+ */
+export async function retryTripAlbum(
+  userId: string,
+  tripId: string,
+  name: string | undefined
+): Promise<AlbumOutcome> {
+  const trip = await resolveTrip(userId, tripId);
+  const preflight = await preflightAlbum(userId, null);
+  if (!preflight.ok) return blockedOutcome(preflight.blocked);
+  try {
+    const days = await prisma.trip.findFirstOrThrow({
+      where: { id: tripId, userId },
+      select: { startDay: true, endDay: true },
+    });
+    if (!days.startDay || !days.endDay) return { status: "skipped", skipReason: "noAssets" };
+    const startDay = fromDbDate(days.startDay);
+    const endDay = fromDbDate(days.endDay);
+    const collected = await collectWindow(
+      {
+        immich: preflight.client,
+        loadFlights: (window, target) => loadFlights(userId, window, target),
+        homePeriods: await loadHomePeriods(userId),
+      },
+      { immichUserId: preflight.immichUserId, startDay, endDay, targetTripId: tripId }
+    );
+    return await writeTripAlbum({
+      userId,
+      tripId,
+      albumName: name ?? trip.name,
+      description: albumDescription(startDay, endDay),
+      assetIds: collected.clean.albumAssetIds,
+      client: preflight.client,
+      immichUserId: preflight.immichUserId,
+    });
   } catch (error) {
     return failed(error);
   }

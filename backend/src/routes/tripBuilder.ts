@@ -3,12 +3,12 @@
  * 2026-10-09 §F). Bare response family (docs/adr/0001-api-response-shape.md):
  * every answer is the resource itself.
  *
- * Limiters. The scan and the commit start heavy work against someone else's
- * server, so they share the existing `immichImportLimiter` bucket with the
- * photo-journey scan and the album import. Capabilities and the thumbnails
- * stream Immich content, so they use `immichProxyLimiter`. Reading, discarding
- * and polling a draft are one in-memory lookup of the caller's own draft and
- * stay unlimited.
+ * Limiters. The scan, the commit and the album retry start heavy work against
+ * someone else's server, so they share the existing `immichImportLimiter`
+ * bucket with the photo-journey scan and the album import. Capabilities and
+ * the thumbnails stream Immich content, so they use `immichProxyLimiter`.
+ * Reading, discarding and polling a draft are one in-memory lookup of the
+ * caller's own draft and stay unlimited.
  *
  * `rejectDemoWrites`: the shared demo account has no Immich, and what it
  * could write here would be written to everyone's instance.
@@ -19,7 +19,9 @@ import { authenticate, requireWriteScope, AuthRequest } from "../middleware/auth
 import { rejectDemoWrites } from "../middleware/demoGuard";
 import { immichImportLimiter, immichProxyLimiter } from "../middleware/rateLimit";
 import { AppError } from "../middleware/errorHandler";
+import { z } from "../schemas/zod";
 import {
+  albumRetryBodySchema,
   commitBodySchema,
   draftIdParamSchema,
   previewIndexParamSchema,
@@ -34,6 +36,7 @@ import { getImmichConnection } from "../services/immich/immichResolver";
 import { startJob } from "../services/jobs/jobRegistry";
 import { buildTripDraft, progressReporter } from "../services/tripBuilder/buildDraft";
 import { builderCapabilities } from "../services/tripBuilder/capabilities";
+import { retryTripAlbum } from "../services/tripBuilder/albumWrite";
 import { runCommitJob } from "../services/tripBuilder/commit";
 import { prepareCommit } from "../services/tripBuilder/commitPlan";
 import {
@@ -215,6 +218,31 @@ router.post(
       }
       const job = startJob("tripBuilder.commit", userId, () => runCommitJob(draft, plan));
       attachCommitJob(id, job.id);
+      res.status(202).json({ jobId: job.id });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+const tripIdParamSchema = z.string().uuid();
+
+/**
+ * Retry a trip's album after it failed or was blocked. The asset list is
+ * rebuilt from the trip's own days, so the retry needs no draft.
+ */
+router.post(
+  "/trips/:tripId/album",
+  immichImportLimiter,
+  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.userId!;
+      const tripId = tripIdParamSchema.parse(req.params.tripId);
+      const body = albumRetryBodySchema.parse(req.body ?? {});
+      await resolveTrip(userId, tripId);
+      const job = startJob("tripBuilder.album", userId, () =>
+        retryTripAlbum(userId, tripId, body.name)
+      );
       res.status(202).json({ jobId: job.id });
     } catch (error) {
       next(error);

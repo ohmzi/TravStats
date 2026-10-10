@@ -395,3 +395,32 @@ registry.registerPath({
     429: { description: "Too many requests", content: errorContent },
   },
 });
+
+registry.registerPath({
+  method: "post",
+  path: "/trip-builder/trips/{tripId}/album",
+  summary: "Retry a trip's Immich album",
+  description:
+    "Rebuilds the asset list from the trip's own days and links the album, finding it again " +
+    "by its exact owned name, so a retry never duplicates anything. The job result is " +
+    '`{status: "linked" | "skipped" | "failed" | "blocked", immichAlbumId?, albumName?, ' +
+    "reused?, added?, alreadyIn?, refused?, error?, missingScopes?}`. Only the user's own " +
+    "Immich key may write.",
+  tags: tag,
+  request: {
+    params: z.object({ tripId: z.string().uuid() }),
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({ name: z.string().min(1).max(200).optional() }).strict(),
+        },
+      },
+    },
+  },
+  responses: {
+    202: { description: "The album job", content: { "application/json": { schema: jobStarted } } },
+    400: { description: "Invalid input", content: errorContent },
+    404: { description: "Not the caller's trip", content: errorContent },
+    429: { description: "Too many requests", content: errorContent },
+  },
+});
