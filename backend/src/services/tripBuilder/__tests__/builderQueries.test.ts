@@ -1,5 +1,13 @@
+// The gate logs a warning when it cannot verify a key; keep it out of the test output.
+jest.mock("../../../utils/logger", () => ({
+  __esModule: true,
+  default: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+}));
+
 import { prisma } from "../../../db";
 import { hashPassword } from "../../../utils/password";
+import logger from "../../../utils/logger";
+import { ImmichError } from "../../immich/types";
 import {
   albumGateOf,
   linkedTripNameOf,
@@ -165,6 +173,40 @@ describe("builder queries", () => {
           },
         })
       ).toMatchObject({ allowed: true, blockedReason: "unverified" });
+    });
+
+    it("logs why a key could not be verified, with the error kind and no detail", async () => {
+      const warn = jest.mocked(logger.warn);
+      warn.mockClear();
+
+      await albumGateOf(userConn, {
+        getMyApiKey: async () => {
+          throw new ImmichError("unreachable", "Immich is unreachable at http://immich.test");
+        },
+      });
+      await albumGateOf(userConn, {
+        getMyApiKey: async () => {
+          throw new Error("timeout");
+        },
+      });
+      await albumGateOf(userConn, { getMyApiKey: async () => null });
+
+      expect(warn.mock.calls).toEqual([
+        [{ message: "immich_capability_check_failed", context: { kind: "unreachable" } }],
+        [{ message: "immich_capability_check_failed", context: { kind: "unexpected" } }],
+      ]);
+    });
+
+    it("does not call a rejected key unverified: a 401 propagates", async () => {
+      const rejected = new ImmichError("auth", "Immich rejected the API key", 401);
+
+      await expect(
+        albumGateOf(userConn, {
+          getMyApiKey: async () => {
+            throw rejected;
+          },
+        })
+      ).rejects.toBe(rejected);
     });
 
     it("lists the album scopes a key lacks", async () => {

@@ -234,17 +234,48 @@ describe("movementOutsideDates", () => {
     ]);
   });
 
-  it("ignores photos at home and photos far from the stations", () => {
+  it("ignores a photo far from the stations", () => {
     const warnings = movementOutsideDates({
-      context: [
-        contextPhoto("home", "2031-05-01", HOME.lat, HOME.lon),
-        contextPhoto("far", "2031-05-07", -36.85, 174.76),
-      ],
+      context: [contextPhoto("far", "2031-05-07", -36.85, 174.76)],
       window,
       firstStation: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
       lastStation: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
       homeAt,
     });
     expect(warnings).toEqual([]);
+  });
+
+  it("ignores photos taken at home even when a station is a few kilometres from them", () => {
+    // About 10 km north of the residence: inside CITY_LINK_KM of the home photos, so the
+    // check can only be settled by the distance from home.
+    const nearHome = { lat: HOME.lat + 0.09, lon: HOME.lon };
+    const warnings = movementOutsideDates({
+      context: [
+        contextPhoto("before", "2031-05-01", HOME.lat, HOME.lon),
+        contextPhoto("after", "2031-05-07", HOME.lat, HOME.lon),
+      ],
+      window,
+      firstStation: nearHome,
+      lastStation: nearHome,
+      homeAt,
+    });
+    expect(warnings).toEqual([]);
+  });
+
+  it("draws the line at the home radius for photos that continue from a station", () => {
+    // A station 30 km north of the residence; one photo 25 km out (inside the home radius)
+    // and one 35 km out (past it), both a few kilometres from the station.
+    const station = { lat: HOME.lat + 0.27, lon: HOME.lon };
+    const warnings = movementOutsideDates({
+      context: [
+        contextPhoto("inside", "2031-05-01", HOME.lat + 0.225, HOME.lon),
+        contextPhoto("past", "2031-05-07", HOME.lat + 0.315, HOME.lon),
+      ],
+      window,
+      firstStation: station,
+      lastStation: station,
+      homeAt,
+    });
+    expect(warnings.map((w) => w.params)).toEqual([{ day: "2031-05-07", km: 35 }]);
   });
 });

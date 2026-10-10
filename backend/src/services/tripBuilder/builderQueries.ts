@@ -12,9 +12,10 @@ import { addDays } from "../../shared/tour/builderNightPlan";
 import { localDay } from "../../shared/time/instant";
 import { fromDbDate, toDbDate } from "../../shared/time/localDate";
 import { zoneOfCoordinates } from "../../shared/time/resolveInput";
+import logger from "../../utils/logger";
 import { ALBUM_SCOPES, scopesMissing } from "../immich/immichCapabilities";
 import type { ImmichClient } from "../immich/immichClient";
-import type { ImmichConnection } from "../immich/types";
+import { ImmichError, type ImmichConnection } from "../immich/types";
 import { PHOTO_JOURNEY_PAD_DAYS } from "./thresholds";
 import type { Day, DraftAlbum, DraftPhotoJourney, ScanWindow } from "./types";
 
@@ -155,8 +156,13 @@ export async function linkedTripNameOf(
 /**
  * Whether an album may be created with this connection. Only the user's own
  * key may write: a shared (admin or ENV) key would put the album in the
- * operator's account. An unverifiable key is allowed and flagged, because the
- * commit's preflight checks again before anything is written.
+ * operator's account.
+ *
+ * A key Immich cannot vouch for (`getMyApiKey` answers null, or the call fails
+ * for a transient reason) is allowed and flagged `unverified`, because the
+ * commit's preflight checks again before anything is written; the reason is
+ * logged. A key Immich REJECTS (a 401, kind `auth`) is not unverified, it is
+ * unusable: the error propagates, as it does for the scan's own Immich calls.
  */
 export async function albumGateOf(
   conn: ImmichConnection,
@@ -168,7 +174,12 @@ export async function albumGateOf(
   let key: Awaited<ReturnType<ImmichClient["getMyApiKey"]>>;
   try {
     key = await client.getMyApiKey();
-  } catch {
+  } catch (error) {
+    if (error instanceof ImmichError && error.kind === "auth") throw error;
+    logger.warn({
+      message: "immich_capability_check_failed",
+      context: { kind: error instanceof ImmichError ? error.kind : "unexpected" },
+    });
     key = null;
   }
   if (key === null) return { allowed: true, blockedReason: "unverified", missingScopes: [] };
