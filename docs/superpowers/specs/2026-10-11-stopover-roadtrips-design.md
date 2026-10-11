@@ -5,12 +5,12 @@ Builds on: `2026-10-09-immich-trip-builder-design.md` (the trip builder), whose 
 
 ## 1. The want
 
-A flight trip often connects through an airport where the traveller actually left the terminal — Istanbul for ~8 h on the way to Karachi, with 98 photos downtown. Today the builder classifies that stretch as a **layover**, flags its photos `layover`, and deliberately keeps them out of ground areas, stations and nights: the stopover can never become a roadtrip, and only a "N photos during the layover" line on the flight row marks it.
+A flight trip often connects through an airport where the traveller actually left the terminal — a hub city for ~8 h on the way onward, with 98 photos downtown. Today the builder classifies that stretch as a **layover**, flags its photos `layover`, and deliberately keeps them out of ground areas, stations and nights: the stopover can never become a roadtrip, and only a "N photos during the layover" line on the flight row marks it.
 
 The owner wants, in the sync review:
 
 1. a per-stopover toggle to make the stopover a **roadtrip** — its stops derived from the photos' geotags, mapped in the journey between the two flights, with a timeline;
-2. once that is on, a second toggle to also make it an **independent album and roadtrip** named `"<City> <Year> Road Trip"` ("Istanbul 2025 Road Trip"), combining all the stopover's pictures there — while those photos **also stay in the trip's main album**;
+2. once that is on, a second toggle to also make it an **independent album and roadtrip** named `"<City> <Year> Road Trip"` ("Eastport 2031 Road Trip"), combining all the stopover's pictures there — while those photos **also stay in the trip's main album**;
 3. the journey shows everything combined: every flight, every roadtrip, the flight↔roadtrip mapping, and all albums with their pictures.
 
 Owner rulings (2026-10-11, conversation):
@@ -21,11 +21,11 @@ Owner rulings (2026-10-11, conversation):
 - **Both toggles off, per stopover.** Nothing is pre-selected; the album toggle only enables with the roadtrip toggle on.
 - **Approach A — a dedicated stopover concept end to end.** Stopovers do not become areas and do not touch the area/night machinery; they are their own section from scan to commit (approach B, promoting layovers to areas, and C, deriving at commit time, were rejected — B erodes the deliberate area/layover split and the naming rules, C breaks "the review shows what will be written").
 
-The example that must work: the owner's **Karachi 2025** trip (`94128bb5-…`, 2025-11-09 → 2025-12-04, 7 flights). On 2025-11-10, TK0036 (YYZ→IST) lands 10:25Z and TK0708 (IST→KHI) departs 18:20Z; Immich holds 98 photos in that window, 97 geotagged, all ~15–25 km from IST in the Sultanahmet area.
+The case that must work: a 26-day trip (7 flights) whose second day connects through a hub airport; the connection lands 10:25Z and departs 18:20Z the same day, and Immich holds 98 photos in that window, 97 geotagged, ~34 km from that airport in the city centre.
 
 ## 2. Detection (scan)
 
-A **stopover candidate** is either **(a)** an existing `Layover` (see §2.1) that passes one added test, or **(b)** a ground area that lies between two adjacent same-airport flights with a `0 ≤ gap < LAYOVER_MAX_H` ground gap and whose photos pass that same test (no upper radius on this branch) — added 2026-10-11 after the Karachi acceptance probe: IST airport sits ~34 km from central Istanbul, so the 30 km layover radius never fires for the owner's own case, and branch (b) covers cities far from their hub. On branch (b) the area is reclassified out of `areas` (no double offer) and its own derived stations become the tour. The test, on either branch, is:
+A **stopover candidate** is either **(a)** an existing `Layover` (see §2.1) that passes one added test, or **(b)** a ground area that lies between two adjacent same-airport flights with a `0 ≤ gap < LAYOVER_MAX_H` ground gap and whose photos pass that same test (no upper radius on this branch) — added 2026-10-11 after an acceptance probe: the hub airport sat ~34 km from the city centre, so the 30 km layover radius never fired; branch (b) covers cities far from their hub. On branch (b) the area is reclassified out of `areas` (no double offer) and its own derived stations become the tour. The test, on either branch, is:
 
 - at least `STOPOVER_MIN_PHOTOS` (= 5) of its geotagged photos lie further than `STOPOVER_MIN_KM` (= 5) from the layover airport — the **outing set**.
 
@@ -41,11 +41,11 @@ Both are new constants in `services/tripBuilder/thresholds.ts`; both are tunable
 
 For each candidate the scan derives a stopover tour from the outing set, with the existing machinery and two stopover-specific rules:
 
-- **Stations.** Cluster the outing photos (the same city-cluster/median machinery areas use), in time order. The tour **always begins with the arrival airport as its first stop** (title = the airport's city/name, rendered like the area airport anchors), then the derived clusters. That guarantees at least two stations whenever the candidate exists (a single downtown cluster still yields `[IST airport, downtown]`), which the roadtrip model and the review's `roadtripTooShort` check both want. Station keys are minted in the same pass and from the same scan-wide `taken` set as area stations, so keys never collide.
+- **Stations.** Cluster the outing photos (the same city-cluster/median machinery areas use), in time order. The tour **always begins with the arrival airport as its first stop** (title = the airport's city/name, rendered like the area airport anchors), then the derived clusters. That guarantees at least two stations whenever the candidate exists (a single downtown cluster still yields `[<airport>, downtown]`), which the roadtrip model and the review's `roadtripTooShort` check both want. Station keys are minted in the same pass and from the same scan-wide `taken` set as area stations, so keys never collide.
 - **Legs.** Between consecutive stations, by the existing leg machinery (mode evidence; road unless evidence says otherwise) — for a compact downtown cluster this is usually a single short leg from the airport.
 - **Nights: none.** A stopover is hours; no night is assigned to its stations, and they never enter the night plan.
 - **Name.** `<City> <Year> Road Trip`, where City is the existing naming chain's answer for the outing set (Immich city majority → reverse geocode, falling back to the airport's city) and Year is the stopover day's year in the trip's local time. The name is both the roadtrip's name and the album name (owner ruling).
-- **Album asset list.** The stopover's album pictures are the **whole layover's photo set** (`Layover.photoIds`, all 98 for Istanbul), not only the outing set.
+- **Album asset list.** The stopover's album pictures are the **whole layover's photo set** (`Layover.photoIds`, all 98 in the probed case), not only the outing set.
 - **Previews.** The stopover stations' thumbnails join the draft's numbered preview space (no Immich asset id crosses the API) exactly as area stations do.
 
 ### 2.3 The draft
@@ -57,8 +57,8 @@ For each candidate the scan derives a stopover tour from the outing set, with th
 ```
 DraftStopover = {
   key: string            // `${inFlightId}#${outFlightId}` — stable across scans
-  city: string           // "Istanbul"
-  title: string          // "Istanbul 2025 Road Trip"
+  city: string           // "Eastport"
+  title: string          // "Eastport 2031 Road Trip"
   day: string            // the stopover day (YYYY-MM-DD, trip zone)
   airportIata: string | null
   photoCount: number     // the whole layover set (album list)
@@ -88,7 +88,7 @@ Selections are ordinary review edits: a tick per stopover lives in `ReviewState`
 The stopover roadtrip is an ordinary roadtrip filed on the trip, and the independent album is an ordinary linked album:
 
 - the trip page's ROADTRIPS card lists it beside the trip's own roadtrips;
-- the timeline places its stops **between the two flights** (the existing date-driven flight↔roadtrip mapping; for Istanbul: after TK0036 lands, before TK0708 departs);
+- the timeline places its stops **between the two flights** (the existing date-driven flight↔roadtrip mapping: after the first flight lands, before the second departs);
 - the ALBUMS card and the gallery already render every linked album in `sortIdx` order, so both albums appear with no new read path.
 
 ## 5. Commit
@@ -120,7 +120,7 @@ Per toggled stopover: `insertRoadtrip(tx, userId, { tripId, name, mode: "road", 
 ### 5.4 Phase D (albums) and failure
 
 - The main album write is unchanged; the stopover photos are already in its list.
-- Per stopover with `album: true`: preflight (own-key scopes, ownership — the existing check), **find-or-create by exact owned name** `"<City> <Year> Road Trip"` with the description keeping the exact `TravStats trip ·` prefix (`TravStats trip · Istanbul 2025 Road Trip`), add the stopover's asset ids, then `upsertAlbumLink` — a second linked album, appended by `sortIdx`.
+- Per stopover with `album: true`: preflight (own-key scopes, ownership — the existing check), **find-or-create by exact owned name** `"<City> <Year> Road Trip"` with the description keeping the exact `TravStats trip ·` prefix (`TravStats trip · Eastport 2031 Road Trip`), add the stopover's asset ids, then `upsertAlbumLink` — a second linked album, appended by `sortIdx`.
 - Failure semantics mirror the main album: the trip still saves; the success panel shows a line per album, each with its own retry. Retries of the trip's albums run one at a time in v1 (the existing per-(user,trip) album-job key stays); the retry route's target selection becomes **name-aware** so it can retry the stopover album rather than always the trip-named one.
 
 ## 6. Re-sync (spec §K) — v1 boundaries
@@ -143,4 +143,4 @@ Per toggled stopover: `insertRoadtrip(tx, userId, { tripId, name, mode: "road", 
 
 TDD per module, in the builder's style, each unit independently reviewed; no migration. The pinned tests the grounding identified must be updated deliberately and named in the units: the commit-body key list test, the review's switch-index tests, and the i18n key guard. New tests cover: thresholds at the boundary (4 vs 5 photos, 5 km either side); the airport-first two-station minimum; name generation; the strict commit body (unknown key, album without roadtrip); the plan's night-free rows; phase B rows (one roadtrip per toggled stopover, no nights); the second album (create/add/link, the marker, name-aware retry); re-sync matching (claimed before areas; locked toggles; no rebuild; flight-ids-changed → new candidate); and the review composition (the Stopovers card, the switch gating, replay after re-scan).
 
-**Acceptance (UAT on the owner's Karachi 2025):** scan → the Istanbul stopover appears with ~98 photos → toggle both switches → Update trip → the journey shows the roadtrip named "Istanbul 2025 Road Trip" with its stops on the timeline between TK0036 and TK0708, and the album of the same name linked beside the trip's album, its photos in both; a re-sync then marks it *already synced* with nothing changed; the Smokey Mountains 2025 trip (no qualifying stopover) is unchanged.
+**Acceptance (UAT on a real trip):** scan → the stopover appears with ~98 photos → toggle both switches → Update trip → the journey shows the roadtrip named after the city and year with its stops on the timeline between the two flights, and the album of the same name linked beside the trip's album, its photos in both; a re-sync then marks it *already synced* with nothing changed; a trip with no qualifying stopover is unchanged.
