@@ -1,5 +1,6 @@
 import "../paths";
 import { NOT_SEEN_REASONS, STATION_STATUSES } from "../../tripBuilder/existingTypes";
+import { BUILDER_LEG_MODES } from "../../tripBuilder/types";
 import { buildOpenApiDocument } from "../registry";
 
 interface Node {
@@ -94,6 +95,13 @@ describe("trip builder OpenAPI documents the re-sync fields", () => {
     it("lists the timeline stops the photos do not show", () => {
       expect(at(draft, "notSeenStops").type).toBe("array");
       expect(draft.required ?? []).not.toContain("notSeenStops");
+    });
+
+    it("carries the stored mode on the leg a matched pair updates, with the scan's beside it", () => {
+      const leg = at(draft, "areas", "[]", "legs", "[]");
+      expect(at(leg, "mode").enum).toEqual([...BUILDER_LEG_MODES]);
+      expect(at(leg, "derivedMode").enum).toEqual([...BUILDER_LEG_MODES]);
+      expect(leg.required ?? []).not.toContain("derivedMode");
     });
 
     it("previews what updating the album would do, without an asset id", () => {

@@ -118,7 +118,14 @@ export interface DraftLeg {
   toKey: string;
   chordKm: number;
   routedKm: number | null;
+  /**
+   * The mode the review shows and the commit writes; on a matched pair that
+   * updates a stored leg it starts on the stored mode, so an untouched leg
+   * stays as the trip holds it.
+   */
   mode: BuilderLegMode;
+  /** Re-sync only: the mode the scan derived, on a leg that updates a stored one. */
+  derivedMode?: BuilderLegMode;
   ferryEvidence: FerryEvidence | null;
 }
 

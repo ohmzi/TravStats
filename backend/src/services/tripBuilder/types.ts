@@ -277,7 +277,17 @@ export interface DraftLeg {
   chordKm: number;
   /** The probe's road distance; null without a probe or a route. */
   routedKm: number | null;
+  /**
+   * The mode the review shows and the commit writes. A matched pair that
+   * updates a stored leg starts on the stored leg's mode (spec §K.4: the
+   * commit sets `legModes` only for new legs or where the user changed a
+   * mode), read as `road` unless it is exactly `ferry` — the roadtrip
+   * editor's own reading. A derivation from the scan, not from a stored leg,
+   * is the mode as built.
+   */
   mode: BuilderLegMode;
+  /** Re-sync only: the mode the scan derived, on a leg that updates a stored one. */
+  derivedMode?: BuilderLegMode;
   ferryEvidence: FerryEvidence | null;
 }
 export type PlanLeg = DraftLeg;

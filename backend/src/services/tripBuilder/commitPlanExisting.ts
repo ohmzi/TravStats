@@ -119,6 +119,11 @@ function derivedToStation(
   };
 }
 
+/**
+ * The mode the draft's own leg carried: for a pair both of whose stations are
+ * stored, `annotateDraftForExisting` put the STORED leg's mode there, so this is
+ * what the review showed and what an untouched commit must keep.
+ */
 function draftLegMode(area: DraftArea, fromKey: string, toKey: string): string | undefined {
   return area.legs.find((leg) => leg.fromKey === fromKey && leg.toKey === toKey)?.mode;
 }
@@ -214,8 +219,10 @@ function buildRoadtripWrite(
   }
 
   // Leg modes: positional on the final list. A stored leg keeps its mode unless the user changed
-  // it from what the draft showed (then it is reset, so it comes back straight and is routed again);
-  // a new leg takes the mode of the derived pair it joins, if it joins one.
+  // it from what the draft showed — and for a pair both of whose stations are stored the draft
+  // showed the STORED leg's mode (annotateDraftForExisting), so an untouched leg is left in place
+  // and a changed one is reset, to come back straight and be routed again; a new leg takes the
+  // mode of the derived pair it joins, if it joins one.
   const rowModes = rowLegModes(
     area.stations.map((s) => s.key),
     area.legModes,

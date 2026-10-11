@@ -180,6 +180,41 @@ describe("annotateDraftForExisting: a roadtrip area", () => {
   });
 });
 
+describe("annotateDraftForExisting: the legs of a matched area", () => {
+  /** The fixture roadtrip with the given stored legs (between its four stored ids). */
+  const withStoredLegs = (legs: ExistingRoadtrip["legs"]): ExistingTripState =>
+    state({ roadtrips: [{ ...roadtrip, legs }] });
+
+  it("shows the stored mode on the leg a matched pair updates, with the scan's own mode beside it", () => {
+    // The scan derived a road leg between Northvale and Port Carrow; the trip stores a ferry,
+    // and the commit leaves a stored leg alone unless the reviewed mode differs. So the review
+    // must start on the stored mode — otherwise it would show a ferry the commit never writes.
+    const storedLegs = [{ fromStopId: "st-a", toStopId: "st-b", mode: "ferry", source: "routed" }];
+    const [only] = annotateDraftForExisting(draft(TRIP), withStoredLegs(storedLegs)).dto.areas;
+    expect(only.legs[0]).toMatchObject({ mode: "ferry", derivedMode: "road" });
+    // The other pairs have a new station or no stored leg, so they keep the scan's mode.
+    expect(only.legs[1]).toMatchObject({ mode: "road" });
+    expect(only.legs[1].derivedMode).toBeUndefined();
+    expect(only.legs[2]).toMatchObject({ mode: "ferry" });
+    expect(only.legs[2].derivedMode).toBeUndefined();
+  });
+
+  it("reads a stored mode that is not exactly ferry as road, the roadtrip editor's own reading", () => {
+    const storedLegs = [{ fromStopId: "st-a", toStopId: "st-b", mode: "rail", source: "routed" }];
+    const [only] = annotateDraftForExisting(draft(TRIP), withStoredLegs(storedLegs)).dto.areas;
+    expect(only.legs[0]).toMatchObject({ mode: "road", derivedMode: "road" });
+  });
+
+  it("leaves the legs of an area with no stored roadtrip untouched", () => {
+    const [only] = annotateDraftForExisting(draft(TRIP), state({ roadtrips: [] })).dto.areas;
+    expect(only.legs.map((leg) => [leg.mode, leg.derivedMode])).toEqual([
+      ["road", undefined],
+      ["road", undefined],
+      ["ferry", undefined],
+    ]);
+  });
+});
+
 describe("annotateDraftForExisting: other cases", () => {
   it("calls every station of an area with no stored roadtrip new", () => {
     const { dto, existing } = annotateDraftForExisting(draft(TRIP), state({ roadtrips: [] }));

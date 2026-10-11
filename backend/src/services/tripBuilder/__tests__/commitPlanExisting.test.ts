@@ -217,6 +217,58 @@ describe("extendPlanForExisting", () => {
     expect(write.resetLegs).toEqual([{ fromStopId: fx.station.a, toStopId: fx.station.b }]);
   });
 
+  /**
+   * Finding N3-1. The review shows the stored mode on a leg a matched pair updates,
+   * because the commit leaves such a leg alone unless the reviewed mode differs from
+   * it. When the scan derives another mode, a body that merely carries the reviewed
+   * mode (the client's default) must not write, and a body that carries the toggled
+   * mode must rewrite the leg.
+   */
+  it("shows the stored leg's mode in the review, and writes the reviewed mode: untouched leaves it, a toggle rewrites it", async () => {
+    // The stored A→B leg is a ferry with routed geometry; the photos derive a road leg.
+    await prisma.tripRouteLeg.updateMany({
+      where: { routeId: fx.roadtripId, fromStopId: fx.station.a, toStopId: fx.station.b },
+      data: { mode: "ferry" },
+    });
+    try {
+      const draftOfScan = await storedDraft();
+      // The review's toggle starts on the stored mode, with the scan's own mode beside it.
+      expect(draftOfScan.dto.areas[0].legs[0]).toMatchObject({
+        mode: "ferry",
+        derivedMode: "road",
+      });
+
+      // Untouched, the body carries exactly the modes the review showed: the stored
+      // ferry is left alone, still routed, and no reset is planned for it.
+      const displayed = draftOfScan.dto.areas[0].legs.map((leg) => leg.mode);
+      const [untouched] =
+        (
+          await extendPlanForExisting(
+            fx.userId,
+            draftOfScan,
+            body({ legModes: displayed }),
+            basePlan()
+          )
+        ).existing?.roadtrips ?? [];
+      expect(untouched.legModes[0]).toBeUndefined();
+      expect(untouched.resetLegs).toEqual([]);
+
+      // The user switches the leg to Road: the reviewed mode is what gets written,
+      // and the stored ferry is reset so it comes back straight and is routed again.
+      const toggled = body({ legModes: ["road", "road", "ferry"] });
+      const [rewritten] =
+        (await extendPlanForExisting(fx.userId, draftOfScan, toggled, basePlan())).existing
+          ?.roadtrips ?? [];
+      expect(rewritten.legModes[0]).toBe("road");
+      expect(rewritten.resetLegs).toEqual([{ fromStopId: fx.station.a, toStopId: fx.station.b }]);
+    } finally {
+      await prisma.tripRouteLeg.updateMany({
+        where: { routeId: fx.roadtripId, fromStopId: fx.station.a, toStopId: fx.station.b },
+        data: { mode: "road" },
+      });
+    }
+  });
+
   it("removes a not-seen station the user removed", async () => {
     const removed = body({ keepNotSeen: [], removeNotSeen: [fx.station.c] });
     const [write] =
@@ -422,6 +474,30 @@ describe("extendPlanForExisting", () => {
       expect(plan.roadtrips).toEqual([]);
       expect(plan.existing?.roadtrips.map((r) => r.roadtripId)).toEqual([fx.roadtripId]);
       expect(plan.existing?.roadtrips[0].stations.map((s) => s.id)).toContain(fx.station.c);
+    });
+
+    it("accepts the body the review sends for an untouched stored ferry leg, and plans no mode write", async () => {
+      // The whole path the client takes: the draft shows the stored mode, the body
+      // carries exactly the modes it showed, and `prepareCommit` validates that body
+      // before the plan leaves the leg alone. (Finding N3-1.)
+      await prisma.tripRouteLeg.updateMany({
+        where: { routeId: fx.roadtripId, fromStopId: fx.station.a, toStopId: fx.station.b },
+        data: { mode: "ferry" },
+      });
+      try {
+        const draftOfScan = await storedDraft();
+        const displayed = draftOfScan.dto.areas[0].legs.map((leg) => leg.mode);
+        const plan = await prepareCommit(fx.userId, draftOfScan, body({ legModes: displayed }));
+        const [write] = plan.existing?.roadtrips ?? [];
+        expect(write.legModes[0]).toBeUndefined();
+        expect(write.resetLegs).toEqual([]);
+        expect(write.noop).toBe(false);
+      } finally {
+        await prisma.tripRouteLeg.updateMany({
+          where: { routeId: fx.roadtripId, fromStopId: fx.station.a, toStopId: fx.station.b },
+          data: { mode: "road" },
+        });
+      }
     });
 
     it("re-verifies the route inside the write: a station added after the plan is refused, not deleted", async () => {

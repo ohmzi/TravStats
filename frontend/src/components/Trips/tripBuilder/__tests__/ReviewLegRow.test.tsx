@@ -58,4 +58,27 @@ describe("ReviewLegRow", () => {
     renderRow();
     expect(screen.queryByText(/review\.leg\.evidence/)).not.toBeInTheDocument();
   });
+
+  it("starts the toggle on the mode the trip stores, with a changed pill when the scan derived another", () => {
+    // Finding N3-1: the trip stores a road leg; the scan's photos derived a ferry.
+    // The commit leaves the stored leg alone unless the reviewed mode differs, so
+    // the toggle must show the stored mode — not the derivation the commit ignores.
+    renderRow({ ...LEG, mode: "road", derivedMode: "ferry", ferryEvidence: "seaPhotos" });
+    expect(screen.getByRole("radio", { name: "tripBuilder:review.leg.road" })).toHaveAttribute(
+      "aria-checked",
+      "true"
+    );
+    expect(screen.getByText("tripBuilder:existing.status.changed")).toBeInTheDocument();
+    expect(screen.getByText("tripBuilder:review.leg.evidence.seaPhotos")).toBeInTheDocument();
+  });
+
+  it("draws no changed pill when the scan derived the mode the trip stores", () => {
+    renderRow({ ...LEG, mode: "ferry", derivedMode: "ferry", ferryEvidence: "seaPhotos" });
+    expect(screen.queryByText("tripBuilder:existing.status.changed")).toBeNull();
+  });
+
+  it("draws no changed pill for a leg with no stored mode: a new trip's, or a scan-made pair", () => {
+    renderRow();
+    expect(screen.queryByText("tripBuilder:existing.status.changed")).toBeNull();
+  });
 });

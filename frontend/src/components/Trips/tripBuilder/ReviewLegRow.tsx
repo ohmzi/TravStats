@@ -23,6 +23,11 @@ interface ReviewLegRowProps {
  * The distance is the routed one when the scan had a route, else the straight
  * line, and says which. Why a leg is a ferry (or may be) is a chip; it never
  * changes the mode by itself.
+ *
+ * On a re-sync the toggle starts on the mode the trip stores, because the
+ * commit leaves a stored leg alone unless the reviewed mode differs from it —
+ * so the derivation the scan made (when it made a different one) is a changed
+ * pill, not the toggle's value.
  */
 export default function ReviewLegRow({
   leg,
@@ -32,6 +37,7 @@ export default function ReviewLegRow({
 }: ReviewLegRowProps): JSX.Element {
   const { t } = useTranslation(["tripBuilder"]);
   const routed = leg.routedKm !== null;
+  const scanDiffers = leg.derivedMode !== undefined && leg.derivedMode !== leg.mode;
   return (
     <div
       className="flex flex-wrap items-center"
@@ -58,6 +64,9 @@ export default function ReviewLegRow({
         ]}
         onChange={onMode}
       />
+      {scanDiffers && (
+        <Pill color="var(--ts-warn)">{t("tripBuilder:existing.status.changed")}</Pill>
+      )}
       {leg.ferryEvidence !== null && (
         <Pill color="var(--ts-info)">{t(EVIDENCE[leg.ferryEvidence])}</Pill>
       )}

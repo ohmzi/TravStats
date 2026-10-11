@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { TripBuilderDraft } from "../../../types/tripBuilder";
 import { applyEdit, buildCommitBody, initialReviewState, reapplyEdits } from "../draftEdits";
 import {
   applyExistingEdit,
@@ -222,6 +223,50 @@ describe("the commit body for an existing trip", () => {
     expect(
       applyEdit(draft, state, { type: "setAreaKind", areaKey: "2031-05-02#1", as: "stops" })
     ).toBe(state);
+  });
+});
+
+describe("the legs of a matched roadtrip", () => {
+  /**
+   * The trip stores a ferry leg between Northvale and Port Carrow; the photos
+   * derive a road one (Finding N3-1). The server sends the stored mode on the leg
+   * itself — the mode the commit writes, and leaves alone unless it changes —
+   * with the scan's own mode beside it for the review's changed pill.
+   */
+  const storedFerryDraft = (): TripBuilderDraft => {
+    const draft = existingDraft();
+    const [area] = draft.areas;
+    return {
+      ...draft,
+      areas: [
+        {
+          ...area,
+          legs: [
+            { ...area.legs[0], mode: "ferry", derivedMode: "road", ferryEvidence: null },
+            area.legs[1],
+          ],
+        },
+      ],
+    };
+  };
+
+  it("sends the mode the review shows for each pair, and a toggle's mode in its place", () => {
+    const draft = storedFerryDraft();
+    const form = { name: "Northvale loop" };
+    let state = initialReviewState(draft);
+    expect(state.areas[0].legModes).toEqual(["ferry", "road"]);
+
+    let body = buildCommitBody(draft, state, form, COMMIT_KEY);
+    expect(body.areas[0].legModes).toEqual(["ferry", "road"]);
+
+    state = applyEdit(draft, state, {
+      type: "setLegMode",
+      fromKey: KEY.northvale,
+      toKey: KEY.portCarrow,
+      mode: "road",
+    });
+    body = buildCommitBody(draft, state, form, COMMIT_KEY);
+    expect(body.areas[0].legModes).toEqual(["road", "road"]);
   });
 });
 

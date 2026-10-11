@@ -147,7 +147,17 @@ const draftArea = z
           toKey: stationKey,
           chordKm: z.number(),
           routedKm: z.number().nullable(),
-          mode: z.enum(BUILDER_LEG_MODES),
+          mode: z
+            .enum(BUILDER_LEG_MODES)
+            .describe(
+              "The mode the review shows and the commit writes; the stored leg's on a re-sync match"
+            ),
+          derivedMode: z
+            .enum(BUILDER_LEG_MODES)
+            .optional()
+            .describe(
+              "Re-sync only: the mode the scan derived, on a leg that updates a stored one"
+            ),
           ferryEvidence: z.enum(["router", "seaPhotos", "chip"]).nullable(),
         })
       )

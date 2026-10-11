@@ -3,9 +3,11 @@
  *
  * `buildDraftWith` derives the same areas, stations and nights it would for a new
  * trip; this reconciles them with what the trip holds and returns the draft with
- * every station marked (`status`, `existingId`, `before`), the stored stations the
- * photos do not show listed beside their area (`notSeen`), the stored timeline
- * stops no area matched (`notSeenStops`), and the album section's re-sync preview.
+ * every station marked (`status`, `existingId`, `before`), each leg that updates
+ * a stored one showing that leg's own mode (with the scan's beside it), the
+ * stored stations the photos do not show listed beside their area (`notSeen`),
+ * the stored timeline stops no area matched (`notSeenStops`), and the album
+ * section's re-sync preview.
  * An area matched to a stored roadtrip is shown under that roadtrip's own name,
  * so the review's Name field is the name the commit keeps or renames.
  * It also returns what it offered (`StoredExisting`, server-only), which the
@@ -16,6 +18,7 @@ import logger from "../../utils/logger";
 import { previewAlbumSync, type AlbumResyncClient } from "./albumResync";
 import {
   isSleptNight,
+  type ExistingRoadtrip,
   type ExistingTripState,
   type StoredExisting,
   type StoredRoadtripOffer,
@@ -29,7 +32,7 @@ import {
   type StopArea,
 } from "./reconcile";
 import { claimKey, stationKeyOf } from "./stations";
-import type { Day, DraftArea, DraftStation, TripBuilderDraft } from "./types";
+import type { Day, DraftArea, DraftLeg, DraftStation, TripBuilderDraft } from "./types";
 
 export interface ExistingDeps {
   state: ExistingTripState;
@@ -81,6 +84,35 @@ function annotate(station: DraftStation, rec: ReconciledStation | undefined): Dr
     existingId: rec.existing.id,
     before: rec.before,
   };
+}
+
+/**
+ * The legs of a matched area. A leg both of whose stations are matched, and
+ * whose stored pair is a stored leg, updates that leg in place: the commit
+ * leaves a stored leg alone unless the reviewed mode differs (spec §K.4), so
+ * `mode` becomes the stored mode — read as `road` unless it is exactly
+ * `ferry`, the roadtrip editor's own reading (`LegDialog`) — and the scan's
+ * derivation stays beside it as `derivedMode` for the review's changed pill.
+ * Every other leg keeps the mode the scan built.
+ */
+function annotateLegs(
+  area: DraftArea,
+  derived: readonly ReconciledStation[],
+  stored: ExistingRoadtrip | undefined
+): DraftLeg[] {
+  if (stored === undefined) return area.legs;
+  return area.legs.map((leg, i) => {
+    const from = derived[i]?.existing?.id;
+    const to = derived[i + 1]?.existing?.id;
+    if (from === undefined || to === undefined) return leg;
+    const storedLeg = stored.legs.find((l) => l.fromStopId === from && l.toStopId === to);
+    if (storedLeg === undefined) return leg;
+    return {
+      ...leg,
+      mode: storedLeg.mode === "ferry" ? "ferry" : "road",
+      derivedMode: leg.mode,
+    };
+  });
 }
 
 function notSeenStation(n: NotSeenStation, taken: Set<string>, fallbackDay: Day): DraftStation {
@@ -170,6 +202,11 @@ export function annotateDraftForExisting(
         suggestedName: match.name,
         roadtripId: match.roadtripId,
         stations: area.stations.map((s, i) => annotate(s, match.reconciled.derived[i])),
+        legs: annotateLegs(
+          area,
+          match.reconciled.derived,
+          state.roadtrips.find((r) => r.id === match.roadtripId)
+        ),
         notSeen: match.reconciled.notSeen.map((n) => notSeenStation(n, taken, area.startDay)),
       };
     }
