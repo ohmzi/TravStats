@@ -56,4 +56,18 @@ describe("CountryChips", () => {
     fireEvent.keyDown(input(), { key: "Enter" });
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it("draws the chips and the add-country field at one control height", () => {
+    renderChips(["NZ"]);
+    const chip = screen.getByText("NZ");
+    const field = input();
+    // The chips sat beside the field as 11px status pills ~24 high; a chip in
+    // this row is a CONTROL, so it takes the field's height and type
+    // (owner, 2026-10-11: "all these should be same size").
+    expect(chip.style.minHeight).toBe("var(--ts-size-touch-min)");
+    expect(field.style.minHeight).toBe("var(--ts-size-touch-min)");
+    expect(chip.style.fontSize).toBe(field.style.fontSize);
+    expect(chip.style.padding).toBe("0 var(--ts-space-lg)");
+    expect(field.style.padding).toBe("0 var(--ts-space-lg)");
+  });
 });

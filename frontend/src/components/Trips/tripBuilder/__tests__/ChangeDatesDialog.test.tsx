@@ -76,4 +76,15 @@ describe("ChangeDatesDialog", () => {
     expect(onClose).toHaveBeenCalled();
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  it("draws the footer's dismiss and its amber action at one shared height", () => {
+    renderDialog();
+    // The two controls sit side by side, so they are one size (owner,
+    // 2026-10-11: "all these should be same size"). The dismiss is the Dialog
+    // shell's 46; the trip builder's amber action joins it.
+    expect(screen.getByText("tripBuilder:review.dates.cancel").style.height).toBe(
+      "var(--ts-size-button-secondary)"
+    );
+    expect(scanAgain().style.height).toBe("var(--ts-size-button-secondary)");
+  });
 });

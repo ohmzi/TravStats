@@ -53,6 +53,7 @@ export default function ChangeDatesDialog({
       action={
         <Button
           variant="primary"
+          size="toolbar"
           disabled={issue !== null || unchanged}
           onClick={() => onConfirm({ startDay: start, endDay: end })}
         >

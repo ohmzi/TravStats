@@ -91,6 +91,16 @@ describe("RoadtripDetailPage", () => {
     expect(screen.getByTestId("map")).toBeInTheDocument();
   });
 
+  it("draws the head's route link and its edit button at one size", async () => {
+    renderAt("/roadtrips/rt");
+    // The SAME row the journey page draws from the same two components, so it
+    // gets the same one-size treatment (owner, 2026-10-11).
+    const link = await screen.findByRole("link", { name: "roadtrips:editLegs" });
+    const edit = screen.getByRole("button", { name: "roadtrips:detail.edit" });
+    expect(link.style.height).toBe("var(--ts-size-button-secondary)");
+    expect(edit.style.height).toBe("var(--ts-size-button-secondary)");
+  });
+
   it("asks once more before deleting a roadtrip's costs with it, then sends the opt-in", async () => {
     // forgejo#140: a roadtrip with costs and no trip answers 409 with the count.
     vi.mocked(toursApi.removeStandalone)

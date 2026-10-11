@@ -1,7 +1,14 @@
 import { useState, type JSX } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { AppShell, Button, Card, EmptyState, PageHeader } from "../components/ui";
+import {
+  AppShell,
+  Button,
+  Card,
+  EmptyState,
+  PageHeader,
+  TOOLBAR_CONTROL_STYLE,
+} from "../components/ui";
 import ChangeDatesDialog from "../components/Trips/tripBuilder/ChangeDatesDialog";
 import { ExistingDiffProvider } from "../components/Trips/tripBuilder/ExistingDiffContext";
 import ExistingSuccessSummary from "../components/Trips/tripBuilder/ExistingSuccessSummary";
@@ -173,14 +180,14 @@ function BlockedPanel({
           href={KEY_SETTINGS}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center"
+          className="ts-button inline-flex items-center"
+          data-variant="secondary"
           style={{
-            minHeight: "var(--ts-size-touch-min)",
-            padding: "0 14px",
-            borderRadius: "var(--ts-radius-button)",
+            ...TOOLBAR_CONTROL_STYLE,
             border: "1px solid var(--ts-border-button)",
             color: "var(--ts-text)",
             textDecoration: "none",
+            whiteSpace: "nowrap",
           }}
         >
           {t("tripBuilder:review.blocked.fixKey")}
@@ -231,6 +238,7 @@ function ReviewScreen({
   const create = (
     <Button
       variant="primary"
+      size="toolbar"
       disabled={running || emptyWindow || problems.length > 0}
       onClick={() => void session.submit()}
     >
@@ -394,6 +402,7 @@ function ReviewScreen({
               {ticked > 0 && (
                 <Button
                   variant="primary"
+                  size="toolbar"
                   disabled={running}
                   onClick={() => void session.submitFlightsOnly()}
                 >
@@ -495,7 +504,7 @@ export default function TripBuilderPage(): JSX.Element {
         action={
           <div className="flex flex-wrap justify-center" style={{ gap: "var(--ts-space-md)" }}>
             {session.handoff.scan !== undefined && (
-              <Button variant="primary" onClick={() => void session.scanAgain()}>
+              <Button variant="primary" size="toolbar" onClick={() => void session.scanAgain()}>
                 {t("tripBuilder:review.expired.scanAgain")}
               </Button>
             )}

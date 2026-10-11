@@ -3,8 +3,36 @@ import { alpha } from "./tokens";
 
 export type ButtonVariant = "primary" | "secondary" | "danger";
 
+/**
+ * `toolbar`: the shared row height (46) even for a primary. A row of controls
+ * reads as one size when every control in it draws these metrics; only a
+ * control that stands alone keeps the taller primary (52).
+ */
+export type ButtonSize = "default" | "toolbar";
+
+/**
+ * The one size a control in a row draws, whatever its skin and whatever its
+ * element: the secondary height, the shared padding, radius and label.
+ *
+ * Exported because half the controls in these rows are not `<button>`s — the
+ * outline `ActionLink`, the re-sync link, the key-settings link in the blocked
+ * panel. Each of them used to copy the numbers by hand, which is exactly how
+ * a row ends up 44|46|52 (owner, 2026-10-11: "all these should be same size").
+ * They spread this constant instead, so they cannot drift again.
+ */
+export const TOOLBAR_CONTROL_STYLE = {
+  height: "var(--ts-size-button-secondary)",
+  padding: "0 var(--ts-space-xl)",
+  borderRadius: "var(--ts-radius-button)",
+  fontFamily: "var(--ts-font-ui)",
+  fontSize: 16,
+  fontWeight: 700,
+} as const;
+
 interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className"> {
   variant?: ButtonVariant;
+  /** `toolbar` joins a row's shared height; a lone CTA keeps `default`. */
+  size?: ButtonSize;
   children: ReactNode;
   /** Full-width in a form footer or a sheet. */
   block?: boolean;
@@ -28,6 +56,7 @@ interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "cla
  */
 export default function Button({
   variant = "secondary",
+  size = "default",
   children,
   block = false,
   icon,
@@ -37,7 +66,9 @@ export default function Button({
   ...rest
 }: ButtonProps): JSX.Element {
   const height =
-    variant === "primary" ? "var(--ts-size-button-primary)" : "var(--ts-size-button-secondary)";
+    variant === "primary" && size === "default"
+      ? "var(--ts-size-button-primary)"
+      : TOOLBAR_CONTROL_STYLE.height;
 
   const skin =
     variant === "primary"
@@ -65,12 +96,8 @@ export default function Button({
       data-variant={variant}
       className={`ts-button ${className ?? ""}`.trim()}
       style={{
+        ...TOOLBAR_CONTROL_STYLE,
         height,
-        padding: "0 var(--ts-space-xl)",
-        borderRadius: "var(--ts-radius-button)",
-        fontWeight: 700,
-        fontSize: 16,
-        fontFamily: "var(--ts-font-ui)",
         display: block ? "flex" : "inline-flex",
         width: block ? "100%" : undefined,
         alignItems: "center",

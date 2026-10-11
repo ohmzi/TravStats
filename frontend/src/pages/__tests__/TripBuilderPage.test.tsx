@@ -245,6 +245,13 @@ describe("the scan", () => {
     mocks.scan.mockResolvedValue({ jobId: NEXT_JOB });
     renderAt(`/trips/builder?job=${JOB}`);
     expect(await screen.findByText("tripBuilder:review.scan.lost")).toBeInTheDocument();
+    // The two controls sit side by side, so they are one size (owner, 2026-10-11).
+    expect(
+      screen.getByRole("button", { name: "tripBuilder:review.expired.scanAgain" }).style.height
+    ).toBe("var(--ts-size-button-secondary)");
+    expect(screen.getByRole("button", { name: "tripBuilder:review.back" }).style.height).toBe(
+      "var(--ts-size-button-secondary)"
+    );
     fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.expired.scanAgain" }));
     await waitFor(() => expect(where()).toBe(`/trips/builder?job=${NEXT_JOB}`));
     expect(mocks.scan).toHaveBeenCalledWith(scan);
@@ -382,6 +389,21 @@ describe("the review", () => {
   it("offers Create trip for a new trip", async () => {
     await renderDraft();
     expect(createButton()).toBeEnabled();
+  });
+
+  it("draws the header's Back, Reset and Create at one size", async () => {
+    await renderDraft();
+    const height = "var(--ts-size-button-secondary)";
+    // An edit, so the third control (Reset) is drawn. The owner's screenshot
+    // (2026-10-11): the amber CTA stood a size taller than Back and Reset.
+    fireEvent.click(screen.getAllByRole("switch", { name: /ZZ202/ })[0]);
+    expect(screen.getByRole("button", { name: "tripBuilder:review.reset" }).style.height).toBe(
+      height
+    );
+    expect(screen.getByRole("button", { name: "tripBuilder:review.back" }).style.height).toBe(
+      height
+    );
+    expect(createButton().style.height).toBe(height);
   });
 
   it("says update trip for an existing trip, and not create", async () => {
@@ -643,6 +665,11 @@ describe("saving", () => {
     const fix = await screen.findByRole("link", { name: "tripBuilder:review.blocked.fixKey" });
     expect(fix).toHaveAttribute("target", "_blank");
     expect(fix).toHaveAttribute("href", "/settings/services?section=externalServices");
+    // The link sits beside a secondary button, so it draws the same recipe
+    // rather than a copy of the old 44px one (owner, 2026-10-11).
+    expect(fix.style.height).toBe("var(--ts-size-button-secondary)");
+    expect(fix.style.padding).toBe("0 var(--ts-space-xl)");
+    expect(fix).toHaveClass("ts-button");
     expect(
       screen.getByText('tripBuilder:review.blocked.missingScopes {"scopes":"album.create"}')
     ).toBeInTheDocument();
@@ -819,6 +846,21 @@ describe("a window with nothing in it", () => {
       screen.getByRole("button", { name: "tripBuilder:review.empty.cancel" })
     ).toBeInTheDocument();
     expect(createButton()).toBeDisabled();
+  });
+
+  it("draws the empty window's three ways on at one size", async () => {
+    await renderDraft(nothing(3));
+    const height = "var(--ts-size-button-secondary)";
+    expect(
+      screen.getByRole("button", { name: "tripBuilder:review.empty.changeDates" }).style.height
+    ).toBe(height);
+    expect(
+      screen.getByRole("button", { name: 'tripBuilder:review.empty.flightsOnlyNew {"count":1}' })
+        .style.height
+    ).toBe(height);
+    expect(
+      screen.getByRole("button", { name: "tripBuilder:review.empty.cancel" }).style.height
+    ).toBe(height);
   });
 
   it("saves the trip with the flights only", async () => {

@@ -251,6 +251,7 @@ export default function FlightTripDetailPage(): JSX.Element {
             <ActionLink to={`/trips/${trip.id}`}>{t("flights:detail.openTrip")}</ActionLink>
             <Button
               variant="primary"
+              size="toolbar"
               icon={<Icon name="pencil" size={16} />}
               onClick={() => setEditing(true)}
             >

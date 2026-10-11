@@ -234,6 +234,18 @@ describe("FlightTripDetailPage", () => {
     expect(screen.getByText("flights:detail.backToLogbook")).toBeInTheDocument();
   });
 
+  it("draws the head's open-trip link and its edit button at one size", async () => {
+    renderAt("/flights/journeys/t1");
+    await screen.findAllByText("Baltic 2026");
+    // The owner's screenshot (2026-10-11): a 44 link beside a 52 primary. Both
+    // are the toolbar recipe now, so the banner's row reads as one control.
+    const link = screen.getByRole("link", { name: "flights:detail.openTrip" });
+    const edit = screen.getByRole("button", { name: "common:buttons.edit" });
+    expect(link.style.height).toBe("var(--ts-size-button-secondary)");
+    expect(link.style.padding).toBe("0 var(--ts-space-xl)");
+    expect(edit.style.height).toBe("var(--ts-size-button-secondary)");
+  });
+
   it("draws no status pill for a journey in the past, as the roadtrip page draws none", async () => {
     getById.mockResolvedValue(
       makeTrip({ startDate: "2000-06-01T00:00:00.000Z", endDate: "2000-06-05T00:00:00.000Z" })

@@ -1,5 +1,6 @@
 import { useRef, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { TOOLBAR_CONTROL_STYLE } from "./Button";
 import IconButton from "./IconButton";
 import { useDialogChrome } from "./useDialogChrome";
 import { useScrimDismiss } from "./useScrimDismiss";
@@ -112,14 +113,10 @@ export default function Dialog({
                 className="ts-button"
                 data-variant="secondary"
                 style={{
-                  height: "var(--ts-size-button-secondary)",
-                  padding: "0 var(--ts-space-xl)",
-                  borderRadius: "var(--ts-radius-button)",
+                  ...TOOLBAR_CONTROL_STYLE,
                   border: "1px solid var(--ts-border-button)",
                   background: "transparent",
                   color: "var(--ts-text)",
-                  fontWeight: 700,
-                  fontSize: 16,
                 }}
               >
                 {dismissLabel}

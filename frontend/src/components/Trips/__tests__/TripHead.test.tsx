@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { Trip } from "../../../types";
 import type { useTranslation } from "../../../hooks/useTranslation";
@@ -84,5 +84,17 @@ describe("TripHead re-sync entry", () => {
     const link = container.querySelector('a[href="/trips/t1/resync"]');
     expect(link).not.toBeNull();
     expect(link?.textContent).toBe("tripBuilder:resync.action");
+  });
+
+  it("draws edit, re-sync and delete at one shared row height", () => {
+    const container = renderHead(["AE"]);
+    const height = "var(--ts-size-button-secondary)";
+    // The row reads as one size (owner, 2026-10-11); the re-sync link is the
+    // control that used to be narrower than its two neighbours.
+    expect(screen.getByRole("button", { name: "common:buttons.edit" }).style.height).toBe(height);
+    expect(screen.getByRole("button", { name: "common:buttons.delete" }).style.height).toBe(height);
+    const resync = container.querySelector('a[href="/trips/t1/resync"]') as HTMLElement;
+    expect(resync.style.height).toBe(height);
+    expect(resync.style.padding).toBe("0 var(--ts-space-xl)");
   });
 });

@@ -313,6 +313,7 @@ export default function RoadtripDetailPage(): JSX.Element {
       <ActionLink to={`/tours/${id}`}>{t("roadtrips:editLegs")}</ActionLink>
       <Button
         variant="primary"
+        size="toolbar"
         icon={<Icon name="pencil" size={16} />}
         onClick={() => setEditing(true)}
       >
