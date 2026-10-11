@@ -627,31 +627,9 @@ describe("extendPlanForExisting: timeline stops", () => {
     await dropFixtureUser(`${USER}-stops`);
   });
 
-  /** `later` are the area's other ground stations, after the one that matches the stored museum stop. */
-  async function stopsDraft(later: DraftStation[] = []): Promise<StoredDraft> {
-    const stopsArea = area({
-      key: "2031-05-06#1",
-      defaultAs: "stops",
-      stations: [
-        {
-          key: "-908|3370|2031-05-06",
-          title: "Kelmore Museum",
-          titleSource: "geocode",
-          kind: "visit",
-          lat: FX.kelmore.lat,
-          lon: FX.kelmore.lon,
-          snappedKm: null,
-          firstDay: "2031-05-06",
-          lastDay: "2031-05-07",
-          firstLocal: null,
-          lastLocal: null,
-          photoCount: 5,
-          previewIdx: [],
-          notes: null,
-        },
-        ...later,
-      ],
-    });
+  /** The scan-derived stops area for the fixture trip: `stations` is the whole area. */
+  async function stopsDraftOf(stations: DraftStation[]): Promise<StoredDraft> {
+    const stopsArea = area({ key: "2031-05-06#1", defaultAs: "stops", stations });
     const state = await loadExistingState(fx.userId, fx.tripId);
     const { dto, existing } = annotateDraftForExisting(draft(fx.tripId, [stopsArea]), {
       ...state,
@@ -681,6 +659,28 @@ describe("extendPlanForExisting: timeline stops", () => {
       existing,
     };
   }
+
+  /** `later` are the area's other ground stations, after the one that matches the stored museum stop. */
+  const stopsDraft = (later: DraftStation[] = []): Promise<StoredDraft> =>
+    stopsDraftOf([
+      {
+        key: "-908|3370|2031-05-06",
+        title: "Kelmore Museum",
+        titleSource: "geocode",
+        kind: "visit",
+        lat: FX.kelmore.lat,
+        lon: FX.kelmore.lon,
+        snappedKm: null,
+        firstDay: "2031-05-06",
+        lastDay: "2031-05-07",
+        firstLocal: null,
+        lastLocal: null,
+        photoCount: 5,
+        previewIdx: [],
+        notes: null,
+      },
+      ...later,
+    ]);
 
   const stopsBody = (over: Partial<CommitBody> = {}): CommitBody => ({
     commitKey: COMMIT_KEY,
@@ -879,6 +879,122 @@ describe("extendPlanForExisting: timeline stops", () => {
     expect(plan.existing?.stopUpdates).toEqual([]);
     expect(plan.stops).toEqual([]);
     expect(plan.existing?.stopsDiff).toMatchObject({ updated: 0, unchanged: 1, added: 0 });
+  });
+
+  it("refuses a matched stops area whose anchor is gone, rather than deleting or duplicating the stop", async () => {
+    // The review's own Remove is off for that row (the anchor carries the stop's id),
+    // so a body without the id is the delete the review does not offer. Before this
+    // refusal the stored stop stayed while the anchor's title run was added again.
+    const days: [string, string] = ["2031-05-07", "2031-05-08"];
+    const scan = () => stopsDraft([library(...days)]);
+    const deleted = twoTitleBody(days);
+    deleted.areas[0].stations = deleted.areas[0].stations.filter(
+      (s) => s.existingId !== fx.stop.museum
+    );
+    await expect(
+      extendPlanForExisting(fx.userId, await scan(), deleted, twoTitlePlan(days))
+    ).rejects.toMatchObject({ statusCode: 400, code: "DRAFT_MISMATCH", field: "stations" });
+
+    const emptied = twoTitleBody(days);
+    emptied.areas[0].stations = [];
+    await expect(
+      extendPlanForExisting(fx.userId, await scan(), emptied, twoTitlePlan(days))
+    ).rejects.toMatchObject({ statusCode: 400, code: "DRAFT_MISMATCH", field: "stations" });
+  });
+
+  /**
+   * An area with no stored match: the review draws it as the one stop `derivedStopOf`
+   * makes of it — the first ground station's title over the first to the last ground
+   * day — and the commit must write that stop, not one per run of equal titles.
+   */
+  const unmatchedBody = (): CommitBody => {
+    const body = stopsBody();
+    body.areas[0].name = "Kelmore Library";
+    body.areas[0].stations = [
+      {
+        key: "-911|3364|2031-05-07",
+        title: "Kelmore Library",
+        lat: FX.kelmore.lat - 0.01,
+        lon: FX.kelmore.lon,
+        kind: "visit",
+        firstDay: "2031-05-07",
+        lastDay: "2031-05-08",
+      },
+      {
+        key: "-911|3364|2031-05-08",
+        title: "Kelmore Gallery",
+        lat: FX.kelmore.lat - 0.02,
+        lon: FX.kelmore.lon,
+        kind: "visit",
+        firstDay: "2031-05-08",
+        lastDay: "2031-05-09",
+      },
+    ];
+    // Nothing matched, so both stored stops are the scan's not-seen ones, kept here.
+    body.stops = { keep: [fx.stop.museum, fx.stop.harbour], remove: [] };
+    return body;
+  };
+
+  /** The plan `prepareCommit` builds for that area: one stop per run of equal titles. */
+  const twoRunPlan = (): CommitPlan => ({
+    ...stopsPlan(),
+    stops: [
+      {
+        areaKey: "2031-05-06#1",
+        title: "Kelmore Library",
+        lat: FX.kelmore.lat - 0.01,
+        lon: FX.kelmore.lon,
+        startDay: "2031-05-07",
+        endDay: "2031-05-08",
+        notes: null,
+      },
+      {
+        areaKey: "2031-05-06#1",
+        title: "Kelmore Gallery",
+        lat: FX.kelmore.lat - 0.02,
+        lon: FX.kelmore.lon,
+        startDay: "2031-05-08",
+        endDay: "2031-05-09",
+        notes: null,
+      },
+    ],
+  });
+
+  it("writes an unmatched stops area as the one stop the review showed, not one per title run", async () => {
+    const plan = await extendPlanForExisting(
+      fx.userId,
+      await stopsDraftOf([
+        library("2031-05-07", "2031-05-08"),
+        derivedStation(
+          "-911|3364|2031-05-08",
+          "Kelmore Gallery",
+          { lat: FX.kelmore.lat - 0.02, lon: FX.kelmore.lon },
+          "2031-05-08",
+          "2031-05-09",
+          { notes: null }
+        ),
+      ]),
+      unmatchedBody(),
+      twoRunPlan()
+    );
+    expect(plan.stops).toEqual([
+      {
+        areaKey: "2031-05-06#1",
+        title: "Kelmore Library",
+        lat: FX.kelmore.lat - 0.01,
+        lon: FX.kelmore.lon,
+        startDay: "2031-05-07",
+        endDay: "2031-05-09",
+        notes: null,
+      },
+    ]);
+    expect(plan.existing?.stopsDiff).toEqual({
+      updated: 0,
+      unchanged: 0,
+      added: 1,
+      removed: 0,
+      kept: 2,
+    });
   });
 
   it("refuses a body that did not decide every not-seen stop", async () => {

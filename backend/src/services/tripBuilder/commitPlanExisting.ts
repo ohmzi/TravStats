@@ -9,7 +9,12 @@
  * - the roadtrip's name is the body's too: the draft showed the stored one, so an
  *   edit is the user's rename, and an untouched name writes nothing;
  * - kept not-seen stations and route corrections are written back unchanged, in place;
- * - a stored station that is neither listed nor kept is removed, and nothing else is.
+ * - a stored station that is neither listed nor kept is removed, and nothing else is;
+ * - a `stops` area writes the one stop the review showed (`derivedStopOf`): the
+ *   anchor's title and place over the first to the last ground day, updating the
+ *   stored stop when the anchor carries its id and created as a new stop when it
+ *   does not. A matched anchor the body no longer names is refused, not removed:
+ *   the review offers no delete for it (its row's Remove is off).
  *
  * Before any of that, the trip is read again and must hold exactly the stored
  * ids and name the draft offered (`TRIP_CHANGED` otherwise): deleting by
@@ -310,10 +315,48 @@ function buildStopWrites(
     const anchor = ground[0];
     if (area.stations.some((s) => s !== anchor && s.existingId !== undefined))
       throw mismatch("stations");
-    if (anchor === undefined || anchor.existingId === undefined) continue;
-    const given = draft.dto.areas
-      .find((a) => a.key === area.key)
-      ?.stations.find((s) => s.key === anchor.key)?.existingId;
+    const draftArea = draft.dto.areas.find((a) => a.key === area.key);
+    if (anchor === undefined || anchor.existingId === undefined) {
+      // The scan matched the area's anchor to a stored stop: the draft's first
+      // ground station carries that id. The review draws the area as that one
+      // stop and its Remove is off for the anchor, so a body that no longer
+      // carries the id is the delete the review does not offer. Refuse it — the
+      // alternative, treating it as a removal, would let any body that merely
+      // lost the field delete the owner's stop; the old silent skip left the
+      // stop while adding the area's rows as a second stop for the same place.
+      const offeredAnchor = draftArea?.stations.find(
+        (s) => s.kind !== "home" && s.kind !== "airport"
+      );
+      if (
+        offeredAnchor?.existingId !== undefined &&
+        offered.stops.matchedIds.has(offeredAnchor.existingId)
+      ) {
+        throw mismatch("stations");
+      }
+      // An unmatched area the scan drew as stops is shown with the same one-stop
+      // view (`derivedStopOf`): the anchor's title and place over the first to
+      // the last ground day. That is the stop written, as a new one — left as
+      // `stopPlans` the commit would write one stop per run of equal titles,
+      // timeline rows the review never showed and reported as intended output.
+      if (anchor !== undefined && draftArea?.defaultAs === "stops") {
+        const { startDate: startDay, endDate: endDay } = groundSpan(ground);
+        const derived: StopPlan = {
+          areaKey: area.key,
+          title: anchor.title,
+          lat: anchor.lat,
+          lon: anchor.lon,
+          startDay,
+          endDay,
+          notes: anchor.notes ?? null,
+        };
+        const first = remaining.findIndex((p) => p.areaKey === area.key);
+        remaining = remaining.filter((p) => p.areaKey !== area.key);
+        if (first === -1) remaining.push(derived);
+        else remaining.splice(first, 0, derived);
+      }
+      continue;
+    }
+    const given = draftArea?.stations.find((s) => s.key === anchor.key)?.existingId;
     if (given !== anchor.existingId || !offered.stops.matchedIds.has(anchor.existingId)) {
       throw mismatch("stations");
     }
