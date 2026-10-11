@@ -279,6 +279,8 @@ export type ApiErrorCode =
   | "ROADTRIPS_HIDDEN"
   /** A re-sync draft no longer matches the trip: a station or stop was added, moved or removed since the scan (409). */
   | "TRIP_CHANGED"
+  /** A stopover-album retry names a key no held committed draft resolves (409): its picture ids exist only there, so the caller must scan again. */
+  | "STOPOVER_EXPIRED"
   /** Phase B rolled back; nothing was written (the job's error). */
   | "COMMIT_FAILED";
 

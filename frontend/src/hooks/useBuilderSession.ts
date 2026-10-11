@@ -50,6 +50,7 @@ import {
 import { stopoverRetry } from "../types/tripBuilder";
 import type {
   AlbumOutcome,
+  AlbumRetryBody,
   AlbumRetryTarget,
   CommitBlocked,
   CommitJobResult,
@@ -400,10 +401,13 @@ export function useBuilderSession(): BuilderSession {
   }, [state, sendCommit]);
 
   /**
-   * The success panel's retry. The removal choice goes with it for the trip's
-   * own album only: a re-sync's album failure must not drop the decision the
-   * commit was sent with, while a stopover album is add-only (spec §5.4) and
-   * never removes. The server recomputes the members from its own state.
+   * The success panel's retry. The body names its target explicitly: a
+   * stopover's own album goes by its key (the server refuses a key it can no
+   * longer resolve instead of writing some other album), the trip's by name;
+   * the removal choice goes with the trip's own album only, because a
+   * re-sync's album failure must not drop the decision the commit was sent
+   * with, while a stopover album is add-only (spec §5.4) and never removes.
+   * The server recomputes the members from its own state.
    */
   const retryAlbum = useCallback(
     async (target: AlbumRetryTarget = "trip"): Promise<void> => {
@@ -416,12 +420,29 @@ export function useBuilderSession(): BuilderSession {
       if (target !== "trip" && stopover === undefined) return;
       setCommit({ kind: "done", result, retrying: target });
       try {
-        const { jobId: albumJob } = await tripBuilderApi.retryAlbum(
-          result.tripId,
-          stopover?.name ?? state?.album?.name,
-          stopover === undefined && sentRemoveOutside.current
-        );
+        const body: AlbumRetryBody =
+          stopover === undefined
+            ? {
+                ...(state?.album?.name !== undefined ? { name: state.album.name } : {}),
+                ...(sentRemoveOutside.current ? { removeOutside: true } : {}),
+              }
+            : { stopoverKey: stopover.key };
+        const { jobId: albumJob } = await tripBuilderApi.retryAlbum(result.tripId, body);
         const album = await waitForJob<AlbumOutcome>(albumJob);
+        // A stopover retry must have written the stopover's own album. A
+        // success that names another one (the trip's, after the server could
+        // no longer resolve the key) would turn this line into a claim about
+        // an album it never touched, so it counts as a failed retry (final
+        // review, finding S2-3).
+        if (
+          stopover !== undefined &&
+          album.status === "linked" &&
+          album.albumName !== stopover.name
+        ) {
+          setCommit({ kind: "done", result, retrying: null });
+          addToast("error", t("tripBuilder:errors.album.retryFailed"));
+          return;
+        }
         const next: CommitResult =
           stopover === undefined
             ? { ...result, album }

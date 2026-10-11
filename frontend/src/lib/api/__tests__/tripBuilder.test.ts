@@ -13,6 +13,7 @@ import { tripBuilderApi } from "../tripBuilder";
 const DRAFT = "4b9d6f1a-2c3e-4a5b-8d7e-9f0a1b2c3d4e";
 const JOB = "6a0b7c1d-2e3f-4a5b-8c6d-7e8f9a0b1c2d";
 const TRIP = "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c";
+const STOPOVER_KEY = "1a2b3c4d-5e6f-4a70-8b9c-0d1e2f3a4b5c#2b3c4d5e-6f70-4b81-9c0d-1e2f3a4b5c6d";
 
 const SCAN: ScanBody = {
   name: "Northvale loop",
@@ -77,11 +78,11 @@ describe("tripBuilderApi", () => {
     expect(mocks.post).toHaveBeenCalledWith(`/trip-builder/drafts/${DRAFT}/commit`, body);
   });
 
-  it("retries an album, with a name only when one is given", async () => {
+  it("retries an album with exactly the body it is given, empty when none is", async () => {
     mocks.post.mockResolvedValue({ data: { jobId: JOB } });
 
     await tripBuilderApi.retryAlbum(TRIP);
-    await tripBuilderApi.retryAlbum(TRIP, "Northvale loop");
+    await tripBuilderApi.retryAlbum(TRIP, { name: "Northvale loop" });
 
     expect(mocks.post).toHaveBeenNthCalledWith(1, `/trip-builder/trips/${TRIP}/album`, {});
     expect(mocks.post).toHaveBeenNthCalledWith(2, `/trip-builder/trips/${TRIP}/album`, {
@@ -89,17 +90,19 @@ describe("tripBuilderApi", () => {
     });
   });
 
-  it("sends the review's removal choice with the retry, and nothing when it is off", async () => {
+  it("sends the review's removal choice with the trip's retry, and a stopover key on its own", async () => {
     mocks.post.mockResolvedValue({ data: { jobId: JOB } });
 
-    await tripBuilderApi.retryAlbum(TRIP, "Northvale loop", true);
-    await tripBuilderApi.retryAlbum(TRIP, undefined, false);
+    await tripBuilderApi.retryAlbum(TRIP, { name: "Northvale loop", removeOutside: true });
+    await tripBuilderApi.retryAlbum(TRIP, { stopoverKey: STOPOVER_KEY });
 
     expect(mocks.post).toHaveBeenNthCalledWith(1, `/trip-builder/trips/${TRIP}/album`, {
       name: "Northvale loop",
       removeOutside: true,
     });
-    expect(mocks.post).toHaveBeenNthCalledWith(2, `/trip-builder/trips/${TRIP}/album`, {});
+    expect(mocks.post).toHaveBeenNthCalledWith(2, `/trip-builder/trips/${TRIP}/album`, {
+      stopoverKey: STOPOVER_KEY,
+    });
   });
 
   it("addresses a thumbnail by draft and index, never by an asset id", () => {

@@ -1,5 +1,6 @@
 import { API_URL, api } from "./client";
 import type {
+  AlbumRetryBody,
   CapabilitiesDto,
   CommitBody,
   PreviewSize,
@@ -50,18 +51,14 @@ export const tripBuilderApi = {
   },
 
   /**
-   * Retries a failed or blocked album for a trip that exists. `name` overrides
-   * the album's name; `removeOutside` carries the review's removal choice on a
-   * re-sync, so the retry completes the update the commit was asked for.
+   * Retries a failed or blocked album for a trip that exists. The body names
+   * its target: `name` is the trip's own album, `stopoverKey` a stopover's
+   * (spec §5.4) — a key the server can no longer resolve is refused with 409
+   * STOPOVER_EXPIRED instead of touching another album. `removeOutside`
+   * carries the review's removal choice on a re-sync, so the retry completes
+   * the update the commit was asked for.
    */
-  retryAlbum: async (
-    tripId: string,
-    name?: string,
-    removeOutside = false
-  ): Promise<{ jobId: string }> => {
-    const body: { name?: string; removeOutside?: boolean } = {};
-    if (name !== undefined) body.name = name;
-    if (removeOutside) body.removeOutside = true;
+  retryAlbum: async (tripId: string, body: AlbumRetryBody = {}): Promise<{ jobId: string }> => {
     const { data } = await api.post<{ jobId: string }>(`/trip-builder/trips/${tripId}/album`, body);
     return data;
   },

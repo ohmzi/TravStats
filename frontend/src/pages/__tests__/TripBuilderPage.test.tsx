@@ -648,8 +648,7 @@ describe("saving", () => {
     );
     expect(mocks.retryAlbum).toHaveBeenCalledWith(
       RESULT.status === "committed" ? RESULT.tripId : "",
-      "Southern loop",
-      false
+      { name: "Southern loop" }
     );
   });
 

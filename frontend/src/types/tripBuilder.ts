@@ -476,6 +476,20 @@ export type AlbumRetryTarget = "trip" | `stopover:${string}`;
 /** The retry target of a stopover album, from its stopover key. */
 export const stopoverRetry = (key: string): AlbumRetryTarget => `stopover:${key}`;
 
+/** The body of a success-panel album retry: one target, plus the re-sync's removal choice. */
+export interface AlbumRetryBody {
+  /** The trip's own album, by name. */
+  name?: string;
+  /**
+   * A stopover's own album, by key. The server resolves it against the
+   * committed draft that wrote the trip and answers 409 STOPOVER_EXPIRED when
+   * it can no longer (final review, finding S2) — never another album.
+   */
+  stopoverKey?: string;
+  /** Re-sync only: the removal choice the commit was sent with. */
+  removeOutside?: boolean;
+}
+
 export type PreflightBlockReason =
   "sharedConnection" | "connectionChanged" | "missingScopes" | "unreachable";
 

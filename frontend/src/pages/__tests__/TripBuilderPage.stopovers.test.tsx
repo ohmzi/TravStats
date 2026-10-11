@@ -218,7 +218,7 @@ describe("the success panel's stopover albums", () => {
     mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
   });
 
-  it("shows a line per stopover album and retries that one by name", async () => {
+  it("shows a line per stopover album and retries that one by key", async () => {
     mocks.waitForJob
       .mockResolvedValueOnce({
         ...RESULT,
@@ -230,7 +230,12 @@ describe("the success panel's stopover albums", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ status: "linked", added: 24, alreadyIn: 0 });
+      .mockResolvedValueOnce({
+        status: "linked",
+        albumName: STOPOVER.title,
+        added: 24,
+        alreadyIn: 0,
+      });
     mocks.retryAlbum.mockResolvedValue({ jobId: "album-job" });
     await renderReview();
     fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.createTrip" }));
@@ -240,7 +245,9 @@ describe("the success panel's stopover albums", () => {
       within(line).getByRole("button", { name: "tripBuilder:review.success.retryAlbum" })
     );
     await waitFor(() => expect(mocks.retryAlbum).toHaveBeenCalled());
-    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, STOPOVER.title, false);
+    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, {
+      stopoverKey: STOPOVER.key,
+    });
     await waitFor(() =>
       expect(
         within(line).getByText(

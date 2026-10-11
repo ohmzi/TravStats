@@ -596,7 +596,7 @@ describe("the album afterwards", () => {
     const hook = await ready();
     await act(() => hook.result.current.session.submit());
     await act(() => hook.result.current.session.retryAlbum());
-    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, "Southern loop", false);
+    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, { name: "Southern loop" });
     const { commit } = hook.result.current.session;
     expect(commit.kind === "done" && commit.result.album).toEqual({
       status: "linked",
@@ -619,7 +619,10 @@ describe("the album afterwards", () => {
     await waitFor(() => expect(hook.result.current.session.phase.kind).toBe("ready"));
     await act(() => hook.result.current.session.submit());
     await act(() => hook.result.current.session.retryAlbum());
-    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, "Southern loop", true);
+    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, {
+      name: "Southern loop",
+      removeOutside: true,
+    });
   });
 
   it("retries a flights-only re-sync with the keep the empty screen sent", async () => {
@@ -642,27 +645,80 @@ describe("the album afterwards", () => {
     await act(() => hook.result.current.session.submitFlightsOnly());
     expect(mocks.commit.mock.calls[0][1].album).toMatchObject({ removeOutside: false });
     await act(() => hook.result.current.session.retryAlbum());
-    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, "Southern loop", false);
+    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, { name: "Southern loop" });
   });
 
-  it("retries a stopover's album by name, and holds its new outcome", async () => {
+  it("retries a stopover's album by key, and holds its new outcome", async () => {
     mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
     mocks.waitForJob
       .mockResolvedValueOnce({
         ...RESULT,
         stopoverAlbums: [{ key: STOPOVER.key, name: STOPOVER.title, album: { status: "failed" } }],
       })
-      .mockResolvedValueOnce({ status: "linked", added: 24, alreadyIn: 0 });
+      .mockResolvedValueOnce({
+        status: "linked",
+        albumName: STOPOVER.title,
+        added: 24,
+        alreadyIn: 0,
+      });
     mocks.retryAlbum.mockResolvedValue({ jobId: "album-job" });
     const hook = await ready();
     await act(() => hook.result.current.session.submit());
     await act(() => hook.result.current.session.retryAlbum(stopoverRetry(STOPOVER.key)));
-    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, STOPOVER.title, false);
+    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, { stopoverKey: STOPOVER.key });
     const { commit } = hook.result.current.session;
     expect(commit.kind === "done" && commit.result.stopoverAlbums?.[0].album).toEqual({
       status: "linked",
+      albumName: STOPOVER.title,
       added: 24,
       alreadyIn: 0,
+    });
+  });
+
+  it("refuses to believe a stopover retry that wrote another album", async () => {
+    // The server once fell back to the trip's album when it could not resolve
+    // the stopover; the panel then reported that outcome as the city album's
+    // repair. A success naming an album other than the requested one is a
+    // failed retry (final review, finding S2-3).
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+    mocks.waitForJob
+      .mockResolvedValueOnce({
+        ...RESULT,
+        stopoverAlbums: [{ key: STOPOVER.key, name: STOPOVER.title, album: { status: "failed" } }],
+      })
+      .mockResolvedValueOnce({
+        status: "linked",
+        albumName: "Southern loop",
+        added: 72,
+        alreadyIn: 0,
+      });
+    mocks.retryAlbum.mockResolvedValue({ jobId: "album-job" });
+    const hook = await ready();
+    await act(() => hook.result.current.session.submit());
+    await act(() => hook.result.current.session.retryAlbum(stopoverRetry(STOPOVER.key)));
+    expect(mocks.addToast).toHaveBeenCalledWith("error", "tripBuilder:errors.album.retryFailed");
+    const { commit } = hook.result.current.session;
+    expect(commit).toMatchObject({ kind: "done", retrying: null });
+    expect(commit.kind === "done" && commit.result.stopoverAlbums?.[0].album).toEqual({
+      status: "failed",
+    });
+  });
+
+  it("keeps a stopover the server refused (its scan is gone) as failed", async () => {
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+    mocks.waitForJob.mockResolvedValueOnce({
+      ...RESULT,
+      stopoverAlbums: [{ key: STOPOVER.key, name: STOPOVER.title, album: { status: "failed" } }],
+    });
+    mocks.retryAlbum.mockRejectedValue(new Error("STOPOVER_EXPIRED"));
+    const hook = await ready();
+    await act(() => hook.result.current.session.submit());
+    await act(() => hook.result.current.session.retryAlbum(stopoverRetry(STOPOVER.key)));
+    expect(mocks.addToast).toHaveBeenCalledWith("error", "tripBuilder:errors.album.retryFailed");
+    const { commit } = hook.result.current.session;
+    expect(commit).toMatchObject({ kind: "done", retrying: null });
+    expect(commit.kind === "done" && commit.result.stopoverAlbums?.[0].album).toEqual({
+      status: "failed",
     });
   });
 

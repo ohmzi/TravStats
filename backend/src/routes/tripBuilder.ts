@@ -244,11 +244,16 @@ const runningAlbumJobs = new Map<string, string>();
  * rebuilt from the trip's own days, so the retry needs no draft. Pressing it
  * again while it runs answers with the running job; its name is the one used.
  *
- * A posted name that names one of the trip's stopovers retries that stopover's
- * OWN album instead (spec 2026-10-11 §5.4): the committed draft that wrote the
- * trip knows the stopovers it offered and holds the layover's picture ids,
- * which exist nowhere else. Any other name is the trip's album, as before, and
- * the one per-(user, trip) job key still lets one album job run at a time.
+ * A `stopoverKey` retries that stopover's OWN album (spec 2026-10-11 §5.4):
+ * the key resolves against the committed draft that wrote the trip, which
+ * knows the stopovers it offered and holds the layover's picture ids — those
+ * exist nowhere else. A key no held draft resolves is refused with 409
+ * STOPOVER_EXPIRED, never answered by the trip's album: the committed draft
+ * is in memory, a restart or its TTL ends it, and the caller must scan again
+ * (final review, finding S2). A bare `name` is the trip's album, as always —
+ * it is never read as a stopover, because the trip's album name may
+ * coincide with a stopover's title. The one per-(user, trip) job key still
+ * lets one album job run at a time.
  */
 router.post(
   "/trips/:tripId/album",
@@ -261,9 +266,16 @@ router.post(
       const trip = await resolveTrip(userId, tripId);
       const held = committedDraftForTrip(userId, tripId);
       const stopover =
-        body.name === undefined
+        body.stopoverKey === undefined
           ? undefined
-          : (held?.stopovers ?? []).find((candidate) => candidate.title === body.name);
+          : (held?.stopovers ?? []).find((candidate) => candidate.key === body.stopoverKey);
+      if (body.stopoverKey !== undefined && (stopover === undefined || held === null)) {
+        throw new AppError(
+          "The scan that wrote this stopover's album is no longer held; scan the trip again",
+          409,
+          "STOPOVER_EXPIRED"
+        );
+      }
 
       // No await from here to `set`, so two presses cannot both see "none running".
       const key = `${userId}:${tripId}`;

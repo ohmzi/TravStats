@@ -7,7 +7,11 @@
 import { z } from "zod";
 
 import { registry } from "../registry";
-import { commitBodySchema, scanBodySchema } from "../../../schemas/tripBuilder";
+import {
+  albumRetryBodySchema,
+  commitBodySchema,
+  scanBodySchema,
+} from "../../../schemas/tripBuilder";
 import { BUILDER_LEG_MODES, STATION_KINDS } from "../../tripBuilder/types";
 import {
   existingAlbumFields,
@@ -549,33 +553,27 @@ registry.registerPath({
     "the review's removal. Without a linked album the album is found again by its exact owned " +
     "name. While a retry for the trip is still running, another press answers 202 with that " +
     "running job's `jobId` and starts nothing (the running job keeps its name), so a double " +
-    "press or a second tab cannot create a second album. A posted `name` that is the name of " +
-    "one of the trip's stopovers retries that stopover's own album instead (spec 2026-10-11 " +
-    "§5.4): found by its exact owned name, add-only, never the trip's album. The job result " +
-    "is a `TripBuilderAlbumOutcome`. Only the user's own Immich key may write.",
+    "press or a second tab cannot create a second album. A posted `stopoverKey` retries that " +
+    "stopover's own album instead (spec 2026-10-11 §5.4): resolved by key against the committed " +
+    "draft that wrote the trip, found by its exact owned name, add-only, never the trip's " +
+    "album. A key no held committed draft resolves meets 409 STOPOVER_EXPIRED — the layover's " +
+    "picture ids exist only in that draft, so the caller scans again; a bare `name` is always " +
+    "the trip's album. The job result is a `TripBuilderAlbumOutcome`. Only the user's own " +
+    "Immich key may write.",
   tags: tag,
   request: {
     params: z.object({ tripId: z.string().uuid() }),
-    body: {
-      content: {
-        "application/json": {
-          schema: z
-            .object({
-              name: z.string().min(1).max(200).optional(),
-              removeOutside: z
-                .boolean()
-                .optional()
-                .describe("The review's removal choice; the removed ids stay the server's own"),
-            })
-            .strict(),
-        },
-      },
-    },
+    body: { content: { "application/json": { schema: albumRetryBodySchema } } },
   },
   responses: {
     202: { description: "The album job", content: { "application/json": { schema: jobStarted } } },
     400: { description: "Invalid input", content: errorContent },
     404: { description: "Not the caller's trip", content: errorContent },
+    409: {
+      description:
+        "`code` STOPOVER_EXPIRED: a stopover retry whose key no held committed draft resolves",
+      content: errorContent,
+    },
     429: { description: "Too many requests", content: errorContent },
   },
 });
