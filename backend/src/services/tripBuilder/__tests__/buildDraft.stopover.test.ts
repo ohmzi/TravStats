@@ -4,8 +4,9 @@ import { NORTHVALE, builderDeps, photosAt, preciseFlight, type Place } from "./b
 
 /**
  * The stopover the scan offers for a layover with an outing (spec 2026-10-11
- * §2): a mid-day connection at Northvale whose traveller went into Elmwood.
- * Synthetic places only (public repository).
+ * §2): a mid-day connection at Northvale whose traveller went into Elmwood,
+ * and a night layover whose outing crosses midnight. Synthetic places only
+ * (public repository).
  */
 const USER = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
 const F1 = "f1a2b3c4-d5e6-4f70-8a9b-0c1d2e3f4a5b";
@@ -57,6 +58,69 @@ const INPUT: ScanInput = {
 const deps = (assets = [...AT_AIRPORT, ...AT_ELMWOOD]) =>
   builderDeps(assets, {
     loadFlights: async () => [FLIGHT_IN, FLIGHT_OUT],
+    airports: async () =>
+      new Map([
+        [
+          "NVL",
+          { name: "Northvale International Airport", lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+        ],
+      ]),
+  });
+
+/** The layover that crosses midnight: landing 22:30, the next departure 09:00 (10.5 h). */
+const MID_FLIGHT_IN = preciseFlight({
+  id: F1,
+  label: "ZZ103 KMR→NVL",
+  depIata: "KMR",
+  arrIata: "NVL",
+  dep: { lat: -43.49, lon: 172.53 },
+  arr: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  depLocal: "2031-05-02T08:00",
+  arrLocal: "2031-05-02T22:30",
+});
+const MID_FLIGHT_OUT = preciseFlight({
+  id: F2,
+  label: "ZZ104 NVL→WKA",
+  depIata: "NVL",
+  arrIata: "WKA",
+  dep: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  arr: { lat: -45.95, lon: 169.55 },
+  depLocal: "2031-05-03T09:00",
+  arrLocal: "2031-05-03T11:30",
+});
+
+/** Four at the airport and five into Elmwood, on both sides of midnight. */
+const MID_AT_AIRPORT = photosAt("nvm", NORTHVALE, [
+  "2031-05-02T22:40",
+  "2031-05-02T22:50",
+  "2031-05-03T08:20",
+  "2031-05-03T08:30",
+]);
+const MID_AT_ELMWOOD = photosAt("emm", ELMWOOD, [
+  "2031-05-02T23:30",
+  "2031-05-03T00:30",
+  "2031-05-03T05:30",
+  "2031-05-03T06:30",
+  "2031-05-03T07:30",
+]);
+
+/**
+ * The destination after the second flight: one ground area, so the night plan is not
+ * empty. NZ coordinates on purpose: an overseas fix would be re-clocked by zone rule 1
+ * (the photo's own GPS zone) and its photos would move off 03 May.
+ */
+const SOUTHHOLLOW: Place = { lat: -46.0, lon: 169.5, city: "Southhollow", state: "Southland" };
+const AT_SOUTHHOLLOW = photosAt("sh", SOUTHHOLLOW, [
+  "2031-05-03T12:00",
+  "2031-05-03T13:00",
+  "2031-05-03T14:00",
+  "2031-05-03T15:00",
+  "2031-05-03T16:00",
+]);
+
+const midnightDeps = () =>
+  builderDeps([...MID_AT_AIRPORT, ...MID_AT_ELMWOOD, ...AT_SOUTHHOLLOW], {
+    loadFlights: async () => [MID_FLIGHT_IN, MID_FLIGHT_OUT],
     airports: async () =>
       new Map([
         [
@@ -124,5 +188,43 @@ describe("buildDraftWith: a layover whose photos went somewhere", () => {
     );
     expect(dto.stopovers).toEqual([]);
     expect(dto.flights[0].layover).toEqual({ photoCount: 6, airportIata: "NVL" });
+  });
+
+  it("offers a midnight-crossing layover without touching the nights or the day totals", async () => {
+    const draft = await buildDraftWith(midnightDeps(), USER, INPUT, () => undefined);
+    const { dto } = draft;
+    expect(dto.stopovers).toHaveLength(1);
+    const [stopover] = dto.stopovers ?? [];
+    // The day is the first outing photo's (23:30 on 02 May), not the last photo's or the departure's.
+    expect(stopover).toMatchObject({
+      key: `${F1}#${F2}`,
+      day: "2031-05-02",
+      title: "Elmwood 2031 Road Trip",
+      photoCount: 9,
+      outingCount: 5,
+    });
+    // The outing's own station straddles midnight: its photos run 23:30 → 07:30.
+    expect(stopover.stations[1]).toMatchObject({ firstDay: "2031-05-02", lastDay: "2031-05-03" });
+    // The whole crossing is one layover, not a day's ground on each side of it.
+    expect(dto.flights[0].layover).toEqual({ photoCount: 9, airportIata: "NVL" });
+
+    // 02 May: the two airport photos and the first outing photo; 03 May: the rest of the
+    // layover plus the destination. Every layover photo still counts on its own day.
+    const byDay = new Map(dto.days.map((day) => [day.day, day.photos] as const));
+    expect(byDay.get("2031-05-02")).toBe(3);
+    expect(byDay.get("2031-05-03")).toBe(11);
+
+    // The night plan is real — its one suggestion is the destination area's station — yet
+    // nothing in it, nor in the days' station lists, names a stopover station (review focus 2).
+    const stopoverKeys = new Set(stopover.stations.map((station) => station.key));
+    expect(Object.keys(dto.nights)).toEqual(["2031-05-02"]);
+    const destinationKeys = dto.areas.flatMap((area) => area.stations.map((s) => s.key));
+    expect(dto.nights["2031-05-02"].suggestedStationKeys).toEqual(destinationKeys);
+    const nightNames = Object.values(dto.nights).flatMap((night) => [
+      night.assign,
+      ...night.suggestedStationKeys,
+    ]);
+    const dayNames = dto.days.flatMap((day) => day.stationKeys);
+    expect([...nightNames, ...dayNames].filter((key) => stopoverKeys.has(key))).toEqual([]);
   });
 });
