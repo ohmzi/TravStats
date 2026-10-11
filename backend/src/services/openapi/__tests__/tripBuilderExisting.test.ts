@@ -221,4 +221,16 @@ describe("trip builder OpenAPI documents the re-sync fields", () => {
       expect(stopover().required ?? []).not.toContain("stored");
     });
   });
+
+  describe("the draft area's pitstop", () => {
+    const pitstop = (): Node => at(draft, "areas", "[]", "pitstop");
+
+    it("says the pitstop's album is already synced, with the stored and current counts", () => {
+      const stored = at(pitstop(), "stored");
+      expect(keysOf(stored)).toEqual(["albumAssetCount", "photoCount"]);
+      expect(at(stored, "albumAssetCount").type).toBe("integer");
+      expect(at(stored, "photoCount").type).toBe("integer");
+      expect(pitstop().required ?? []).not.toContain("stored");
+    });
+  });
 });

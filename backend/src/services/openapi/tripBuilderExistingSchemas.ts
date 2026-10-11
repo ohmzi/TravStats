@@ -54,6 +54,23 @@ export const existingStopoverFields = {
     .describe("Re-sync only: the stored roadtrip this stopover is already synced to"),
 };
 
+/** Extends the draft area's pitstop object. */
+export const existingPitstopFields = {
+  stored: z
+    .object({
+      albumAssetCount: z
+        .number()
+        .int()
+        .describe("The linked album's member count when the scan read it"),
+      photoCount: z
+        .number()
+        .int()
+        .describe("The area's own photo count now: the count the review shows beside it"),
+    })
+    .optional()
+    .describe("Re-sync only: the linked album of exactly this pitstop's name the trip holds"),
+};
+
 /** Extends the draft album schema. */
 export const existingAlbumFields = {
   sync: z

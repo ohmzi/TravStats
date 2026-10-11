@@ -18,6 +18,7 @@ import {
   existingAreaFields,
   existingDraftFields,
   existingOutcomeFields,
+  existingPitstopFields,
   existingResultFields,
   existingRoadtripSummaryFields,
   existingStationFields,
@@ -157,6 +158,7 @@ const draftPitstop = z
       .string()
       .describe('"<City> <Year> Road Trip (<Trip Name>)": the server-computed album name'),
   })
+  .extend(existingPitstopFields)
   .describe("Present when the area is a pitstop: a multi-day same-airport stay with its own album");
 const draftArea = z
   .object({

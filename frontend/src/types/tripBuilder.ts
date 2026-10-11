@@ -162,10 +162,20 @@ export interface DraftArea {
   pitstop?: DraftPitstop;
 }
 
-/** A pitstop area's own album, server-named (spec 2026-10-11 pitstops §2, §6). */
+/** Re-sync only: the pitstop album a matched area's scan already found on the trip (spec pitstop §5). */
+export interface StoredPitstopStatus {
+  /** The linked album's member count when the scan read it; the review's "when it was synced". */
+  albumAssetCount: number;
+  /** The area's own photo count now; the review's "now" beside it. */
+  photoCount: number;
+}
+
+/** A pitstop area's own album, server-named (spec 2026-10-11 pitstops §2, §6), with what a re-sync holds of it (spec §5). */
 export interface DraftPitstop {
   /** `<City> <Year> Road Trip (<Trip Name>)`; the parenthetical is dropped when the city is the trip's own name. */
   albumName: string;
+  /** Re-sync only: set ⇔ the trip already links an album of exactly `albumName`. */
+  stored?: StoredPitstopStatus;
 }
 
 export interface DraftFlight {
