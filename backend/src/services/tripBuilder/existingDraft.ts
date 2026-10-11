@@ -169,6 +169,11 @@ export function annotateDraftForExisting(
     window: { startDay: dto.window.startDay, endDay: dto.window.endDay },
     roadtripAreas,
     stopAreas,
+    stopovers: (dto.stopovers ?? []).map((stopover) => ({
+      key: stopover.key,
+      title: stopover.title,
+      day: stopover.day,
+    })),
     state,
   });
   const matchByArea = new Map(result.roadtrips.map((m) => [m.areaKey, m] as const));

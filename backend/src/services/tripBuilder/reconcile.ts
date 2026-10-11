@@ -325,6 +325,64 @@ export function matchAreasToRoadtrips(
   return matches;
 }
 
+// ─── Stopovers to roadtrips ──────────────────────────────────────────────────
+
+export interface ReconcileStopover {
+  key: string;
+  /** The computed title (`<City> <Year> Road Trip`): what a stored roadtrip's name must equal. */
+  title: string;
+  /** The stopover day (spec 2026-10-11 §2.2): every dated station must fall inside it. */
+  day: Day;
+}
+
+export interface StopoverMatch {
+  key: string;
+  roadtripId: string;
+  /** The stored roadtrip's own name (equal to the title, bar case): the commit re-checks it. */
+  name: string;
+}
+
+/** Every dated, non-correction station lies inside `day`, and at least one station is dated. */
+function landsInsideDay(roadtrip: ExistingRoadtrip, day: Day): boolean {
+  const dated = roadtrip.stations.filter(
+    (station) => station.night !== "via" && (station.startDate !== null || station.endDate !== null)
+  );
+  if (dated.length === 0) return false;
+  return dated.every((station) => {
+    const start = station.startDate ?? station.endDate;
+    const end = station.endDate ?? station.startDate;
+    return start !== null && end !== null && start >= day && end <= day;
+  });
+}
+
+/**
+ * The re-sync's stopover match pass (spec 2026-10-11 §6). Storage carries no
+ * stopover key and none is added, so a draft stopover claims the trip's
+ * roadtrip whose name equals its computed title and whose stations' days all
+ * fall inside its day. A roadtrip serves one stopover, a stopover one roadtrip;
+ * the returned ids are the claims `reconcileTrip` filters out of the area
+ * match, so no area can ever match, steal or duplicate a stopover roadtrip.
+ */
+export function claimStopovers(
+  stopovers: readonly ReconcileStopover[],
+  roadtrips: readonly ExistingRoadtrip[]
+): StopoverMatch[] {
+  const used = new Set<string>();
+  const matches: StopoverMatch[] = [];
+  for (const stopover of stopovers) {
+    const found = roadtrips.find(
+      (roadtrip) =>
+        !used.has(roadtrip.id) &&
+        sameTitle(stopover.title, roadtrip.name) &&
+        landsInsideDay(roadtrip, stopover.day)
+    );
+    if (found === undefined) continue;
+    used.add(found.id);
+    matches.push({ key: stopover.key, roadtripId: found.id, name: found.name });
+  }
+  return matches;
+}
+
 // ─── Timeline stops ──────────────────────────────────────────────────────────
 
 export interface StopArea {
@@ -417,17 +475,29 @@ export interface TripReconcileInput {
   window: ReconcileWindow;
   roadtripAreas: readonly ReconcileArea[];
   stopAreas: readonly StopArea[];
+  /** The draft's stopover candidates (spec 2026-10-11 §2.3): matched before the areas. */
+  stopovers: readonly ReconcileStopover[];
   state: Pick<ExistingTripState, "roadtrips" | "stops">;
 }
 
 export interface TripReconcile {
   roadtrips: RoadtripMatch[];
   stops: StopsReconcile;
+  stopovers: StopoverMatch[];
 }
 
 export function reconcileTrip(input: TripReconcileInput): TripReconcile {
+  // The stopover claims run FIRST: a roadtrip a stopover owns never reaches the
+  // area match, so no area can match, steal or duplicate it (spec §6).
+  const stopovers = claimStopovers(input.stopovers, input.state.roadtrips);
+  const claimed = new Set(stopovers.map((match) => match.roadtripId));
   return {
-    roadtrips: matchAreasToRoadtrips(input.roadtripAreas, input.state.roadtrips, input.window),
+    roadtrips: matchAreasToRoadtrips(
+      input.roadtripAreas,
+      input.state.roadtrips.filter((roadtrip) => !claimed.has(roadtrip.id)),
+      input.window
+    ),
     stops: reconcileStops(input.stopAreas, input.state.stops, input.window),
+    stopovers,
   };
 }
