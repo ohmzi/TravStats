@@ -25,7 +25,7 @@ The example that must work: the owner's **Karachi 2025** trip (`94128bb5-…`, 2
 
 ## 2. Detection (scan)
 
-A **stopover candidate** is an existing `Layover` (see §2.1) that passes one added test:
+A **stopover candidate** is either **(a)** an existing `Layover` (see §2.1) that passes one added test, or **(b)** a ground area that lies between two adjacent same-airport flights with a `0 ≤ gap < LAYOVER_MAX_H` ground gap and whose photos pass that same test (no upper radius on this branch) — added 2026-10-11 after the Karachi acceptance probe: IST airport sits ~34 km from central Istanbul, so the 30 km layover radius never fires for the owner's own case, and branch (b) covers cities far from their hub. On branch (b) the area is reclassified out of `areas` (no double offer) and its own derived stations become the tour. The test, on either branch, is:
 
 - at least `STOPOVER_MIN_PHOTOS` (= 5) of its geotagged photos lie further than `STOPOVER_MIN_KM` (= 5) from the layover airport — the **outing set**.
 
@@ -35,7 +35,7 @@ Both are new constants in `services/tripBuilder/thresholds.ts`; both are tunable
 
 `splitIntoAreas` (`flightAnchors.ts`) pairs **adjacent flights in departure order** that share an IATA airport. When the precise ground gap is `0 ≤ gap < LAYOVER_MAX_H` (12 h) — or the two flights share a day when either lacks a time — and **every** photo of the stretch is within `LAYOVER_RADIUS_KM` (30) of the **arrival** airport, the stretch is a `Layover { inFlightId, outFlightId, airportIata, photoIds }` instead of a `GroundArea`. Its photos are flagged `layover` and excluded from movement/night evidence, but they remain in stats, per-day counts, and `albumAssetIds` — which is why "photos stay in the trip's main album" already holds and needs no change.
 
-A consequence kept as-is in v1: an excursion beyond the 30 km radius fails the layover test and the stretch becomes a ground area by the existing rules; the stopover offer only covers layovers.
+(Superseded 2026-10-11 by §2 branch (b): an excursion beyond the 30 km radius that is still bounded by two same-airport flights within 12 h is now a stopover candidate, not just an area.)
 
 ### 2.2 The tour
 
