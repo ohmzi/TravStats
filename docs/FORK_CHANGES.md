@@ -778,6 +778,99 @@ album; date-only connections; and excursions beyond the 30 km layover radius,
 which keep taking the existing ground-area path. Nothing here changes how the
 trip's own album is built, named or removed.
 
+### A multi-day pitstop becomes its own roadtrip and album
+
+A multi-day stay that starts and ends at the same airport — fly in, drive
+inland, roam the city, fly out days later — used to fold into the ground
+areas as an ordinary stay, and the review's default for a compact
+single-city area is a timeline stop, so the stay often produced no roadtrip
+at all. Ordinary roadtrips never got an album of their own either: the
+independent-album machinery was wired to stopovers only. Now every
+multi-day **pitstop** is offered as its own roadtrip with its own
+independent album, **on by default** — a stay is not an airport visit, so
+the stopover cards keep their off-by-default rule.
+
+**How it runs.**
+
+- **Detection.** An area is a **pitstop** when it lies strictly between two
+  flights adjacent in departure order that **share an airport** — the same
+  edge test the stopover branch uses — when the arrival and the departure
+  fall on **different local days** (an overnight or longer; a pair without
+  clock times compares the days it has), and when it is not the trip's
+  **principal destination**. A same-day pair stays an ordinary area
+  whatever its gap, and an overnight connection under 12 h is the stopover
+  feature's business: hours are airport visits, days are stays.
+- **The principal destination.** The ground stay with the most nights is
+  the trip's destination; ties go to the stay with the most photo-days,
+  then to the earliest first day. Exactly one area is the destination, and
+  only when it is itself bounded by a same-airport pair could it otherwise
+  qualify as a pitstop — it keeps the trip's main album and gets no city
+  album, which would only duplicate it. Home-side ground, before the first
+  flight or after the last, is untouched.
+- **The name.** `<City> <Year> Road Trip (<Trip Name>)`, where City is the
+  roadtrip's own main-city title — the same string its roadtrip name uses
+  after the `·` — Year is the area's first day's year in the trip's own
+  zone, and the parenthetical is the trip's name, dropped when City and
+  the trip's name are equal.
+- **Review.** No new card: the offer rides the existing area card. For a
+  pitstop the kind already reads **Roadtrip**, and a switch sits beneath
+  it — "Its own album: <name>" — **checked by default**, one untick away.
+  The switch is disabled when the kind is not roadtrip and when roadtrips
+  are switched off in Settings, with the reason the roadtrip controls
+  already give. The kind and the tick are ordinary review edits: they
+  replay after a re-scan, survive a reload, and the commit body carries
+  exactly what the card showed.
+- **Commit.** The area's entry in the body's `areas[]` gains an `album`
+  boolean; `album: true` requires the area's kind to be roadtrip (the
+  strict schema refuses the rest), and only an area the scan offered as a
+  pitstop may carry it. The roadtrip write is unchanged; the album goes in
+  the album phase **through the stopover album machinery**: found or
+  created among the user's own albums by that exact name, its description
+  keeping the `TravStats trip ·` prefix, the area's own photo set added,
+  then linked to the trip like any other album.
+
+**The third album class.** The trip's main album, the stopover albums and
+now the pitstop albums share one writer, one marker and one retry. A
+pitstop's photos stay in the trip's main album untouched. A failed album
+never fails the trip: the success panel shows a line per album, each with
+its own retry, and a retry resolves its album by name, so it can never
+write the wrong one. A pitstop album is add-only: nothing is ever removed
+from it, and the builder never deletes it.
+
+**Re-syncing a pitstop is add-only.** A pitstop area matches its stored
+roadtrip through the ordinary area matching — station overlap — unchanged;
+what is new is the album's state in the review. When a linked album of the
+computed name exists, the review shows the switch on and marked *already
+synced*, the current photo count beside the stored one, and committing
+writes nothing. When the album is missing — an area that became a roadtrip
+before this feature existed is the live case — the switch shows on, and
+committing creates the album from the area's current photos **without
+touching the roadtrip**: the area's own diff still governs the roadtrip,
+and an unchanged re-sync writes no stations at all. An unmatched pitstop
+writes its roadtrip and album together, as at first commit. The
+`TRIP_CHANGED` guards, the claim-before-areas discipline and the add-only
+v1 boundaries are those of the stopover feature; pitstop albums inherit
+them.
+
+**Where it touches code upstream also changes.** The pitstop marking
+reuses the flight anchors, the area machinery and the naming chain the
+areas use, so a rebase that moves `flightAnchors.ts`, `areaPlans.ts`,
+`buildDraft.ts` or `nameClusters.ts` moves it too; also: the scan's
+pitstop module beside `services/tripBuilder/stopovers.ts`, the area DTO
+and its frontend mirror, the commit schema's area entry, `commitPlan.ts`,
+the album machinery (`stopoverAlbum.ts`, `albumResync.ts`,
+`albumWrite.ts`), the re-sync annotations in `reconcile.ts` and
+`existingState.ts`, and the frontend's `ReviewAreaSection.tsx`, its review
+state and the `tripBuilder` i18n namespace.
+
+**Out of scope in v1.** Albums for timeline stops (an album requires a
+roadtrip); removing a pitstop album; rebuilding a pitstop's tour;
+renaming the pitstop album in the review (the name is computed); stays
+whose in and out flights use different airports of one metro (the
+same-airport rule stands); and same-day stays or hours-long layovers,
+which the stopover feature owns. Nothing here changes how the trip's own
+album is built, named or removed.
+
 ### Smaller things
 
 - **One page width.** The three container widths collapse to one, so every page
