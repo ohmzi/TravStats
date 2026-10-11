@@ -560,6 +560,27 @@ export interface StationIndexEntry {
   lastDay: Day;
 }
 
+/**
+ * One stopover candidate as the scan derived it (spec 2026-10-11 §2.3). The
+ * whole layover's photo ids are kept server-side: they are dropped after the
+ * scan today, and the city-album write needs them.
+ */
+export interface StoredStopover {
+  key: string;
+  title: string;
+  city: string;
+  day: Day;
+  inFlightId: string;
+  outFlightId: string;
+  airportIata: string | null;
+  /** The whole layover's photo set: the album list (spec §2.2). SERVER-ONLY. */
+  photoIds: string[];
+  /** The tour's stops, the arrival airport first (spec §2.2). */
+  stations: PlanStation[];
+  /** legs[i] joins stations[i] and stations[i + 1]. */
+  legs: PlanLeg[];
+}
+
 export interface StoredDraft {
   id: string;
   ownerId: string;

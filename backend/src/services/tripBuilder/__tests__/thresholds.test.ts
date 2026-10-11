@@ -28,6 +28,11 @@ describe("trip builder thresholds", () => {
     expect(thresholds.WINDOW_PAD_AFTER_H).toBe(12);
   });
 
+  it("offers a stopover from five photos taken more than 5 km from the airport", () => {
+    expect(thresholds.STOPOVER_MIN_PHOTOS).toBe(5);
+    expect(thresholds.STOPOVER_MIN_KM).toBe(5);
+  });
+
   it("starts a night's evening at 18:00 and ends it at 04:00", () => {
     expect(thresholds.NIGHT_BOUNDARY_H).toBe(4);
     expect(thresholds.NIGHT_DRIVE_LAST_AFTER).toBe("18:00");

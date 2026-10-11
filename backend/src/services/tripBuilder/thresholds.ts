@@ -95,6 +95,10 @@ export const STATIONARY_GROUP_MIN = 20;
 export const LAYOVER_MAX_H = 12;
 /** … when every photo in it lies within this of that airport. */
 export const LAYOVER_RADIUS_KM = 30;
+/** A layover with at least this many photos further than … */
+export const STOPOVER_MIN_PHOTOS = 5;
+/** … this many km from its airport is offered as a stopover roadtrip (spec 2026-10-11 §2). */
+export const STOPOVER_MIN_KM = 5;
 /** An area end further than this from its airport gets an airport station (§C.9). */
 export const AIRPORT_ANCHOR_KM = 30;
 /** Flights are loaded with a departure in [S − this, E + this]. */
