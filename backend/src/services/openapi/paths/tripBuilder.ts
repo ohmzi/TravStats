@@ -150,6 +150,14 @@ const draftLeg = z.object({
     .describe("Re-sync only: the mode the scan derived, on a leg that updates a stored one"),
   ferryEvidence: z.enum(["router", "seaPhotos", "chip"]).nullable(),
 });
+/** The album a pitstop area gets (spec 2026-10-11 pitstops §2, §6). */
+const draftPitstop = z
+  .object({
+    albumName: z
+      .string()
+      .describe('"<City> <Year> Road Trip (<Trip Name>)": the server-computed album name'),
+  })
+  .describe("Present when the area is a pitstop: a multi-day same-airport stay with its own album");
 const draftArea = z
   .object({
     key: z.string().regex(/^\d{4}-\d{2}-\d{2}#\d+$/),
@@ -163,6 +171,7 @@ const draftArea = z
     home: z.object({ start: homeEnd, end: homeEnd, unconfirmed: z.boolean() }),
     stations: z.array(draftStation),
     legs: z.array(draftLeg).describe("legs[i] joins stations[i] and stations[i + 1]"),
+    pitstop: draftPitstop.optional(),
   })
   .extend(existingAreaFields(draftStation));
 /** The stopover tour of one layover (spec 2026-10-11 §2.3). */

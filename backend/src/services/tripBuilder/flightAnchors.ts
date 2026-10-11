@@ -234,7 +234,7 @@ function byTime(a: PhotoPoint, b: PhotoPoint): number {
 }
 
 /** `arriving` lands where `departing` leaves: the same IATA code (a flight without codes never connects). */
-function sharesAirport(arriving: FlightAnchor, departing: FlightAnchor): boolean {
+export function sharesAirport(arriving: FlightAnchor, departing: FlightAnchor): boolean {
   return arriving.arrIata !== null && arriving.arrIata === departing.depIata;
 }
 

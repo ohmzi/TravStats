@@ -158,6 +158,14 @@ export interface DraftArea {
   roadtripId?: string;
   /** Re-sync only: stored stations the photos do not show. */
   notSeen?: DraftStation[];
+  /** A pitstop: the area gets its own album, named here (spec 2026-10-11 pitstops §2). Absent on an ordinary area. */
+  pitstop?: DraftPitstop;
+}
+
+/** A pitstop area's own album, server-named (spec 2026-10-11 pitstops §2, §6). */
+export interface DraftPitstop {
+  /** `<City> <Year> Road Trip (<Trip Name>)`; the parenthetical is dropped when the city is the trip's own name. */
+  albumName: string;
 }
 
 export interface DraftFlight {

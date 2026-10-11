@@ -37,6 +37,7 @@ import type {
   StoredExisting,
 } from "./existingTypes";
 import type { ExcludedCounts, PhotoPoint, RawSegment, ScanWindow, Segment } from "./photoTypes";
+import type { DraftPitstop } from "./pitstops";
 
 export {
   NIGHT_FLIGHT,
@@ -401,6 +402,8 @@ export interface DraftArea {
   roadtripId?: string;
   /** Re-sync only: stored stations of that roadtrip the photos do not show. Not part of `stations`/`legs`. */
   notSeen?: DraftStation[];
+  /** A pitstop: the area gets its own album, named here (spec 2026-10-11 pitstops §2). Absent on an ordinary area. */
+  pitstop?: DraftPitstop;
 }
 
 // The stopover DTO shapes (spec 2026-10-11 §2.3, §6) are declared in
@@ -408,6 +411,10 @@ export interface DraftArea {
 // 800-line cap. They are re-exported here, so consumers keep importing them
 // from `./types`.
 export type { DraftStopover, StoredStopoverStatus } from "./draftStopover";
+
+// The pitstop DTO shape (spec 2026-10-11 pitstops §2) is declared in
+// `pitstops.ts`, beside the detection that mints it, and re-exported here.
+export type { DraftPitstop } from "./pitstops";
 
 export interface DraftFlight {
   id: string;

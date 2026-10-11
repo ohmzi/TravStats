@@ -37,6 +37,7 @@ import {
 import { assembleWarnings, movementOutsideDates, type UnrecordedFlight } from "./draftWarnings";
 import { applyExistingTarget, type ExistingDeps } from "./existingDraft";
 import { indexPreviews } from "./stations";
+import { pitstopAreas } from "./pitstops";
 import type { RoadAccess } from "./probe";
 import {
   DRAFT_IDLE_TTL_MS,
@@ -388,6 +389,16 @@ export async function buildDraftWith(
   const mainCities = new Map(
     night.kept.map((plan) => [plan.key, mainCityOf(plan.stations, night.nights)] as const)
   );
+  // A multi-day same-airport stay is its own album (spec 2026-10-11 pitstops
+  // §2): the election reads the night plan, so this runs after the nights.
+  const pitstops = pitstopAreas({
+    areas: night.kept,
+    nights: night.nights,
+    anchors: collected.anchors,
+    photosById: movement.photosById,
+    mainCities,
+    tripName: input.name,
+  });
   const names = roadtripAreaNames(
     night.kept
       .filter((plan) => kinds.get(plan.key) === "roadtrip")
@@ -399,14 +410,16 @@ export async function buildDraftWith(
     input.name,
     new Set(deps.targetTrip?.roadtripNames ?? [])
   );
-  const areas = night.kept.map((plan) =>
-    toDraftArea(
+  const areas = night.kept.map((plan) => {
+    const area = toDraftArea(
       withPreviews(plan, previews.previewIdx),
       kinds.get(plan.key) ?? "stops",
       names[plan.key] ?? input.name,
       mainCities.get(plan.key) ?? null
-    )
-  );
+    );
+    const pitstop = pitstops.get(plan.key);
+    return pitstop === undefined ? area : { ...area, pitstop };
+  });
 
   const listedCap = capFirst(
     anchors.filter((a) => a.listed),
@@ -460,7 +473,10 @@ export async function buildDraftWith(
         // An offered stopover is a roadtrip the account cannot make too (finding
         // S3-1a): the review disables its switch from this warning, so a scan whose
         // areas are all single-city stops (or absent) must carry it as well.
-        stopovers.length > 0),
+        stopovers.length > 0 ||
+        // A pitstop's Roadtrip default and album switch are roadtrips too, and its
+        // area kind is the scan's own `stops` (spec 2026-10-11 pitstops §2, §3).
+        pitstops.size > 0),
     overlapping: await deps.overlappingTrips(window, targetTripId),
     flights: listed,
     outsideMovement:
