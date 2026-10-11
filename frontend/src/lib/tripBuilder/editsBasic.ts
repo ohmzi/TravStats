@@ -98,6 +98,23 @@ export function setFlightTick(
   });
 }
 
+export function setStopoverTick(
+  draft: TripBuilderDraft,
+  state: ReviewState,
+  edit: EditOf<"setStopoverTick">
+): ReviewState {
+  const stopover = (draft.stopovers ?? []).find((candidate) => candidate.key === edit.key);
+  if (stopover === undefined) return state;
+  // A re-sync's matched stopover is already written: both switches stay on (spec §6).
+  // The wire sets `stored`; the mirror's older flat pair is read too.
+  if (stopover.roadtripId !== undefined || stopover.stored !== undefined) return state;
+  // Switch 2 only enables with switch 1 (spec §3).
+  const tick = { roadtrip: edit.roadtrip, album: edit.roadtrip && edit.album };
+  return accept(state, edit, {
+    stopoverTicks: { ...state.stopoverTicks, [edit.key]: tick },
+  });
+}
+
 export function setAlbum(
   draft: TripBuilderDraft,
   state: ReviewState,

@@ -4,6 +4,7 @@ import type {
   DraftFlight,
   DraftLeg,
   DraftStation,
+  DraftStopover,
   NightEntry,
   TripBuilderDraft,
 } from "../../../types/tripBuilder";
@@ -15,6 +16,8 @@ export const FLIGHT_OUT = "f1a2b3c4-d5e6-4f70-8a9b-0c1d2e3f4a5b";
 export const FLIGHT_ELSEWHERE = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 export const JOURNEY = "5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e";
 export const COMMIT_KEY = "6a0b7c1d-2e3f-4a5b-8c6d-7e8f9a0b1c2d";
+export const STOPOVER_IN = "1a2b3c4d-5e6f-4a70-8b9c-0d1e2f3a4b5c";
+export const STOPOVER_OUT = "2b3c4d5e-6f70-4b81-9c0d-1e2f3a4b5c6d";
 
 export const KEY = {
   home: "-871|3453|2031-05-02",
@@ -195,6 +198,79 @@ const DAYS: DraftDay[] = [
   day("2031-05-06", 6, 6, [KEY.tarnside]),
   day("2031-05-07", 0, 0, [], [FLIGHT_ELSEWHERE]),
 ];
+
+/** The stopover the scan offers on the flight day, with the two precise flights it lies between. */
+export const STOPOVER_FLIGHTS: DraftFlight[] = [
+  {
+    id: STOPOVER_IN,
+    label: "ZA900 ZNV→ZSD",
+    depIata: "ZNV",
+    arrIata: "ZSD",
+    depLocal: "2031-05-04 06:55",
+    arrLocal: "2031-05-04 10:25",
+    precise: true,
+    currentTrip: null,
+    defaultAssign: true,
+    locked: false,
+  },
+  {
+    id: STOPOVER_OUT,
+    label: "ZA901 ZSD→ZSB",
+    depIata: "ZSD",
+    arrIata: "ZSB",
+    depLocal: "2031-05-04 18:20",
+    arrLocal: "2031-05-04 21:50",
+    precise: true,
+    currentTrip: null,
+    defaultAssign: true,
+    locked: false,
+  },
+];
+
+export const STOPOVER: DraftStopover = {
+  key: `${STOPOVER_IN}#${STOPOVER_OUT}`,
+  city: "Sundhavn",
+  title: "Sundhavn 2031 Road Trip",
+  day: "2031-05-04",
+  airportIata: "ZSD",
+  photoCount: 24,
+  outingCount: 19,
+  stations: [
+    station(`${STOPOVER_IN}#airport`, "Sundhavn Airport", "2031-05-04", "2031-05-04", {
+      kind: "airport",
+      lat: -46.55,
+      lon: 168.4,
+      photoCount: 0,
+      previewIdx: [],
+    }),
+    station(`${STOPOVER_IN}#oldTown`, "Sundhavn Old Town", "2031-05-04", "2031-05-04", {
+      lat: -46.42,
+      lon: 168.31,
+      photoCount: 14,
+      previewIdx: [8, 9],
+    }),
+    station(`${STOPOVER_IN}#harbour`, "Sundhavn Harbour", "2031-05-04", "2031-05-04", {
+      lat: -46.41,
+      lon: 168.29,
+      photoCount: 5,
+      previewIdx: [10],
+    }),
+  ],
+  legs: [
+    leg(`${STOPOVER_IN}#airport`, `${STOPOVER_IN}#oldTown`, { chordKm: 16.2, routedKm: 21.4 }),
+    leg(`${STOPOVER_IN}#oldTown`, `${STOPOVER_IN}#harbour`, { chordKm: 1.4 }),
+  ],
+};
+
+/** The draft as the scan leaves it when it offers the Sundhavn stopover as well. */
+export function stopoverDraft(over: Partial<TripBuilderDraft> = {}): TripBuilderDraft {
+  return reviewDraft({
+    flights: [...FLIGHTS, ...STOPOVER_FLIGHTS],
+    days: DAYS.map((day) => (day.day === STOPOVER.day ? { ...day, photos: 24, located: 24 } : day)),
+    stopovers: [STOPOVER],
+    ...over,
+  });
+}
 
 /**
  * Six days, five nights. 02 and 03 at Northvale, 04 in the air, 05 at

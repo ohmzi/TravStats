@@ -38,6 +38,7 @@ import {
   setFlightTick,
   setLegMode,
   setNote,
+  setStopoverTick,
   setTripName,
   setVehicle,
   togglePhotoJourney,
@@ -74,6 +75,7 @@ export type DraftEdit =
   | { type: "setAlbum"; create: boolean; name: string }
   | { type: "setCountries"; countries: string[] }
   | { type: "togglePhotoJourney"; id: string; ticked: boolean }
+  | { type: "setStopoverTick"; key: string; roadtrip: boolean; album: boolean }
   | { type: "setTripName"; name: string }
   | ExistingEdit;
 
@@ -93,6 +95,12 @@ export interface ReviewArea {
   legModes: BuilderLegMode[];
 }
 
+/** The two switches of one stopover: `album` is only ever on when `roadtrip` is (spec §3). */
+export interface StopoverTick {
+  roadtrip: boolean;
+  album: boolean;
+}
+
 export interface ReviewState {
   draftId: string;
   /** What was done, oldest first: the part that is persisted and replayed. */
@@ -104,6 +112,8 @@ export interface ReviewState {
   nights: Record<Day, NightAssign>;
   flightTicks: Record<string, boolean>;
   photoJourneyTicks: Record<string, boolean>;
+  /** One entry per draft stopover: switch 1, and switch 2 which needs switch 1 (spec §3). */
+  stopoverTicks: Record<string, StopoverTick>;
   /** Null when the scan did not ask for an album. */
   album: { create: boolean; name: string } | null;
   /** Re-sync only (spec §K.5): the keep/remove choices and the album removal switch; null for a new trip. */
@@ -139,6 +149,16 @@ export function initialReviewState(draft: TripBuilderDraft): ReviewState {
       draft.flights.map((flight) => [flight.id, flight.locked || flight.defaultAssign])
     ),
     photoJourneyTicks: Object.fromEntries(draft.photoJourneys.map((j) => [j.id, true])),
+    stopoverTicks: Object.fromEntries(
+      (draft.stopovers ?? []).map((stopover) => [
+        stopover.key,
+        // A matched stopover is already written, so both switches start on and locked
+        // (spec §6). The re-scan sets `stored`; the mirror's older flat pair is read too.
+        stopover.roadtripId !== undefined || stopover.stored !== undefined
+          ? { roadtrip: true, album: true }
+          : { roadtrip: false, album: false },
+      ])
+    ),
     album: draft.album === null ? null : { create: draft.album.allowed, name: draft.album.name },
     existing: initialExistingState(draft),
   };
@@ -173,6 +193,8 @@ export function applyEdit(
       return setCountries(draft, state, edit);
     case "togglePhotoJourney":
       return togglePhotoJourney(draft, state, edit);
+    case "setStopoverTick":
+      return setStopoverTick(draft, state, edit);
     case "setTripName":
       return setTripName(draft, state, edit);
     case "merge":
@@ -289,6 +311,13 @@ export function buildCommitBody(
       .map((flight) => flight.id),
     nights: effectiveNights(state),
     areas: state.areas.map((area) => commitArea(area, fallbackName)),
+    stopovers: (draft.stopovers ?? [])
+      .map((stopover) => ({
+        key: stopover.key,
+        roadtrip: state.stopoverTicks[stopover.key]?.roadtrip === true,
+        album: state.stopoverTicks[stopover.key]?.album === true,
+      }))
+      .filter((entry) => entry.roadtrip),
     photoJourneyIds: draft.photoJourneys
       .filter((journey) => state.photoJourneyTicks[journey.id] === true)
       .map((journey) => journey.id),

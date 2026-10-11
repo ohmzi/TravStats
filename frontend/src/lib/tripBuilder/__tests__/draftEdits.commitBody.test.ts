@@ -15,7 +15,9 @@ import {
   FLIGHT_OUT,
   JOURNEY,
   KEY,
+  STOPOVER,
   reviewDraft,
+  stopoverDraft,
 } from "./reviewFixtures";
 
 const draft = reviewDraft();
@@ -44,6 +46,7 @@ describe("buildCommitBody for a new trip", () => {
         "flightIds",
         "nights",
         "photoJourneyIds",
+        "stopovers",
         "target",
         "window",
       ].sort()
@@ -209,5 +212,16 @@ describe("buildCommitBody for an existing trip", () => {
     expect(bodyAfter([], existing, { name: "Southern loop" }).target).toMatchObject({
       applyWindow: false,
     });
+  });
+
+  it("keeps the stopover switches through the re-sync fields", () => {
+    const existingStopover = stopoverDraft({ target: existing.target });
+    const body = bodyAfter(
+      [{ type: "setStopoverTick", key: STOPOVER.key, roadtrip: true, album: true }],
+      existingStopover,
+      { name: "Southern loop" }
+    );
+    expect(body.stopovers).toEqual([{ key: STOPOVER.key, roadtrip: true, album: true }]);
+    expect(body.stops).toEqual({ keep: [], remove: [] });
   });
 });

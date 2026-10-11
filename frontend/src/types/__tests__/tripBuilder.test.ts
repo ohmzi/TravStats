@@ -119,6 +119,7 @@ describe("trip builder wire vocabulary", () => {
         },
       ],
       photoJourneyIds: [],
+      stopovers: [],
       album: { create: false, name: "Northvale loop" },
     };
     expect(body.areas[0].legModes).toEqual(["ferry"]);

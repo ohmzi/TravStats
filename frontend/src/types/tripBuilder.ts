@@ -408,6 +408,8 @@ export interface CommitBody {
   nights: Record<Day, NightAssign>;
   /** Every area, `skip` ones included. */
   areas: CommitArea[];
+  /** Only the stopovers the user turned on (§5.1); empty when the scan offered none. */
+  stopovers: Array<{ key: string; roadtrip: boolean; album: boolean }>;
   photoJourneyIds: string[];
   /** Re-sync only: timeline stops the photos do not show. */
   stops?: { keep: string[]; remove: string[] };

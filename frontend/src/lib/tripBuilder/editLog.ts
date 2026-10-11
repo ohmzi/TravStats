@@ -28,6 +28,8 @@ function editTarget(edit: DraftEdit): string | null {
       return `${edit.type}:${edit.flightId}`;
     case "togglePhotoJourney":
       return `${edit.type}:${edit.id}`;
+    case "setStopoverTick":
+      return `${edit.type}:${edit.key}`;
     case "setAlbum":
     case "setCountries":
     case "setTripName":
