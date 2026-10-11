@@ -43,6 +43,16 @@ export function daysBetween(a: string, b: string): number {
   return Math.round((utcMs(b) - utcMs(a)) / DAY_MS);
 }
 
+/**
+ * The days a span covers with BOTH ends counted — `daysBetween` plus the day
+ * it starts on. One inclusive calendar span, so five nights away (leaving on
+ * the 1st, home on the 6th) is six days, the rule the trip pages' own day
+ * counts and the journey/roadtrip figures share.
+ */
+export function inclusiveDaysBetween(a: string, b: string): number {
+  return daysBetween(a, b) + 1;
+}
+
 /** Number of days in `month` (1-12) of `year`. */
 export function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();

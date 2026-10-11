@@ -265,12 +265,16 @@ export function PlaceBody({
  * The roadtrip tabs drew their lines and listed their sections beside the map,
  * so a reader could see a route and not ask it anything. The flight line already
  * answered a tap with the shared card; this is the SAME furniture for a roadtrip
- * — heading, the km it covered, the nights and stations, and the way in.
+ * — heading, the km it covered, the days it spans and its stations, and the way
+ * in.
  *
  * It fetches its own figures (`roadtripsApi.get`) because the tab's tour index
- * carries the line and its name, not the nights or the station count. A failed
- * or absent figure is a DASH with its reason, never a 0: a roadtrip whose
- * distance did not load is not a roadtrip that covered nothing.
+ * carries the line and its name, not the days or the station count. It heads
+ * the stay figure as DAYS — the stored nights + 1, the same inclusive span the
+ * roadtrip card prints (owner, 2026-10-11) — under the shared
+ * `common:summary.cardDays` word. A failed or absent figure is a DASH with its
+ * reason, never a 0: a roadtrip whose distance did not load is not a roadtrip
+ * that covered nothing.
  *
  * This began life as a standalone overlay docked bottom-left of the map, which
  * put it in a corner rather than near the line the reader tapped. Folding it
@@ -308,6 +312,9 @@ export function RoadtripBody({
   }, [data.routeId]);
 
   const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
+  // The days a roadtrip spans, one inclusive calendar span — the same reading
+  // its list card prints (owner, 2026-10-11). Null while the fetch is out.
+  const days = detail === null ? null : detail.nights.nights + 1;
 
   return (
     <>
@@ -317,16 +324,13 @@ export function RoadtripBody({
           <SubHeading>{t("roadtrips:detailLoadError")}</SubHeading>
         </>
       )}
-      {detail && (
+      {detail && days !== null && (
         <>
           <Hero color={tokens.domainColor.roadtrip}>
             {formatKm(detail.roadtrip.drivenKm, locale)}
           </Hero>
           <Grid>
-            <Row
-              label={t("roadtrips:list.figNights", { count: detail.nights.nights })}
-              value={nf.format(detail.nights.nights)}
-            />
+            <Row label={t("common:summary.cardDays", { count: days })} value={nf.format(days)} />
             <Row
               label={t("roadtrips:list.figStations", { count: detail.roadtrip.stopCount })}
               value={nf.format(detail.roadtrip.stopCount)}

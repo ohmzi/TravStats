@@ -46,10 +46,10 @@ function Figure({
 
 /**
  * One roadtrip in the list (design 2026-09-25, board 1): the route sketch,
- * the vehicle, the name, when and where, and three figures — km, nights and
- * cities (owner, 2026-10-08). A figure that is not known is a dash with its
- * reason on hover — never a zero — and a night count that is only a lower
- * bound carries "≈".
+ * the vehicle, the name, when and where, and three figures — km, days and
+ * cities (owner, 2026-10-08 figures; days since 2026-10-11). A figure that is
+ * not known is a dash with its reason on hover — never a zero — and a day
+ * count derived from nights that are only a lower bound carries "≈".
  *
  * CITIES is not a station count (owner, 2026-10-08): it is the distinct STATION
  * TITLES the row carries, the same field the roadtrips list strip unions across
@@ -59,14 +59,15 @@ function Figure({
  * flight card, which dashes when no airport can name a city — a known empty
  * against an unknown one; do not unify them (owner, 2026-10-08).
  *
- * THE ROW IS THE LIST STRIP'S RULE AT ROW SCALE. Its nights read the shared
- * `common:summary.cardNights` — the one key both journey cards use, so they
- * cannot spell the same figure two ways — and its cities the shared
+ * THE ROW IS THE LIST STRIP'S RULE AT ROW SCALE. Its days count the stored
+ * nights inclusively (nights + 1 — the owner's reading of a trip span, 2026-10-11)
+ * and read the shared `common:summary.cardDays` — the one key both journey cards
+ * use, so they cannot spell the same figure two ways — and its cities the shared
  * `common:summary.cities` over `cityNames`, the field the strip unions. The
  * detail page's figures band is a DIFFERENT surface and keeps its own cells (it
- * has a "slept in" figure the card never had, and drops nights where the card
- * keeps them) — that difference is deliberate, not something to "fix" into
- * agreement.
+ * has a "slept in" figure the card never had, and its Days come from the two
+ * dates while this card's come from the nights) — that difference is deliberate,
+ * not something to "fix" into agreement.
  */
 export default function RoadtripCard({
   roadtrip: r,
@@ -79,6 +80,9 @@ export default function RoadtripCard({
   const navigate = useNavigate();
   const span = useRoadtripSpan();
   const nf = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 });
+  // The stored nights are the data; the headline counts the span's days, one
+  // inclusive calendar span (owner, 2026-10-11): five nights away is six days.
+  const days = r.nights + 1;
   const vehicle = [
     r.vehicle ? t(`roadtrips:vehicle.${r.vehicle}`) : null,
     r.vehicleName ? `„${r.vehicleName}“` : null,
@@ -126,9 +130,7 @@ export default function RoadtripCard({
         className="flex flex-col"
         style={{ padding: "var(--ts-space-lg)", gap: "var(--ts-space-sm)" }}
       >
-        {vehicle && (
-          <span style={{ fontSize: 12, color: "var(--accent)" }}>{vehicle}</span>
-        )}
+        {vehicle && <span style={{ fontSize: 12, color: "var(--accent)" }}>{vehicle}</span>}
         <span style={{ fontSize: 17, fontWeight: 800, color: "var(--ts-text-bright)" }}>
           {r.name}
         </span>
@@ -176,8 +178,8 @@ export default function RoadtripCard({
             title={kmKnown ? undefined : t("roadtrips:list.kmUnknown")}
           />
           <Figure
-            value={`${r.nightsKnown ? "" : "≈ "}${nf.format(r.nights)}`}
-            label={t("common:summary.cardNights", { count: r.nights })}
+            value={`${r.nightsKnown ? "" : "≈ "}${nf.format(days)}`}
+            label={t("common:summary.cardDays", { count: days })}
             title={r.nightsKnown ? undefined : t("roadtrips:list.nightsApprox")}
           />
           <Figure

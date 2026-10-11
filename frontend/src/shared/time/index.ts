@@ -43,5 +43,6 @@ export {
   daysBetween,
   daysInMonth,
   formatDayLong,
+  inclusiveDaysBetween,
   weekdayOf,
 } from "./calendar";

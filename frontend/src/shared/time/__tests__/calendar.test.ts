@@ -6,6 +6,7 @@ import {
   daysBetween,
   daysInMonth,
   formatDayLong,
+  inclusiveDaysBetween,
   weekdayOf,
 } from "..";
 
@@ -20,6 +21,14 @@ describe("calendar", () => {
     expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
     expect(addDays("2027-03-27", 2)).toBe("2027-03-29");
     expect(daysBetween("2027-03-27", "2027-03-29")).toBe(2);
+  });
+
+  it("counts a span's DAYS with both ends inclusive", () => {
+    // Five nights away — leaving on the 1st and home on the 6th — is six days,
+    // the rule the trip page's meta and the journey figures share.
+    expect(inclusiveDaysBetween("2026-10-01", "2026-10-06")).toBe(6);
+    expect(inclusiveDaysBetween("2026-10-01", "2026-10-02")).toBe(2);
+    expect(inclusiveDaysBetween("2026-10-01", "2026-10-01")).toBe(1);
   });
 
   it("knows weekdays and month lengths", () => {

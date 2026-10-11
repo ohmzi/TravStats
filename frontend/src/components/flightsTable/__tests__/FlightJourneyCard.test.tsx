@@ -76,9 +76,10 @@ describe("FlightJourneyCard", () => {
     expect(screen.getByText("≈ ~850")).toBeInTheDocument();
   });
 
-  it("counts the journey's nights as its SPAN, not the sum of its stays", () => {
-    // Out on 1 Oct, home on the 6th: five nights away — the owner's rule
-    // (owner, 2026-10-08), the same fold the page band reads.
+  it("counts the journey's DAYS as its SPAN, not the sum of its stays", () => {
+    // Out on 1 Oct, home on the 6th: five nights away, which reads as six days —
+    // the owner's rule (owner, 2026-10-08 span, owner, 2026-10-11 days), the
+    // same fold the page band reads.
     renderCard([
       flight({
         id: "f1",
@@ -93,8 +94,8 @@ describe("FlightJourneyCard", () => {
         arrivalTime: "2026-10-06T21:00:00.000Z",
       }),
     ]);
-    const caption = screen.getByText("common:summary.cardNights");
-    expect(caption.previousElementSibling).toHaveTextContent("5");
+    const caption = screen.getByText("common:summary.cardDays");
+    expect(caption.previousElementSibling).toHaveTextContent("6");
   });
 
   it("ends a one-way at the last arrival", () => {
@@ -112,16 +113,16 @@ describe("FlightJourneyCard", () => {
         arrivalTime: "2026-10-03T09:00:00.000Z",
       }),
     ]);
-    const caption = screen.getByText("common:summary.cardNights");
-    expect(caption.previousElementSibling).toHaveTextContent("2");
+    const caption = screen.getByText("common:summary.cardDays");
+    expect(caption.previousElementSibling).toHaveTextContent("3");
   });
 
   it("is a dash with a reason, never a zero, when no leg is dated", () => {
     renderCard([flight({ departureTime: null, arrivalTime: null })]);
-    expect(screen.getByTitle("flights:journeyPage.figNightsNone")).toHaveTextContent("—");
+    expect(screen.getByTitle("flights:journeyPage.figDaysNone")).toHaveTextContent("—");
   });
 
-  it("shows exactly three figures — km, nights, cities — and no airports cell", () => {
+  it("shows exactly three figures — km, days, cities — and no airports cell", () => {
     const [group] = groupFlightsByJourney([flight()]);
     const { container } = render(
       <MemoryRouter>

@@ -4,6 +4,7 @@ import {
   distancePrefix,
   distinctAirports,
   distinctCities,
+  journeyDays,
   journeyDistanceKm,
   journeyNights,
   nightsFromStays,
@@ -398,6 +399,43 @@ describe("journeyNights", () => {
         }),
       ])
     ).toBeNull();
+  });
+});
+
+describe("journeyDays", () => {
+  it("counts the same span as DAYS — five nights away is six days", () => {
+    expect(
+      journeyDays([
+        flight({
+          depCity: "Oslo",
+          arrCity: "Rome",
+          departureTime: "2026-10-01T06:00:00.000Z",
+          arrivalTime: "2026-10-01T09:00:00.000Z",
+        }),
+        flight({
+          depCity: "Rome",
+          arrCity: "Oslo",
+          departureTime: "2026-10-06T18:00:00.000Z",
+          arrivalTime: "2026-10-06T21:00:00.000Z",
+        }),
+      ])
+    ).toBe(6);
+    // A same-day return is honestly one day — nights stay the zero they are.
+    expect(
+      journeyDays([
+        flight({
+          depCity: "Oslo",
+          arrCity: "Oslo",
+          departureTime: "2026-10-01T06:00:00.000Z",
+          arrivalTime: "2026-10-01T21:00:00.000Z",
+        }),
+      ])
+    ).toBe(1);
+  });
+
+  it("is a dash — null — exactly when the night span is", () => {
+    expect(journeyDays([flight({ departureTime: null, arrivalTime: null })])).toBeNull();
+    expect(journeyDays([])).toBeNull();
   });
 });
 

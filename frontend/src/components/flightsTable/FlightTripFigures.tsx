@@ -9,14 +9,14 @@ import {
   distancePrefix,
   distinctAirports,
   distinctCities,
+  journeyDays,
   journeyDistanceKm,
-  journeyNights,
 } from "../../lib/flights/journeyFigures";
 import type { Trip } from "../../types";
 
 /**
  * A journey's figures, as the roadtrip band draws the roadtrip's (owner,
- * 2026-10-08): distance, nights, cities, airports, flights, then the journey
+ * 2026-10-08): distance, days, cities, airports, flights, then the journey
  * and its album as entry points. The pure folding lives in
  * `lib/flights/journeyFigures.ts`; this only turns it into cells, so the rules
  * can be tested without rendering.
@@ -32,13 +32,14 @@ import type { Trip } from "../../types";
  *    2026-10-08): two airports in one city are one city and two airports. It
  *    comes from the catalogue's own city, so a partial lookup is a lower bound
  *    and the caption says by how many airports.
- *  - the NIGHTS are the journey's SPAN — from the day it left to the day it
+ *  - the DAYS are the journey's SPAN — from the day it left to the day it
  *    came back to the city it left from, or to the last arrival of a one-way
- *    (owner, 2026-10-08). They are emphatically NOT the sum of its recorded
- *    stays: that was the old rule and it is gone. A journey with no dated leg
- *    to measure is a dash with its reason, never a fabricated number and never
- *    `days − 1`; the fold is `journeyFigures.journeyNights`, shared with the
- *    journey card so the two cannot disagree about the same journey.
+ *    (owner, 2026-10-08), counted with both ends inclusive so a five-night
+ *    journey reads six days (owner, 2026-10-11). They are emphatically NOT the
+ *    sum of its recorded stays: that was the old rule and it is gone. A journey
+ *    with no dated leg to measure is a dash with its reason, never a fabricated
+ *    number; the fold is `journeyFigures.journeyDays`, shared with the journey
+ *    card so the two cannot disagree about the same journey.
  *
  * `onShowFlights` is the owner's "tap the flights number": the flights cell is
  * a button, not a link, because it swaps the page's BODY in place rather than
@@ -61,7 +62,7 @@ export default function FlightTripFigures({
   const distance = journeyDistanceKm(flights);
   const cities = distinctCities(flights);
   const airports = distinctAirports(flights);
-  const nights = journeyNights(flights);
+  const days = journeyDays(flights);
   const knownLegs = distance.liveLegs + distance.derivedLegs;
 
   // The band owns the MARKER, not the number: `distancePrefix` is shared with
@@ -73,7 +74,7 @@ export default function FlightTripFigures({
       ? "—"
       : `${distancePrefix(distance)}${formatDistance(distance.km, distanceUnit, t, i18n.language)}`;
 
-  const nightsValue = nights === null ? "—" : nf.format(nights);
+  const daysValue = days === null ? "—" : nf.format(days);
   const citiesValue = cities.count === 0 ? "—" : nf.format(cities.count);
 
   // A dash's reason belongs on hover (owner, 2026-10-08) — never a zero, and
@@ -103,10 +104,10 @@ export default function FlightTripFigures({
       title: distanceTitle,
     },
     {
-      key: "nights",
-      label: t("flights:journeyPage.figNights"),
-      value: nightsValue,
-      title: nights === null ? t("flights:journeyPage.figNightsNone") : undefined,
+      key: "days",
+      label: t("flights:journeyPage.figDays"),
+      value: daysValue,
+      title: days === null ? t("flights:journeyPage.figDaysNone") : undefined,
     },
     {
       key: "cities",

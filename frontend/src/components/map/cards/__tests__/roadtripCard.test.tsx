@@ -76,6 +76,19 @@ describe("the roadtrip card in the shared PinnedCard", () => {
     expect(screen.getByText("Norwegen")).toBeInTheDocument();
   });
 
+  it("heads the stay figure as DAYS — the nights plus the arrival day (owner, 2026-10-11)", async () => {
+    get.mockResolvedValue({
+      ...DETAIL,
+      nights: { nights: 8, nightsKnown: true, placesSlept: 3 },
+    });
+    await renderCard();
+    // Eight nights is nine days, under the shared day key the roadtrip card
+    // prints — one figure, one word, wherever a card is tapped open.
+    expect(await screen.findByText("common:summary.cardDays")).toBeInTheDocument();
+    expect(screen.getByText("9")).toBeInTheDocument();
+    expect(screen.queryByText("common:summary.cardNights")).toBeNull();
+  });
+
   it("puts the way in up even when the figures failed — never a 0 for an unknown km", async () => {
     get.mockRejectedValue(new Error("offline"));
     await renderCard();

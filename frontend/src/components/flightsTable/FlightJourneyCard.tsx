@@ -15,8 +15,8 @@ import { convertDistance, getDistanceLabel } from "../../lib/units";
 import {
   distancePrefix,
   distinctCities,
+  journeyDays,
   journeyDistanceKm,
-  journeyNights,
 } from "../../lib/flights/journeyFigures";
 import type { Flight } from "../../types";
 
@@ -75,19 +75,21 @@ function arcOf(flight: Flight): Array<[number, number]> {
  *
  * The card is one link to the journey's own page (`/flights/journeys/:id`),
  * which wears the journey's head and figures and keeps the table on its own
- * tab. Its THREE figures are km, nights and cities (owner, 2026-10-08) — the
- * roadtrip card's own row — and every one of them comes from the same fold that
- * page's band uses, so a card a tap away from the page cannot contradict it. The
- * airports count is deliberately NOT here (owner, 2026-10-08: "remove number of
- * airports from the card of flight on logbook"); it lives on the band and the
- * logbook strip, and a journey card counts no airports anywhere:
+ * tab. Its THREE figures are km, days and cities (owner, 2026-10-08 figures,
+ * days since 2026-10-11) — the roadtrip card's own row — and every one of them
+ * comes from the same fold that page's band uses, so a card a tap away from
+ * the page cannot contradict it. The airports count is deliberately NOT here
+ * (owner, 2026-10-08: "remove number of airports from the card of flight on
+ * logbook"); it lives on the band and the logbook strip, and a journey card
+ * counts no airports anywhere:
  *
  *  - the km from `journeyDistanceKm` carrying `distancePrefix`, so a sum of
  *    great-circle chords reads as DERIVED — a card that printed it bare while
  *    the band said `~` would pass a derived figure off as a measured one.
- *  - the nights from `journeyNights`, the journey's SPAN (from leaving to
- *    returning to the same city, or the last arrival of a one-way) and NOT the
- *    sum of its recorded stays; a journey with no dated leg is a dash.
+ *  - the days from `journeyDays` — the journey's SPAN (from leaving to
+ *    returning to the same city, or the last arrival of a one-way), counted
+ *    with both ends inclusive, so a journey five nights away is six days — and
+ *    NOT the sum of its recorded stays; a journey with no dated leg is a dash.
  *  - the cities from `distinctCities`, the cities OF its airports — DELIBERATELY
  *    a different figure from the airports count the band keeps (owner,
  *    2026-10-08): two airports can stand in one city, and then it is two
@@ -120,7 +122,7 @@ export default function FlightJourneyCard({
   const distance = journeyDistanceKm(group.flights);
   const knownLegs = distance.derivedLegs + distance.liveLegs;
   const cities = distinctCities(group.flights);
-  const nights = journeyNights(group.flights);
+  const days = journeyDays(group.flights);
   const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
   // The value and the marker come from the SAME rules the page band uses —
   // `distancePrefix` for the `~`/`≈`, and `convertDistance` for the reader's
@@ -139,10 +141,11 @@ export default function FlightJourneyCard({
         : distance.derivedLegs > 0
           ? t("flights:journeyPage.figDistanceSub")
           : t("flights:journeyPage.figDistanceMeasured");
-  // The span rule, the same fold the band reads; a journey with no dated leg is
-  // a dash with its reason, never a fabricated number (owner, 2026-10-08).
-  const nightsText = nights === null ? "—" : nf.format(nights);
-  const nightsTitle = nights === null ? t("flights:journeyPage.figNightsNone") : undefined;
+  // The span rule, the same fold the band reads, headed as DAYS (owner,
+  // 2026-10-11); a journey with no dated leg is a dash with its reason, never a
+  // fabricated number (owner, 2026-10-08).
+  const daysText = days === null ? "—" : nf.format(days);
+  const daysTitle = days === null ? t("flights:journeyPage.figDaysNone") : undefined;
   // Cities is a different figure from airports; when the catalogue could not
   // name every airport's city the count is a lower bound. The band says that in
   // a caption row; the card has none, so the reason rides the cell's title. The
@@ -214,15 +217,14 @@ export default function FlightJourneyCard({
             <span
               className="t-meta-mono"
               style={{ fontSize: 15, fontWeight: 600 }}
-              title={nightsTitle}
+              title={daysTitle}
             >
-              {nightsText}
+              {daysText}
             </span>
-            {/* The shared journey-nights key, so this card and the roadtrip card
-                cannot spell the same figure two ways (owner, 2026-10-08). */}
-            <span className="t-caption">
-              {t("common:summary.cardNights", { count: nights ?? 0 })}
-            </span>
+            {/* The shared journey-days key, so this card and the roadtrip card
+                cannot spell the same figure two ways (owner, 2026-10-08 nights,
+                2026-10-11 days). */}
+            <span className="t-caption">{t("common:summary.cardDays", { count: days ?? 0 })}</span>
           </span>
           <span className="flex flex-col">
             <span

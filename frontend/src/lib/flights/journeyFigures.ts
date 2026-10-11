@@ -293,6 +293,9 @@ function utcDay(iso: string): number | null {
  * date parts, the rule the backend's `daySpan` uses
  * (`shared/tour/roadtrip.ts`), so the card and the band cannot disagree about
  * where a leg falls. A same-day return is honestly `0`.
+ *
+ * Nights stay the DATA (owner, 2026-10-11); the surfaces head the same span
+ * as days through `journeyDays` below.
  */
 export function journeyNights(flights: readonly JourneyFlight[]): number | null {
   const ordered = flights
@@ -320,6 +323,19 @@ export function journeyNights(flights: readonly JourneyFlight[]): number | null 
   if (from === null || to === null) return null;
   const nights = Math.round((to - from) / DAY_MS);
   return nights < 0 ? null : nights;
+}
+
+/**
+ * The journey's DAYS — the night span above plus the arrival day, one
+ * inclusive calendar span (owner, 2026-10-11), so a journey five nights away
+ * reads six days. The card and the band both read THIS fold, so neither can
+ * print the span as nights while the other counts days. `null` rides
+ * `journeyNights`: no dated leg, no honest number, and the caller draws the
+ * dash with its reason.
+ */
+export function journeyDays(flights: readonly JourneyFlight[]): number | null {
+  const nights = journeyNights(flights);
+  return nights === null ? null : nights + 1;
 }
 
 /** The night sum of the journey's stays — `nightsFromStays`, not the journey's nights. */

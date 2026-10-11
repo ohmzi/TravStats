@@ -28,9 +28,10 @@ import type { RoadtripDetail } from "../../types/roadtrip";
  * NIGHTS AND DAY TOURS LEAVE THE BAND (owner, 2026-10-08): the nights restate
  * the same stretch of time as Days — "12 days" against "11 nights" — so Days
  * stays and Nights goes; the day-tour count goes with it. This is a DIFFERENT
- * surface from the roadtrip CARD, which drops DAY TOURS but KEEPS nights and
- * shows CITIES where the band shows places slept. Band and card are meant to
- * differ; do not "fix" one to match the other.
+ * surface from the roadtrip CARD, which drops DAY TOURS but counts its own
+ * days from the stored nights (+ 1, owner, 2026-10-11) where the band's Days
+ * come from the two dates, and shows CITIES where the band shows places slept.
+ * Band and card are meant to differ; do not "fix" one to match the other.
  */
 export default function RoadtripFigures({
   detail,

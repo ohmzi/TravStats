@@ -49,15 +49,16 @@ function summary(over: Partial<RoadtripSummary>): RoadtripSummary {
   } as RoadtripSummary;
 }
 
-/** forgejo#160, the roadtrip card: "1 Nacht", "1 Stadt". */
+/** forgejo#160, the roadtrip card: "1 Tag", "1 Stadt" — days since 2026-10-11. */
 describe("RoadtripCard figures in the singular (forgejo#160)", () => {
   it("names one of each in the singular", () => {
+    // A same-day roadtrip: zero nights, which the headline reads as one day.
     render(
       <MemoryRouter>
-        <RoadtripCard roadtrip={summary({})} phase="underway" />
+        <RoadtripCard roadtrip={summary({ nights: 0 })} phase="underway" />
       </MemoryRouter>
     );
-    expect(screen.getByText("Nacht")).toBeInTheDocument();
+    expect(screen.getByText("Tag")).toBeInTheDocument();
     expect(screen.getByText("Stadt")).toBeInTheDocument();
   });
 
@@ -70,8 +71,29 @@ describe("RoadtripCard figures in the singular (forgejo#160)", () => {
         />
       </MemoryRouter>
     );
-    expect(screen.getByText("Nächte")).toBeInTheDocument();
+    expect(screen.getByText("Tage")).toBeInTheDocument();
     expect(screen.getByText("Städte")).toBeInTheDocument();
+  });
+
+  it("reads the nights as the inclusive DAYS span — five nights away is six days", () => {
+    render(
+      <MemoryRouter>
+        <RoadtripCard roadtrip={summary({ nights: 5 })} phase="underway" />
+      </MemoryRouter>
+    );
+    expect(screen.getByText("Tage").previousElementSibling).toHaveTextContent("6");
+  });
+
+  it("carries the approximation marker with the days — a lower bound states so", () => {
+    render(
+      <MemoryRouter>
+        <RoadtripCard roadtrip={summary({ nights: 5, nightsKnown: false })} phase="underway" />
+      </MemoryRouter>
+    );
+    expect(screen.getByText("≈ 6")).toBeInTheDocument();
+    expect(
+      screen.getByTitle("Mindestens eine Station hat kein Abfahrtsdatum.")
+    ).toBeInTheDocument();
   });
 
   it("counts the distinct station titles as its cities, not the station count", () => {
@@ -88,7 +110,7 @@ describe("RoadtripCard figures in the singular (forgejo#160)", () => {
     expect(screen.getByText("Städte").previousElementSibling).toHaveTextContent("3");
   });
 
-  it("shows exactly three figures — km, nights, cities — and no stations or tours cell", () => {
+  it("shows exactly three figures — km, days, cities — and no stations or tours cell", () => {
     const { container } = render(
       <MemoryRouter>
         <RoadtripCard roadtrip={summary({ stationCount: 1 })} phase="underway" />

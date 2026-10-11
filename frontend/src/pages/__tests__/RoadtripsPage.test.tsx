@@ -112,7 +112,7 @@ describe("RoadtripsPage", () => {
     expect(within(year).getByText("Bretagne")).toBeInTheDocument();
   });
 
-  it("marks a lower-bound night count with ≈ and a missing distance with a dash, never a zero", async () => {
+  it("marks a lower-bound day count with ≈ and a missing distance with a dash, never a zero", async () => {
     vi.mocked(roadtripsApi.list).mockResolvedValue([
       summary({
         id: "a",
@@ -130,7 +130,9 @@ describe("RoadtripsPage", () => {
       }),
     ]);
     renderPage();
-    expect(await screen.findByText("≈ 10")).toBeInTheDocument();
+    // Ten nights is eleven days (the inclusive span the card heads since
+    // 2026-10-11), and the lower bound keeps its ≈.
+    expect(await screen.findByText("≈ 11")).toBeInTheDocument();
     const empty = screen.getByText("Leer").closest("a")!;
     expect(within(empty).getByText("—")).toBeInTheDocument();
   });

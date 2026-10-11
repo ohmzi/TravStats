@@ -4,6 +4,7 @@ import type { useTranslation } from "../../hooks/useTranslation";
 import type { Trip } from "../../types";
 import { formatLocalDate } from "../../lib/displayFormat";
 import { tripEnd, tripStart } from "../../lib/entityTimes";
+import { inclusiveDaysBetween } from "../../shared/time";
 import { FlagImg } from "../../lib/countryFlag";
 import { countryName } from "../../shared/geo/countryCode";
 import { statusPillStyle } from "../table/statusPillStyle";
@@ -42,15 +43,12 @@ export default function TripHead({
   onEdit,
   onDelete,
 }: TripHeadProps): JSX.Element {
-  // The trip's days at its places (`times`), never moved by the reader's zone.
+  // The trip's days at its places (`times`), never moved by the reader's zone —
+  // and counted by the SHARED inclusive rule, so the journey and roadtrip
+  // figures cannot disagree with this meta about the same dates.
   const start = tripStart(trip)?.date;
   const end = tripEnd(trip)?.date;
-  const days =
-    start && end
-      ? Math.round(
-          (Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000
-        ) + 1
-      : null;
+  const days = start && end ? inclusiveDaysBetween(start, end) : null;
   const range = [start, end].filter((d): d is string => Boolean(d)).map((d) => formatLocalDate(d));
   // The backend returns a user-filled `trip.countries` untouched, so a stored
   // list can hold the same entry twice; the derived path already dedupes. Fold
