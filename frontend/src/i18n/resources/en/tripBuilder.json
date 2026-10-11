@@ -59,6 +59,9 @@
       "nightPlanInvalid": "The nights do not add up. Check the night fields and try again.",
       "roadtripsHidden": "Roadtrips are switched off. Save the areas as timeline stops, or turn roadtrips on in Settings.",
       "stationsInvalid": "A roadtrip needs at least two valid stops. Check the areas and try again.",
+      "tooManyAreas": "These dates hold more areas than one trip can take. Scan a shorter window, then try again.",
+      "tooManyFlights": "More flights are ticked than one save can assign. Untick some, then try again.",
+      "tooManyJourneys": "More photo suggestions are ticked than one save can mark. Untick some, then try again.",
       "windowChanged": "The dates changed since the scan. Scan again."
     },
     "album": {
@@ -112,7 +115,13 @@
     "possibleUnrecordedFlight": "Between {{from}} and {{to}} you moved far and fast, but no flight is logged ({{fromAirport}} and {{toAirport}} are the nearest airports).",
     "roadtripsHidden": "Roadtrips are switched off, so areas are saved as timeline stops. If your instance offers them, turn them on under Settings › Modules.",
     "suspiciouslyLong": "That trip lasts over 60 days. Check its dates; a typo in the year would swallow this one.",
-    "truncated": "Your library has more photos than one scan reads, so the later ones are missing. Scan a shorter window."
+    "truncated": "Your library has more photos than one scan reads, so the later ones are missing. Scan a shorter window.",
+    "truncatedFlights_one": "These dates hold one more flight than one save can assign; the earliest are listed.",
+    "truncatedFlights_other": "These dates hold {{count}} more flights than one save can assign; the earliest are listed.",
+    "truncatedAreas_one": "These dates hold one more area than one trip can take; the earliest are kept. Scan a shorter window to review the rest.",
+    "truncatedAreas_other": "These dates hold {{count}} more areas than one trip can take; the earliest are kept. Scan a shorter window to review the rest.",
+    "truncatedJourneys_one": "One more photo suggestion covers these dates than one save can mark; the earliest are shown.",
+    "truncatedJourneys_other": "{{count}} more photo suggestions cover these dates than one save can mark; the earliest are shown."
   },
   "review": {
     "already": "This trip was already created.",

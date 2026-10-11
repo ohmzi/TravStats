@@ -8,6 +8,9 @@ import ReviewSection from "./ReviewSection";
 
 const WARNING_KEY: Record<WarningCode, string> = {
   truncated: "tripBuilder:warnings.truncated",
+  truncatedFlights: "tripBuilder:warnings.truncatedFlights",
+  truncatedAreas: "tripBuilder:warnings.truncatedAreas",
+  truncatedJourneys: "tripBuilder:warnings.truncatedJourneys",
   possibleUnrecordedFlight: "tripBuilder:warnings.possibleUnrecordedFlight",
   noRouting: "tripBuilder:warnings.noRouting",
   cannotSnap: "tripBuilder:warnings.cannotSnap",
@@ -30,6 +33,10 @@ const NOTES: ReadonlySet<WarningCode> = new Set(["noRouting", "cannotSnap", "noL
 
 function paramsOf(warning: BuilderWarning, fmt: DisplayFormatter): Record<string, unknown> {
   switch (warning.code) {
+    case "truncatedFlights":
+    case "truncatedAreas":
+    case "truncatedJourneys":
+      return { count: warning.params.count };
     case "possibleUnrecordedFlight":
       return {
         from: fmt.localDate(warning.params.fromDay),

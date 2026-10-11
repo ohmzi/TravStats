@@ -37,7 +37,13 @@ import { assembleWarnings, movementOutsideDates, type UnrecordedFlight } from ".
 import { applyExistingTarget, type ExistingDeps } from "./existingDraft";
 import { indexPreviews } from "./stations";
 import type { RoadAccess } from "./probe";
-import { DRAFT_IDLE_TTL_MS, MISDATED_LOOKUP_PAD_DAYS } from "./thresholds";
+import {
+  DRAFT_IDLE_TTL_MS,
+  MAX_AREAS,
+  MAX_COMMIT_FLIGHTS,
+  MAX_PHOTO_JOURNEYS,
+  MISDATED_LOOKUP_PAD_DAYS,
+} from "./thresholds";
 import {
   BUILD_PHASES,
   type AreaPlan,
@@ -292,6 +298,20 @@ async function unrecordedFlightsOf(
 const homeTitleOf = (home: HomeAtDay | null): string | null =>
   home ? home.name.split(",")[0].trim() || null : null;
 
+/**
+ * The first `max` entries of a scan-ordered list (flights by departure, areas
+ * and findings by day), and how many were left out. The commit refuses a body
+ * over its maxima (`schemas/tripBuilder.ts`), and the review page sends what
+ * the draft offered — every flight it default-assigned, every finding it
+ * ticked, every area — so the draft must not offer more than the commit
+ * accepts (final review, finding B4-1). The cut is reported as a draft warning.
+ */
+function capFirst<T>(items: T[], max: number): { kept: T[]; dropped: number } {
+  return items.length <= max
+    ? { kept: items, dropped: 0 }
+    : { kept: items.slice(0, max), dropped: items.length - max };
+}
+
 // ─── The scan ────────────────────────────────────────────────────────────────
 
 export async function buildDraftWith(
@@ -332,7 +352,10 @@ export async function buildDraftWith(
   report("roads");
   const roaded = await roadsPhase(deps, movement, built);
   report("nights");
-  const night = nightsPhase(collected, movement, roaded.plans);
+  // The nights are attributed against the capped plans, so no night can name a
+  // station of an area the draft no longer shows (finding B4-1).
+  const planCap = capFirst(roaded.plans, MAX_AREAS);
+  const night = nightsPhase(collected, movement, planCap.kept);
 
   const previews = indexPreviews(night.kept);
   const kinds = new Map(
@@ -361,7 +384,11 @@ export async function buildDraftWith(
     )
   );
 
-  const listed = anchors.filter((a) => a.listed);
+  const listedCap = capFirst(
+    anchors.filter((a) => a.listed),
+    MAX_COMMIT_FLIGHTS
+  );
+  const listed = listedCap.kept;
   const stationsOfNote = areas
     .flatMap((a) => a.stations)
     .filter((s) => s.kind !== "home" && s.kind !== "airport");
@@ -386,13 +413,19 @@ export async function buildDraftWith(
     truncated: collected.truncated,
   };
   const album = await draftAlbumOf(deps, input, photos);
-  const photoJourneys = await deps.pendingPhotoJourneys(window);
+  const journeyCap = capFirst(await deps.pendingPhotoJourneys(window), MAX_PHOTO_JOURNEYS);
+  const photoJourneys = journeyCap.kept;
   const first = areas[0]?.stations[0];
   const last = areas[areas.length - 1]?.stations.slice(-1)[0];
   const warnings = assembleWarnings({
     inspect: input.inspect,
     window,
     stats,
+    truncatedLists: {
+      flights: listedCap.dropped,
+      areas: planCap.dropped,
+      journeys: journeyCap.dropped,
+    },
     unrecordedFlights: await unrecordedFlightsOf(deps, movement.gaps),
     roads: { available: deps.roads.available, canProbe: deps.roads.canProbe },
     hasLegs: night.kept.some((plan) => plan.legs.length > 0),

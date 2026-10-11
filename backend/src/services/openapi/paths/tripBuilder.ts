@@ -158,6 +158,22 @@ const noParams = z.object({});
 const warning = z.discriminatedUnion("code", [
   z.object({ code: z.literal("truncated"), params: noParams }),
   z.object({
+    code: z.literal("truncatedFlights"),
+    params: z
+      .object({ count: z.number().int() })
+      .describe("Listed flights the commit's cap left out"),
+  }),
+  z.object({
+    code: z.literal("truncatedAreas"),
+    params: z.object({ count: z.number().int() }).describe("Areas the commit's cap left out"),
+  }),
+  z.object({
+    code: z.literal("truncatedJourneys"),
+    params: z
+      .object({ count: z.number().int() })
+      .describe("Photo findings the commit's cap left out"),
+  }),
+  z.object({
     code: z.literal("possibleUnrecordedFlight"),
     params: z.object({
       fromDay: day,

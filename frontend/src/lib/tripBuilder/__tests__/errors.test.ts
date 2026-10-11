@@ -72,6 +72,39 @@ describe("commitFailureKey", () => {
     }
   });
 
+  it("names the list a refused body says is too long", () => {
+    const details = (field: string) => [
+      { field, message: "Too big: expected array to have <=100 items" },
+    ];
+    expect(
+      commitFailureKey(
+        refused(400, { error: "x", code: "VALIDATION_FAILED", details: details("flightIds") })
+      )
+    ).toBe("tripBuilder:errors.commit.tooManyFlights");
+    expect(
+      commitFailureKey(
+        refused(400, { error: "x", code: "VALIDATION_FAILED", details: details("areas") })
+      )
+    ).toBe("tripBuilder:errors.commit.tooManyAreas");
+    expect(
+      commitFailureKey(
+        refused(400, { error: "x", code: "VALIDATION_FAILED", details: details("photoJourneyIds") })
+      )
+    ).toBe("tripBuilder:errors.commit.tooManyJourneys");
+  });
+
+  it("keeps the shared validation sentence for a field that names no size", () => {
+    expect(
+      commitFailureKey(
+        refused(400, {
+          error: "x",
+          code: "VALIDATION_FAILED",
+          details: [{ field: "areas.0.stations", message: "Too many stations" }],
+        })
+      )
+    ).toBe("common:saveErrors.validation");
+  });
+
   it("reads a job that failed by its code, and falls back to one sentence", () => {
     expect(commitFailureKey(new JobFailedError("COMMIT_FAILED", 500))).toBe(
       "tripBuilder:errors.commit.failed"

@@ -29,6 +29,13 @@ export interface WarningInput {
   inspect: boolean;
   window: Pick<ScanWindow, "startDay" | "endDay" | "contextFromDay" | "contextToDay">;
   stats: DraftStats;
+  /**
+   * What the commit's maxima cut from the scan's own lists (finding B4-1):
+   * flights, areas and photo findings dropped because the body's caps
+   * (`schemas/tripBuilder.ts`) would have refused a review that sent them.
+   * The earliest entries stay; the counts are zero when nothing was cut.
+   */
+  truncatedLists: { flights: number; areas: number; journeys: number };
   unrecordedFlights: readonly UnrecordedFlight[];
   roads: { available: boolean; canProbe: boolean };
   /** Some area has at least one leg, so routing matters at all. */
@@ -70,6 +77,15 @@ export function assembleWarnings(input: WarningInput): BuilderWarning[] {
   const { stats, window } = input;
 
   if (stats.truncated) warnings.push({ code: "truncated", params: {} });
+  if (input.truncatedLists.flights > 0) {
+    warnings.push({ code: "truncatedFlights", params: { count: input.truncatedLists.flights } });
+  }
+  if (input.truncatedLists.areas > 0) {
+    warnings.push({ code: "truncatedAreas", params: { count: input.truncatedLists.areas } });
+  }
+  if (input.truncatedLists.journeys > 0) {
+    warnings.push({ code: "truncatedJourneys", params: { count: input.truncatedLists.journeys } });
+  }
 
   if (input.inspect) {
     for (const flight of input.unrecordedFlights) {

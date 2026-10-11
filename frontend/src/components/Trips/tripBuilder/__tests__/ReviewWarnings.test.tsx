@@ -80,6 +80,21 @@ describe("ReviewWarnings", () => {
     expect(screen.queryByText("tripBuilder:warnings.suspiciouslyLong")).not.toBeInTheDocument();
   });
 
+  it("says how many entries the commit's caps left out of the flights, areas and findings", () => {
+    renderWarnings([
+      { code: "truncatedFlights", params: { count: 10 } },
+      { code: "truncatedAreas", params: { count: 2 } },
+      { code: "truncatedJourneys", params: { count: 5 } },
+    ]);
+    expect(
+      screen.getByText('tripBuilder:warnings.truncatedFlights {"count":10}')
+    ).toBeInTheDocument();
+    expect(screen.getByText('tripBuilder:warnings.truncatedAreas {"count":2}')).toBeInTheDocument();
+    expect(
+      screen.getByText('tripBuilder:warnings.truncatedJourneys {"count":5}')
+    ).toBeInTheDocument();
+  });
+
   it("adds a line for an overlapping trip that runs suspiciously long", () => {
     renderWarnings([
       {

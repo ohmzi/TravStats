@@ -42,11 +42,40 @@ const COMMIT_KEYS: Readonly<Record<string, string>> = {
   COMMIT_FAILED: "tripBuilder:errors.commit.failed",
 };
 
+/**
+ * The lists the review itself sends, and the sentence for a body the server
+ * refused because one of them is longer than a commit accepts. The scan caps
+ * these lists at the same maxima (final review, finding B4-1), so this only
+ * catches an older draft; without it the refusal would read as the generic
+ * "some details are not valid", which names no list and no way out.
+ */
+const COMMIT_OVERSIZE_KEYS: Readonly<Record<string, string>> = {
+  flightIds: "tripBuilder:errors.commit.tooManyFlights",
+  areas: "tripBuilder:errors.commit.tooManyAreas",
+  photoJourneyIds: "tripBuilder:errors.commit.tooManyJourneys",
+};
+
+/** The list a refused commit body names as too long, when it is one of the review's own. */
+function oversizeCommitKey(err: unknown): string | null {
+  if (apiErrorMachineCode(err) !== "VALIDATION_FAILED") return null;
+  const details = (err as { response?: { data?: { details?: unknown } } } | null)?.response?.data
+    ?.details;
+  if (!Array.isArray(details)) return null;
+  for (const issue of details) {
+    const field = (issue as { field?: unknown } | null)?.field;
+    const key = typeof field === "string" ? COMMIT_OVERSIZE_KEYS[field] : undefined;
+    if (key !== undefined) return key;
+  }
+  return null;
+}
+
 /** The commit request, or the commit job, ended in a failure. */
 export function commitFailureKey(err: unknown): string {
   if (err instanceof JobFailedError) {
     return COMMIT_KEYS[err.code] ?? "tripBuilder:errors.commit.failed";
   }
+  const oversize = oversizeCommitKey(err);
+  if (oversize !== null) return oversize;
   return saveErrorKey(err, "tripBuilder:errors.commit.failed", COMMIT_KEYS);
 }
 

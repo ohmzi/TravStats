@@ -28,6 +28,7 @@ const QUIET: WarningInput = {
   inspect: true,
   window: WINDOW,
   stats: STATS,
+  truncatedLists: { flights: 0, areas: 0, journeys: 0 },
   unrecordedFlights: [],
   roads: { available: true, canProbe: true },
   hasLegs: true,
@@ -57,10 +58,19 @@ describe("assembleWarnings", () => {
     expect(assembleWarnings(QUIET)).toEqual([]);
   });
 
+  it("names only the lists the commit's maxima cut", () => {
+    const warnings = assembleWarnings({
+      ...QUIET,
+      truncatedLists: { flights: 0, areas: 3, journeys: 0 },
+    });
+    expect(warnings).toEqual([{ code: "truncatedAreas", params: { count: 3 } }]);
+  });
+
   it("reports every warning in the documented order", () => {
     const warnings = assembleWarnings({
       ...QUIET,
       stats: { ...STATS, truncated: true },
+      truncatedLists: { flights: 10, areas: 2, journeys: 5 },
       unrecordedFlights: [
         { fromDay: "2031-05-03", toDay: "2031-05-04", nearestAirports: { from: "ZPC", to: null } },
       ],
@@ -77,6 +87,9 @@ describe("assembleWarnings", () => {
 
     expect(warnings.map((w) => w.code)).toEqual([
       "truncated",
+      "truncatedFlights",
+      "truncatedAreas",
+      "truncatedJourneys",
       "possibleUnrecordedFlight",
       "noRouting",
       "noRoadData",
@@ -88,6 +101,18 @@ describe("assembleWarnings", () => {
       "albumLinkedElsewhere",
       "homeUnconfirmed",
     ]);
+    expect(warnings.find((w) => w.code === "truncatedFlights")).toEqual({
+      code: "truncatedFlights",
+      params: { count: 10 },
+    });
+    expect(warnings.find((w) => w.code === "truncatedAreas")).toEqual({
+      code: "truncatedAreas",
+      params: { count: 2 },
+    });
+    expect(warnings.find((w) => w.code === "truncatedJourneys")).toEqual({
+      code: "truncatedJourneys",
+      params: { count: 5 },
+    });
     expect(warnings.find((w) => w.code === "overlappingTrip")).toEqual({
       code: "overlappingTrip",
       params: {

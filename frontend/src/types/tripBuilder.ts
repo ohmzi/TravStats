@@ -237,6 +237,12 @@ export type NoParams = Record<string, never>;
 
 export type BuilderWarning =
   | { code: "truncated"; params: NoParams }
+  /** More listed flights than the commit accepts; `count` were left out. */
+  | { code: "truncatedFlights"; params: { count: number } }
+  /** More areas than the commit accepts; `count` were left out. */
+  | { code: "truncatedAreas"; params: { count: number } }
+  /** More pending photo findings than the commit accepts; `count` were left out. */
+  | { code: "truncatedJourneys"; params: { count: number } }
   | {
       code: "possibleUnrecordedFlight";
       params: {
