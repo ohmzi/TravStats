@@ -345,7 +345,18 @@ export async function prepareCommit(
   await assertFlightsOwned(userId, flightIds);
   const target = await resolveTarget(userId, draft, body);
 
-  if (body.areas.some((a) => a.as === "roadtrip") || body.stopovers.some((s) => s.roadtrip)) {
+  // A stopover the scan already matched writes no roadtrip at all: the re-sync
+  // moves it to `plan.existing.stopovers`, album-only (spec 2026-10-11 §6), so
+  // only the stopovers that would really write one are held to the roadtrip
+  // domain. An area is different — `as: "roadtrip"` writes one even when it
+  // updates a stored roadtrip — and stays gated (finding S3-1).
+  const matchedStopovers = new Set(
+    [...(draft.existing?.stopovers ?? [])].map(([, offer]) => offer.key)
+  );
+  if (
+    body.areas.some((a) => a.as === "roadtrip") ||
+    body.stopovers.some((s) => s.roadtrip && !matchedStopovers.has(s.key))
+  ) {
     if (!(await loadVisibleDomains(userId)).includes("roadtrip")) {
       throw new AppError("Roadtrips are hidden for this account", 409, "ROADTRIPS_HIDDEN");
     }

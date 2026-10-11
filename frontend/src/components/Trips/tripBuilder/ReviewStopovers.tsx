@@ -110,7 +110,12 @@ export default function ReviewStopovers({
               <Switch
                 id={`${id}-roadtrip`}
                 label={t("tripBuilder:review.stopovers.roadtrip")}
-                sub={roadtripsHidden ? t("tripBuilder:warnings.roadtripsHidden") : undefined}
+                // A synced row is status, not an offer: the hidden reason belongs to a
+                // switch the user could still consider (finding S3-1), and the re-sync
+                // writes the album only, so nothing here is refused.
+                sub={
+                  roadtripsHidden && !synced ? t("tripBuilder:warnings.roadtripsHidden") : undefined
+                }
                 checked={synced || tick.roadtrip}
                 disabled={synced || roadtripsHidden}
                 onChange={(on) => onTick(stopover.key, { roadtrip: on, album: on && tick.album })}

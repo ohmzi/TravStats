@@ -146,6 +146,25 @@ describe("ReviewStopovers", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps a synced stopover as status while roadtrips are hidden: locked, and no reason offered", () => {
+    // Finding S3-1b: a matched stopover writes no roadtrip — the re-sync only adds
+    // to its album — so the hidden-roadtrips reason belongs to a switch the user
+    // could still turn on, not to a row that is already written.
+    renderCard({
+      stopovers: [{ ...STOPOVER, roadtripId: "r-9", storedPhotoCount: 22 }],
+      ticks: { [STOPOVER.key]: { roadtrip: true, album: true } },
+      roadtripsHidden: true,
+    });
+    const roadtrip = screen.getByRole("switch", { name: ROADTRIP_NAME });
+    const album = screen.getByRole("switch", { name: ALBUM_NAME });
+    expect(roadtrip).toBeChecked();
+    expect(roadtrip).toBeDisabled();
+    expect(album).toBeChecked();
+    expect(album).toBeDisabled();
+    expect(screen.getByText("tripBuilder:review.stopovers.synced")).toBeInTheDocument();
+    expect(screen.queryByText("tripBuilder:warnings.roadtripsHidden")).toBeNull();
+  });
+
   it("says the times are unknown when the two flights are not in the draft", () => {
     renderCard({});
     expect(

@@ -14,6 +14,7 @@ import type {
   DraftStation,
   DraftStopover,
   StoredDraft,
+  StoredStopover,
   TripBuilderDraft,
 } from "../types";
 import {
@@ -789,6 +790,24 @@ describe("extendPlanForExisting", () => {
     { key: STOPOVER_KEY, roadtrip: true, album: true },
   ];
 
+  /** The same stopover as the scan stored it (spec §2.3): the DTO's fields plus the layover's photo set. */
+  const storedStopover = (): StoredStopover => {
+    const dto = stopover();
+    return {
+      key: dto.key,
+      title: dto.title,
+      city: dto.city,
+      day: dto.day,
+      // The key is `<inFlightId>#<outFlightId>` (both uuids), so it names the two flights.
+      inFlightId: dto.key.slice(0, 36),
+      outFlightId: dto.key.slice(37),
+      airportIata: dto.airportIata,
+      photoIds: ["photo-1", "photo-2"],
+      stations: dto.stations,
+      legs: dto.legs,
+    };
+  };
+
   it("moves a matched stopover out of the new-write path: album-only, nothing to rebuild", async () => {
     const { routeId, stationIds } = await stopoverRoadtrip();
     try {
@@ -907,6 +926,39 @@ describe("extendPlanForExisting", () => {
     );
     expect(plan.stopovers).toHaveLength(1);
     expect(plan.existing?.stopovers).toEqual([]);
+  });
+
+  it("commits a matched stopover while roadtrips are hidden: only its album is written", async () => {
+    // Finding S3-1b: the review cannot un-tick a synced stopover's locked switch,
+    // and a matched stopover writes no roadtrip at all — so the hidden-domain gate
+    // must not count it, or every re-sync of that trip is refused until the
+    // owner switches the roadtrips module back on.
+    const { routeId, stationIds } = await stopoverRoadtrip();
+    try {
+      const scanned: StoredDraft = {
+        ...(await storedDraftWithStopover()),
+        stopovers: [storedStopover()],
+      };
+      mockDomains.mockResolvedValue(["flight"]);
+      const plan = await prepareCommit(
+        fx.userId,
+        scanned,
+        body({}, { areas: [], nights: {}, stopovers: toggleOn() })
+      );
+      expect(plan.stopovers).toEqual([]);
+      expect(plan.existing?.stopovers).toEqual([
+        {
+          key: STOPOVER_KEY,
+          roadtripId: routeId,
+          name: "Northvale 2031 Road Trip",
+          offeredIds: stationIds,
+          album: { name: "Northvale 2031 Road Trip", assetIds: ["photo-1", "photo-2"] },
+        },
+      ]);
+      expect((plan.existing?.roadtrips ?? []).map((w) => w.roadtripId)).not.toContain(routeId);
+    } finally {
+      await dropStopoverRoadtrip(routeId);
+    }
   });
 
   /**

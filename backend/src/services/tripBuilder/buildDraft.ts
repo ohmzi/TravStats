@@ -451,7 +451,11 @@ export async function buildDraftWith(
     noRoadData: roaded.noRoadData,
     roadtripsHidden:
       !deps.roadtripsVisible &&
-      night.kept.some((plan) => decideAreaKind(plan, true) === "roadtrip"),
+      (night.kept.some((plan) => decideAreaKind(plan, true) === "roadtrip") ||
+        // An offered stopover is a roadtrip the account cannot make too (finding
+        // S3-1a): the review disables its switch from this warning, so a scan whose
+        // areas are all single-city stops (or absent) must carry it as well.
+        stopovers.length > 0),
     overlapping: await deps.overlappingTrips(window, targetTripId),
     flights: listed,
     outsideMovement:

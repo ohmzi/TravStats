@@ -1,4 +1,4 @@
-import { buildDraftWith } from "../buildDraft";
+import { buildDraftWith, type BuilderDeps } from "../buildDraft";
 import type { ScanInput } from "../types";
 import { NORTHVALE, builderDeps, photosAt, preciseFlight, type Place } from "./builderFixtures";
 
@@ -55,7 +55,7 @@ const INPUT: ScanInput = {
   target: { kind: "new" },
 };
 
-const deps = (assets = [...AT_AIRPORT, ...AT_ELMWOOD]) =>
+const deps = (assets = [...AT_AIRPORT, ...AT_ELMWOOD], over: Partial<BuilderDeps> = {}) =>
   builderDeps(assets, {
     loadFlights: async () => [FLIGHT_IN, FLIGHT_OUT],
     airports: async () =>
@@ -65,6 +65,7 @@ const deps = (assets = [...AT_AIRPORT, ...AT_ELMWOOD]) =>
           { name: "Northvale International Airport", lat: NORTHVALE.lat, lon: NORTHVALE.lon },
         ],
       ]),
+    ...over,
   });
 
 /** The layover that crosses midnight: landing 22:30, the next departure 09:00 (10.5 h). */
@@ -118,7 +119,7 @@ const AT_SOUTHHOLLOW = photosAt("sh", SOUTHHOLLOW, [
   "2031-05-03T16:00",
 ]);
 
-const midnightDeps = () =>
+const midnightDeps = (over: Partial<BuilderDeps> = {}) =>
   builderDeps([...MID_AT_AIRPORT, ...MID_AT_ELMWOOD, ...AT_SOUTHHOLLOW], {
     loadFlights: async () => [MID_FLIGHT_IN, MID_FLIGHT_OUT],
     airports: async () =>
@@ -128,6 +129,7 @@ const midnightDeps = () =>
           { name: "Northvale International Airport", lat: NORTHVALE.lat, lon: NORTHVALE.lon },
         ],
       ]),
+    ...over,
   });
 
 describe("buildDraftWith: a layover whose photos went somewhere", () => {
@@ -188,6 +190,32 @@ describe("buildDraftWith: a layover whose photos went somewhere", () => {
     );
     expect(dto.stopovers).toEqual([]);
     expect(dto.flights[0].layover).toEqual({ photoCount: 6, airportIata: "NVL" });
+  });
+
+  it("warns that roadtrips are hidden whenever it offers a stopover, areas or none", async () => {
+    // Finding S3-1a: the review disables the stopover's roadtrip switch from this
+    // warning, so a scan whose areas are all single-city stops (or absent) must
+    // still carry it — otherwise the switch is offered and the commit refuses it.
+    const noAreas = await buildDraftWith(
+      deps(undefined, { roadtripsVisible: false }),
+      USER,
+      INPUT,
+      () => undefined
+    );
+    expect(noAreas.dto.areas).toEqual([]);
+    expect(noAreas.dto.stopovers).toHaveLength(1);
+    expect(noAreas.dto.warnings).toContainEqual({ code: "roadtripsHidden", params: {} });
+
+    const stopsOnly = await buildDraftWith(
+      midnightDeps({ roadtripsVisible: false }),
+      USER,
+      INPUT,
+      () => undefined
+    );
+    expect(stopsOnly.dto.areas).toHaveLength(1);
+    expect(stopsOnly.dto.areas.every((a) => a.defaultAs === "stops")).toBe(true);
+    expect(stopsOnly.dto.stopovers).toHaveLength(1);
+    expect(stopsOnly.dto.warnings).toContainEqual({ code: "roadtripsHidden", params: {} });
   });
 
   it("offers a midnight-crossing layover without touching the nights or the day totals", async () => {
