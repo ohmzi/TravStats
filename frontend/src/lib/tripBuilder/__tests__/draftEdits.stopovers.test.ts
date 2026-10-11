@@ -132,3 +132,31 @@ describe("replaying a stopover edit", () => {
     expect([kept, total]).toEqual([1, 2]);
   });
 });
+
+// The real wire never sends the flat `roadtripId`; a matched stopover arrives as
+// `stored` (spec §6). Pin the arm the wire actually takes.
+describe("a stopover the wire reports as stored", () => {
+  it("seeds both switches on, refuses an edit and travels in the commit body", () => {
+    const synced = stopoverDraft({
+      stopovers: [
+        {
+          ...STOPOVER,
+          stored: { roadtripId: "r-9", name: "Sundhavn 2031 Road Trip", albumAssetCount: 22 },
+        },
+      ],
+    });
+    const state = initialReviewState(synced);
+    expect(state.stopoverTicks).toEqual({ [STOPOVER.key]: { roadtrip: true, album: true } });
+    expect(
+      applyEdit(synced, state, {
+        type: "setStopoverTick",
+        key: STOPOVER.key,
+        roadtrip: true,
+        album: true,
+      })
+    ).toBe(state);
+    expect(buildCommitBody(synced, state, { name: "Southern loop" }, COMMIT_KEY).stopovers).toEqual(
+      [{ key: STOPOVER.key, roadtrip: true, album: true }]
+    );
+  });
+});
