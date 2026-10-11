@@ -11,7 +11,9 @@
  * An area matched to a stored roadtrip is shown under that roadtrip's own name,
  * so the review's Name field is the name the commit keeps or renames.
  * It also returns what it offered (`StoredExisting`, server-only), which the
- * commit holds the client to.
+ * commit holds the client to. A stopover the trip already holds is marked
+ * `stored` — the review locks both switches on — and offered the same way, for
+ * the commit to leave its roadtrip untouched (add-only v1, spec 2026-10-11 §6).
  */
 import { deriveStationRows, type NightPlanStation } from "../../shared/tour/builderNightPlan";
 import logger from "../../utils/logger";
@@ -22,6 +24,7 @@ import {
   type ExistingTripState,
   type StoredExisting,
   type StoredRoadtripOffer,
+  type StoredStopoverOffer,
 } from "./existingTypes";
 import {
   reconcileTrip,
@@ -32,7 +35,14 @@ import {
   type StopArea,
 } from "./reconcile";
 import { claimKey, stationKeyOf } from "./stations";
-import type { Day, DraftArea, DraftLeg, DraftStation, TripBuilderDraft } from "./types";
+import type {
+  Day,
+  DraftArea,
+  DraftLeg,
+  DraftStation,
+  DraftStopover,
+  TripBuilderDraft,
+} from "./types";
 
 export interface ExistingDeps {
   state: ExistingTripState;
@@ -146,6 +156,11 @@ function notSeenStation(n: NotSeenStation, taken: Set<string>, fallbackDay: Day)
   };
 }
 
+/** The linked album under exactly this name and its member count; null when none is linked. */
+function storedAlbumCount(state: ExistingTripState, name: string): number | null {
+  return state.albums.find((album) => album.albumName === name)?.assetCount ?? null;
+}
+
 export function annotateDraftForExisting(
   dto: TripBuilderDraft,
   state: ExistingTripState
@@ -186,6 +201,29 @@ export function annotateDraftForExisting(
     ])
   );
   const offers = new Map<string, StoredRoadtripOffer>();
+  const stopoverOffers = new Map<string, StoredStopoverOffer>();
+  const matchByStopover = new Map(result.stopovers.map((match) => [match.key, match] as const));
+  const annotatedStopovers = dto.stopovers?.map((stopover): DraftStopover => {
+    const match = matchByStopover.get(stopover.key);
+    if (match === undefined) return stopover;
+    const roadtrip = state.roadtrips.find((r) => r.id === match.roadtripId);
+    if (roadtrip === undefined) return stopover;
+    stopoverOffers.set(match.roadtripId, {
+      key: match.key,
+      name: match.name,
+      stationIds: new Set(
+        roadtrip.stations.filter((station) => station.night !== "via").map((station) => station.id)
+      ),
+    });
+    return {
+      ...stopover,
+      stored: {
+        roadtripId: match.roadtripId,
+        name: match.name,
+        albumAssetCount: storedAlbumCount(state, stopover.title),
+      },
+    };
+  });
 
   const areas = dto.areas.map((area): DraftArea => {
     if (area.defaultAs === "roadtrip") {
@@ -237,10 +275,12 @@ export function annotateDraftForExisting(
       areas,
       flights,
       notSeenStops: result.stops.notSeen.map((n) => notSeenStation(n, taken, dto.window.startDay)),
+      ...(annotatedStopovers === undefined ? {} : { stopovers: annotatedStopovers }),
     },
     existing: {
       tripId: state.tripId,
       roadtrips: offers,
+      stopovers: stopoverOffers,
       stops: {
         matchedIds: matchedStopIds,
         notSeenIds: new Set(result.stops.notSeen.map((n) => n.stored.id)),

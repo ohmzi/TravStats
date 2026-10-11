@@ -25,6 +25,7 @@ import type { LegPair } from "../../shared/tour/legPlan";
 import type { RoadtripVehicle } from "../../shared/tour/roadtrip";
 import type { ImmichConnectionSource, ImmichErrorKind } from "../immich/types";
 import type { Coord, LegMode } from "../tour/tourDistance";
+import type { DraftStopover } from "./draftStopover";
 import type {
   AlbumRemoveSkip,
   AlbumSyncPreview,
@@ -402,25 +403,11 @@ export interface DraftArea {
   notSeen?: DraftStation[];
 }
 
-/** A stopover the scan offers: a layover with an outing (spec 2026-10-11 §2.3). */
-export interface DraftStopover {
-  /** `${inFlightId}#${outFlightId}` — stable across scans, outside the area-key namespace. */
-  key: string;
-  city: string;
-  /** "<City> <Year> Road Trip": the one name of the roadtrip and its album. */
-  title: string;
-  /** The stopover day (YYYY-MM-DD, on the place's own clock). */
-  day: Day;
-  airportIata: string | null;
-  /** The whole layover's photo set: what the city album would take. */
-  photoCount: number;
-  /** The photos further than the threshold from the airport: the tour's own set. */
-  outingCount: number;
-  /** The tour's stops, the arrival airport first. */
-  stations: DraftStation[];
-  /** legs[i] joins stations[i] and stations[i + 1]. */
-  legs: DraftLeg[];
-}
+// The stopover DTO shapes (spec 2026-10-11 §2.3, §6) are declared in
+// `draftStopover.ts`, in their own module because this file sits at the
+// 800-line cap. They are re-exported here, so consumers keep importing them
+// from `./types`.
+export type { DraftStopover, StoredStopoverStatus } from "./draftStopover";
 
 export interface DraftFlight {
   id: string;

@@ -8,7 +8,14 @@
  *   Tarnside    5/7–5/9   nights unknown           → row 5/7–5/9 pass    (stored S, a stay: same)
  *   Kelmore (stored C) is not in the photos.
  */
-import type { DraftArea, DraftFlight, DraftStation, NightEntry, TripBuilderDraft } from "../types";
+import type {
+  DraftArea,
+  DraftFlight,
+  DraftStation,
+  DraftStopover,
+  NightEntry,
+  TripBuilderDraft,
+} from "../types";
 
 export const K = {
   northvale: "-901|3374|2031-05-02",
@@ -114,6 +121,47 @@ export function flight(over: Partial<DraftFlight> = {}): DraftFlight {
     currentTrip: null,
     defaultAssign: false,
     locked: false,
+    ...over,
+  };
+}
+
+export const STOPOVER_KEY =
+  "0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f#1e1e1e1e-1e1e-4e1e-8e1e-1e1e1e1e1e1e";
+
+/** The one stopover the photos show: ZZA, 5/4, downtown against the airport. */
+export function stopover(over: Partial<DraftStopover> = {}): DraftStopover {
+  const stations = [
+    derivedStation(
+      "-893|3382|2031-05-04",
+      "ZZA Airport",
+      AT.portCarrow,
+      "2031-05-04",
+      "2031-05-04",
+      {
+        kind: "airport",
+      }
+    ),
+    derivedStation("-894|3384|2031-05-04", "Northvale", AT.southbridge, "2031-05-04", "2031-05-04"),
+  ];
+  return {
+    key: STOPOVER_KEY,
+    city: "Northvale",
+    title: "Northvale 2031 Road Trip",
+    day: "2031-05-04",
+    airportIata: "ZZA",
+    photoCount: 98,
+    outingCount: 30,
+    stations,
+    legs: [
+      {
+        fromKey: stations[0].key,
+        toKey: stations[1].key,
+        chordKm: 52,
+        routedKm: null,
+        mode: "road",
+        ferryEvidence: null,
+      },
+    ],
     ...over,
   };
 }

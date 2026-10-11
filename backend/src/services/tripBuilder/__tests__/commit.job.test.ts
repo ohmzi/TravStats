@@ -372,6 +372,7 @@ describe("runCommitJob", () => {
       const existing: StoredExisting = {
         tripId: trip.id,
         roadtrips: new Map(),
+        stopovers: new Map(),
         stops: { matchedIds: new Set(), notSeenIds: new Set() },
         album: scanned,
       };

@@ -157,10 +157,22 @@ export interface StoredRoadtripOffer {
   notSeenIds: ReadonlySet<string>;
 }
 
+/** What a matched stopover offered (spec 2026-10-11 §6). v1 is add-only: nothing is rebuilt. */
+export interface StoredStopoverOffer {
+  /** The draft stopover's key (`<inFlightId>#<outFlightId>`). */
+  key: string;
+  /** The stored roadtrip's name when the draft was made; a rename since fails the commit. */
+  name: string;
+  /** The matched roadtrip's non-correction stations the draft saw; a change since fails the commit. */
+  stationIds: ReadonlySet<string>;
+}
+
 export interface StoredExisting {
   tripId: string;
   /** roadtrip id → what was offered; unmatched roadtrips of the trip are not listed (not touched). */
   roadtrips: ReadonlyMap<string, StoredRoadtripOffer>;
+  /** matched roadtrip id → what was offered; a matched stopover is left as stored (add-only v1). */
+  stopovers: ReadonlyMap<string, StoredStopoverOffer>;
   stops: { matchedIds: ReadonlySet<string>; notSeenIds: ReadonlySet<string> };
   /** The album the scan looked at and the member ids it proved outside the dates. SERVER-ONLY. */
   album: { immichAlbumId: string | null; outsideIds: readonly string[] } | null;

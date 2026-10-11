@@ -13,7 +13,16 @@ import type {
   ExistingTripState,
 } from "../existingTypes";
 import { annotateDraftForExisting, applyExistingTarget, type ExistingDeps } from "../existingDraft";
-import { area, derivedStation, derivedStations, draft, flight, K } from "./existingDraftFixture";
+import {
+  area,
+  derivedStation,
+  derivedStations,
+  draft,
+  flight,
+  K,
+  STOPOVER_KEY,
+  stopover,
+} from "./existingDraftFixture";
 
 // Synthetic fixtures only (public repository).
 const TRIP = "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c";
@@ -300,6 +309,119 @@ describe("annotateDraftForExisting: other cases", () => {
     expect(elsewhere.key).toMatch(/~\d+$/);
     const keys = [...only.stations, ...(only.notSeen ?? [])].map((s) => s.key);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe("annotateDraftForExisting: a stopover", () => {
+  // The roadtrip a first sync wrote for the fixture stopover: two stations, one day.
+  const stopoverRoadtrip: ExistingRoadtrip = {
+    id: "r9",
+    name: "Northvale 2031 Road Trip",
+    legs: [],
+    stations: [
+      stored({
+        id: "st-air",
+        title: "ZZA Airport",
+        lat: -44.7,
+        lon: 169.15,
+        startDate: "2031-05-04",
+        endDate: "2031-05-04",
+        night: "pass",
+      }),
+      stored({
+        id: "st-town",
+        title: "Northvale",
+        lat: -45.45,
+        lon: 169.1,
+        startDate: "2031-05-04",
+        endDate: "2031-05-04",
+        night: "pass",
+      }),
+    ],
+  };
+  const held = (over: Partial<ExistingTripState> = {}): ExistingTripState =>
+    state({ roadtrips: [stopoverRoadtrip], ...over });
+
+  it("marks a matched stopover as already synced and remembers what it offered", () => {
+    const { dto, existing } = annotateDraftForExisting(
+      draft(TRIP, [], { stopovers: [stopover()] }),
+      held()
+    );
+    expect(dto.stopovers?.[0].stored).toEqual({
+      roadtripId: "r9",
+      name: "Northvale 2031 Road Trip",
+      albumAssetCount: null,
+    });
+    const offer = existing.stopovers.get("r9");
+    expect(offer?.key).toBe(STOPOVER_KEY);
+    expect(offer?.name).toBe("Northvale 2031 Road Trip");
+    expect([...(offer?.stationIds ?? [])].sort()).toEqual(["st-air", "st-town"]);
+  });
+
+  it("shows the stored album's count beside the current one", () => {
+    const { dto } = annotateDraftForExisting(
+      draft(TRIP, [], { stopovers: [stopover()] }),
+      held({
+        albums: [
+          {
+            linkId: "l9",
+            immichAlbumId: "al-9",
+            albumName: "Northvale 2031 Road Trip",
+            assetCount: 96,
+            ownedByUser: true,
+            travstatsMarker: true,
+          },
+        ],
+      })
+    );
+    expect(dto.stopovers?.[0].stored?.albumAssetCount).toBe(96);
+    expect(dto.stopovers?.[0].photoCount).toBe(98);
+  });
+
+  it("leaves a stopover with no stored roadtrip a plain new candidate", () => {
+    const { dto, existing } = annotateDraftForExisting(
+      draft(TRIP, [], { stopovers: [stopover()] }),
+      state({ roadtrips: [] })
+    );
+    expect(dto.stopovers?.[0].stored).toBeUndefined();
+    expect(existing.stopovers.size).toBe(0);
+  });
+
+  it("keeps the stopover roadtrip out of the area match, even for an area that would claim it", () => {
+    const steal = area({
+      key: "2031-05-04#1",
+      suggestedName: "Northvale 2031 Road Trip",
+      stations: [
+        derivedStation(
+          "-893|3382|2031-05-04",
+          "ZZA Airport",
+          { lat: -44.7, lon: 169.15 },
+          "2031-05-04",
+          "2031-05-04",
+          { kind: "airport" }
+        ),
+        derivedStation(
+          "-894|3384|2031-05-04",
+          "Northvale",
+          { lat: -45.45, lon: 169.1 },
+          "2031-05-04",
+          "2031-05-04"
+        ),
+      ],
+    });
+    const tripState = held();
+    // Without the stopover the area takes the one-day roadtrip: same name, both stations match.
+    expect(annotateDraftForExisting(draft(TRIP, [steal]), tripState).dto.areas[0].roadtripId).toBe(
+      "r9"
+    );
+    // With it, the claim runs first and the area becomes a roadtrip of its own.
+    const { dto } = annotateDraftForExisting(
+      draft(TRIP, [steal], { stopovers: [stopover()] }),
+      tripState
+    );
+    expect(dto.areas[0].roadtripId).toBeUndefined();
+    expect(dto.areas[0].stations.map((s) => s.status)).toEqual(["new", "new"]);
+    expect(dto.stopovers?.[0].stored?.roadtripId).toBe("r9");
   });
 });
 
