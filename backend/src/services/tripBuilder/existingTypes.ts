@@ -173,6 +173,13 @@ export interface ExistingRoadtripWrite {
   roadtripId: string;
   /** The reviewed name: the stored one, or the rename the write applies when `rename`. */
   name: string;
+  /**
+   * The stored name the plan read (`StoredRoadtripOffer.name`). The rename is one
+   * conditional `updateMany` keyed on it, so a route renamed or deleted since the
+   * scan answers TRIP_CHANGED instead of clobbering the newer name or dying as a
+   * Prisma not-found under the generic failure.
+   */
+  expectedName: string;
   /** The reviewed name differs from the stored roadtrip's: the write renames the route. */
   rename: boolean;
   /** The complete ordered station list: matched and kept stations carry their id, new ones do not. */

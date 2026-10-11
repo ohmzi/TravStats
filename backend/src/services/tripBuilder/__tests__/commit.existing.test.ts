@@ -102,6 +102,8 @@ describe("writeCommit for an existing trip", () => {
     areaKey: "2031-05-02#1",
     roadtripId: fx.roadtripId,
     name: "Northvale loop",
+    // The name the fixture's route carries when every plan here was "built".
+    expectedName: "Northvale loop",
     rename: false,
     stations,
     // The fixture route holds these four: what every plan in this file offered.
@@ -270,6 +272,50 @@ describe("writeCommit for an existing trip", () => {
     expect(result.roadtrips[0]).toMatchObject({
       id: fx.roadtripId,
       name: "Westshire circuit",
+    });
+  });
+
+  it("refuses TRIP_CHANGED when the route was renamed after the plan, and writes neither name nor station", async () => {
+    // A pure rename (`noop`) skips the station guard entirely, so the rename is
+    // the one write the transaction must re-check itself: another tab can rename
+    // the roadtrip while the job preflights Immich, and the stale reviewed name
+    // must not clobber the newer one. The conditional update is keyed on the
+    // name the plan read, so a rename since answers the scan-again refusal.
+    const before = (await stored()).map((row) => row.id);
+    const renameOnly = write([], {
+      name: "Westshire circuit",
+      rename: true,
+      noop: true,
+      diff: { updated: 1, unchanged: 4, added: 0, removed: 0, kept: 0 },
+    });
+    await prisma.tripRoute.update({
+      where: { id: fx.roadtripId },
+      data: { name: "Renamed elsewhere" },
+    });
+    await expect(writeCommit(plan({ roadtrips: [renameOnly] }))).rejects.toMatchObject({
+      statusCode: 409,
+      code: "TRIP_CHANGED",
+    });
+    const route = await prisma.tripRoute.findUniqueOrThrow({ where: { id: fx.roadtripId } });
+    expect(route.name).toBe("Renamed elsewhere");
+    expect((await stored()).map((row) => row.id)).toEqual(before);
+  });
+
+  it("answers TRIP_CHANGED when the route is gone, not the generic failure a Prisma not-found gives", async () => {
+    // The route deleted between the plan and the transaction: the conditional
+    // rename matches nothing. Without the count check the write dies as a Prisma
+    // not-found, which `runCommitJob` flattens into COMMIT_FAILED — a failure
+    // the page cannot mend with a new scan.
+    const renameOnly = write([], {
+      name: "Westshire circuit",
+      rename: true,
+      noop: true,
+      diff: { updated: 1, unchanged: 4, added: 0, removed: 0, kept: 0 },
+    });
+    await prisma.tripRoute.delete({ where: { id: fx.roadtripId } });
+    await expect(writeCommit(plan({ roadtrips: [renameOnly] }))).rejects.toMatchObject({
+      statusCode: 409,
+      code: "TRIP_CHANGED",
     });
   });
 

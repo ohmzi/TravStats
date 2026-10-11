@@ -283,6 +283,8 @@ function buildRoadtripWrite(
     areaKey: area.key,
     roadtripId,
     name: area.name,
+    // The equality check above proves the offer is also what the route holds now.
+    expectedName: offer.name,
     rename,
     stations,
     offeredIds: [...offeredIds],

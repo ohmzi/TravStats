@@ -11,7 +11,9 @@
  * applies a mode only to a leg the write created and fails the transaction for
  * any other, so a stale plan cannot leave a ferry carrying a road's geometry.
  * A roadtrip the review renamed gets its new name on the route row here, in the
- * same transaction, so the name and the stations cannot land apart.
+ * same transaction, so the name and the stations cannot land apart — and only
+ * while the route still carries the name the plan read, so a rename made since
+ * the scan refuses like any other moved write.
  *
  * Every write re-reads what it is about to touch and refuses (`TRIP_CHANGED`)
  * when the trip no longer holds what the plan offered: the plan is a snapshot
@@ -88,11 +90,17 @@ async function writeMatchedRoadtrip(
           ).map((stop) => stop.id);
   }
   // The review showed the stored name, so a different one is the user's rename.
+  // The rename is re-checked like every other write — and it is the only one left
+  // when `noop` skipped the guard above: the conditional update matches the route
+  // only while it still carries the name the plan read, so a rename or a deletion
+  // since the scan is TRIP_CHANGED, never a clobbered newer name or a Prisma
+  // not-found the job would flatten into the generic failure.
   if (write.rename) {
-    await tx.tripRoute.update({
-      where: { id: write.roadtripId },
+    const renamed = await tx.tripRoute.updateMany({
+      where: { id: write.roadtripId, name: write.expectedName },
       data: { name: write.name },
     });
+    if (renamed.count === 0) throw tripChanged();
   }
 
   const rows = await tx.tripStop.findMany({
