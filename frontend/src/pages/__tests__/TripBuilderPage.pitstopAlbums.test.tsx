@@ -105,7 +105,7 @@ describe("the success panel's pitstop albums", () => {
     mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
   });
 
-  it("shows a line per pitstop album and retries that one by name", async () => {
+  it("shows a line per pitstop album and retries that one by its key", async () => {
     mocks.waitForJob
       .mockResolvedValueOnce({
         ...RESULT,
@@ -133,7 +133,7 @@ describe("the success panel's pitstop albums", () => {
     );
     await waitFor(() => expect(mocks.retryAlbum).toHaveBeenCalled());
     expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, {
-      pitstopName: PITSTOP_ALBUM,
+      pitstopKey: PITSTOP_KEY,
     });
     await waitFor(() =>
       expect(

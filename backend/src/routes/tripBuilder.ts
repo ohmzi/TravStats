@@ -247,9 +247,12 @@ const runningAlbumJobs = new Map<string, string>();
  * A `stopoverKey` retries that stopover's OWN album (spec 2026-10-11 §5.4):
  * the key resolves against the committed draft that wrote the trip, which
  * knows the stopovers it offered and holds the layover's picture ids — those
- * exist nowhere else. A `pitstopName` retries a pitstop area's OWN album
- * (spec 2026-10-11-pitstop §4), resolved by name against the same committed
- * draft. A target no held draft resolves is refused — 409 STOPOVER_EXPIRED or
+ * exist nowhere else. A `pitstopKey` retries a pitstop area's OWN album
+ * (spec 2026-10-11-pitstop §4), resolved by its area key against the same
+ * committed draft: the key, not the album's name, because two areas in one
+ * city and year share that name, and a name-matched retry re-added the first
+ * area's pictures while the second area's stayed missing (review round 2). A
+ * target no held draft resolves is refused — 409 STOPOVER_EXPIRED or
  * 409 PITSTOP_EXPIRED — never answered by the trip's album. A bare `name` is
  * the trip's album, as always: it is never read as a stopover or a pitstop,
  * because the trip's album name may coincide with theirs. The one per-(user,
@@ -276,15 +279,15 @@ router.post(
           "STOPOVER_EXPIRED"
         );
       }
-      // The pitstop's record holds the area's picture ids, and its name is what
-      // the success panel shows; the committed draft is the only place either
-      // exists, so a name nothing resolves is refused, never repaired by
-      // another album (the S2 rule).
+      // The pitstop's record holds the area's picture ids, and its key is what
+      // the success panel's line is addressed by; the committed draft is the
+      // only place the record exists, so a key nothing resolves is refused,
+      // never repaired by another album (the S2 rule).
       const pitstop =
-        body.pitstopName === undefined
+        body.pitstopKey === undefined
           ? undefined
-          : (held?.pitstops ?? []).find((candidate) => candidate.albumName === body.pitstopName);
-      if (body.pitstopName !== undefined && (pitstop === undefined || held === null)) {
+          : (held?.pitstops ?? []).find((candidate) => candidate.key === body.pitstopKey);
+      if (body.pitstopKey !== undefined && (pitstop === undefined || held === null)) {
         throw new AppError(
           "The scan that wrote this pitstop's album is no longer held; scan the trip again",
           409,

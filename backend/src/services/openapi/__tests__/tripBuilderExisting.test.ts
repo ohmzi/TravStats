@@ -175,9 +175,9 @@ describe("trip builder OpenAPI documents the re-sync fields", () => {
       expect(resolve(body as Node).required ?? []).not.toContain("removeOutside");
     });
 
-    it("takes a pitstop album's name, whose ids stay the server's", () => {
-      expect(at(body as Node, "pitstopName").type).toBe("string");
-      expect(resolve(body as Node).required ?? []).not.toContain("pitstopName");
+    it("takes a pitstop area's key, whose ids stay the server's", () => {
+      expect(at(body as Node, "pitstopKey").type).toBe("string");
+      expect(resolve(body as Node).required ?? []).not.toContain("pitstopKey");
     });
   });
 

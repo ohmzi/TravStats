@@ -343,18 +343,19 @@ export const previewIndexParamSchema = z.coerce
 export const previewSizeSchema = z.enum(["thumbnail", "preview"]).default("thumbnail");
 /**
  * `POST /trip-builder/trips/:tripId/album`. `stopoverKey` names a stopover's
- * own album explicitly (spec 2026-10-11 §5.4) and `pitstopName` a pitstop
- * area's by the name the scan computed (spec 2026-10-11-pitstop §4) — each is
- * the only thing that may name its kind; `name` overrides the trip's album
- * name; `removeOutside` carries the review's removal choice on a re-sync. The
- * members any retry touches are still the ids the server computed, never the
- * request's.
+ * own album explicitly (spec 2026-10-11 §5.4) and `pitstopKey` a pitstop
+ * area's by its area key (spec 2026-10-11-pitstop §4) — the key, not the
+ * album's name, because two areas in one city and year share that name
+ * (review round 2); each is the only thing that may name its kind; `name`
+ * overrides the trip's album name; `removeOutside` carries the review's
+ * removal choice on a re-sync. The members any retry touches are still the
+ * ids the server computed, never the request's.
  */
 export const albumRetryBodySchema = z
   .object({
     name: label.optional(),
     stopoverKey: stopoverKeySchema.optional(),
-    pitstopName: label.optional(),
+    pitstopKey: areaKeySchema.optional(),
     removeOutside: z
       .boolean()
       .optional()

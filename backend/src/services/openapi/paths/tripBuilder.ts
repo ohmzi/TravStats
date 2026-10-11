@@ -577,10 +577,11 @@ registry.registerPath({
     "draft that wrote the trip, found by its exact owned name, add-only, never the trip's " +
     "album. A key no held committed draft resolves meets 409 STOPOVER_EXPIRED — the layover's " +
     "picture ids exist only in that draft, so the caller scans again; a bare `name` is always " +
-    "the trip's album. A posted `pitstopName` retries a pitstop area's own album instead (spec 2026-10-11 " +
-    "pitstops §4): resolved by name against the same committed draft, found by its exact " +
-    "owned name, add-only, never the trip's album; a name no held draft resolves meets 409 " +
-    "PITSTOP_EXPIRED. A bare `name` is always the trip's album. " +
+    "the trip's album. A posted `pitstopKey` retries a pitstop area's own album instead (spec 2026-10-11 " +
+    "pitstops §4): resolved by its area key against the same committed draft — the key, not " +
+    "the album's name, because two areas in one city and year share it (review round 2) — " +
+    "found by its exact owned name, add-only, never the trip's album; a key no held draft " +
+    "resolves meets 409 PITSTOP_EXPIRED. A bare `name` is always the trip's album. " +
     "The job result is a `TripBuilderAlbumOutcome`. Only the user's own " +
     "Immich key may write.",
   tags: tag,
@@ -595,7 +596,7 @@ registry.registerPath({
     409: {
       description:
         "`code` STOPOVER_EXPIRED: a stopover retry whose key no held committed draft " +
-        "resolves; PITSTOP_EXPIRED: a pitstop retry whose name none resolves",
+        "resolves; PITSTOP_EXPIRED: a pitstop retry whose key none resolves",
       content: errorContent,
     },
     429: { description: "Too many requests", content: errorContent },

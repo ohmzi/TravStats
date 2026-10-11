@@ -678,7 +678,7 @@ describe("the album afterwards", () => {
     });
   });
 
-  it("retries a pitstop area's album by that name, and holds its new outcome", async () => {
+  it("retries a pitstop area's album by its key, and holds its new outcome", async () => {
     mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
     mocks.waitForJob
       .mockResolvedValueOnce({
@@ -696,7 +696,7 @@ describe("the album afterwards", () => {
     await act(() => hook.result.current.session.submit());
     await act(() => hook.result.current.session.retryAlbum(pitstopRetry(PITSTOP_KEY)));
     expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, {
-      pitstopName: PITSTOP_ALBUM,
+      pitstopKey: PITSTOP_KEY,
     });
     const { commit } = hook.result.current.session;
     expect(commit.kind === "done" && commit.result.pitstopAlbums?.[0].album).toEqual({

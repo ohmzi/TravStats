@@ -16,8 +16,9 @@ import { clearJobs, settleAllJobs } from "../../services/jobs/jobRegistry";
 import { retryTripAlbum } from "../../services/tripBuilder/albumWrite";
 import { clearDraftsForTests, putDraft } from "../../services/tripBuilder/draftStore";
 import { retryPitstopAlbum } from "../../services/tripBuilder/stopoverAlbum";
-import type { CommitResult, StoredStopover } from "../../services/tripBuilder/types";
+import type { CommitResult, StoredPitstop, StoredStopover } from "../../services/tripBuilder/types";
 import {
+  AREA_KEY,
   fixtureDraft,
   fixtureStoredPitstop,
   fixtureStoredStopover,
@@ -115,8 +116,8 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
     );
   };
 
-  /** A committed draft of `tripId` whose scan kept one pitstop area's own album. */
-  const committedPitstopDraft = (): void => {
+  /** A committed draft of `tripId` whose scan kept its pitstop areas' own albums. */
+  const committedPitstopDraft = (pitstops: StoredPitstop[] = [fixtureStoredPitstop()]): void => {
     const result: CommitResult = {
       tripId,
       created: true,
@@ -131,7 +132,7 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
     };
     putDraft(
       fixtureDraft(userId, [], {
-        pitstops: [fixtureStoredPitstop()],
+        pitstops,
         status: "committed",
         result,
       })
@@ -159,11 +160,11 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
     expect(mockRetry).not.toHaveBeenCalled();
   });
 
-  it("retries a pitstop area's own album when the posted name is one the draft offered", async () => {
+  it("retries a pitstop area's own album when the posted key names one of the draft's pitstops", async () => {
     committedPitstopDraft();
     mockCityRetry.mockResolvedValue(OUTCOME);
 
-    expect((await post(tripId, { pitstopName: PITSTOP_ALBUM })).status).toBe(202);
+    expect((await post(tripId, { pitstopKey: AREA_KEY })).status).toBe(202);
     await settleAllJobs();
 
     expect(mockCityRetry).toHaveBeenCalledWith({
@@ -176,14 +177,50 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
     expect(mockRetry).not.toHaveBeenCalled();
   });
 
+  it("resolves the retried area by its key when two areas share their album's name", async () => {
+    // Two multi-day stays in one city and year share their album's name
+    // (spec §6), so the name cannot pick the record: a name-resolved retry
+    // re-added the FIRST area's pictures while the second area's stayed
+    // missing, and the line said repaired (review round 2). The key picks the
+    // record whose own picture ids and day the write carries.
+    committedPitstopDraft([
+      fixtureStoredPitstop(),
+      fixtureStoredPitstop({
+        key: "2031-05-16#2",
+        day: "2031-05-16",
+        assetIds: ["photo-c", "photo-d"],
+      }),
+    ]);
+    mockCityRetry.mockResolvedValue(OUTCOME);
+
+    expect((await post(tripId, { pitstopKey: "2031-05-16#2" })).status).toBe(202);
+    await settleAllJobs();
+
+    expect(mockCityRetry).toHaveBeenCalledWith({
+      userId,
+      tripId,
+      tripName: "Northvale loop",
+      album: { name: PITSTOP_ALBUM, day: "2031-05-16", assetIds: ["photo-c", "photo-d"] },
+      expectedImmichUserId: IMMICH_USER,
+    });
+    expect(mockRetry).not.toHaveBeenCalled();
+  });
+
   it("answers 409 PITSTOP_EXPIRED once the committed draft is gone, and touches no album", async () => {
     committedPitstopDraft();
     clearDraftsForTests();
 
-    const res = await post(tripId, { pitstopName: PITSTOP_ALBUM });
+    const res = await post(tripId, { pitstopKey: AREA_KEY });
     expect(res.status).toBe(409);
     expect(res.body).toMatchObject({ code: "PITSTOP_EXPIRED" });
     expect(mockRetry).not.toHaveBeenCalled();
+    expect(mockCityRetry).not.toHaveBeenCalled();
+  });
+
+  it("refuses a pitstop key that is no area key", async () => {
+    committedPitstopDraft();
+
+    expect((await post(tripId, { pitstopKey: "not-a-key" })).status).toBe(400);
     expect(mockCityRetry).not.toHaveBeenCalled();
   });
 

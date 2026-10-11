@@ -478,7 +478,7 @@ export interface CommitResult {
 export interface PitstopAlbumOutcome {
   /** The stopover key `<inFlightId>#<outFlightId>`, or the pitstop area key `<startDay>#<n>`. */
   key: string;
-  /** The album's name, `<City> <Year> Road Trip[ (<Trip Name>)]`; what its retry resolves by. */
+  /** The album's name, `<City> <Year> Road Trip[ (<Trip Name>)]`; the line and its retry are addressed by `key`. */
   name: string;
   album: AlbumOutcome;
 }
@@ -501,12 +501,13 @@ export interface AlbumRetryBody {
    */
   stopoverKey?: string;
   /**
-   * A pitstop area's own album, by the name the scan computed. The server
-   * resolves it against the committed draft that wrote the trip and answers
-   * 409 PITSTOP_EXPIRED when it can no longer (spec 2026-10-11 pitstops §4) —
-   * never another album.
+   * A pitstop area's own album, by its area key. The server resolves it
+   * against the committed draft that wrote the trip and answers 409
+   * PITSTOP_EXPIRED when it can no longer (spec 2026-10-11 pitstops §4) —
+   * never another album. The key, not the album's name: two areas in one city
+   * and year share that name (review round 2).
    */
-  pitstopName?: string;
+  pitstopKey?: string;
   /** Re-sync only: the removal choice the commit was sent with. */
   removeOutside?: boolean;
 }

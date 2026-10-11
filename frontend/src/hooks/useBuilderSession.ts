@@ -402,13 +402,14 @@ export function useBuilderSession(): BuilderSession {
 
   /**
    * The success panel's retry. The body names its target explicitly: a
-   * stopover's own album goes by its key, a pitstop area's by the name the scan
-   * computed (spec 2026-10-11 pitstops §4), the trip's by name; the server
-   * refuses a target it can no longer resolve instead of writing some other
-   * album. The removal choice goes with the trip's own album only, because a
-   * re-sync's album failure must not drop the decision the commit was sent
-   * with, while a city album is add-only (§5.4) and never removes. The server
-   * recomputes the members from its own state.
+   * stopover's own album goes by its key, a pitstop area's by its area key
+   * (spec 2026-10-11 pitstops §4; the key, not the album's name — two areas in
+   * one city and year share that name, review round 2), the trip's by name;
+   * the server refuses a target it can no longer resolve instead of writing
+   * some other album. The removal choice goes with the trip's own album only,
+   * because a re-sync's album failure must not drop the decision the commit
+   * was sent with, while a city album is add-only (§5.4) and never removes.
+   * The server recomputes the members from its own state.
    */
   const retryAlbum = useCallback(
     async (target: AlbumRetryTarget = "trip"): Promise<void> => {
@@ -427,7 +428,7 @@ export function useBuilderSession(): BuilderSession {
           stopover !== undefined
             ? { stopoverKey: stopover.key }
             : pitstop !== undefined
-              ? { pitstopName: pitstop.name }
+              ? { pitstopKey: pitstop.key }
               : {
                   ...(state?.album?.name !== undefined ? { name: state.album.name } : {}),
                   ...(sentRemoveOutside.current ? { removeOutside: true } : {}),

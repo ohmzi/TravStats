@@ -248,14 +248,22 @@ describe("route parameters", () => {
     expect(previewSizeSchema.safeParse("original").success).toBe(false);
   });
 
-  it("takes an optional, trimmed album name and nothing else", () => {
+  it("takes an optional, trimmed album name, the pitstop key and nothing else", () => {
     expect(albumRetryBodySchema.parse({})).toEqual({});
     expect(albumRetryBodySchema.parse({ name: " Northvale " })).toEqual({ name: "Northvale" });
     expect(albumRetryBodySchema.safeParse({ name: "" }).success).toBe(false);
     expect(albumRetryBodySchema.safeParse({ name: "Northvale", extra: 1 }).success).toBe(false);
+    expect(albumRetryBodySchema.parse({ pitstopKey: "2031-05-02#1" })).toEqual({
+      pitstopKey: "2031-05-02#1",
+    });
+    expect(albumRetryBodySchema.safeParse({ pitstopKey: "not-a-key" }).success).toBe(false);
+    expect(albumRetryBodySchema.safeParse({ pitstopKey: "" }).success).toBe(false);
+    // The album's name may not name a pitstop's record: two areas in one city
+    // and year share it (review round 2), so the old field is gone.
     expect(
-      albumRetryBodySchema.parse({ pitstopName: " Southbridge 2031 Road Trip (Southern loop) " })
-    ).toEqual({ pitstopName: "Southbridge 2031 Road Trip (Southern loop)" });
-    expect(albumRetryBodySchema.safeParse({ pitstopName: "" }).success).toBe(false);
+      albumRetryBodySchema.safeParse({
+        pitstopName: "Southbridge 2031 Road Trip (Southern loop)",
+      }).success
+    ).toBe(false);
   });
 });
