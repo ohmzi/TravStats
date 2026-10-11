@@ -80,13 +80,15 @@ export function commitFailureKey(err: unknown): string {
 }
 
 /**
- * The commit was refused because the trip changed after the scan (spec §K): the
- * draft knows a list that is no longer the trip's, so only a new scan can mend
- * it. The refusal comes with the request, or from the commit job.
+ * The commit was refused because the trip changed after the scan (spec §K), or
+ * because the draft itself is gone — expired, discarded, or never this
+ * session's. Only a new scan mends either: it re-posts the draft's own window
+ * and carries the edits (spec §G), which is what both refusals' sentences
+ * promise. The refusal comes with the request, or from the commit job.
  */
 export function commitNeedsRescan(err: unknown): boolean {
   const code = err instanceof JobFailedError ? err.code : apiErrorMachineCode(err);
-  return code === "TRIP_CHANGED";
+  return code === "TRIP_CHANGED" || code === "DRAFT_EXPIRED";
 }
 
 /** The trip a refused commit says already exists (409 `ALREADY_COMMITTED`). */

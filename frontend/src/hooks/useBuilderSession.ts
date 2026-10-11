@@ -74,7 +74,7 @@ export type CommitView =
   | { kind: "idle" }
   | { kind: "running" }
   | { kind: "blocked"; blocked: CommitBlocked }
-  /** `canScanAgain`: only a new scan mends it (the trip changed since the scan). */
+  /** `canScanAgain`: only a new scan mends it (the trip changed, or the draft is gone). */
   | { kind: "failed"; message: string; canScanAgain: boolean }
   | { kind: "unknown" }
   | { kind: "already"; tripId: string | null }

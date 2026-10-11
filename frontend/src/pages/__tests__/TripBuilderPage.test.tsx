@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, matchRoutes, useLocation } from "react-rou
 import { existingDraft, station } from "../../lib/tripBuilder/__tests__/existingFixture";
 import {
   DRAFT_ID,
+  FLIGHT_ELSEWHERE,
   FLIGHT_OUT,
   KEY,
   reviewDraft,
@@ -542,6 +543,37 @@ describe("saving", () => {
       edits: [],
       commitKey: expect.stringMatching(/^[0-9a-f-]{36}$/),
     });
+  });
+
+  it("offers the scan again, keeping the edits, when the draft expired before the commit", async () => {
+    mocks.commit.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 404, data: { error: "x", code: "DRAFT_EXPIRED" } },
+    });
+    mocks.scan.mockResolvedValue({ jobId: NEXT_JOB });
+    mocks.waitForJob.mockReturnValue(new Promise(() => undefined));
+    await renderDraft();
+    fireEvent.click(screen.getAllByRole("switch", { name: /ZZ202/ })[0]);
+    fireEvent.click(createButton());
+    expect(await screen.findByText("tripBuilder:errors.commit.draftExpired")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.failed.scanAgain" }));
+    await waitFor(() => expect(where()).toBe(`/trips/builder?job=${NEXT_JOB}`));
+    expect(mocks.scan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Southern loop",
+        startDay: "2031-05-02",
+        endDay: "2031-05-07",
+        target: { kind: "new" },
+      })
+    );
+    const edit = { type: "setFlightTick", flightId: FLIGHT_ELSEWHERE, ticked: true };
+    expect(JSON.parse(sessionStorage.getItem(`tb:carry:${NEXT_JOB}`) ?? "null")).toMatchObject({
+      edits: [edit],
+      commitKey: expect.stringMatching(/^[0-9a-f-]{36}$/),
+    });
+    // The edits are still in the stored review, so the new draft's load replays them.
+    expect(JSON.parse(sessionStorage.getItem(KEY_NAME) ?? "null")?.edits).toEqual([edit]);
   });
 
   it("saves an album-only scan on Create, which is its confirmation", async () => {

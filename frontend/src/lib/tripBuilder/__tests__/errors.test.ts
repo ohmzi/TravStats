@@ -128,6 +128,10 @@ describe("commitNeedsRescan", () => {
     expect(commitNeedsRescan(new JobFailedError("TRIP_CHANGED", 409))).toBe(true);
   });
 
+  it("is true for a draft that expired before the commit: scanning again is the way out", () => {
+    expect(commitNeedsRescan(refused(404, { error: "x", code: "DRAFT_EXPIRED" }))).toBe(true);
+  });
+
   it("is false for every other failure, which a new scan would not mend", () => {
     expect(commitNeedsRescan(refused(409, { error: "x", code: "WINDOW_CHANGED" }))).toBe(false);
     expect(commitNeedsRescan(refused(500))).toBe(false);

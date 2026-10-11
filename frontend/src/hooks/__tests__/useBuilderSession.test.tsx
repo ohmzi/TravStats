@@ -510,6 +510,20 @@ describe("saving", () => {
     });
   });
 
+  it("offers a new scan when the draft has expired, the way its sentence promises", async () => {
+    mocks.commit.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 404, data: { error: "x", code: "DRAFT_EXPIRED" } },
+    });
+    const hook = await ready();
+    await act(() => hook.result.current.session.submit());
+    expect(hook.result.current.session.commit).toEqual({
+      kind: "failed",
+      message: "tripBuilder:errors.commit.draftExpired",
+      canScanAgain: true,
+    });
+  });
+
   it("gives the wait when the server says to slow down", async () => {
     mocks.commit.mockRejectedValue({
       isAxiosError: true,
