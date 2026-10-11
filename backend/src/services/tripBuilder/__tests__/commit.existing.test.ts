@@ -65,6 +65,7 @@ describe("writeCommit for an existing trip", () => {
   ): CommitPlan {
     const existing: ExistingCommitPlan = {
       tripId: fx.tripId,
+      offeredStopIds: [fx.stop.museum, fx.stop.harbour],
       roadtrips: [],
       stopUpdates: [],
       stopRemoveIds: [],
@@ -103,6 +104,8 @@ describe("writeCommit for an existing trip", () => {
     name: "Northvale loop",
     rename: false,
     stations,
+    // The fixture route holds these four: what every plan in this file offered.
+    offeredIds: Object.values(fx.station),
     legModes: stations.slice(1).map(() => undefined),
     resetLegs: [],
     noop: false,
@@ -383,11 +386,13 @@ describe("writeCommit for an existing trip", () => {
     expect(result.roadtrips[0].createdLegs).toEqual([{ fromStopId: a, toStopId: b }]);
   });
 
-  it("refuses a mode for a leg it keeps, and writes nothing", async () => {
+  it("answers 409 TRIP_CHANGED for a mode meant for a leg another write kept, and writes nothing", async () => {
     const [a, b, c, s] = [fx.station.a, fx.station.b, fx.station.c, fx.station.s];
     // A stale snapshot: the leg A>B is stored and not reset, so a ferry mode for
-    // it would leave a ferry carrying a road's geometry. The commit must fail
-    // instead, and the date change made in the same write must roll back with it.
+    // it would leave a ferry carrying a road's geometry. The plan is no longer
+    // the trip's, so the commit answers TRIP_CHANGED (a new scan mends it) rather
+    // than the create-only 400 the station editor gives; the date change made in
+    // the same write must roll back with it.
     await expect(
       writeCommit(
         plan({
@@ -419,7 +424,7 @@ describe("writeCommit for an existing trip", () => {
           ],
         })
       )
-    ).rejects.toMatchObject({ statusCode: 400 });
+    ).rejects.toMatchObject({ statusCode: 409, code: "TRIP_CHANGED" });
     const leg = (await legs()).find((l) => l.fromStopId === a && l.toStopId === b);
     expect(leg).toMatchObject({ mode: "road", source: "routed" });
     const row = await prisma.tripStop.findUniqueOrThrow({ where: { id: a } });

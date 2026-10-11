@@ -173,7 +173,7 @@ export async function writeCommit(plan: CommitPlan): Promise<PhaseBResult> {
       const roadtrips = await writeRoadtrips(tx, plan, tripId);
       let stopsDiff: RoadtripDiff | undefined;
       if (plan.existing) {
-        const updated = await writeExistingTarget(tx, plan.userId, plan.existing);
+        const updated = await writeExistingTarget(tx, plan.userId, plan.existing, stopIds);
         roadtrips.push(...updated.roadtrips);
         stopsDiff = updated.stopsDiff;
       }
@@ -345,7 +345,9 @@ async function afterCommit(
  * C and D (routing, statuses, findings, the album) only add to the result.
  *
  * `blocked` is a SUCCESS that wrote nothing: the page offers to fix the key or
- * to save the trip without its album.
+ * to save the trip without its album. A failure inside B that named a code
+ * that implies a fix (`TRIP_CHANGED`: scan again) is re-thrown as it is; every
+ * other one is the generic `COMMIT_FAILED`.
  */
 export async function runCommitJob(draft: StoredDraft, plan: CommitPlan): Promise<CommitJobResult> {
   let album: Extract<AlbumPreflight, { ok: true }> | null = null;
@@ -367,6 +369,10 @@ export async function runCommitJob(draft: StoredDraft, plan: CommitPlan): Promis
       { operation: "trip_builder.commit_failed", draftId: draft.id, error: errorText(error) },
       "Commit rolled back"
     );
+    // A throw from the write's own re-checks names its cause; TRIP_CHANGED in
+    // particular tells the page a new scan is the way forward, so it must not be
+    // flattened into the generic failure.
+    if (error instanceof AppError && error.code === "TRIP_CHANGED") throw error;
     throw new AppError("Commit failed", 500, "COMMIT_FAILED");
   }
 

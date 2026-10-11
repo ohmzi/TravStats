@@ -266,7 +266,8 @@ registry.registerPath({
     "`stay` (with the caller's own `lodgingStayId`), `free`, `pass` (optionally with the " +
     "caller's own `placeId`; 404 for another account's place) or `via` (a route " +
     "correction with no date and possibly no name; 400 `VIA_POINT_ON_TIMELINE` for a " +
-    "trip's timeline stop). A timeline stop " +
+    "trip's timeline stop, 400 `LEG_MODE_CONFLICT` for a mode asked of a leg the write " +
+    "keeps). A timeline stop " +
     "dropped from the list goes back to its trip rather than being deleted.",
   tags: ["Roadtrips"],
   request: {

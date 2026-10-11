@@ -424,6 +424,29 @@ describe("extendPlanForExisting", () => {
       expect(plan.existing?.roadtrips[0].stations.map((s) => s.id)).toContain(fx.station.c);
     });
 
+    it("re-verifies the route inside the write: a station added after the plan is refused, not deleted", async () => {
+      // The plan is validated against the trip as it was; between then and the
+      // job's transaction the owner can add a station (the album preflight alone
+      // is seconds). `replaceStationsInTx` deletes by omission, so without an
+      // in-transaction re-read the new station would vanish with no error and no
+      // diff line.
+      const plan = await prepareCommit(fx.userId, await storedDraft(), body());
+      const added = await addStation(fx.roadtripId, 4, {
+        title: "Roadside camp",
+        at: FX.southbridge,
+        startDay: "2031-05-09",
+        endDay: "2031-05-10",
+        overnight: true,
+      });
+
+      await expect(writeCommit(plan)).rejects.toMatchObject({
+        statusCode: 409,
+        code: "TRIP_CHANGED",
+      });
+      expect(await prisma.tripStop.findUnique({ where: { id: added } })).not.toBeNull();
+      await prisma.tripStop.deleteMany({ where: { id: added } });
+    });
+
     it("writes a renamed matched roadtrip's reviewed name in place", async () => {
       // The scan saw Northvale alone, so the station list is the stored one; only the
       // reviewed name differs, and it must reach the route row.
@@ -803,5 +826,50 @@ describe("extendPlanForExisting: timeline stops", () => {
       extendPlanForExisting(fx.userId, scanned, stopsBody(), stopsPlan())
     ).rejects.toMatchObject({ code: "TRIP_CHANGED" });
     await prisma.tripStop.delete({ where: { id: added.id } });
+  });
+
+  it("re-verifies the stops inside the write: one that moved into a roadtrip is refused", async () => {
+    const plan = await extendPlanForExisting(
+      fx.userId,
+      await stopsDraft(),
+      stopsBody(),
+      stopsPlan()
+    );
+    // The plan updates the museum stop; between the plan and the job's transaction
+    // the stop joined a roadtrip (the station editor does this). The plan's update
+    // would not find it and would surface as a generic COMMIT_FAILED instead.
+    await prisma.tripStop.update({
+      where: { id: fx.stop.museum },
+      data: { routeId: fx.roadtripId, routeOrderIdx: 4 },
+    });
+
+    await expect(writeCommit(plan)).rejects.toMatchObject({
+      statusCode: 409,
+      code: "TRIP_CHANGED",
+    });
+    const row = await prisma.tripStop.findUniqueOrThrow({ where: { id: fx.stop.museum } });
+    expect(row.title).toBe("Kelmore Museum");
+    await prisma.tripStop.update({
+      where: { id: fx.stop.museum },
+      data: { routeId: null, routeOrderIdx: null },
+    });
+  });
+
+  it("re-verifies the stops inside the write: one added after the plan is refused", async () => {
+    const plan = await extendPlanForExisting(
+      fx.userId,
+      await stopsDraft(),
+      stopsBody(),
+      stopsPlan()
+    );
+    const added = await prisma.tripStop.create({
+      data: { tripId: fx.tripId, title: "Later stop", lat: -45.0, lon: 168.7 },
+    });
+
+    await expect(writeCommit(plan)).rejects.toMatchObject({
+      statusCode: 409,
+      code: "TRIP_CHANGED",
+    });
+    await prisma.tripStop.deleteMany({ where: { id: added.id } });
   });
 });

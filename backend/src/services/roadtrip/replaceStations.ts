@@ -94,8 +94,8 @@ export interface ReplaceStationsOptions {
    * Applies only to legs THIS write creates. A leg the list keeps (its two
    * stations were already joined) has a mode, a line and costs of its own, and
    * a different mode would leave a ferry carrying a road's geometry; asking
-   * for one is a 400, and the mode a kept leg already has is accepted. To
-   * change a leg, delete it first and write the list again.
+   * for one is a 400 (`LEG_MODE_CONFLICT`), and the mode a kept leg already has
+   * is accepted. To change a leg, delete it first and write the list again.
    */
   legModes?: ReadonlyArray<LegMode | undefined>;
 }
@@ -135,7 +135,13 @@ async function applyLegModes(
     const key = pairKey(fromStopId, toStopId);
     if (!created.has(key)) {
       if (keptModes.get(key) !== mode) {
-        throw new AppError("Leg modes apply only to legs this write creates", 400);
+        // The station editor's 400; the re-sync commit reads the code as a stale
+        // plan of its own (TRIP_CHANGED) — see `services/tripBuilder/commitExisting.ts`.
+        throw new AppError(
+          "Leg modes apply only to legs this write creates",
+          400,
+          "LEG_MODE_CONFLICT"
+        );
       }
     } else if (mode !== defaultMode) {
       await tx.tripRouteLeg.updateMany({

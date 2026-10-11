@@ -13,6 +13,7 @@ jest.mock("../../tour/routing/resolveProvider", () => ({
 }));
 
 import { prisma } from "../../../db";
+import { AppError } from "../../../middleware/errorHandler";
 import { setClockForTests } from "../../../shared/time/clock";
 import { hashPassword } from "../../../utils/password";
 import * as replaceModule from "../../roadtrip/replaceStations";
@@ -182,6 +183,26 @@ describe("runCommitJob", () => {
     expect(getDraft(userId, DRAFT_ID)?.status).toBe("ready");
   });
 
+  it("keeps a TRIP_CHANGED code from phase B instead of the generic COMMIT_FAILED", async () => {
+    // The write's in-transaction guard refuses a plan the trip moved past. The
+    // page offers a new scan on that code, so the job must not flatten it into
+    // the generic failure.
+    jest
+      .spyOn(replaceModule, "replaceStationsInTx")
+      .mockRejectedValueOnce(
+        new AppError("The trip changed since the scan — scan again", 409, "TRIP_CHANGED")
+      );
+    const { draft, plan } = begin(false);
+
+    await expect(runCommitJob(draft, plan)).rejects.toMatchObject({
+      statusCode: 409,
+      code: "TRIP_CHANGED",
+    });
+
+    expect(await prisma.trip.count({ where: { userId } })).toBe(0);
+    expect(getDraft(userId, DRAFT_ID)?.status).toBe("ready");
+  });
+
   it("keeps the trip committed when the album step throws, and refuses a second commit", async () => {
     mockWriteAlbum.mockRejectedValue(new Error("immich exploded"));
     const { draft, plan } = begin(true);
@@ -279,6 +300,8 @@ describe("runCommitJob", () => {
         },
         existing: {
           tripId: trip.id,
+          // The trip this fixture makes holds no timeline stops for a re-sync.
+          offeredStopIds: [],
           roadtrips: [],
           stopUpdates: [],
           stopRemoveIds: [],

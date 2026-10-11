@@ -42,10 +42,15 @@ import type { CommitPlan, DraftArea, StoredDraft, StopPlan } from "./types";
 const mismatch = (field: "areas" | "stations"): AppError =>
   new AppError("The commit does not match the draft", 400, "DRAFT_MISMATCH", field);
 
-const tripChanged = (): AppError =>
+/**
+ * The re-sync's signature refusal: the draft knows a list that is no longer the
+ * trip's, so only a new scan can mend it. Shared with `commitExisting`, which
+ * re-checks the same sets inside the write's transaction.
+ */
+export const tripChanged = (): AppError =>
   new AppError("The trip changed since the scan — scan again", 409, "TRIP_CHANGED");
 
-function sameSet(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+export function sameSet(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
   return a.size === b.size && [...a].every((id) => b.has(id));
 }
 
@@ -129,10 +134,11 @@ function buildRoadtripWrite(
   // The review showed the stored name; a rename since makes that field stale.
   if (offer.name !== current.name) throw tripChanged();
 
-  // The roadtrip must hold exactly the stations the draft saw.
+  // The roadtrip must hold exactly the stations the draft saw. The same set
+  // travels with the write, so the transaction re-checks it before deleting.
+  const offeredIds = new Set([...offer.matchedIds, ...offer.notSeenIds]);
   const currentIds = new Set(current.stations.filter((s) => s.night !== "via").map((s) => s.id));
-  if (!sameSet(currentIds, new Set([...offer.matchedIds, ...offer.notSeenIds])))
-    throw tripChanged();
+  if (!sameSet(currentIds, offeredIds)) throw tripChanged();
   // Every not-seen station was decided, once.
   if (!sameSet(new Set([...area.keepNotSeen, ...area.removeNotSeen]), offer.notSeenIds)) {
     throw mismatch("stations");
@@ -267,6 +273,7 @@ function buildRoadtripWrite(
     name: area.name,
     rename,
     stations,
+    offeredIds: [...offeredIds],
     legModes,
     resetLegs,
     noop,
@@ -375,6 +382,7 @@ export async function extendPlanForExisting(
 
   const existing: ExistingCommitPlan = {
     tripId: offered.tripId,
+    offeredStopIds: [...offered.stops.matchedIds, ...offered.stops.notSeenIds],
     roadtrips: writes,
     stopUpdates: stops.updates,
     stopRemoveIds: stops.removeIds,

@@ -177,6 +177,13 @@ export interface ExistingRoadtripWrite {
   rename: boolean;
   /** The complete ordered station list: matched and kept stations carry their id, new ones do not. */
   stations: StationsInput["stations"];
+  /**
+   * Every stored station the draft offered — matched and not seen, route corrections
+   * excluded. The write re-reads the route inside its transaction and refuses
+   * (TRIP_CHANGED) unless it holds exactly these: `replaceStationsInTx` deletes by
+   * omission, so a station added since the plan would be destroyed with no error.
+   */
+  offeredIds: readonly string[];
   /** legModes[i] joins stations[i] and stations[i + 1]; undefined: leave the leg as it is. */
   legModes: Array<LegMode | undefined>;
   /** Stored legs whose mode the user changed: deleted, so they come back straight and are routed again. */
@@ -197,6 +204,13 @@ export interface ExistingStopUpdate {
 
 export interface ExistingCommitPlan {
   tripId: string;
+  /**
+   * The timeline stop ids the draft offered (the candidates `loadExistingState`
+   * read). The write re-reads them inside its transaction and refuses
+   * (TRIP_CHANGED) if the set moved: a stop added, moved into a roadtrip or
+   * removed since the plan would otherwise be updated blind or answer 500.
+   */
+  offeredStopIds: readonly string[];
   roadtrips: ExistingRoadtripWrite[];
   stopUpdates: ExistingStopUpdate[];
   stopRemoveIds: string[];

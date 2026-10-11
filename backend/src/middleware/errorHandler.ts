@@ -212,6 +212,11 @@ export type ApiErrorCode =
   | "ROADTRIP_HAS_TRIP_PHOTOS"
   /** A roadtrip station with a night was sent as a route correction. */
   | "VIA_POINT_HAS_NIGHT"
+  /** A leg mode was sent for a leg the write keeps — it would leave a ferry
+   *  carrying a road's geometry (`services/roadtrip/replaceStations.ts`). The
+   *  station editor answers 400; the photo trip builder's re-sync reads it as a
+   *  stale plan and answers `TRIP_CHANGED` instead. */
+  | "LEG_MODE_CONFLICT"
   /** Backup / restore job failures — see `services/backup/backupFailure.ts`.
    *  A tool (pg_dump, psql, tar) is not installed where the server runs. */
   | "BACKUP_TOOL_MISSING"

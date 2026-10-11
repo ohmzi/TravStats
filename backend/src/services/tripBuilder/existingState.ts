@@ -138,6 +138,24 @@ export async function loadAlbumLinks(
   );
 }
 
+/**
+ * The timeline stops a re-sync may touch: no wrapped entry (`sourceId`), no domain
+ * (a hotel, a hike), not in a roadtrip, not a route correction, and placed. Shared
+ * with `commitExisting`, which re-runs it inside the write's transaction: a set
+ * that moved since the scan must refuse (`TRIP_CHANGED`), not update blind.
+ */
+export function candidateStopsWhere(tripId: string): Prisma.TripStopWhereInput {
+  return {
+    tripId,
+    routeId: null,
+    domain: null,
+    sourceId: null,
+    viaPoint: false,
+    lat: { not: null },
+    lon: { not: null },
+  };
+}
+
 export async function loadExistingState(
   userId: string,
   tripId: string,
@@ -170,19 +188,10 @@ export async function loadExistingState(
   });
   if (!trip) throw new AppError("Trip not found", 404);
 
-  // Timeline stops that wrap an entry (`sourceId`), carry a domain (a hotel, a hike) or sit in a
-  // roadtrip belong to other features; the re-sync never lists, moves or deletes them.
+  // Stops that belong to other features are not candidates — see `candidateStopsWhere`.
   const [stops, albums] = await Promise.all([
     prisma.tripStop.findMany({
-      where: {
-        tripId,
-        routeId: null,
-        domain: null,
-        sourceId: null,
-        viaPoint: false,
-        lat: { not: null },
-        lon: { not: null },
-      },
+      where: candidateStopsWhere(tripId),
       orderBy: [{ orderIdx: "asc" }, { startDate: "asc" }],
       select: STOP_FIELDS,
     }),
