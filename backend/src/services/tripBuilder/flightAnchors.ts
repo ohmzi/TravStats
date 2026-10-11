@@ -332,22 +332,31 @@ function sideOf(
 }
 
 /**
- * Ground between two flights at one airport that is only a connection: for two precise flights,
- * less than LAYOVER_MAX_H between landing and the next departure; otherwise landing and
- * departure on one day. Either way every photo lies within LAYOVER_RADIUS_KM of the airport.
+ * The layover window without its radius rule: `arriving` lands where `departing`
+ * leaves, and the ground between them is a gap of `0 ≤ ground < LAYOVER_MAX_H` —
+ * or, when either flight has no time, both fall on one day. `isLayover` is this
+ * plus the radius; the stopover source's branch (b) (spec 2026-10-11 §2,
+ * amended) takes the window alone.
+ */
+export function withinLayoverWindow(arriving: FlightAnchor, departing: FlightAnchor): boolean {
+  if (!sharesAirport(arriving, departing)) return false;
+  if (arriving.arrMs !== null && departing.depMs !== null) {
+    const ground = departing.depMs - arriving.arrMs;
+    return ground >= 0 && ground < LAYOVER_MAX_H * HOUR_MS;
+  }
+  return arriving.arrDay === departing.depDay;
+}
+
+/**
+ * Ground between two flights at one airport that is only a connection:
+ * `withinLayoverWindow`, and every photo within LAYOVER_RADIUS_KM of the airport.
  */
 function isLayover(
   arriving: FlightAnchor,
   departing: FlightAnchor,
   members: readonly PhotoPoint[]
 ): boolean {
-  if (!sharesAirport(arriving, departing)) return false;
-  if (arriving.arrMs !== null && departing.depMs !== null) {
-    const ground = departing.depMs - arriving.arrMs;
-    if (ground < 0 || ground >= LAYOVER_MAX_H * HOUR_MS) return false;
-  } else if (arriving.arrDay !== departing.depDay) {
-    return false;
-  }
+  if (!withinLayoverWindow(arriving, departing)) return false;
   return members.every((photo) => {
     const at = coordOf(photo);
     return at !== null && distanceKm(at, arriving.arr) <= LAYOVER_RADIUS_KM;

@@ -370,3 +370,384 @@ describe("buildDraftWith: two qualifying stopovers in one city and year", () => 
     expect(first.title).not.toBe(second.title);
   });
 });
+
+// ─── A stretch the areas call an area (branch (b), spec §2 amended) ──────────
+
+const G1 = "1a1b2c3d-4e5f-4061-8a2b-3c4d5e6f7a8b";
+const G2 = "2b2c3d4e-5f60-4172-9b3c-4d5e6f7a8b9c";
+
+/**
+ * The hub-city geometry branch (b) exists for: the city sits about 34 km from
+ * the airport the two flights share — past the 30 km layover radius, so the
+ * area rules never see a layover.
+ */
+const DUNHOLME: Place = { lat: -44.744, lon: 168.7, city: "Dunholme", state: "Westshire" };
+
+const HUB_IN = preciseFlight({
+  id: G1,
+  label: "ZZ109 KMR→NVL",
+  depIata: "KMR",
+  arrIata: "NVL",
+  dep: { lat: -43.49, lon: 172.53 },
+  arr: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  depLocal: "2031-05-02T08:00",
+  arrLocal: "2031-05-02T10:05",
+});
+const HUB_OUT = preciseFlight({
+  id: G2,
+  label: "ZZ110 NVL→SLM",
+  depIata: "NVL",
+  arrIata: "SLM",
+  dep: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  arr: { lat: -16.52, lon: -68.12 },
+  depLocal: "2031-05-02T18:00",
+  arrLocal: "2031-05-02T20:30",
+});
+
+/** A control pair: the inbound flight lands at a different airport, so the stretch is between two different airports. */
+const AWAY_HUB_IN = preciseFlight({
+  id: G1,
+  label: "ZZ109 KMR→WKA",
+  depIata: "KMR",
+  arrIata: "WKA",
+  dep: { lat: -43.49, lon: 172.53 },
+  arr: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  depLocal: "2031-05-02T08:00",
+  arrLocal: "2031-05-02T10:05",
+});
+
+/** Every photo is in the city, past the 30 km radius: the area rules never see a layover. */
+const AT_DUNHOLME = photosAt("dh", DUNHOLME, [
+  "2031-05-02T11:00",
+  "2031-05-02T12:00",
+  "2031-05-02T13:00",
+  "2031-05-02T14:00",
+  "2031-05-02T15:00",
+]);
+
+const hubDeps = (
+  inbound: typeof HUB_IN,
+  assets: ReturnType<typeof photosAt> = AT_DUNHOLME,
+  over: Partial<BuilderDeps> = {}
+) =>
+  builderDeps([...assets], {
+    loadFlights: async () => [inbound, HUB_OUT],
+    airports: async () =>
+      new Map([
+        [
+          "NVL",
+          { name: "Northvale International Airport", lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+        ],
+      ]),
+    ...over,
+  });
+
+describe("buildDraftWith: a stretch between two flights sharing an airport, its city past the layover radius", () => {
+  it("reclassifies the area into a stopover candidate that keeps its own stations and legs", async () => {
+    const draft = await buildDraftWith(hubDeps(HUB_IN), USER, INPUT, () => undefined);
+    const { dto } = draft;
+    expect(dto.stopovers).toHaveLength(1);
+    const [stopover] = dto.stopovers ?? [];
+    expect(stopover).toMatchObject({
+      key: `${G1}#${G2}`,
+      city: "Dunholme",
+      title: "Dunholme 2031 Road Trip",
+      day: "2031-05-02",
+      airportIata: "NVL",
+      photoCount: 5,
+      outingCount: 5,
+    });
+    // The airport anchors and the city stop the area derived, verbatim: the
+    // airport first and last (34 km from the city), the four-hour city stop between.
+    expect(stopover.stations.map((s) => s.kind)).toEqual(["airport", "brief", "airport"]);
+    expect(stopover.stations.map((s) => s.title)).toEqual(["Northvale", "Dunholme", "Northvale"]);
+    expect(stopover.stations[1].photoCount).toBe(5);
+    expect(stopover.legs).toHaveLength(2);
+    // The stretch leaves the areas: never offered twice.
+    expect(dto.areas).toEqual([]);
+    // The album list is the stretch's whole photo set, server-side only; the
+    // city stop shows through the draft's preview indexes as any station does.
+    expect(draft.stopovers[0].photoIds).toEqual(AT_DUNHOLME.map((asset) => asset.id));
+    const shown = stopover.stations[1].previewIdx.map((index) => draft.previewAssetIds[index]);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((id) => id.startsWith("dh-"))).toBe(true);
+    expect(JSON.stringify(dto)).not.toContain("dh-");
+
+    // The same geometry between two flights that do not share an airport stays
+    // an area — the control shows the candidate's stations are the area's own.
+    const control = await buildDraftWith(hubDeps(AWAY_HUB_IN), USER, INPUT, () => undefined);
+    expect(control.dto.areas).toHaveLength(1);
+    const [area] = control.dto.areas ?? [];
+    expect(area.stations.map((s) => s.key)).toEqual(stopover.stations.map((s) => s.key));
+    expect(area.stations.map((s) => s.kind)).toEqual(stopover.stations.map((s) => s.kind));
+    expect(area.stations.map((s) => s.photoCount)).toEqual(
+      stopover.stations.map((s) => s.photoCount)
+    );
+    expect(area.legs).toEqual(stopover.legs);
+    expect(control.dto.stopovers).toEqual([]);
+  });
+
+  it("offers nothing from the stretch when the outing set is one photo short", async () => {
+    // Four photos past the line and three at the airport: the outing test wants five.
+    const short = photosAt("dh4", DUNHOLME, [
+      "2031-05-02T12:00",
+      "2031-05-02T13:00",
+      "2031-05-02T14:00",
+      "2031-05-02T15:00",
+    ]);
+    const atAirport = photosAt("nva", NORTHVALE, [
+      "2031-05-02T10:10",
+      "2031-05-02T10:20",
+      "2031-05-02T10:30",
+    ]);
+    const draft = await buildDraftWith(
+      hubDeps(HUB_IN, [...atAirport, ...short]),
+      USER,
+      INPUT,
+      () => undefined
+    );
+    expect(draft.dto.stopovers).toEqual([]);
+    // Still an area — the city stop 34 km out proves the geometry was there.
+    expect(draft.dto.areas).toHaveLength(1);
+    expect(draft.dto.areas[0].stations.map((s) => s.title)).toContain("Dunholme");
+  });
+
+  it("keeps a stretch between different airports an area, city visit and all", async () => {
+    // City A → city B through Northvale: the flights do not share an airport,
+    // so nothing here is a stopover, however real the visit between them.
+    const draft = await buildDraftWith(hubDeps(AWAY_HUB_IN), USER, INPUT, () => undefined);
+    expect(draft.dto.stopovers).toEqual([]);
+    expect(draft.dto.areas).toHaveLength(1);
+    expect(draft.dto.areas[0].stations.map((s) => s.title)).toContain("Dunholme");
+  });
+
+  it("keeps a stretch longer than the layover window an area, outing or not", async () => {
+    // The same city and outing, but the outbound flight leaves the next
+    // evening: a gap of 31h55 is no layover window, so the area stays.
+    const lateOut = preciseFlight({
+      id: G2,
+      label: "ZZ110 NVL→SLM",
+      depIata: "NVL",
+      arrIata: "SLM",
+      dep: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+      arr: { lat: -16.52, lon: -68.12 },
+      depLocal: "2031-05-03T18:00",
+      arrLocal: "2031-05-03T20:30",
+    });
+    const photos = photosAt("dhb", DUNHOLME, [
+      "2031-05-02T11:00",
+      "2031-05-02T12:00",
+      "2031-05-02T13:00",
+      "2031-05-02T14:00",
+      "2031-05-02T15:00",
+      "2031-05-03T09:00",
+      "2031-05-03T10:00",
+    ]);
+    const draft = await buildDraftWith(
+      hubDeps(HUB_IN, photos, { loadFlights: async () => [HUB_IN, lateOut] }),
+      USER,
+      INPUT,
+      () => undefined
+    );
+    expect(draft.dto.stopovers).toEqual([]);
+    expect(draft.dto.areas).toHaveLength(1);
+    expect(draft.dto.areas[0].stations.map((s) => s.title)).toContain("Dunholme");
+  });
+});
+
+// ─── A layover beside two reclassified areas, one name between them ─────────
+
+const H1 = "1b2c3d4e-5f60-4172-9b3c-4d5e6f7a8b9c";
+const H2 = "2c3d4e5f-6071-4283-ac4d-5e6f7a8b9c0d";
+const H3 = "3d4e5f60-7182-4394-bd5e-6f7a8b9c0d1e";
+const H4 = "4e5f6071-8293-44a5-ce6f-7a8b9c0d1e2f";
+const H5 = "5f607182-93a4-45b6-df70-8b9c0d1e2f30";
+const H6 = "60718293-a4b5-46c7-e081-9c0d1e2f3041";
+
+/** Immich names the whole bay "Elmwood": the airport-side stop at 13 km and the far city at 34 km both carry the name. */
+const FAR_ELMWOOD: Place = { lat: -44.744, lon: 168.7, city: "Elmwood", state: "Westshire" };
+
+const E1 = preciseFlight({
+  id: H1,
+  label: "ZZ111 KMR→NVL",
+  depIata: "KMR",
+  arrIata: "NVL",
+  dep: { lat: -43.49, lon: 172.53 },
+  arr: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  depLocal: "2031-05-02T08:00",
+  arrLocal: "2031-05-02T10:05",
+});
+const E2 = preciseFlight({
+  id: H2,
+  label: "ZZ112 NVL→SLM",
+  depIata: "NVL",
+  arrIata: "SLM",
+  dep: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  arr: { lat: -16.52, lon: -68.12 },
+  depLocal: "2031-05-02T18:00",
+  arrLocal: "2031-05-02T20:30",
+});
+const E3 = preciseFlight({
+  id: H3,
+  label: "ZZ113 SLM→NVL",
+  depIata: "SLM",
+  arrIata: "NVL",
+  dep: { lat: -16.52, lon: -68.12 },
+  arr: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  depLocal: "2031-05-06T08:00",
+  arrLocal: "2031-05-06T10:05",
+});
+const E4 = preciseFlight({
+  id: H4,
+  label: "ZZ114 NVL→SLM",
+  depIata: "NVL",
+  arrIata: "SLM",
+  dep: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  arr: { lat: -16.52, lon: -68.12 },
+  depLocal: "2031-05-06T18:00",
+  arrLocal: "2031-05-06T20:30",
+});
+const E5 = preciseFlight({
+  id: H5,
+  label: "ZZ115 SLM→NVL",
+  depIata: "SLM",
+  arrIata: "NVL",
+  dep: { lat: -16.52, lon: -68.12 },
+  arr: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  depLocal: "2031-05-07T08:00",
+  arrLocal: "2031-05-07T10:05",
+});
+const E6 = preciseFlight({
+  id: H6,
+  label: "ZZ116 NVL→SLM",
+  depIata: "NVL",
+  arrIata: "SLM",
+  dep: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  arr: { lat: -16.52, lon: -68.12 },
+  depLocal: "2031-05-07T18:00",
+  arrLocal: "2031-05-07T20:30",
+});
+
+const MIXED_INPUT: ScanInput = {
+  name: "Southward twice",
+  startDay: "2031-05-02",
+  endDay: "2031-05-07",
+  inspect: true,
+  createAlbum: false,
+  target: { kind: "new" },
+};
+
+describe("buildDraftWith: a layover and two reclassified areas sharing one name", () => {
+  it("keeps branch (a) exactly as it was and mints the branch-(b) titles after it", async () => {
+    const assets = [
+      ...photosAt("nvl", NORTHVALE, ["2031-05-02T10:10", "2031-05-02T10:20"]),
+      ...photosAt("emw", ELMWOOD, [
+        "2031-05-02T11:00",
+        "2031-05-02T12:00",
+        "2031-05-02T13:00",
+        "2031-05-02T14:00",
+        "2031-05-02T15:00",
+      ]),
+      ...photosAt("fwd", FAR_ELMWOOD, [
+        "2031-05-06T11:00",
+        "2031-05-06T12:00",
+        "2031-05-06T13:00",
+        "2031-05-06T14:00",
+        "2031-05-06T15:00",
+      ]),
+      ...photosAt("fwe", FAR_ELMWOOD, [
+        "2031-05-07T11:00",
+        "2031-05-07T12:00",
+        "2031-05-07T13:00",
+        "2031-05-07T14:00",
+        "2031-05-07T15:00",
+      ]),
+    ];
+    const draft = await buildDraftWith(
+      builderDeps(assets, {
+        loadFlights: async () => [E1, E2, E3, E4, E5, E6],
+        airports: async () =>
+          new Map([
+            [
+              "NVL",
+              { name: "Northvale International Airport", lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+            ],
+          ]),
+      }),
+      USER,
+      MIXED_INPUT,
+      () => undefined
+    );
+    const { dto } = draft;
+    expect(dto.areas).toEqual([]);
+    expect(dto.stopovers?.map((s) => s.key)).toEqual([`${H1}#${H2}`, `${H3}#${H4}`, `${H5}#${H6}`]);
+    expect(dto.stopovers?.map((s) => s.city)).toEqual(["Elmwood", "Elmwood", "Elmwood"]);
+    // Branch (a) keeps exactly its own candidate; the two reclassified areas
+    // then take the day suffixes the one taken-titles set deals out.
+    expect(dto.stopovers?.map((s) => s.title)).toEqual([
+      "Elmwood 2031 Road Trip",
+      "Elmwood 2031 Road Trip (6 May)",
+      "Elmwood 2031 Road Trip (7 May)",
+    ]);
+    const [layover] = dto.stopovers ?? [];
+    expect(layover).toMatchObject({ day: "2031-05-02", airportIata: "NVL", photoCount: 7 });
+    expect(layover.stations.map((s) => s.kind)).toEqual(["airport", "visit"]);
+  });
+});
+
+// ─── The photos stay in the days and the album; the night plan is untouched ──
+
+describe("buildDraftWith: the reclassification leaves the nights and the day totals alone", () => {
+  const withDestination = (inbound: typeof HUB_IN) =>
+    builderDeps([...AT_DUNHOLME, ...AT_SOUTHHOLLOW], {
+      loadFlights: async () => [inbound, HUB_OUT],
+      airports: async () =>
+        new Map([
+          [
+            "NVL",
+            { name: "Northvale International Airport", lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+          ],
+        ]),
+    });
+
+  it("keeps the night plan and the day counts of a scan that never reclassified", async () => {
+    const draft = await buildDraftWith(withDestination(HUB_IN), USER, INPUT, () => undefined);
+    const control = await buildDraftWith(
+      withDestination(AWAY_HUB_IN),
+      USER,
+      INPUT,
+      () => undefined
+    );
+    // The two scans differ only in whether the stretch left the areas.
+    expect(draft.dto.stopovers).toHaveLength(1);
+    expect(control.dto.stopovers).toEqual([]);
+    expect(draft.dto.areas).toHaveLength(1);
+    expect(draft.dto.areas[0].stations.map((s) => s.title)).toContain("Southhollow");
+    expect(control.dto.areas).toHaveLength(2);
+
+    // The night plan is the same plan, and the days count the same photos.
+    expect(draft.dto.nights).toEqual(control.dto.nights);
+    expect(Object.keys(draft.dto.nights)).toEqual(["2031-05-02"]);
+    expect(draft.dto.nights["2031-05-02"].reason).toBe("afterLanding");
+    expect(draft.dto.days.map((d) => d.photos)).toEqual(control.dto.days.map((d) => d.photos));
+    expect(draft.dto.days.map((d) => d.photos)).toEqual([5, 5]);
+    expect(draft.dto.stats).toEqual(control.dto.stats);
+
+    // The stretch's photos stay in the stats and the main album's asset ids.
+    expect(new Set(draft.albumAssetIds)).toEqual(
+      new Set([...AT_DUNHOLME, ...AT_SOUTHHOLLOW].map((asset) => asset.id))
+    );
+
+    // And no night and no day names one of the stopover's stations.
+    const stopoverKeys = new Set(
+      (draft.dto.stopovers?.[0].stations ?? []).map((station) => station.key)
+    );
+    const dayKeys = draft.dto.days.flatMap((day) => day.stationKeys);
+    const nightKeys = Object.values(draft.dto.nights).flatMap((night) => [
+      night.assign,
+      ...night.suggestedStationKeys,
+    ]);
+    expect([...dayKeys, ...nightKeys].filter((key) => stopoverKeys.has(key))).toEqual([]);
+    expect(stopoverKeys.size).toBe(3);
+  });
+});

@@ -1,9 +1,16 @@
 import type { AirportData } from "../../airportLookup";
 import { stationKeyOf } from "../stations";
-import { stopoverCity, stopoverOf, stopoverStations, stopoverTitle } from "../stopovers";
-import type { FlightAnchor, Layover, NamedCluster, PhotoPoint } from "../types";
+import {
+  stopoverAreaCity,
+  stopoverCity,
+  stopoverFromArea,
+  stopoverOf,
+  stopoverStations,
+  stopoverTitle,
+} from "../stopovers";
+import type { FlightAnchor, Layover, NamedCluster, PhotoPoint, PlanLeg } from "../types";
 import { makePhoto } from "./photoFixtures";
-import { anchor } from "./planFixtures";
+import { anchor, groundArea, planOf, station } from "./planFixtures";
 import { NORTHVALE } from "./placeFixtures";
 
 /**
@@ -149,5 +156,134 @@ describe("stopoverOf", () => {
       ferryEvidence: null,
     });
     expect(stopover.legs[0].chordKm).toBeCloseTo(6.0, 1);
+  });
+});
+
+// ─── Branch (b): the area's own stations become the tour (spec §2 amended) ───
+
+/** The flight that landed before the stretch, and the one it precedes. */
+const AREA_IN: FlightAnchor = anchor({ id: "f1" });
+const AREA_OUT: FlightAnchor = anchor({ id: "f2", label: "ZZ102 NVL→SLM", depIata: "NVL" });
+
+/** The whole stretch, two hours at the airport and a day in the city. */
+const AREA = groundArea({
+  photoIds: ["p1", "p2", "p3", "p4", "p5"],
+  seaPhotoIds: ["p6"],
+  afterFlightId: "f1",
+  beforeFlightId: "f2",
+  startDay: "2031-05-02",
+  endDay: "2031-05-02",
+});
+
+const AREA_LEGS: PlanLeg[] = [
+  {
+    fromKey: "k-airport",
+    toKey: "k-city",
+    chordKm: 34,
+    routedKm: null,
+    mode: "road",
+    ferryEvidence: null,
+  },
+];
+
+/** The area's own plan, as the scan built it: the airport anchors and the city stop. */
+const AREA_PLAN = planOf(
+  [
+    station("k-airport", {
+      title: "Northvale",
+      titleSource: "airport",
+      kind: "airport",
+      photoCount: 0,
+    }),
+    station("k-city", { title: "Elmwood", kind: "visit", photoCount: 5, previewIdx: [0, 1] }),
+  ],
+  { legs: AREA_LEGS }
+);
+
+/** Five photos in the city, all past the 5 km line, the first one at 11:00. */
+const AREA_OUTING = ["p1", "p2", "p3", "p4", "p5"].map((id, index) =>
+  makePhoto({ id, local: `2031-05-02 ${String(11 + index).padStart(2, "0")}:00` })
+);
+
+describe("stopoverFromArea (branch (b))", () => {
+  it("keeps the area's own stations and legs and stores the whole stretch as the album list", () => {
+    const stopover = stopoverFromArea({
+      area: AREA,
+      inFlight: AREA_IN,
+      outFlight: AREA_OUT,
+      plan: AREA_PLAN,
+      airport: AIRPORT_ROW,
+      outing: AREA_OUTING,
+      takenTitles: new Set<string>(),
+    });
+    expect(stopover).not.toBeNull();
+    expect(stopover).toMatchObject({
+      key: "f1#f2",
+      city: "Elmwood",
+      title: "Elmwood 2031 Road Trip",
+      day: "2031-05-02",
+      inFlightId: "f1",
+      outFlightId: "f2",
+      airportIata: "NVL",
+    });
+    // Verbatim: the stations, their keys and previews, and the legs as the areas built them.
+    expect(stopover?.stations).toEqual(AREA_PLAN.stations);
+    expect(stopover?.legs).toEqual(AREA_LEGS);
+    // The album list is the stretch's movement and at-sea photos together.
+    expect(stopover?.photoIds).toEqual(["p1", "p2", "p3", "p4", "p5", "p6"]);
+  });
+
+  it("takes the day and title suffix from the first outing photo", () => {
+    const stopover = stopoverFromArea({
+      area: AREA,
+      inFlight: AREA_IN,
+      outFlight: AREA_OUT,
+      plan: AREA_PLAN,
+      airport: AIRPORT_ROW,
+      outing: AREA_OUTING,
+      takenTitles: new Set(["Elmwood 2031 Road Trip"]),
+    });
+    expect(stopover?.title).toBe("Elmwood 2031 Road Trip (2 May)");
+  });
+
+  it("refuses an area with no ground station to name it after", () => {
+    const airportOnly = planOf([
+      station("k-airport", { title: "Northvale", titleSource: "airport", kind: "airport" }),
+    ]);
+    expect(
+      stopoverFromArea({
+        area: AREA,
+        inFlight: AREA_IN,
+        outFlight: AREA_OUT,
+        plan: airportOnly,
+        airport: AIRPORT_ROW,
+        outing: AREA_OUTING,
+        takenTitles: new Set<string>(),
+      })
+    ).toBeNull();
+  });
+
+  it("names the city after the biggest ground station, the airport's city when it has only coordinates", () => {
+    expect(
+      stopoverAreaCity(
+        [
+          station("k1", { title: "Elmwood", photoCount: 5 }),
+          station("k2", { title: "Port Carrow", photoCount: 9 }),
+        ],
+        AIRPORT_ROW
+      )
+    ).toBe("Port Carrow");
+    expect(
+      stopoverAreaCity(
+        [
+          station("k1", {
+            title: `${NORTHVALE.lat}, ${NORTHVALE.lon}`,
+            titleSource: "coords",
+            photoCount: 9,
+          }),
+        ],
+        AIRPORT_ROW
+      )
+    ).toBe("Northvale");
   });
 });

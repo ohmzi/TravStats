@@ -354,12 +354,17 @@ export async function buildDraftWith(
   const built = await namesPhase(deps, collected, movement, taken);
   report("roads");
   const roaded = await roadsPhase(deps, movement, built);
-  // Every layover that passed the outing test gets its tour; no area plan is touched here.
-  const stopoverPlans = await stopoversPhase(deps, collected, split, movement, taken);
+  // Every layover that passed the outing test gets its tour, and a flights-bounded
+  // area whose own photos did leaves the areas for a stopover (spec §2 branch (b)).
+  const stopoverPass = await stopoversPhase(deps, collected, split, movement, roaded.plans, taken);
+  const stopoverPlans = stopoverPass.plans;
   report("nights");
   // The nights are attributed against the capped plans, so no night can name a
   // station of an area the draft no longer shows (finding B4-1).
-  const planCap = capFirst(roaded.plans, MAX_AREAS);
+  const planCap = capFirst(
+    roaded.plans.filter((plan) => !stopoverPass.reclassifiedAreaKeys.has(plan.key)),
+    MAX_AREAS
+  );
   const night = nightsPhase(collected, movement, planCap.kept);
 
   // The stopover stations' thumbnails join the same numbered space as the area stations'.

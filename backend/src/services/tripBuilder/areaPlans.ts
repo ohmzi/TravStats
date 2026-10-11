@@ -13,7 +13,7 @@ import { addAirportAnchors } from "./airportAnchors";
 import { applyDayPulls, attributeNights } from "./nights";
 import { keyAreas } from "./areas";
 import { buildLegs } from "./ferry";
-import { splitImplicitFlights } from "./flightAnchors";
+import { splitImplicitFlights, withinLayoverWindow } from "./flightAnchors";
 import { isMovementPhoto } from "./clean";
 import { clusterCities, clusterOfPhoto } from "./cityClusters";
 import type { CollectedWindow } from "./collect";
@@ -22,7 +22,13 @@ import { bboxOf, nameClusters } from "./nameClusters";
 import { probeLegs, snapStations, stationsWithoutRoute } from "./probe";
 import { buildSegments, classifySegments } from "./segments";
 import { buildStations } from "./stations";
-import { isStopoverCandidate, outingOf, stopoverOf, stopoverStations } from "./stopovers";
+import {
+  isStopoverCandidate,
+  outingOf,
+  stopoverFromArea,
+  stopoverOf,
+  stopoverStations,
+} from "./stopovers";
 import { TITLE_REUSE_KM } from "./thresholds";
 import type {
   AreaHome,
@@ -189,23 +195,43 @@ export interface StopoverPlan {
   previewPhotoIds: Map<string, string[]>;
 }
 
+export interface StopoverPass {
+  /** The candidates, branch (a) first, then branch (b), each in scan order. */
+  plans: StopoverPlan[];
+  /** The branch-(b) areas that leave the draft's areas (spec §2, amended). */
+  reclassifiedAreaKeys: Set<string>;
+}
+
 /**
- * The stopover roadtrip of each layover whose photos went somewhere (spec
- * 2026-10-11 §2): the outing set's clusters named by the same chain the areas
- * use, the arrival airport as the first stop, and the legs between them. The
- * keys come from the areas' own `taken` set, so none collides. No night is
- * ever assigned here: a stopover is hours, not a stay.
+ * The stopover roadtrip of every stretch whose photos went somewhere (spec
+ * 2026-10-11 §2): branch (a), the `Layover`s — the outing set's clusters named
+ * by the same chain the areas use, the arrival airport as the first stop, and
+ * the legs between them — and branch (b) (spec §2, amended), the flights-bounded
+ * areas whose own photos pass the outing test, which are reclassified out of the
+ * areas with their own stations, previews and legs as the tour. The keys come
+ * from the areas' own `taken` set, so none collides. No night is ever assigned
+ * here: a stopover is hours, not a stay. The branch-(b) candidates are minted
+ * after the layover ones, so what branch (a) is offered never changes.
  */
 export async function stopoversPhase(
   deps: BuilderDeps,
   collected: CollectedWindow,
   split: AreaSplit,
   movement: MovementPhase,
+  areas: readonly AreaPlan[],
   taken: Set<string>
-): Promise<StopoverPlan[]> {
-  if (split.layovers.length === 0) return [];
+): Promise<StopoverPass> {
   const anchorsById = new Map(collected.anchors.map((a) => [a.id, a] as const));
-  const codes = split.layovers.flatMap((l) => (l.airportIata ? [l.airportIata.toUpperCase()] : []));
+  // Branch (b) reads the arrival airport rows too, so both branches' codes go in one call.
+  const areaCodes = areas.flatMap((plan) => {
+    const arriving =
+      plan.area.afterFlightId === null ? undefined : anchorsById.get(plan.area.afterFlightId);
+    return arriving?.arrIata ? [arriving.arrIata.toUpperCase()] : [];
+  });
+  const codes = [
+    ...split.layovers.flatMap((l) => (l.airportIata ? [l.airportIata.toUpperCase()] : [])),
+    ...areaCodes,
+  ];
   const airports = await deps.airports(codes);
   const plans: StopoverPlan[] = [];
   // The titles minted so far: a later same-city candidate takes the day suffix (plan amendment 1).
@@ -239,7 +265,45 @@ export async function stopoversPhase(
     takenTitles.add(stopover.title);
     plans.push({ stopover, previewPhotoIds: tour.previewPhotoIds });
   }
-  return plans;
+
+  // Branch (b): a stretch between two adjacent same-airport flights within the
+  // layover window, which the 30 km radius kept an area, is reclassified — it
+  // leaves `areas` and its own stations become the tour (spec §2, amended).
+  const reclassifiedAreaKeys = new Set<string>();
+  for (const plan of areas) {
+    const { area } = plan;
+    if (area.afterFlightId === null || area.beforeFlightId === null) continue;
+    const inFlight = anchorsById.get(area.afterFlightId);
+    const outFlight = anchorsById.get(area.beforeFlightId);
+    if (inFlight === undefined || outFlight === undefined) continue;
+    if (!withinLayoverWindow(inFlight, outFlight)) continue;
+    const outing = outingOf(
+      {
+        inFlightId: inFlight.id,
+        outFlightId: outFlight.id,
+        airportIata: inFlight.arrIata,
+        photoIds: [...area.photoIds, ...area.seaPhotoIds],
+      },
+      movement.photosById,
+      inFlight.arr
+    );
+    if (!isStopoverCandidate(outing)) continue;
+    const airport = inFlight.arrIata ? airports.get(inFlight.arrIata.toUpperCase()) : undefined;
+    const stopover = stopoverFromArea({
+      area,
+      inFlight,
+      outFlight,
+      plan,
+      airport: airport ?? null,
+      outing,
+      takenTitles,
+    });
+    if (stopover === null) continue;
+    takenTitles.add(stopover.title);
+    reclassifiedAreaKeys.add(plan.key);
+    plans.push({ stopover, previewPhotoIds: plan.previewPhotoIds });
+  }
+  return { plans, reclassifiedAreaKeys };
 }
 
 /** Snaps stations onto the road, probes each leg and decides road or ferry. */

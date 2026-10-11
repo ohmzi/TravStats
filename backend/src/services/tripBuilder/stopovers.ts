@@ -1,14 +1,16 @@
 /**
  * Stopover roadtrips (spec
  * docs/superpowers/specs/2026-10-11-stopover-roadtrips-design.md, §2): the tour
- * a layover's outing set implies.
+ * a stretch's outing set implies.
  *
- * A layover whose photos went somewhere — STOPOVER_MIN_PHOTOS of them further
- * than STOPOVER_MIN_KM from the airport — is a stopover candidate. The tour
- * always begins with the arrival airport as its first stop, then the outing
- * set's clusters in time order, so a single downtown cluster still yields two
- * stations, which the roadtrip model wants. Its legs come from the same leg
- * machinery the areas use; it never enters the night plan.
+ * A stretch whose photos went somewhere — STOPOVER_MIN_PHOTOS of them further
+ * than STOPOVER_MIN_KM from the airport — is a stopover candidate. Branch (a)
+ * is a layover, and its tour is derived here, the arrival airport first, then
+ * the outing set's clusters in time order, so a single downtown cluster still
+ * yields two stations, which the roadtrip model wants. Branch (b) (spec §2,
+ * amended) is an area between two same-airport flights, and its own derived
+ * stations become the tour (`stopoverFromArea`). Either tour's legs come from
+ * the same leg machinery the areas use; a stopover never enters the night plan.
  *
  * Pure: the photos, flight, airport row and named clusters come in as values.
  * The scan-side wiring (`areaPlans.ts`, `stopoversPhase`) does the clustering,
@@ -25,15 +27,18 @@ import { buildLegs } from "./ferry";
 import { claimKey, passStation, pickPreviewIds, stationKeyOf } from "./stations";
 import { STOPOVER_MIN_KM, STOPOVER_MIN_PHOTOS } from "./thresholds";
 import type {
+  AreaPlan,
   CountryAt,
   Day,
   FlightAnchor,
+  GroundArea,
   Layover,
   NamedCluster,
   PhotoPoint,
   PlanStation,
   StationSpan,
   StoredStopover,
+  TitleSource,
 } from "./types";
 
 /** By instant; the id breaks a tie, so the order never depends on Immich's paging. */
@@ -85,14 +90,56 @@ export function stopoverTitle(city: string, day: Day, takenTitles: ReadonlySet<s
 }
 
 /**
- * The city the stopover is named after (spec §2.2): the naming chain's own
+ * The city a stopover is named after (spec §2.2): the naming chain's own
  * answer for the biggest cluster of the outing set, and the airport's city when
  * the chain ran out and named the place by its coordinates.
  */
 export function stopoverCity(named: readonly NamedCluster[], airport: AirportData | null): string {
-  let main: NamedCluster | undefined;
-  for (const cluster of named) {
-    if (main === undefined || cluster.photoIds.length > main.photoIds.length) main = cluster;
+  return chainCity(
+    named.map((cluster) => ({
+      title: cluster.title,
+      titleSource: cluster.titleSource,
+      photoCount: cluster.photoIds.length,
+    })),
+    airport
+  );
+}
+
+/** A city station: not the way home, not an airport (the areas' own `isCity`). */
+const isGroundStation = (station: PlanStation): boolean =>
+  station.kind !== "home" && station.kind !== "airport";
+
+/**
+ * Branch (b)'s city (spec §2, amended): the area station that carries the most
+ * photos — its title as the naming chain derived it — and the airport's city
+ * when the chain ran out.
+ */
+export function stopoverAreaCity(
+  stations: readonly PlanStation[],
+  airport: AirportData | null
+): string {
+  return chainCity(
+    stations.filter(isGroundStation).map((station) => ({
+      title: station.title,
+      titleSource: station.titleSource,
+      photoCount: station.photoCount,
+    })),
+    airport
+  );
+}
+
+/** A named place and the photos standing in it, for the city rules above. */
+interface NamedPlace {
+  title: string;
+  titleSource: TitleSource;
+  photoCount: number;
+}
+
+/** The chain's own answer for the biggest place, or the airport's city when it ran out. */
+function chainCity(places: readonly NamedPlace[], airport: AirportData | null): string {
+  let main: NamedPlace | undefined;
+  for (const place of places) {
+    if (main === undefined || place.photoCount > main.photoCount) main = place;
   }
   const title = main?.title.trim() ?? "";
   if (main !== undefined && main.titleSource !== "coords" && title !== "") return title;
@@ -233,5 +280,51 @@ export function stopoverOf(input: StopoverAssemblyInput): StoredStopover {
       seaPhotos: [],
       countryAt: input.countryAt,
     }),
+  };
+}
+
+export interface AreaStopoverInput {
+  /** The stretch the scan called an area: the ground between the two flights below. */
+  area: GroundArea;
+  /** The flight that landed before it; its arrival airport is the pair's airport. */
+  inFlight: FlightAnchor;
+  /** The flight it precedes. */
+  outFlight: FlightAnchor;
+  /** The area's own plan: its stations and legs become the tour, verbatim. */
+  plan: Pick<AreaPlan, "stations" | "legs">;
+  /** The arrival airport's catalogue row; null when the code has none. */
+  airport: AirportData | null;
+  /** The stretch's outing set (`outingOf`), in time order. */
+  outing: readonly PhotoPoint[];
+  /** The titles the scan has minted so far. */
+  takenTitles: ReadonlySet<string>;
+}
+
+/**
+ * The branch-(b) candidate (spec 2026-10-11 §2, amended): an area bounded by
+ * two same-airport flights whose own photos went somewhere is reclassified out
+ * of the areas, and its derived stations, previews and legs — the airport-first
+ * shape the areas carry — become the tour as they stand. The album list is the
+ * stretch's whole photo set, so its photos stay in stats, days and the main
+ * album exactly as before. Null when the area has no ground station: there is
+ * no city to name it after, and nothing here could name one.
+ */
+export function stopoverFromArea(input: AreaStopoverInput): StoredStopover | null {
+  const first = input.outing[0];
+  if (first === undefined) return null;
+  if (!input.plan.stations.some(isGroundStation)) return null;
+  const city = stopoverAreaCity(input.plan.stations, input.airport);
+  if (city.trim() === "") return null;
+  return {
+    key: `${input.inFlight.id}#${input.outFlight.id}`,
+    title: stopoverTitle(city, first.day, input.takenTitles),
+    city,
+    day: first.day,
+    inFlightId: input.inFlight.id,
+    outFlightId: input.outFlight.id,
+    airportIata: input.inFlight.arrIata,
+    photoIds: [...input.area.photoIds, ...input.area.seaPhotoIds],
+    stations: input.plan.stations,
+    legs: input.plan.legs,
   };
 }
