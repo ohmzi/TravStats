@@ -228,3 +228,117 @@ describe("buildDraftWith: a layover whose photos went somewhere", () => {
     expect([...nightNames, ...dayNames].filter((key) => stopoverKeys.has(key))).toEqual([]);
   });
 });
+
+// ─── Two stays through one city, one year ────────────────────────────────────
+
+const F3 = "3f4a5b6c-7d8e-4f01-9234-5678495a6b7c";
+const F4 = "4a5b6c7d-8e9f-4012-a345-67895a6b7c8d";
+const F5 = "5b6c7d8e-9fa0-4123-b456-789a6b7c8d9e";
+const F6 = "6c7d8e9f-a0b1-4234-c567-89ab7c8d9e0f";
+
+/**
+ * A round trip through Northvale twice: out on 06 June and home on 20 June,
+ * each pass with the same Elmwood outing. Two qualifying candidates in one
+ * city and year, so the second needs the duplicate-day title to stay distinct.
+ */
+const FIRST_IN = preciseFlight({
+  id: F3,
+  label: "ZZ105 KMR→NVL",
+  depIata: "KMR",
+  arrIata: "NVL",
+  dep: { lat: -43.49, lon: 172.53 },
+  arr: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  depLocal: "2031-06-06T08:00",
+  arrLocal: "2031-06-06T10:05",
+});
+const FIRST_OUT = preciseFlight({
+  id: F4,
+  label: "ZZ106 NVL→SLM",
+  depIata: "NVL",
+  arrIata: "SLM",
+  dep: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  arr: { lat: -16.52, lon: -68.12 },
+  depLocal: "2031-06-06T18:00",
+  arrLocal: "2031-06-06T20:30",
+});
+const SECOND_IN = preciseFlight({
+  id: F5,
+  label: "ZZ107 SLM→NVL",
+  depIata: "SLM",
+  arrIata: "NVL",
+  dep: { lat: -16.52, lon: -68.12 },
+  arr: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  depLocal: "2031-06-20T08:00",
+  arrLocal: "2031-06-20T10:05",
+});
+const SECOND_OUT = preciseFlight({
+  id: F6,
+  label: "ZZ108 NVL→KMR",
+  depIata: "NVL",
+  arrIata: "KMR",
+  dep: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  arr: { lat: -43.49, lon: 172.53 },
+  depLocal: "2031-06-20T18:00",
+  arrLocal: "2031-06-20T20:30",
+});
+
+/** The outbound stay: two photos at the airport and five in Elmwood, as before. */
+const FIRST_AT_AIRPORT = photosAt("nvo", NORTHVALE, ["2031-06-06T10:10", "2031-06-06T10:20"]);
+const FIRST_AT_ELMWOOD = photosAt("emo", ELMWOOD, [
+  "2031-06-06T11:00",
+  "2031-06-06T12:00",
+  "2031-06-06T13:00",
+  "2031-06-06T14:00",
+  "2031-06-06T15:00",
+]);
+
+/** The homeward stay, a fortnight later: the same outing, its own photo ids. */
+const SECOND_AT_AIRPORT = photosAt("nvr", NORTHVALE, ["2031-06-20T10:10", "2031-06-20T10:20"]);
+const SECOND_AT_ELMWOOD = photosAt("emr", ELMWOOD, [
+  "2031-06-20T11:00",
+  "2031-06-20T12:00",
+  "2031-06-20T13:00",
+  "2031-06-20T14:00",
+  "2031-06-20T15:00",
+]);
+
+const TWO_STAYS_INPUT: ScanInput = {
+  name: "Back through Northvale",
+  startDay: "2031-06-06",
+  endDay: "2031-06-20",
+  inspect: true,
+  createAlbum: false,
+  target: { kind: "new" },
+};
+
+const twoStaysDeps = () =>
+  builderDeps(
+    [...FIRST_AT_AIRPORT, ...FIRST_AT_ELMWOOD, ...SECOND_AT_AIRPORT, ...SECOND_AT_ELMWOOD],
+    {
+      loadFlights: async () => [FIRST_IN, FIRST_OUT, SECOND_IN, SECOND_OUT],
+      airports: async () =>
+        new Map([
+          [
+            "NVL",
+            { name: "Northvale International Airport", lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+          ],
+        ]),
+    }
+  );
+
+describe("buildDraftWith: two qualifying stopovers in one city and year", () => {
+  it("gives the second the day-suffixed title, so the two roadtrips never collide", async () => {
+    const { dto } = await buildDraftWith(twoStaysDeps(), USER, TWO_STAYS_INPUT, () => undefined);
+    expect(dto.stopovers).toHaveLength(2);
+    const [first, second] = dto.stopovers ?? [];
+    // Scan order: the outbound stay first, the homeward stay second, each under its own key.
+    expect(first).toMatchObject({ key: `${F3}#${F4}`, city: "Elmwood" });
+    expect(second).toMatchObject({ key: `${F5}#${F6}`, city: "Elmwood" });
+    expect(first.key).not.toBe(second.key);
+    // One name each for the roadtrip and its album: the first keeps the plain one, the
+    // second takes the ` (d MMM)` of its own day, the duplicate convention C.11 shares.
+    expect(first.title).toBe("Elmwood 2031 Road Trip");
+    expect(second.title).toBe("Elmwood 2031 Road Trip (20 Jun)");
+    expect(first.title).not.toBe(second.title);
+  });
+});
