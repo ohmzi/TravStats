@@ -40,6 +40,7 @@ import type {
   Day,
   DraftArea,
   DraftLeg,
+  DraftPitstop,
   DraftStation,
   DraftStopover,
   TripBuilderDraft,
@@ -162,6 +163,29 @@ function storedAlbumCount(state: ExistingTripState, name: string): number | null
   return state.albums.find((album) => album.albumName === name)?.assetCount ?? null;
 }
 
+/** The area's own photos now: the counts its card shows per station, summed. */
+function areaPhotoCount(area: DraftArea): number {
+  return area.stations.reduce((count, station) => count + station.photoCount, 0);
+}
+
+/**
+ * A matched pitstop's stored album (spec 2026-10-11 pitstops §5): set ⇔ the
+ * trip links an album of exactly the pitstop's name, so the review shows the
+ * album switch ON and marked *already synced*, with the linked count beside
+ * the area's own count now. A linked album of another name is not it — only
+ * the exact name counts, and an unmatched area carries nothing.
+ */
+function annotatePitstop(
+  pitstop: DraftPitstop,
+  area: DraftArea,
+  state: ExistingTripState
+): DraftPitstop {
+  const count = storedAlbumCount(state, pitstop.albumName);
+  return count === null
+    ? pitstop
+    : { ...pitstop, stored: { albumAssetCount: count, photoCount: areaPhotoCount(area) } };
+}
+
 export function annotateDraftForExisting(
   dto: TripBuilderDraft,
   state: ExistingTripState
@@ -254,6 +278,9 @@ export function annotateDraftForExisting(
           state.roadtrips.find((r) => r.id === match.roadtripId)
         ),
         notSeen: match.reconciled.notSeen.map((n) => notSeenStation(n, taken, area.startDay)),
+        ...(area.pitstop === undefined
+          ? {}
+          : { pitstop: annotatePitstop(area.pitstop, area, state) }),
       };
     }
     const stop = result.stops.matched.get(area.key);

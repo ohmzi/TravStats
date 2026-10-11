@@ -536,6 +536,57 @@ describe("annotateDraftForExisting: a stopover", () => {
   });
 });
 
+describe("annotateDraftForExisting: a pitstop area", () => {
+  /** The album the scan computes for the fixture's roadtrip area (spec pitstop §6). */
+  const ALBUM = "Northvale 2031 Road Trip (Northvale loop)";
+  const linked = (name: string, assetCount: number) => ({
+    linkId: "l10",
+    immichAlbumId: "al-10",
+    albumName: name,
+    assetCount,
+    ownedByUser: true,
+    travstatsMarker: true,
+  });
+
+  it("marks a matched pitstop's album as already synced when the trip links it, with both counts", () => {
+    const { dto } = annotateDraftForExisting(
+      draft(TRIP, [area({ pitstop: { albumName: ALBUM } })]),
+      state({ albums: [linked(ALBUM, 96)] })
+    );
+    // The area match is the existing one, untouched: the roadtrip is still the match.
+    expect(dto.areas[0].roadtripId).toBe("r1");
+    // The area's own photos now: the four fixture stations at 12 photos each.
+    expect(dto.areas[0].pitstop).toEqual({
+      albumName: ALBUM,
+      stored: { albumAssetCount: 96, photoCount: 48 },
+    });
+  });
+
+  it("keeps a matched pitstop unmarked while no linked album carries its exact name", () => {
+    const { dto } = annotateDraftForExisting(
+      draft(TRIP, [area({ pitstop: { albumName: ALBUM } })]),
+      state({ albums: [linked("Northvale loop", 96)] })
+    );
+    expect(dto.areas[0].roadtripId).toBe("r1");
+    expect(dto.areas[0].pitstop).toEqual({ albumName: ALBUM });
+  });
+
+  it("leaves an unmatched pitstop alone: the annotation is the match's to make", () => {
+    const { dto } = annotateDraftForExisting(
+      draft(TRIP, [area({ pitstop: { albumName: ALBUM } })]),
+      state({ roadtrips: [], albums: [linked(ALBUM, 96)] })
+    );
+    expect(dto.areas[0].roadtripId).toBeUndefined();
+    expect(dto.areas[0].pitstop).toEqual({ albumName: ALBUM });
+  });
+
+  it("leaves an ordinary area without a pitstop untouched", () => {
+    const { dto } = annotateDraftForExisting(draft(TRIP, [area()]), state());
+    expect(dto.areas[0].pitstop).toBeUndefined();
+    expect(dto.areas[0].roadtripId).toBe("r1");
+  });
+});
+
 describe("applyExistingTarget", () => {
   const album = {
     name: "Northvale loop",

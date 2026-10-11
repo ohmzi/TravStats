@@ -419,7 +419,7 @@ export type {
 
 // The pitstop DTO shape (spec 2026-10-11 pitstops §2) is declared in
 // `pitstops.ts`, beside the detection that mints it, and re-exported here.
-export type { DraftPitstop, StoredPitstop } from "./pitstops";
+export type { DraftPitstop, StoredPitstop, StoredPitstopStatus } from "./pitstops";
 
 export interface DraftFlight {
   id: string;

@@ -16,13 +16,28 @@
 import { sharesAirport } from "./flightAnchors";
 import type { AreaPlan, Day, FlightAnchor, NightEntry, PhotoPoint } from "./types";
 
-/** A pitstop area's DTO piece (spec §2, §6): its album, server-computed. */
+/** A pitstop area's DTO piece (spec §2, §6): its album, server-computed, and what a re-sync holds of it (spec §5). */
 export interface DraftPitstop {
   /**
    * `<City> <Year> Road Trip (<Trip Name>)`; the parenthetical is dropped when
    * the city is the trip's own name (spec §6).
    */
   albumName: string;
+  /**
+   * Re-sync only: set ⇔ the trip already links an album of exactly `albumName`
+   * — the review shows the album switch ON, locked, marked *already synced*,
+   * with the stored count beside the current one (spec §5). Only a matched
+   * area carries it: the annotation is the match's to make.
+   */
+  stored?: StoredPitstopStatus;
+}
+
+/** Re-sync only: the pitstop album a matched area's scan already found on the trip (spec §5). */
+export interface StoredPitstopStatus {
+  /** The linked album's member count when the scan read it (the link row's `assetCount`). */
+  albumAssetCount: number;
+  /** The area's own photo count now (its stations' counts, summed); the review's "now" beside it. */
+  photoCount: number;
 }
 
 /** The nights the plan assigns to the area's stations; the roadtrip rows count the same nights. */
