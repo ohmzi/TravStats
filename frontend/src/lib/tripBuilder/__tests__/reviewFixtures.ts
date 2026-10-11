@@ -293,6 +293,35 @@ export function pitstopDraft(over: Partial<TripBuilderDraft> = {}): TripBuilderD
   });
 }
 
+/** Re-sync only: the counts a synced pitstop's annotation carries (spec §5). */
+export const PITSTOP_STORED = { albumAssetCount: 18, photoCount: 20 };
+
+/**
+ * A re-sync: the pitstop's stored roadtrip matched (roadtripId, station ids)
+ * and its album already exists under the name — the locked, already-synced
+ * display with the counts (spec §5).
+ */
+export function syncedPitstopDraft(): TripBuilderDraft {
+  const draft = pitstopDraft();
+  return {
+    ...draft,
+    areas: draft.areas.map((area) =>
+      area.key === PITSTOP_KEY
+        ? {
+            ...area,
+            roadtripId: "r-p1",
+            stations: area.stations.map((station, index) => ({
+              ...station,
+              status: "same" as const,
+              existingId: `st-p${index + 1}`,
+            })),
+            pitstop: { albumName: PITSTOP_ALBUM, stored: { ...PITSTOP_STORED } },
+          }
+        : area
+    ),
+  };
+}
+
 /**
  * Six days, five nights. 02 and 03 at Northvale, 04 in the air, 05 at
  * Southbridge, and 06 unknown (Tarnside is the suggestion).

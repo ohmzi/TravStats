@@ -143,6 +143,7 @@
       "title": "Immich-Album"
     },
     "area": {
+      "album": "Eigenes Album: {{name}}",
       "afterFlight": "Nach dem Flug {{flight}}",
       "homeEnd": "Endet zu Hause",
       "homeStart": "Beginnt zu Hause",
@@ -156,6 +157,9 @@
       "name": "Name des Roadtrips",
       "skipped": "Dieses Gebiet wird nicht gespeichert.",
       "summary": "{{stations}} Stopps · {{nights}} Nächte",
+      "synced": "Schon abgeglichen",
+      "syncedCounts_one": "{{stored}} Foto beim Abgleich · {{count}} jetzt",
+      "syncedCounts_other": "{{stored}} Fotos beim Abgleich · {{count}} jetzt",
       "title": "Gebiet {{n}}",
       "vehicle": "Fahrzeug",
       "vehicles": {

@@ -9,7 +9,14 @@ import {
 import { sleptKeys } from "../../../../lib/tripBuilder/planRules";
 import { placeNights } from "../../../../lib/tripBuilder/reviewView";
 import { matchedStopDraft, STOP_KEY } from "../../../../lib/tripBuilder/__tests__/existingFixture";
-import { reviewDraft } from "../../../../lib/tripBuilder/__tests__/reviewFixtures";
+import {
+  PITSTOP_ALBUM,
+  PITSTOP_KEY,
+  pitstopDraft,
+  reviewDraft,
+  syncedPitstopDraft,
+} from "../../../../lib/tripBuilder/__tests__/reviewFixtures";
+import type { TripBuilderDraft } from "../../../../types/tripBuilder";
 import ReviewAreaSection from "../ReviewAreaSection";
 
 vi.mock("../../../../hooks/useTranslation", () => ({
@@ -208,5 +215,114 @@ describe("a stops area matched to a stored stop", () => {
     toggleRow(STOP_KEY.harbour);
     toggleRow(STOP_KEY.market);
     expect(removeButton()).toBeEnabled();
+  });
+});
+
+describe("a pitstop area", () => {
+  const ALBUM_NAME = `tripBuilder:review.area.album {"name":"${PITSTOP_ALBUM}"}`;
+
+  function renderPitstop(
+    draft: TripBuilderDraft = pitstopDraft(),
+    edits: DraftEdit[] = [],
+    props: { roadtripsHidden?: boolean } = {}
+  ) {
+    const state = edits.reduce((s, e) => applyEdit(draft, s, e), initialReviewState(draft));
+    const area = state.areas[1];
+    const onEdit = vi.fn();
+    render(
+      <ReviewAreaSection
+        draft={draft}
+        state={state}
+        area={area}
+        ordinal={2}
+        nights={placeNights(draft, state).byArea.get(area.key) ?? []}
+        slept={sleptKeys(state)}
+        roadtripsHidden={props.roadtripsHidden ?? false}
+        onEdit={onEdit}
+      />
+    );
+    return onEdit;
+  }
+
+  it("starts a pitstop as a roadtrip with its own album on, one untick away", () => {
+    const onEdit = renderPitstop();
+    expect(
+      screen.getByRole("radio", { name: "tripBuilder:review.area.kinds.roadtrip" })
+    ).toHaveAttribute("aria-checked", "true");
+    const album = screen.getByRole("switch", { name: ALBUM_NAME });
+    expect(album).toBeChecked();
+    expect(album).toBeEnabled();
+    fireEvent.click(album);
+    expect(onEdit).toHaveBeenCalledWith({
+      type: "setAreaAlbum",
+      areaKey: PITSTOP_KEY,
+      album: false,
+    });
+  });
+
+  it("has no album switch on an area the scan did not mark a pitstop", () => {
+    renderPitstop(reviewDraft());
+    expect(screen.queryByRole("switch", { name: /review\.area\.album/ })).toBeNull();
+  });
+
+  it("disables the album switch, unchecked, when the kind is not a roadtrip", () => {
+    renderPitstop(pitstopDraft(), [{ type: "setAreaKind", areaKey: PITSTOP_KEY, as: "stops" }]);
+    const album = screen.getByRole("switch", { name: ALBUM_NAME });
+    expect(album).not.toBeChecked();
+    expect(album).toBeDisabled();
+  });
+
+  it("keeps the album tick when the kind leaves the roadtrip and comes back", () => {
+    renderPitstop(pitstopDraft(), [
+      { type: "setAreaKind", areaKey: PITSTOP_KEY, as: "stops" },
+      { type: "setAreaKind", areaKey: PITSTOP_KEY, as: "roadtrip" },
+    ]);
+    expect(screen.getByRole("switch", { name: ALBUM_NAME })).toBeChecked();
+  });
+
+  it("refuses the album switch while roadtrips are off, and says why", () => {
+    renderPitstop(pitstopDraft(), [], { roadtripsHidden: true });
+    const album = screen.getByRole("switch", { name: ALBUM_NAME });
+    expect(album).toBeDisabled();
+    expect(screen.getByText("tripBuilder:warnings.roadtripsHidden")).toBeInTheDocument();
+  });
+
+  it("keeps a matched pitstop whose album is missing as an editable offer", () => {
+    // The live case (spec §5): the roadtrip exists from before this feature,
+    // the album does not. Only the wire's album annotation locks the switch —
+    // a matched roadtrip without it stays ON and one untick away.
+    const draft = syncedPitstopDraft();
+    const missing: TripBuilderDraft = {
+      ...draft,
+      areas: draft.areas.map((area) =>
+        area.key === PITSTOP_KEY ? { ...area, pitstop: { albumName: PITSTOP_ALBUM } } : area
+      ),
+    };
+    renderPitstop(missing);
+    const album = screen.getByRole("switch", { name: ALBUM_NAME });
+    expect(album).toBeChecked();
+    expect(album).toBeEnabled();
+  });
+
+  it("shows an already-synced pitstop with the album on and locked, and its counts", () => {
+    renderPitstop(syncedPitstopDraft());
+    const album = screen.getByRole("switch", { name: ALBUM_NAME });
+    expect(album).toBeChecked();
+    expect(album).toBeDisabled();
+    expect(screen.getByText("tripBuilder:review.area.synced")).toBeInTheDocument();
+    expect(
+      screen.getByText('tripBuilder:review.area.syncedCounts {"stored":18,"count":20}')
+    ).toBeInTheDocument();
+  });
+
+  it("keeps a synced pitstop as status while roadtrips are hidden: locked, no reason offered", () => {
+    // The stopover card's finding S3-1, mirrored: the commit for a matched
+    // pitstop writes no roadtrip, so the hidden-roadtrips sentence belongs to a
+    // switch the user could still turn on, not to a row already synced.
+    renderPitstop(syncedPitstopDraft(), [], { roadtripsHidden: true });
+    const album = screen.getByRole("switch", { name: ALBUM_NAME });
+    expect(album).toBeChecked();
+    expect(album).toBeDisabled();
+    expect(screen.queryByText("tripBuilder:warnings.roadtripsHidden")).toBeNull();
   });
 });

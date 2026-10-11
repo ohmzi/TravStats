@@ -66,6 +66,8 @@ export default function ReviewAreaSection({
   const { t } = useTranslation(["tripBuilder"]);
   const fmt = useDisplayFormat();
   const offered = draft.areas.find((candidate) => candidate.key === area.key);
+  const pitstop = offered?.pitstop;
+  const stored = pitstop?.stored;
   const span = spanOf(draft, area);
   const days = areaDays(draft, area);
   const rowsByDay = stationsByDay(
@@ -120,6 +122,39 @@ export default function ReviewAreaSection({
           options={kinds.map((kind) => ({ value: kind, label: t(KIND_LABEL[kind]) }))}
           onChange={(as) => onEdit({ type: "setAreaKind", areaKey: area.key, as })}
         />
+
+        {pitstop !== undefined && (
+          <div className="flex flex-col" style={{ gap: "var(--ts-space-xs)" }}>
+            <Switch
+              id={`area-${area.key.replace("#", "-")}-album`}
+              label={t("tripBuilder:review.area.album", { name: pitstop.albumName })}
+              // A synced album is status, not an offer: the hidden reason belongs
+              // to a switch the user could still consider (the stopover card's
+              // finding S3-1), and the re-sync writes the album only.
+              sub={
+                roadtripsHidden && stored === undefined
+                  ? t("tripBuilder:warnings.roadtripsHidden")
+                  : undefined
+              }
+              // Shown exactly as the commit will send it: no album under a kind
+              // that is not a roadtrip (spec §4, `album ⇒ roadtrip`).
+              checked={stored !== undefined || (area.as === "roadtrip" && area.album)}
+              disabled={stored !== undefined || area.as !== "roadtrip" || roadtripsHidden}
+              onChange={(on) => onEdit({ type: "setAreaAlbum", areaKey: area.key, album: on })}
+            />
+            {stored !== undefined && (
+              <span className="flex flex-wrap items-baseline" style={{ gap: "var(--ts-space-sm)" }}>
+                <Pill color="var(--ts-good)">{t("tripBuilder:review.area.synced")}</Pill>
+                <span className="t-caption">
+                  {t("tripBuilder:review.area.syncedCounts", {
+                    stored: stored.albumAssetCount,
+                    count: stored.photoCount,
+                  })}
+                </span>
+              </span>
+            )}
+          </div>
+        )}
 
         {area.as === "roadtrip" && (
           <div className="grid gap-3 sm:grid-cols-2">

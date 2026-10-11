@@ -143,6 +143,7 @@
       "title": "Immich album"
     },
     "area": {
+      "album": "Its own album: {{name}}",
       "afterFlight": "After the flight {{flight}}",
       "homeEnd": "Ends at home",
       "homeStart": "Starts at home",
@@ -156,6 +157,9 @@
       "name": "Roadtrip name",
       "skipped": "This area is not saved.",
       "summary": "{{stations}} stops · {{nights}} nights",
+      "synced": "Already synced",
+      "syncedCounts_one": "{{stored}} photo when it was synced · {{count}} now",
+      "syncedCounts_other": "{{stored}} photos when it was synced · {{count}} now",
       "title": "Area {{n}}",
       "vehicle": "Vehicle",
       "vehicles": {
