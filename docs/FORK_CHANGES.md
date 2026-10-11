@@ -680,6 +680,104 @@ mounts and the response-shape baseline; `GET /trips/:id`, which carries
 roadtrips are off); `TripModal`, `App.tsx` and the trip page's header; and the
 new `tripBuilder` i18n namespace, registered in `i18n/config.ts`.
 
+### A stopover can become a roadtrip
+
+A flight that connects through an airport where the traveller actually left the
+terminal used to be a dead end: the builder classifies the stretch as a
+**layover**, keeps its photos out of the ground areas, stations and nights, and
+marks it with only a "N photos during the layover" line. Now every layover
+whose photos show a real outing is offered as a **stopover**: a roadtrip built
+from the stopover's own geotags and, with a second tick, an independent album
+and roadtrip named `"<City> <Year> Road Trip"` whose photos also stay in the
+trip's main album.
+
+**How it runs.**
+
+- **Detection.** A layover is unchanged: adjacent logged flights that share an
+  airport, a ground gap under 12 h (or two flights sharing a day when either
+  has no time), and every photo of the stretch within 30 km of the arrival
+  airport (`LAYOVER_MAX_H`, `LAYOVER_RADIUS_KM`). It becomes a **stopover
+  candidate** when at least `STOPOVER_MIN_PHOTOS` (5) of its geotagged photos
+  lie further than `STOPOVER_MIN_KM` (5) from that airport: the outing set.
+  Photos within a coffee break of the terminal are not an outing; a day in
+  town is. Both numbers live in `services/tripBuilder/thresholds.ts` beside
+  the `LAYOVER_*` pair and are pinned by the thresholds test.
+- **The tour.** The scan clusters the outing photos in time order with the
+  area machinery and always puts the **arrival airport first**, so a candidate
+  has at least two stations even when only one downtown cluster exists. Legs
+  between consecutive stations use the same mode evidence the areas use,
+  usually one short road leg from the airport. A stopover is hours, not days:
+  no night is ever assigned to its stations, and they never enter the night
+  plan. The name comes from the same naming chain as stations (Immich city
+  majority, else reverse geocode, else the airport's city), with the stopover
+  day's year in the trip's own zone. A second candidate in the same city and
+  year gains the short day suffix the trip's roadtrip names use —
+  `"<City> <Year> Road Trip (4 Dec)"` — then a number for any further
+  collision, so the scan never mints the same title twice.
+- **Review.** A new **Stopovers** card sits directly after the flights card,
+  where the layover's rows already live. Per stopover it shows the city, the
+  day, "N h at <IATA>" and the photo counts, the tour's stops read-only in v1,
+  the map preview pinned to the tour, and two switches, both off by default:
+  "Make it a roadtrip", and "Its own album: <title>", enabled only while the
+  first is on and captioned that the photos stay in the trip's album too. With
+  roadtrips switched off in Settings, the first switch is disabled with the
+  same reason the roadtrip switches already give. The ticks are ordinary
+  review edits: they replay after a re-scan, and the commit body is the single
+  source of truth for what is written.
+- **Commit.** The body gains one top-level `stopovers` section
+  (`{ key, roadtrip, album }` per toggled stopover; `album: true` requires
+  `roadtrip: true`, and only keys the scan offered pass). The roadtrip is
+  written in the one transaction like any other: mode road, vehicle car, its
+  stations validated by the same schema the areas use with no nights. The
+  album goes in the album phase, under the same preflight, marker and retry
+  rules as the trip's own album.
+
+**One name, two albums.** The roadtrip and the Immich album share the name
+`"<City> <Year> Road Trip"`. The stopover's photos stay in the trip's main
+album untouched, and a second album of that name is found or created by exact
+owned name, keeping the `TravStats trip ·` marker prefix in its description,
+and linked to the trip like any other album; its asset list is the whole
+layover's photo set, not only the outing. The ALBUMS card and the gallery
+render every linked album in `sortIdx` order, so both appear side by side with
+no new read path. A failed album never fails the trip: the success panel shows
+a line per album, each with its own retry, and the retry is name-aware so it
+can never update the trip-named album instead.
+
+**The journey shows it with no new read code.** The stopover roadtrip is an
+ordinary roadtrip filed on the trip: the ROADTRIPS card lists it beside the
+trip's own, and the timeline places its stops between the two flights through
+the existing date-driven flight-to-roadtrip mapping — after the first lands,
+before the second departs.
+
+**Re-syncing a stopover is add-only.** The stored tables carry no stopover key
+(there is no migration), so a re-sync matches by data: the trip's roadtrip
+whose name equals the computed title and whose stations' days fall inside the
+stopover day. Matched ids are claimed before the area match runs, so a regular
+area can never match, steal or duplicate a stopover roadtrip. A matched
+stopover shows both switches on and locked, marked *already synced*, with
+current against stored photo counts; new photos in the same window surface as
+an updated count and a note. A re-sync never rebuilds the tour, never deletes
+the stopover roadtrip and never removes members from the city album. When a
+stopover's flights were deleted and re-added (new ids, new key) it reads as a
+new candidate and the previous roadtrip is left untouched. `TRIP_CHANGED`
+covers the stopover writes through the same write path, so a trip that changed
+under the scan can never lose stops by omission.
+
+**Where it touches code upstream also changes.** The stopover reuses the
+flight anchors, clustering, naming and leg machinery the areas use, so a
+rebase that moves `flightAnchors.ts`, `areaPlans.ts` or `nameClusters.ts`
+moves it too; also: `services/tripBuilder/stopovers.ts` and the thresholds,
+`buildDraft.ts` and the draft store and types, the commit schema and
+`commitPlan.ts`, `albumWrite.ts` and the album target resolver, the re-sync
+match in `reconcile.ts` and `existingState.ts`, and the frontend review state,
+`ReviewStopovers.tsx` and the `tripBuilder` i18n namespace.
+
+**Out of scope in v1.** Editing a stopover's stations in the review; removing
+a stopover or rebuilding its tour on a re-sync; removing members from the city
+album; date-only connections; and excursions beyond the 30 km layover radius,
+which keep taking the existing ground-area path. Nothing here changes how the
+trip's own album is built, named or removed.
+
 ### Smaller things
 
 - **One page width.** The three container widths collapse to one, so every page
