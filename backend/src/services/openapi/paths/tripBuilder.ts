@@ -425,6 +425,16 @@ registry.register(
       photoJourneysResolved: z.number().int(),
       unknownNights: z.number().int(),
       album: albumOutcome,
+      /** Spec 2026-10-11 §5.4: present when the commit was asked for a stopover's own album. */
+      stopoverAlbums: z
+        .array(
+          z.object({
+            key: z.string().describe("The stopover's key, `<inFlightId>#<outFlightId>`"),
+            name: z.string().describe("The album's name; its retry posts this back"),
+            album: albumOutcome,
+          })
+        )
+        .optional(),
     })
     .extend(existingResultFields)
     .openapi("TripBuilderCommitResult")
@@ -534,8 +544,10 @@ registry.registerPath({
     "the review's removal. Without a linked album the album is found again by its exact owned " +
     "name. While a retry for the trip is still running, another press answers 202 with that " +
     "running job's `jobId` and starts nothing (the running job keeps its name), so a double " +
-    "press or a second tab cannot create a second album. The job result is " +
-    "a `TripBuilderAlbumOutcome`. Only the user's own Immich key may write.",
+    "press or a second tab cannot create a second album. A posted `name` that is the name of " +
+    "one of the trip's stopovers retries that stopover's own album instead (spec 2026-10-11 " +
+    "§5.4): found by its exact owned name, add-only, never the trip's album. The job result " +
+    "is a `TripBuilderAlbumOutcome`. Only the user's own Immich key may write.",
   tags: tag,
   request: {
     params: z.object({ tripId: z.string().uuid() }),

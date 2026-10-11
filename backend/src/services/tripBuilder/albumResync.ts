@@ -29,12 +29,19 @@ export type AlbumResyncClient = Pick<
 /**
  * The linked album to update: owned by the user and named like the trip, else the
  * first owned linked album. An album whose owner is unknown is not owned.
+ *
+ * `wanted` names a second, independently named album (a stopover's own, spec
+ * 2026-10-11 §5.4): only a link carrying exactly that name may be updated.
+ * Falling back to another link here would silently pour the second album's
+ * photos into the trip's main album.
  */
 export function pickLinkedAlbum(
   links: readonly ExistingAlbumLink[],
-  tripName: string
+  tripName: string,
+  wanted?: string
 ): ExistingAlbumLink | null {
   const owned = links.filter((link) => link.ownedByUser === true);
+  if (wanted !== undefined) return owned.find((link) => link.albumName === wanted) ?? null;
   return owned.find((link) => link.albumName === tripName) ?? owned[0] ?? null;
 }
 
@@ -87,15 +94,21 @@ export type AlbumTarget =
   | { kind: "byName"; immichAlbumId: string; marker: boolean }
   | { kind: "create" };
 
-/** Linked → by name → create (spec §K.3). */
+/** Linked → by name → create (spec §K.3). `named`: a second album takes only its own link (§5.4). */
 export async function resolveAlbumTarget(input: {
   client: AlbumResyncClient;
   immichUserId: string;
   links: readonly ExistingAlbumLink[];
   tripName: string;
   albumName: string;
+  /** A second, independently named album: only a linked album carrying `albumName`. */
+  named?: boolean;
 }): Promise<AlbumTarget> {
-  const linked = pickLinkedAlbum(input.links, input.tripName);
+  const linked = pickLinkedAlbum(
+    input.links,
+    input.tripName,
+    input.named === true ? input.albumName : undefined
+  );
   if (linked) {
     return {
       kind: "linked",
@@ -196,6 +209,13 @@ export interface ResyncInput {
   tripName: string;
   albumName: string;
   window: { startDay: Day; endDay: Day };
+  /**
+   * A second, independently named album (a stopover's own, spec 2026-10-11
+   * §5.4): only its own linked album may ever be updated.
+   */
+  named?: boolean;
+  /** What `create` writes as the description; the default is the trip's own "TravStats trip · S – E". */
+  description?: string;
   /** The in-window photos the server collected (`StoredDraft.albumAssetIds`). */
   assetIds: readonly string[];
   /** The members the scan proved outside the dates (`StoredExisting.album.outsideIds`). */
@@ -287,8 +307,10 @@ export async function resyncTripAlbum(input: ResyncInput): Promise<AlbumOutcome>
       links,
       tripName: input.tripName,
       albumName: input.albumName,
+      ...(input.named === true ? { named: true } : {}),
     });
-    const description = albumDescription(input.window.startDay, input.window.endDay);
+    const description =
+      input.description ?? albumDescription(input.window.startDay, input.window.endDay);
 
     let albumId: string;
     let before: ImmichAlbumInfo | null = null;

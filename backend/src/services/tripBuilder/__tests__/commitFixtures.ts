@@ -4,6 +4,7 @@ import type {
   CommitTargetPlan,
   DraftStation,
   StoredDraft,
+  StoredStopover,
   StopoverPlan,
   TripBuilderDraft,
 } from "../types";
@@ -331,6 +332,23 @@ export function fixtureStopoverPlan(over: Partial<StopoverPlan> = {}): StopoverP
     ],
     legModes: ["road"],
     album: { name: "Port Carrow 2031 Road Trip", assetIds: ["photo-a", "photo-b"] },
+    ...over,
+  };
+}
+
+/** The same stopover as the draft stored it (spec §2.3): its picture ids are the whole layover's. */
+export function fixtureStoredStopover(over: Partial<StoredStopover> = {}): StoredStopover {
+  return {
+    key: STOPOVER_KEY,
+    title: "Port Carrow 2031 Road Trip",
+    city: "Port Carrow",
+    day: "2031-05-03",
+    inFlightId: "8c2d9e3f-4a5b-4c7d-8e8f-9a0b1c2d3e4f",
+    outFlightId: "9d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f60",
+    airportIata: "ZPC",
+    photoIds: ["photo-a", "photo-b"],
+    stations: [],
+    legs: [],
     ...over,
   };
 }

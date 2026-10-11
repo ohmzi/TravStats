@@ -135,6 +135,13 @@ describe("trip builder OpenAPI documents the re-sync fields", () => {
         `${COMPONENT_PREFIX}TripBuilderAlbumOutcome`
       );
     });
+
+    it("carries a line per stopover's own album, retried by its name", () => {
+      const line = at(commitResult, "stopoverAlbums", "[]");
+      expect(keysOf(line)).toEqual(["album", "key", "name"]);
+      expect(line.properties?.album?.$ref).toBe(`${COMPONENT_PREFIX}TripBuilderAlbumOutcome`);
+      expect(commitResult.required ?? []).not.toContain("stopoverAlbums");
+    });
   });
 
   describe("the album outcome", () => {

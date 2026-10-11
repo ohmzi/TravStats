@@ -25,10 +25,12 @@ import { recomputeTripStatus } from "../tripStatusService";
 import { resyncTripAlbum } from "./albumResync";
 import {
   albumDescription,
+  blockedOutcome,
   preflightAlbum,
   writeTripAlbum,
   type AlbumPreflight,
 } from "./albumWrite";
+import { writeStopoverAlbum, type StopoverAlbumOutcome } from "./stopoverAlbum";
 import { journeyBounds } from "./builderQueries";
 import { writeExistingTarget } from "./commitExisting";
 import { abortCommit, finishCommit } from "./draftStore";
@@ -204,6 +206,57 @@ async function writeStopoverRoadtrips(
     });
   }
   return written;
+}
+
+/**
+ * Phase D for the stopovers' own albums (spec 2026-10-11 §5.4): one line per
+ * toggled stopover album, add-only, each able to fail or block on its own. The
+ * trip is already saved, so a blocked preflight here becomes the album's own
+ * line and never the trip's failure. `held` is the preflight the trip album
+ * took, if it took one; without it the stopovers share one fresh preflight.
+ */
+async function writeStopoverAlbums(
+  plan: CommitPlan,
+  draft: StoredDraft,
+  tripId: string,
+  held: Extract<AlbumPreflight, { ok: true }> | null
+): Promise<StopoverAlbumOutcome[]> {
+  const toggled = (plan.stopovers ?? []).flatMap((stopover) =>
+    stopover.album === null ? [] : [{ stopover, wanted: stopover.album }]
+  );
+  if (toggled.length === 0) return [];
+  let open = held;
+  if (open === null) {
+    const preflight = await preflightAlbum(plan.userId, draft.immichUserId);
+    if (!preflight.ok) {
+      const album = blockedOutcome(preflight.blocked);
+      return toggled.map(({ stopover, wanted }) => ({
+        key: stopover.key,
+        name: wanted.name,
+        album,
+      }));
+    }
+    open = preflight;
+  }
+  const tripName = plan.target.kind === "existing" ? plan.target.tripName : plan.target.trip.name;
+  const lines: StopoverAlbumOutcome[] = [];
+  for (const { stopover, wanted } of toggled) {
+    lines.push({
+      key: stopover.key,
+      name: wanted.name,
+      album: await writeStopoverAlbum({
+        userId: plan.userId,
+        tripId,
+        tripName,
+        name: wanted.name,
+        day: stopover.day,
+        assetIds: wanted.assetIds,
+        client: open.client,
+        immichUserId: open.immichUserId,
+      }),
+    });
+  }
+  return lines;
 }
 
 export async function writeCommit(plan: CommitPlan): Promise<PhaseBResult> {
@@ -456,5 +509,9 @@ export async function runCommitJob(draft: StoredDraft, plan: CommitPlan): Promis
       result.album = { status: "failed", error: { kind: "internal" } };
     }
   }
+  // Phase D, the stopovers' own albums (spec 2026-10-11 §5.4): a line each,
+  // add-only, and a preflight that never blocks the trip — the trip is saved.
+  const stopoverAlbums = await writeStopoverAlbums(plan, draft, written.tripId, album);
+  if (stopoverAlbums.length > 0) result.stopoverAlbums = stopoverAlbums;
   return { status: "committed", ...result };
 }

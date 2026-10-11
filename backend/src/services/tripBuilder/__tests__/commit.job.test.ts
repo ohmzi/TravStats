@@ -7,6 +7,10 @@ jest.mock("../albumResync", () => ({
   ...jest.requireActual("../albumResync"),
   resyncTripAlbum: jest.fn(),
 }));
+jest.mock("../stopoverAlbum", () => ({
+  ...jest.requireActual("../stopoverAlbum"),
+  writeStopoverAlbum: jest.fn(),
+}));
 jest.mock("../../tour/routing/resolveProvider", () => ({
   resolveRouteProvider: jest.fn(),
   describeRoutingAvailability: jest.fn(),
@@ -22,6 +26,7 @@ import { resyncTripAlbum } from "../albumResync";
 import { preflightAlbum, writeTripAlbum } from "../albumWrite";
 import { runCommitJob } from "../commit";
 import { beginCommit, clearDraftsForTests, getDraft, putDraft } from "../draftStore";
+import { writeStopoverAlbum } from "../stopoverAlbum";
 import type { StoredExisting } from "../existingTypes";
 import {
   COMMIT_KEY,
@@ -31,11 +36,13 @@ import {
   OTHER_COMMIT_KEY,
   fixtureDraft,
   fixturePlan,
+  fixtureStopoverPlan,
 } from "./commitFixtures";
 
 const mockPreflight = preflightAlbum as jest.Mock;
 const mockWriteAlbum = writeTripAlbum as jest.Mock;
 const mockResync = resyncTripAlbum as jest.Mock;
+const mockStopoverAlbum = writeStopoverAlbum as jest.Mock;
 const mockProvider = resolveRouteProvider as jest.Mock;
 const ALBUM = {
   status: "linked",
@@ -68,6 +75,7 @@ describe("runCommitJob", () => {
     mockPreflight.mockResolvedValue({ ok: true, client: {}, immichUserId: "immich-user" });
     mockWriteAlbum.mockResolvedValue(ALBUM);
     mockResync.mockResolvedValue({ ...ALBUM, reused: true, removed: 0 });
+    mockStopoverAlbum.mockResolvedValue({ status: "linked", added: 2, alreadyIn: 0 });
     flightId = (
       await prisma.flight.create({
         data: {
@@ -282,6 +290,58 @@ describe("runCommitJob", () => {
     expect(
       (await prisma.photoJourney.findUniqueOrThrow({ where: { id: JOURNEY_ID } })).status
     ).toBe("accepted");
+  });
+
+  it("gives each toggled stopover its own album, reusing the preflight the trip's album took", async () => {
+    const { draft, plan } = begin(true, { stopovers: [fixtureStopoverPlan()] });
+
+    const result = await runCommitJob(draft, plan);
+
+    expect(result).toMatchObject({
+      status: "committed",
+      stopoverAlbums: [
+        {
+          key: fixtureStopoverPlan().key,
+          name: "Port Carrow 2031 Road Trip",
+          album: { status: "linked", added: 2, alreadyIn: 0 },
+        },
+      ],
+    });
+    if (result.status !== "committed") throw new Error("the commit did not write");
+    expect(mockPreflight).toHaveBeenCalledTimes(1);
+    expect(mockStopoverAlbum).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        tripId: result.tripId,
+        tripName: "Northvale loop",
+        name: "Port Carrow 2031 Road Trip",
+        day: "2031-05-03",
+        assetIds: ["photo-a", "photo-b"],
+        immichUserId: "immich-user",
+      })
+    );
+  });
+
+  it("makes a stopover album's blocked preflight its own line, and still commits the trip", async () => {
+    const { draft, plan } = begin(false, { stopovers: [fixtureStopoverPlan()] });
+    mockPreflight.mockResolvedValue({
+      ok: false,
+      blocked: { status: "blocked", reason: "missingScopes", missingScopes: ["album.create"] },
+    });
+
+    const result = await runCommitJob(draft, plan);
+
+    expect(result).toMatchObject({
+      status: "committed",
+      album: { status: "skipped", skipReason: "notRequested" },
+      stopoverAlbums: [
+        {
+          name: "Port Carrow 2031 Road Trip",
+          album: { status: "blocked", error: { kind: "auth", missingScope: "album.create" } },
+        },
+      ],
+    });
+    expect(mockStopoverAlbum).not.toHaveBeenCalled();
   });
 
   describe("phase D for an existing trip", () => {

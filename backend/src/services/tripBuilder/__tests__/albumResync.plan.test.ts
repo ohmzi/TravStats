@@ -89,6 +89,19 @@ describe("pickLinkedAlbum", () => {
     const unknown = link({ immichAlbumId: "al-4", albumName: "Northvale loop", ownedByUser: null });
     expect(pickLinkedAlbum([foreign, unknown], "Northvale loop")).toBeNull();
   });
+
+  it("takes only a link carrying the exact name of a second, independent album", () => {
+    const main = link({ immichAlbumId: "al-1", albumName: "Northvale loop" });
+    const city = link({ immichAlbumId: "al-2", albumName: "Port Carrow 2031 Road Trip" });
+    expect(pickLinkedAlbum([main, city], "Northvale loop", "Port Carrow 2031 Road Trip")).toBe(
+      city
+    );
+  });
+
+  it("refuses any other link for a second album — the trip's own link is never its fallback", () => {
+    const main = link({ immichAlbumId: "al-1", albumName: "Northvale loop" });
+    expect(pickLinkedAlbum([main], "Northvale loop", "Port Carrow 2031 Road Trip")).toBeNull();
+  });
 });
 
 describe("outsideMemberIds", () => {
@@ -181,6 +194,20 @@ describe("resolveAlbumTarget", () => {
       albumName: "Northvale loop",
     });
     expect(target).toEqual({ kind: "create" });
+  });
+
+  it("does not fall back to the trip's own linked album when a second album is wanted", async () => {
+    const client = fakeClient({ byName: { id: "al-9" } });
+    const target = await resolveAlbumTarget({
+      client,
+      immichUserId: ME,
+      links: [link({ immichAlbumId: "al-1", albumName: "Northvale loop" })],
+      tripName: "Northvale loop",
+      albumName: "Port Carrow 2031 Road Trip",
+      named: true,
+    });
+    expect(target).toEqual({ kind: "byName", immichAlbumId: "al-9", marker: true });
+    expect(client.findOwnedAlbumByName).toHaveBeenCalledWith("Port Carrow 2031 Road Trip", ME);
   });
 });
 

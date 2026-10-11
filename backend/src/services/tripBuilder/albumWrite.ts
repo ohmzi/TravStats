@@ -200,7 +200,7 @@ export async function writeTripAlbum(input: AlbumWriteInput): Promise<AlbumOutco
 }
 
 /** `AlbumOutcome` has no reason field, so a blocked preflight is told through `error` and `missingScopes`. */
-function blockedOutcome(block: CommitBlocked): AlbumOutcome {
+export function blockedOutcome(block: CommitBlocked): AlbumOutcome {
   switch (block.reason) {
     case "missingScopes":
       return {

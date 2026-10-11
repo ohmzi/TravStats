@@ -37,11 +37,13 @@ import { getJob, startJob } from "../services/jobs/jobRegistry";
 import { buildTripDraft, progressReporter } from "../services/tripBuilder/buildDraft";
 import { builderCapabilities } from "../services/tripBuilder/capabilities";
 import { retryTripAlbum } from "../services/tripBuilder/albumWrite";
+import { retryStopoverAlbum } from "../services/tripBuilder/stopoverAlbum";
 import { runCommitJob } from "../services/tripBuilder/commit";
 import { prepareCommit } from "../services/tripBuilder/commitPlan";
 import {
   attachCommitJob,
   beginCommit,
+  committedDraftForTrip,
   deleteDraft,
   expiresAtOf,
   getDraft,
@@ -241,6 +243,12 @@ const runningAlbumJobs = new Map<string, string>();
  * Retry a trip's album after it failed or was blocked. The asset list is
  * rebuilt from the trip's own days, so the retry needs no draft. Pressing it
  * again while it runs answers with the running job; its name is the one used.
+ *
+ * A posted name that names one of the trip's stopovers retries that stopover's
+ * OWN album instead (spec 2026-10-11 §5.4): the committed draft that wrote the
+ * trip knows the stopovers it offered and holds the layover's picture ids,
+ * which exist nowhere else. Any other name is the trip's album, as before, and
+ * the one per-(user, trip) job key still lets one album job run at a time.
  */
 router.post(
   "/trips/:tripId/album",
@@ -250,7 +258,12 @@ router.post(
       const userId = req.userId!;
       const tripId = tripIdParamSchema.parse(req.params.tripId);
       const body = albumRetryBodySchema.parse(req.body ?? {});
-      await resolveTrip(userId, tripId);
+      const trip = await resolveTrip(userId, tripId);
+      const held = committedDraftForTrip(userId, tripId);
+      const stopover =
+        body.name === undefined
+          ? undefined
+          : (held?.stopovers ?? []).find((candidate) => candidate.title === body.name);
 
       // No await from here to `set`, so two presses cannot both see "none running".
       const key = `${userId}:${tripId}`;
@@ -260,7 +273,15 @@ router.post(
         return;
       }
       const job = startJob("tripBuilder.album", userId, () =>
-        retryTripAlbum(userId, tripId, body.name, body.removeOutside ?? false)
+        stopover !== undefined && held !== null
+          ? retryStopoverAlbum({
+              userId,
+              tripId,
+              tripName: trip.name,
+              stopover,
+              expectedImmichUserId: held.immichUserId,
+            })
+          : retryTripAlbum(userId, tripId, body.name, body.removeOutside ?? false)
       );
       runningAlbumJobs.set(key, job.id);
       res.status(202).json({ jobId: job.id });

@@ -2,6 +2,10 @@ jest.mock("../../services/tripBuilder/albumWrite", () => ({
   ...jest.requireActual("../../services/tripBuilder/albumWrite"),
   retryTripAlbum: jest.fn(),
 }));
+jest.mock("../../services/tripBuilder/stopoverAlbum", () => ({
+  ...jest.requireActual("../../services/tripBuilder/stopoverAlbum"),
+  retryStopoverAlbum: jest.fn(),
+}));
 
 import request from "supertest";
 
@@ -9,10 +13,19 @@ import app from "../../index";
 import { prisma } from "../../db";
 import { clearJobs, settleAllJobs } from "../../services/jobs/jobRegistry";
 import { retryTripAlbum } from "../../services/tripBuilder/albumWrite";
+import { clearDraftsForTests, putDraft } from "../../services/tripBuilder/draftStore";
+import { retryStopoverAlbum } from "../../services/tripBuilder/stopoverAlbum";
+import type { CommitResult } from "../../services/tripBuilder/types";
+import {
+  fixtureDraft,
+  fixtureStoredStopover,
+  IMMICH_USER,
+} from "../../services/tripBuilder/__tests__/commitFixtures";
 import { generateToken } from "../../utils/jwt";
 import { hashPassword } from "../../utils/password";
 
 const mockRetry = retryTripAlbum as jest.Mock;
+const mockStopoverRetry = retryStopoverAlbum as jest.Mock;
 const OUTCOME = {
   status: "linked",
   immichAlbumId: "album-1",
@@ -49,6 +62,7 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clearJobs();
+    clearDraftsForTests();
     mockRetry.mockResolvedValue(OUTCOME);
   });
 
@@ -64,6 +78,68 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
       .post(`/api/v1/trip-builder/trips/${id}/album`)
       .set("Cookie", cookie)
       .send(body as object);
+
+  /** A committed draft of `tripId` whose scan offered one stopover. */
+  const committedStopoverDraft = (): void => {
+    const result: CommitResult = {
+      tripId,
+      created: true,
+      roadtrips: [],
+      stopIds: [],
+      flightsAssigned: 0,
+      flightsMovedFrom: [],
+      routing: { routed: 0, straight: 0, ferry: 0, providerAvailable: false },
+      photoJourneysResolved: 0,
+      unknownNights: 0,
+      album: { status: "skipped", skipReason: "notRequested" },
+    };
+    putDraft(
+      fixtureDraft(userId, [], {
+        stopovers: [fixtureStoredStopover()],
+        status: "committed",
+        result,
+      })
+    );
+  };
+
+  it("retries the stopover's own album when the name names one of the draft's stopovers", async () => {
+    committedStopoverDraft();
+    mockStopoverRetry.mockResolvedValue(OUTCOME);
+
+    expect((await post(tripId, { name: "Port Carrow 2031 Road Trip" })).status).toBe(202);
+    await settleAllJobs();
+
+    expect(mockStopoverRetry).toHaveBeenCalledWith({
+      userId,
+      tripId,
+      tripName: "Northvale loop",
+      stopover: fixtureStoredStopover(),
+      expectedImmichUserId: IMMICH_USER,
+    });
+    expect(mockRetry).not.toHaveBeenCalled();
+  });
+
+  it("keeps the trip's own album for a name no stopover of the draft carries", async () => {
+    committedStopoverDraft();
+
+    await post(tripId, { name: "Northvale photos" });
+    await settleAllJobs();
+
+    expect(mockRetry).toHaveBeenCalledWith(userId, tripId, "Northvale photos", false);
+    expect(mockStopoverRetry).not.toHaveBeenCalled();
+  });
+
+  it("answers a second press for the same stopover with the running job (one album job at a time)", async () => {
+    committedStopoverDraft();
+    mockStopoverRetry.mockReturnValue(new Promise(() => undefined));
+
+    const first = await post(tripId, { name: "Port Carrow 2031 Road Trip" });
+    const again = await post(tripId, { name: "Port Carrow 2031 Road Trip" });
+
+    expect(again.status).toBe(202);
+    expect(again.body.jobId).toBe(first.body.jobId);
+    expect(mockStopoverRetry).toHaveBeenCalledTimes(1);
+  });
 
   it("starts an album job whose result is the outcome", async () => {
     const res = await post(tripId, { name: "Northvale photos" });

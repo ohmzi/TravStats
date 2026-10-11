@@ -118,6 +118,23 @@ export function abortCommit(id: string): void {
   }
 }
 
+/**
+ * The committed draft of this user that wrote this trip, newest first; null
+ * when the process no longer holds one. The album retry reads it for the
+ * stopover whose name it posts (spec 2026-10-11 §5.4): the draft is the only
+ * record of the layover's picture ids (§2.3), so no new state is kept and no
+ * request ever carries an id. Expiry is not consulted — the record is the
+ * historical fact that wrote the trip.
+ */
+export function committedDraftForTrip(ownerId: string, tripId: string): StoredDraft | null {
+  const wrote = [...drafts.values()].filter(
+    (draft) =>
+      draft.ownerId === ownerId && draft.status === "committed" && draft.result?.tripId === tripId
+  );
+  wrote.sort((a, b) => b.createdAt - a.createdAt);
+  return wrote[0] ?? null;
+}
+
 /** Test seam. */
 export function clearDraftsForTests(): void {
   drafts.clear();
