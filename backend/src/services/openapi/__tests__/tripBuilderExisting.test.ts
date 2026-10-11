@@ -196,4 +196,16 @@ describe("trip builder OpenAPI documents the re-sync fields", () => {
       expect(JSON.stringify(stopover)).not.toMatch(/asset(Id|Ids)\b/);
     });
   });
+
+  describe("the draft stopover", () => {
+    const stopover = (): Node => at(draft, "stopovers", "[]");
+
+    it("says the stopover is already synced, with the stored album count beside the current one", () => {
+      const stored = at(stopover(), "stored");
+      expect(at(stored, "roadtripId").type).toBe("string");
+      expect(at(stored, "albumAssetCount").type).toBe("integer");
+      expect(keysOf(stored)).toEqual(["albumAssetCount", "name", "roadtripId"]);
+      expect(stopover().required ?? []).not.toContain("stored");
+    });
+  });
 });

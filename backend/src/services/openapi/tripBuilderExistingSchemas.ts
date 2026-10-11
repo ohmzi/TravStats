@@ -38,6 +38,22 @@ export const existingAreaFields = (station: z.ZodType) => ({
   notSeen: z.array(station).optional(),
 });
 
+/** Extends the draft stopover schema. */
+export const existingStopoverFields = {
+  stored: z
+    .object({
+      roadtripId: z.string().uuid(),
+      name: z.string(),
+      albumAssetCount: z
+        .number()
+        .int()
+        .nullable()
+        .describe("The linked city album's member count; null when none is linked or not read"),
+    })
+    .optional()
+    .describe("Re-sync only: the stored roadtrip this stopover is already synced to"),
+};
+
 /** Extends the draft album schema. */
 export const existingAlbumFields = {
   sync: z

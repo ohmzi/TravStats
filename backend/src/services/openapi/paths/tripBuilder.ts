@@ -17,6 +17,7 @@ import {
   existingResultFields,
   existingRoadtripSummaryFields,
   existingStationFields,
+  existingStopoverFields,
 } from "../tripBuilderExistingSchemas";
 import { errorContent } from "./shared";
 
@@ -161,19 +162,23 @@ const draftArea = z
   })
   .extend(existingAreaFields(draftStation));
 /** The stopover tour of one layover (spec 2026-10-11 §2.3). */
-const draftStopover = z.object({
-  key: z
-    .string()
-    .describe("`<inFlightId>#<outFlightId>`, stable across scans; outside the area-key namespace"),
-  city: z.string(),
-  title: z.string().describe('"<City> <Year> Road Trip": the roadtrip and the album share it'),
-  day,
-  airportIata: z.string().nullable(),
-  photoCount: z.number().int().describe("The whole layover's photo set: the city album's list"),
-  outingCount: z.number().int().describe("The photos beyond the threshold: the tour's own set"),
-  stations: z.array(draftStation).describe("The tour's stops, the arrival airport first"),
-  legs: z.array(draftLeg).describe("legs[i] joins stations[i] and stations[i + 1]"),
-});
+const draftStopover = z
+  .object({
+    key: z
+      .string()
+      .describe(
+        "`<inFlightId>#<outFlightId>`, stable across scans; outside the area-key namespace"
+      ),
+    city: z.string(),
+    title: z.string().describe('"<City> <Year> Road Trip": the roadtrip and the album share it'),
+    day,
+    airportIata: z.string().nullable(),
+    photoCount: z.number().int().describe("The whole layover's photo set: the city album's list"),
+    outingCount: z.number().int().describe("The photos beyond the threshold: the tour's own set"),
+    stations: z.array(draftStation).describe("The tour's stops, the arrival airport first"),
+    legs: z.array(draftLeg).describe("legs[i] joins stations[i] and stations[i + 1]"),
+  })
+  .extend(existingStopoverFields);
 const noParams = z.object({});
 const warning = z.discriminatedUnion("code", [
   z.object({ code: z.literal("truncated"), params: noParams }),

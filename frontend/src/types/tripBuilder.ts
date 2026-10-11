@@ -174,6 +174,16 @@ export interface DraftFlight {
   layover?: { photoCount: number; airportIata: string | null };
 }
 
+/** Re-sync only: the stored roadtrip a scan matched a stopover to (spec 2026-10-11 §6). */
+export interface StoredStopoverStatus {
+  /** The stored roadtrip the review locks both switches to. */
+  roadtripId: string;
+  /** The stored roadtrip's name; the commit re-checks it. */
+  name: string;
+  /** The linked city album's member count; null: no album under the title is linked, or it was not read. */
+  albumAssetCount: number | null;
+}
+
 /** A stopover the scan offers (spec 2026-10-11 §2.3): a layover with an outing. */
 export interface DraftStopover {
   /** `${inFlightId}#${outFlightId}` — stable across scans, outside the area-key namespace. */
@@ -196,6 +206,8 @@ export interface DraftStopover {
   roadtripId?: string;
   /** Re-sync only: that roadtrip's stored photo count (spec §6). */
   storedPhotoCount?: number;
+  /** Re-sync only: set ⇔ both switches are shown on and locked — this stopover is already synced. */
+  stored?: StoredStopoverStatus;
 }
 
 export interface PassedThrough {
