@@ -7,9 +7,10 @@
  * 409 with its own code. No Immich call is made: the handler must answer well
  * inside the browser's ten seconds.
  *
- * The draft is the allow-list. Flights, photo-journey findings, areas and
- * stations are accepted only if the scan offered them; the nights are
- * re-derived and re-validated with the same mirrored code the review page used.
+ * The draft is the allow-list. Flights, photo-journey findings, areas,
+ * stopovers and stations are accepted only if the scan offered them; the
+ * nights are re-derived and re-validated with the same mirrored code the
+ * review page used.
  */
 import { prisma } from "../../db";
 import { AppError } from "../../middleware/errorHandler";
@@ -33,8 +34,10 @@ import type {
   CommitTargetPlan,
   DraftArea,
   RoadtripPlan,
+  StopoverPlan,
   StopPlan,
   StoredDraft,
+  StoredStopover,
 } from "./types";
 
 const dayOf = (date: Date): string => date.toISOString().slice(0, 10);
@@ -71,6 +74,10 @@ function assertOffered(draft: StoredDraft, body: CommitBody): void {
   const journeys = new Set(draft.dto.photoJourneys.map((j) => j.id));
   if (body.photoJourneyIds.some((id) => !journeys.has(id))) throw mismatch("photoJourneyIds");
   if (body.album.create && draft.dto.album === null) throw mismatch("album");
+  const stopovers = new Set(draft.stopovers.map((stopover) => stopover.key));
+  if (body.stopovers.some((stopover) => !stopovers.has(stopover.key))) {
+    throw mismatch("stopovers");
+  }
 }
 
 /** The days a station may fall on: its area's span, widened by any station the scan offered there. */
@@ -247,6 +254,84 @@ function stopPlans(area: CommitArea): StopPlan[] {
   return stops;
 }
 
+/**
+ * One toggled stopover as the write phase gets it (spec 2026-10-11 §5.2): the
+ * derived rows go through `deriveStationRows` with NO nights — a stopover is
+ * hours, its stations never enter the night plan — and then the same
+ * `stationsSchema` the areas use. The album carries the stored draft's own
+ * photo ids; the request never names an asset.
+ */
+function stopoverPlan(
+  stopover: StoredStopover,
+  toggled: CommitBody["stopovers"][number],
+  index: number
+): StopoverPlan {
+  const rows = deriveStationRows(
+    stopover.stations.map((s) => ({
+      key: s.key,
+      title: s.title,
+      lat: s.lat,
+      lon: s.lon,
+      firstDay: s.firstDay,
+      lastDay: s.lastDay,
+      notes: s.notes ?? null,
+    })),
+    {}
+  );
+  const parsed = stationsSchema.safeParse({
+    stations: rows.map((row) => ({
+      title: row.title,
+      lat: row.lat,
+      lon: row.lon,
+      startDate: row.startDate,
+      endDate: row.endDate,
+      notes: row.notes ?? null,
+      // No nights: every row is a pass row, whatever the photos showed.
+      night: { kind: "pass" },
+    })),
+  });
+  if (!parsed.success || parsed.data.stations.length < 2) {
+    throw new AppError(
+      "A roadtrip needs at least two valid stations",
+      400,
+      "STATIONS_INVALID",
+      `stopovers.${index}`
+    );
+  }
+  return {
+    key: stopover.key,
+    name: stopover.title,
+    day: stopover.day,
+    stations: parsed.data.stations,
+    // The scan's legs, in station-row order — the same conversion the areas use:
+    // `rowLegModes` over the stopover's station keys and its legs' modes.
+    legModes: rowLegModes(
+      stopover.stations.map((s) => s.key),
+      stopover.legs.map((leg) => leg.mode),
+      rows
+    ),
+    album: toggled.album ? { name: stopover.title, assetIds: [...stopover.photoIds] } : null,
+  };
+}
+
+/**
+ * The toggled stopovers, in the body's order. `roadtrip: false` entries write
+ * nothing: the review sends only toggled-on candidates (spec §5.1), and a
+ * skipped switch is not a write.
+ */
+function stopoverPlans(draft: StoredDraft, body: CommitBody): StopoverPlan[] {
+  const offered = new Map(draft.stopovers.map((stopover) => [stopover.key, stopover] as const));
+  const plans: StopoverPlan[] = [];
+  body.stopovers.forEach((toggled, index) => {
+    if (!toggled.roadtrip) return;
+    const stopover = offered.get(toggled.key);
+    // `assertOffered` has refused a key the draft did not name; this is its plan-side twin.
+    if (stopover === undefined) throw mismatch("stopovers");
+    plans.push(stopoverPlan(stopover, toggled, index));
+  });
+  return plans;
+}
+
 export async function prepareCommit(
   userId: string,
   draft: StoredDraft,
@@ -260,7 +345,7 @@ export async function prepareCommit(
   await assertFlightsOwned(userId, flightIds);
   const target = await resolveTarget(userId, draft, body);
 
-  if (body.areas.some((a) => a.as === "roadtrip")) {
+  if (body.areas.some((a) => a.as === "roadtrip") || body.stopovers.some((s) => s.roadtrip)) {
     if (!(await loadVisibleDomains(userId)).includes("roadtrip")) {
       throw new AppError("Roadtrips are hidden for this account", 409, "ROADTRIPS_HIDDEN");
     }
@@ -272,6 +357,7 @@ export async function prepareCommit(
     .filter(({ area }) => area.as === "roadtrip")
     .map(({ area, index }) => roadtripPlan(area, index, body.nights));
   const stops = body.areas.filter((a) => a.as === "stops").flatMap(stopPlans);
+  const stopovers = stopoverPlans(draft, body);
   const unknownNights = nightsOf(body.window).filter((night) => {
     const answer = body.nights[night];
     return answer === undefined || answer === NIGHT_UNKNOWN;
@@ -285,6 +371,7 @@ export async function prepareCommit(
     flightIds,
     stops,
     roadtrips,
+    stopovers,
     photoJourneyIds: [...new Set(body.photoJourneyIds)],
     album: { create: body.album.create, name: body.album.name },
     unknownNights,

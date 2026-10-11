@@ -20,7 +20,7 @@ export const WINDOW = { startDay: "2031-05-02", endDay: "2031-05-05" };
 /** Created at 08:00; tests pin the clock at 08:30 so the draft is alive. */
 export const CREATED_AT = Date.parse("2031-05-20T08:00:00Z");
 
-function draftStation(
+export function draftStation(
   over: Pick<DraftStation, "key" | "title" | "lat" | "lon" | "firstDay" | "lastDay">
 ): DraftStation {
   return {

@@ -121,6 +121,7 @@ describe("extendPlanForExisting", () => {
           ...over,
         },
       ],
+      stopovers: [],
       photoJourneyIds: [],
       stops: { keep: [fx.stop.museum, fx.stop.harbour], remove: [] },
       album: { create: false, name: "Northvale loop" },

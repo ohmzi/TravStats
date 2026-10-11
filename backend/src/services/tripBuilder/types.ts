@@ -728,6 +728,28 @@ export interface RoadtripPlan {
   nights: number;
 }
 
+/**
+ * One toggled stopover as the write phase sees it (spec 2026-10-11 §5.2): a
+ * roadtrip with no nights — its stations never enter `body.areas` or the night
+ * plan — and, when its album switch is on, the album to link beside the trip's.
+ */
+export interface StopoverPlan {
+  /** The draft stopover's key, `<inFlightId>#<outFlightId>`. */
+  key: string;
+  /** `<City> <Year> Road Trip`: the roadtrip's and its album's one name (owner ruling). */
+  name: string;
+  /** The stopover day (`YYYY-MM-DD`, trip zone). */
+  day: Day;
+  /** The stored roadtrip a re-sync matched to this stopover (spec §6); set, it is never rebuilt (add-only). */
+  roadtripId?: string;
+  /** `stationsSchema`-parsed `deriveStationRows`, no night assigned (every row a `pass`). */
+  stations: StationsInput["stations"];
+  /** legModes[i] joins stations[i] and stations[i+1] (§2.2: mode evidence, road unless it says otherwise). */
+  legModes: BuilderLegMode[];
+  /** The whole layover's asset ids, SERVER-ONLY; null when the album toggle is off. */
+  album: { name: string; assetIds: string[] } | null;
+}
+
 export type CommitTargetPlan =
   | { kind: "new"; trip: CreateTripInput }
   | {
@@ -748,6 +770,8 @@ export interface CommitPlan {
   flightIds: string[];
   stops: StopPlan[];
   roadtrips: RoadtripPlan[];
+  /** Toggled stopovers (spec 2026-10-11 §5.2); absent reads as none. */
+  stopovers?: StopoverPlan[];
   photoJourneyIds: string[];
   album: { create: boolean; name: string };
   unknownNights: number;
