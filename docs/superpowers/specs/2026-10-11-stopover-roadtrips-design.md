@@ -109,7 +109,7 @@ stopovers: [{ key, roadtrip: boolean, album: boolean }, …]   // only toggled-o
 
 `prepareCommit` gains a `stopoverPlan()` step, next to `roadtripPlan`/`stopPlans`:
 
-- each toggled stopover becomes `{ key, roadtrip: { name, vehicle: "car", stations }, album: null | { name, assetIds } }` — **no nights**, and **outside** `body.areas`/`body.nights`, so the night-plan validation never sees it;
+- each toggled stopover becomes a plan entry `{ key, name, day, roadtripId?, stations, legModes, album: null | { name, assetIds } }` (the plan file pins the exact TypeScript; `legModes` is the row-ordered mode list `replaceStationsInTx` takes, and `roadtripId` marks a re-sync match so phase B writes nothing for it) — **no nights**, and **outside** `body.areas`/`body.nights`, so the night-plan validation never sees it;
 - stations go through `deriveStationRows` with no night assignments, then the same `stationsSchema` the areas use; the airport-first rule (§2.2) keeps the two-station minimum;
 - album asset ids come from the stored draft's stopover (server-side only; the client never sends asset ids).
 
