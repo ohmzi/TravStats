@@ -178,6 +178,36 @@ describe("planAreaHome: the home cluster is relabelled", () => {
     });
   });
 
+  it("keeps the residence's town when a merged cluster's majority names another place", () => {
+    // A 30 km cluster can join the residence with a nearby place, and buildStations
+    // then titles the station from its own segment (title 'Kelmore', not the cluster's).
+    const result = plan({
+      stations: [station("n1"), station("k1", { title: "Kelmore", titleSource: "immich" })],
+      stationCluster: { k1: "cK" },
+      clusters: [homeCluster({ immichCity: "Selby Cove", title: "Selby Cove" })],
+    });
+    expect(result.stations[2]).toMatchObject({
+      title: "Kelmore",
+      titleSource: "home",
+      kind: "home",
+    });
+  });
+
+  it("keeps it at both ends of an area that is only home", () => {
+    const result = plan({
+      stations: [station("k1", { title: "Kelmore", titleSource: "immich" })],
+      stationCluster: { k1: "cK" },
+      clusters: [homeCluster({ immichCity: "Selby Cove", title: "Selby Cove" })],
+    });
+    expect(result.stations).toHaveLength(1);
+    expect(result.stations[0]).toMatchObject({
+      title: "Kelmore",
+      titleSource: "home",
+      kind: "home",
+    });
+    expect([result.home.start.station?.key, result.home.end.station?.key]).toEqual(["k1", "k1"]);
+  });
+
   it("does not add a second station to an area that is only home", () => {
     const taken = new Set<string>();
     const result = plan({

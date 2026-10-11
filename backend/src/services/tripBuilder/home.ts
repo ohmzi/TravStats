@@ -134,8 +134,23 @@ function supportsHomeLeg(input: AreaHomeInput, side: Side, home: HomeAtDay): boo
   return hours !== null && hours > 0 && km / hours < IMPLICIT_FLIGHT_MIN_KMH;
 }
 
+/**
+ * The station at the residence takes the home cluster's Immich city (spec
+ * §C.9), else the residence's own town. But 30 km single linkage can join the
+ * residence with a nearby place (§C.5), and that cluster is named by whichever
+ * place has more photos; a station whose own segment's photos named a
+ * different city — the title `stations.ts` gave it — is not a name the home
+ * photos carry, so it keeps the residence's town instead.
+ */
 function relabelAsHome(station: PlanStation, cluster: NamedCluster, home: HomeAtDay): PlanStation {
-  const city = cluster.immichCity?.trim();
+  const city = cluster.immichCity?.trim() ?? "";
+  const name = station.title.trim();
+  const fromPhotos = station.titleSource === "immich" || station.titleSource === "home";
+  const namesAnotherPlace =
+    fromPhotos && name !== "" && city !== "" && name !== city && !name.startsWith(`${city},`);
+  if (namesAnotherPlace) {
+    return { ...station, kind: "home", title: townOf(home), titleSource: "home" };
+  }
   return {
     ...station,
     kind: "home",

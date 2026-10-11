@@ -120,6 +120,49 @@ describe("buildStations: excursions", () => {
   });
 });
 
+describe("buildStations: a cluster that spans two named places", () => {
+  /** An invented town about 13 km from Northvale: one cluster once single linkage has run. */
+  const BROOKFIELD = { lat: -45.15, lon: 168.62 };
+  // The cluster as `nameClusters` hands it over: one title for a cluster the user
+  // already named, whose members' Immich cities disagree (Northvale at home, 3 photos,
+  // and Brookfield, 2 photos).
+  const MERGED = new Map([
+    [
+      "cM",
+      named("cM", "Northvale, Westshire", { immichCity: "Northvale", titleSource: "existing" }),
+    ],
+  ]);
+
+  const sceneOf = () => {
+    const photos = [
+      photo("n1", "2031-05-02 10:00", NORTHVALE, { city: "Northvale" }),
+      photo("n2", "2031-05-02 11:00", NORTHVALE, { city: "Northvale" }),
+      photo("n3", "2031-05-02 12:00", NORTHVALE, { city: "Northvale" }),
+      photo("b1", "2031-05-04 10:00", BROOKFIELD, { city: "Brookfield" }),
+      photo("b2", "2031-05-04 11:00", BROOKFIELD, { city: "Brookfield" }),
+    ];
+    const clusterOf = new Map(photos.map((p) => [p.id, "cM"] as const));
+    const byId = new Map(photos.map((p) => [p.id, p] as const));
+    return { byId, segments: classifySegments(buildSegments(photos, clusterOf), byId) };
+  };
+
+  it("titles a station from its own segment's city when the members disagree", () => {
+    const { byId, segments } = sceneOf();
+    const build = buildStations({
+      segments,
+      clusters: MERGED,
+      photosById: byId,
+      taken: new Set(),
+    });
+    expect(build.stations.map((s) => [s.title, s.titleSource])).toEqual([
+      // The segment's own cities agree with the cluster: the cluster title stands.
+      ["Northvale, Westshire", "existing"],
+      // The segment stands in a place the cluster's majority does not name.
+      ["Brookfield", "immich"],
+    ]);
+  });
+});
+
 describe("buildStations: transit noise", () => {
   const specs: readonly Spec[] = [
     ["a1", "2031-05-05 09:00", "cA"],

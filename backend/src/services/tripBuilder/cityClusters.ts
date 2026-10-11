@@ -151,8 +151,12 @@ function spreadKm(points: readonly Placed[]): number {
   return distanceKm(a, farthestFrom(points, a));
 }
 
-/** The value most members carry; a tie goes to the one seen first. Null when none carries one. */
-function majority(values: ReadonlyArray<string | null>): string | null {
+/**
+ * The value most members carry; a tie goes to the one seen first. Null when
+ * none carries one. Exported for `stations.ts`, where a segment's own photos
+ * name its station when a cluster's members carry more than one city.
+ */
+export function majority(values: ReadonlyArray<string | null>): string | null {
   const counts = new Map<string, number>();
   for (const value of values) {
     if (value) counts.set(value, (counts.get(value) ?? 0) + 1);

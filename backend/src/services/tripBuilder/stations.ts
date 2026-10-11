@@ -9,6 +9,7 @@
  */
 import { defaultStationNotes } from "../../shared/tour/builderStations";
 import type { Coord } from "../tour/tourDistance";
+import { majority } from "./cityClusters";
 import { medianPoint } from "./medians";
 import { MAX_PREVIEWS, PREVIEWS_PER_STATION, STATION_KEY_GRID_DEG } from "./thresholds";
 import { NIGHT_HOME } from "./types";
@@ -112,6 +113,26 @@ const KIND_OF_ROLE: Record<Exclude<Segment["role"], "transit">, StationKind> = {
   excursion: "dayTrip",
 };
 
+/**
+ * The title a station of `cluster` wears. Normally the cluster's own title,
+ * but a 30 km single-linkage chain can join two named places into one cluster
+ * (spec §C.5), and the cluster's majority city is then the name of whichever
+ * place has more photos. A segment whose own photos name a different city is
+ * titled from them instead, so a home station and a day trip 24 km out each
+ * keep the place their photos stand in.
+ */
+function stationTitle(
+  cluster: NamedCluster,
+  photos: readonly PhotoPoint[]
+): { text: string; source: TitleSource } {
+  const city = cluster.immichCity?.trim() ?? "";
+  const ownCity = majority(photos.map((photo) => photo.city))?.trim() ?? "";
+  if (ownCity !== "" && city !== "" && ownCity !== city) {
+    return { text: ownCity, source: "immich" };
+  }
+  return { text: cluster.title, source: cluster.titleSource };
+}
+
 /** The station of the nearest kept segment after `index`, else before it. */
 function keptStationAround(
   segments: readonly Segment[],
@@ -176,10 +197,11 @@ export function buildStations(input: BuildStationsInput): StationBuild {
     const centre = medianPoint(located);
     const previous = stations[stations.length - 1];
     const key = claimKey(stationKeyOf(centre.lat, centre.lon, segment.firstDay), input.taken);
+    const title = stationTitle(cluster, photos);
     stations.push({
       key,
-      title: cluster.title,
-      titleSource: cluster.titleSource,
+      title: title.text,
+      titleSource: title.source,
       kind: KIND_OF_ROLE[segment.role],
       ...(segment.role === "excursion" && previous ? { excursionOf: previous.key } : {}),
       lat: centre.lat,
