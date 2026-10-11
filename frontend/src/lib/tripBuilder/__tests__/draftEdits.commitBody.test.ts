@@ -15,7 +15,9 @@ import {
   FLIGHT_OUT,
   JOURNEY,
   KEY,
+  PITSTOP_KEY,
   STOPOVER,
+  pitstopDraft,
   reviewDraft,
   stopoverDraft,
 } from "./reviewFixtures";
@@ -52,7 +54,17 @@ describe("buildCommitBody for a new trip", () => {
       ].sort()
     );
     expect(Object.keys(body.areas[0]).sort()).toEqual(
-      ["as", "homeEnd", "homeStart", "key", "legModes", "name", "stations", "vehicle"].sort()
+      [
+        "album",
+        "as",
+        "homeEnd",
+        "homeStart",
+        "key",
+        "legModes",
+        "name",
+        "stations",
+        "vehicle",
+      ].sort()
     );
     expect(Object.keys(body.areas[0].stations[0]).sort()).toEqual(
       ["firstDay", "key", "kind", "lastDay", "lat", "lon", "notes", "title"].sort()
@@ -222,6 +234,13 @@ describe("buildCommitBody for an existing trip", () => {
       { name: "Southern loop" }
     );
     expect(body.stopovers).toEqual([{ key: STOPOVER.key, roadtrip: true, album: true }]);
+    expect(body.stops).toEqual({ keep: [], remove: [] });
+  });
+
+  it("keeps a pitstop's album through the re-sync fields", () => {
+    const existingPitstop = pitstopDraft({ target: existing.target });
+    const body = bodyAfter([], existingPitstop, { name: "Southern loop" });
+    expect(body.areas.find((area) => area.key === PITSTOP_KEY)?.album).toBe(true);
     expect(body.stops).toEqual({ keep: [], remove: [] });
   });
 });

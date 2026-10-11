@@ -272,6 +272,27 @@ export function stopoverDraft(over: Partial<TripBuilderDraft> = {}): TripBuilder
   });
 }
 
+/** The Southbridge stay: the area between the ZSB arrival and the ZSB departure. */
+export const PITSTOP_KEY = "2031-05-05#1";
+/** The album name the scan computes for it (spec 2026-10-11 pitstops §6). */
+export const PITSTOP_ALBUM = "Southbridge 2031 Road Trip (Southern loop)";
+
+/**
+ * The draft as the scan leaves it when the Southbridge stay — the ground
+ * between the ZSB arrival and the ZSB departure, on different days — is a
+ * multi-day pitstop with its own album (spec 2026-10-11 pitstops §2).
+ */
+export function pitstopDraft(over: Partial<TripBuilderDraft> = {}): TripBuilderDraft {
+  return reviewDraft({
+    areas: AREAS.map((area) =>
+      area.key === PITSTOP_KEY
+        ? { ...area, beforeFlightId: FLIGHT_ELSEWHERE, pitstop: { albumName: PITSTOP_ALBUM } }
+        : area
+    ),
+    ...over,
+  });
+}
+
 /**
  * Six days, five nights. 02 and 03 at Northvale, 04 in the air, 05 at
  * Southbridge, and 06 unknown (Tarnside is the suggestion).

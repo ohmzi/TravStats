@@ -134,6 +134,12 @@ export const commitAreaSchema = z
     stations: z.array(commitStationSchema).max(MAX_STATIONS_PER_AREA),
     /** legModes[i] joins stations[i] and stations[i + 1]. */
     legModes: z.array(z.enum(BUILDER_LEG_MODES)).max(MAX_STATIONS_PER_AREA - 1),
+    /**
+     * The pitstop area's own album (spec 2026-10-11 pitstops §4): a roadtrip may
+     * carry one, a timeline-stop or skipped area may not. Whether the scan
+     * offered it at all is `commitPlan.ts`'s question.
+     */
+    album: z.boolean(),
     /** Re-sync only: the stored roadtrip this area updates in place; absent: a new roadtrip. */
     roadtripId: uuid.optional(),
     /** Re-sync only: stored stations the photos do not show, which the user kept … */
@@ -287,6 +293,9 @@ export const commitBodySchema = z
       areaKeys.add(area.key);
       if (area.legModes.length !== Math.max(0, area.stations.length - 1)) {
         flag(["areas", a, "legModes"], "One leg mode per consecutive pair of stations");
+      }
+      if (area.album && area.as !== "roadtrip") {
+        flag(["areas", a, "album"], "An album needs the area's roadtrip");
       }
       area.stations.forEach((station, s) => {
         if (stationKeys.has(station.key)) {

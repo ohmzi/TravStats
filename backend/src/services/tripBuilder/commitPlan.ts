@@ -97,6 +97,9 @@ function assertAreas(draft: StoredDraft, areas: readonly CommitArea[]): Map<stri
   for (const area of areas) {
     const offered = known.get(area.key);
     if (!offered) throw mismatch("areas");
+    // The album is the scan's offer to make (spec 2026-10-11 pitstops §4): as
+    // with the stopover switches, a body can only write what the draft named.
+    if (area.album && offered.pitstop === undefined) throw mismatch("areas");
     const span = spanOf(draft, offered);
     for (const station of area.stations) {
       const entry = draft.stationIndex.get(station.key);

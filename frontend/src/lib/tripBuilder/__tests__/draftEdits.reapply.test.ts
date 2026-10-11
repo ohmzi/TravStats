@@ -7,9 +7,9 @@ import {
   type DraftEdit,
   type ReviewState,
 } from "../draftEdits";
-import { FLIGHT_OUT, JOURNEY, KEY, reviewDraft } from "./reviewFixtures";
+import { FLIGHT_OUT, JOURNEY, KEY, PITSTOP_KEY, pitstopDraft, reviewDraft } from "./reviewFixtures";
 
-const draft = reviewDraft();
+const draft = pitstopDraft();
 
 const EDITS: DraftEdit[] = [
   { type: "rename", stationKey: KEY.northvale, title: "Northvale Lodge" },
@@ -18,6 +18,7 @@ const EDITS: DraftEdit[] = [
   { type: "foldDayTrip", stationKey: KEY.portCarrow },
   { type: "setFlightTick", flightId: FLIGHT_OUT, ticked: false },
   { type: "togglePhotoJourney", id: JOURNEY, ticked: false },
+  { type: "setAreaAlbum", areaKey: PITSTOP_KEY, album: false },
   { type: "setTripName", name: "Autumn loop" },
 ];
 
@@ -86,5 +87,13 @@ describe("reapplyEdits", () => {
   it("drops an edit of a kind it does not know, as an older page might have stored", () => {
     const unknown = { type: "reorderEverything" } as unknown as DraftEdit;
     expect(reapplyEdits(draft, [unknown, EDITS[0]])).toMatchObject({ kept: 1, total: 2 });
+  });
+
+  it("drops a pitstop album edit a re-scan no longer offers", () => {
+    const { kept, total } = reapplyEdits(reviewDraft(), [
+      { type: "setAreaAlbum", areaKey: PITSTOP_KEY, album: false },
+      { type: "setFlightTick", flightId: FLIGHT_OUT, ticked: false },
+    ]);
+    expect([kept, total]).toEqual([1, 2]);
   });
 });

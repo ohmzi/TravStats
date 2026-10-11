@@ -115,6 +115,20 @@ export function setStopoverTick(
   });
 }
 
+export function setAreaAlbum(
+  draft: TripBuilderDraft,
+  state: ReviewState,
+  edit: EditOf<"setAreaAlbum">
+): ReviewState {
+  const offered = draft.areas.find((candidate) => candidate.key === edit.areaKey);
+  // The switch exists only for a pitstop area (spec 2026-10-11 pitstops §3): a
+  // re-scan that no longer offers the pitstop drops the edit with it.
+  if (offered?.pitstop === undefined) return state;
+  const a = areaIndex(state, edit.areaKey);
+  if (a < 0) return state;
+  return accept(state, edit, { areas: withAreaAt(state, a, { album: edit.album }) });
+}
+
 export function setAlbum(
   draft: TripBuilderDraft,
   state: ReviewState,

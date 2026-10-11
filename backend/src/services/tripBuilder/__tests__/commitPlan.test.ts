@@ -263,6 +263,19 @@ describe("prepareCommit", () => {
       applyWindow: true,
     };
     expect(await field(target)).toEqual([400, "DRAFT_MISMATCH", "target"]);
+
+    const albumArea = fixtureBody([flightId]);
+    albumArea.areas[0].album = true;
+    expect(await field(albumArea)).toEqual([400, "DRAFT_MISMATCH", "areas"]);
+  });
+
+  it("takes a pitstop area's album when the scan offered it", async () => {
+    const pitstop = draft();
+    const [area] = pitstop.dto.areas;
+    area.pitstop = { albumName: "Northvale 2031 Road Trip (Northvale loop)" };
+    const body = fixtureBody([flightId]);
+    body.areas[0].album = true;
+    expect((await plan(body, pitstop)).roadtrips).toHaveLength(1);
   });
 
   it("accepts a ticked photo-journey finding the draft offered", async () => {

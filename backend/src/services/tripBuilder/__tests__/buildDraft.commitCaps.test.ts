@@ -45,6 +45,7 @@ function reviewBody(dto: TripBuilderDraft): CommitBody {
       notes: station.notes,
     })),
     legModes: area.legs.map((leg) => leg.mode),
+    album: area.pitstop !== undefined,
   }));
   return {
     commitKey: COMMIT_KEY,

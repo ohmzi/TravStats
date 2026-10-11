@@ -33,6 +33,7 @@ import { logEdit } from "./editLog";
 import {
   rename,
   setAlbum,
+  setAreaAlbum,
   setAreaName,
   setCountries,
   setFlightTick,
@@ -69,6 +70,7 @@ export type DraftEdit =
   | { type: "assignNight"; day: Day; assign: NightAssign }
   | { type: "toggleHome"; areaKey: string; end: "start" | "end"; on: boolean }
   | { type: "setAreaKind"; areaKey: string; as: AreaChoice }
+  | { type: "setAreaAlbum"; areaKey: string; album: boolean }
   | { type: "setAreaName"; areaKey: string; name: string }
   | { type: "setVehicle"; areaKey: string; vehicle: RoadtripVehicle }
   | { type: "setFlightTick"; flightId: string; ticked: boolean }
@@ -89,6 +91,8 @@ export interface ReviewArea {
   vehicle: RoadtripVehicle;
   homeStart: boolean;
   homeEnd: boolean;
+  /** The pitstop's own album tick (spec 2026-10-11 pitstops §3); false for an ordinary area. */
+  album: boolean;
   stations: DraftStation[];
   legs: DraftLeg[];
   /** `legs.map((leg) => leg.mode)`, kept in step: the order the commit body sends. */
@@ -129,6 +133,8 @@ function initialArea(area: DraftArea): ReviewArea {
     vehicle: "car",
     homeStart: false,
     homeEnd: false,
+    // A pitstop's own album starts ON (spec 2026-10-11 pitstops §3).
+    album: area.pitstop !== undefined,
     stations: area.stations.map((station) => ({ ...station })),
     legs: area.legs.map((leg) => ({ ...leg })),
     legModes: [],
@@ -211,6 +217,8 @@ export function applyEdit(
       return assignNight(draft, state, edit);
     case "setAreaKind":
       return setAreaKind(draft, state, edit);
+    case "setAreaAlbum":
+      return setAreaAlbum(draft, state, edit);
     default:
       return state;
   }
@@ -257,6 +265,9 @@ function commitArea(area: ReviewArea, fallbackName: string): CommitArea {
     vehicle: area.vehicle,
     homeStart: area.homeStart,
     homeEnd: area.homeEnd,
+    // `album ⇒ roadtrip` (spec 2026-10-11 pitstops §4): a tick left on under a
+    // kind the switch is disabled for is not sent.
+    album: area.as === "roadtrip" && area.album,
     stations: area.stations.map(commitStation),
     legModes: area.legModes,
   };

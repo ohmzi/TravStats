@@ -184,6 +184,7 @@ describe("trip builder OpenAPI documents the re-sync fields", () => {
       expect(at(area, "roadtripId").type).toBe("string");
       expect(at(area, "keepNotSeen").type).toBe("array");
       expect(at(area, "removeNotSeen").type).toBe("array");
+      expect(at(area, "album").type).toBe("boolean");
       expect(keysOf(at(request, "stops"))).toEqual(["keep", "remove"]);
       expect(at(request, "album", "removeOutside").type).toBe("boolean");
     });

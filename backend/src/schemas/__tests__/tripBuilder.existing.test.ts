@@ -50,6 +50,7 @@ function roadtripArea(overrides: Record<string, unknown> = {}) {
       station(PORT_CARROW, "2031-05-04", "2031-05-05", { existingId: STATION_B }),
     ],
     legModes: ["road"],
+    album: false,
     keepNotSeen: [NOT_SEEN],
     ...overrides,
   };
@@ -64,6 +65,7 @@ function stopsArea(overrides: Record<string, unknown> = {}) {
     homeEnd: false,
     stations: [station(KELMORE, "2031-05-06", "2031-05-07", { existingId: STOP_ID })],
     legModes: [],
+    album: false,
     ...overrides,
   };
 }

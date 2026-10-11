@@ -21,6 +21,7 @@ function editTarget(edit: DraftEdit): string | null {
     case "assignNight":
       return `${edit.type}:${edit.day}`;
     case "setAreaKind":
+    case "setAreaAlbum":
     case "setAreaName":
     case "setVehicle":
       return `${edit.type}:${edit.areaKey}`;

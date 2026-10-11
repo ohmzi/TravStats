@@ -203,6 +203,7 @@ export function fixtureBody(flightIds: readonly string[] = []): CommitBody {
         homeEnd: false,
         stations: STATIONS.map(commitStation),
         legModes: ["road", "ferry"],
+        album: false,
         keepNotSeen: [],
         removeNotSeen: [],
       },

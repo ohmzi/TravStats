@@ -397,6 +397,8 @@ export interface CommitArea {
   stations: CommitStation[];
   /** legModes[i] joins stations[i] and stations[i + 1]. */
   legModes: BuilderLegMode[];
+  /** The pitstop's own album (spec 2026-10-11 pitstops §4): only ever on a roadtrip. */
+  album: boolean;
   /** Re-sync only. */
   roadtripId?: string;
   keepNotSeen?: string[];

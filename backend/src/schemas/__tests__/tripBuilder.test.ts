@@ -48,6 +48,7 @@ function area(overrides: Record<string, unknown> = {}) {
       station(PORT_CARROW, "2031-05-04", "2031-05-05"),
     ],
     legModes: ["ferry"],
+    album: false,
     ...overrides,
   };
 }
@@ -183,6 +184,22 @@ describe("commitBodySchema", () => {
     expect(issuePaths(commitBodySchema.safeParse(commit({ target: lower })))).toEqual([
       "target.countries.0",
     ]);
+  });
+
+  it("takes a pitstop area's album, refusing it beside a kind that is not a roadtrip", () => {
+    expect(commitBodySchema.safeParse(commit({ areas: [area({ album: true })] })).success).toBe(
+      true
+    );
+    const stops = commit({ areas: [area({ as: "stops", album: true })] });
+    expect(issuePaths(commitBodySchema.safeParse(stops))).toEqual(["areas.0.album"]);
+    const skipped = commit({ areas: [area({ as: "skip", album: true })] });
+    expect(issuePaths(commitBodySchema.safeParse(skipped))).toEqual(["areas.0.album"]);
+  });
+
+  it("refuses a field inside an area it does not know", () => {
+    expect(
+      commitBodySchema.safeParse(commit({ areas: [area({ albumName: "Northvale" })] })).success
+    ).toBe(false);
   });
 
   it("takes a stopover's switches, refusing an album without its roadtrip", () => {

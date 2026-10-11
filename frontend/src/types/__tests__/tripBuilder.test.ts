@@ -116,6 +116,7 @@ describe("trip builder wire vocabulary", () => {
             },
           ],
           legModes: ["ferry"],
+          album: false,
         },
       ],
       photoJourneyIds: [],
