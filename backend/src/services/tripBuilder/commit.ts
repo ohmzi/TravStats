@@ -162,6 +162,50 @@ async function writeRoadtrips(
   return written;
 }
 
+/**
+ * The stopover roadtrips (spec 2026-10-11 §5.3): per toggled stopover
+ * `insertRoadtrip` with the stopover's one name, `mode: "road"`, `vehicle: "car"`,
+ * then `replaceStationsInTx` with its station rows. No night is ever assigned
+ * (§2.2), so no row the write makes is slept — the night machinery never sees a
+ * stopover. A stopover a re-sync already matched (`roadtripId`) is never
+ * rebuilt (§6, add-only): nothing is written for it.
+ *
+ * The legs go back with the summary for phase C to route, like the areas'.
+ */
+async function writeStopoverRoadtrips(
+  tx: DbTransaction,
+  plan: CommitPlan,
+  tripId: string
+): Promise<PhaseBRoadtrip[]> {
+  const written: PhaseBRoadtrip[] = [];
+  for (const stopover of plan.stopovers ?? []) {
+    if (stopover.roadtripId !== undefined) continue;
+    const route = await insertRoadtrip(tx, plan.userId, {
+      tripId,
+      name: stopover.name,
+      mode: "road",
+      vehicle: "car",
+    });
+    const { createdLegs } = await replaceStationsInTx(
+      tx,
+      plan.userId,
+      route.id,
+      stopover.stations,
+      { legModes: stopover.legModes }
+    );
+    const ferryLegs = await tx.tripRouteLeg.count({ where: { routeId: route.id, mode: "ferry" } });
+    written.push({
+      id: route.id,
+      name: stopover.name,
+      stations: stopover.stations.length,
+      nights: 0,
+      createdLegs,
+      ferryLegs,
+    });
+  }
+  return written;
+}
+
 export async function writeCommit(plan: CommitPlan): Promise<PhaseBResult> {
   const prepared =
     plan.target.kind === "new" ? await prepareTripCreate(plan.userId, plan.target.trip) : null;
@@ -171,6 +215,7 @@ export async function writeCommit(plan: CommitPlan): Promise<PhaseBResult> {
       const flights = await assignFlights(tx, plan, tripId);
       const stopIds = await writeStops(tx, plan, tripId);
       const roadtrips = await writeRoadtrips(tx, plan, tripId);
+      roadtrips.push(...(await writeStopoverRoadtrips(tx, plan, tripId)));
       let stopsDiff: RoadtripDiff | undefined;
       if (plan.existing) {
         const updated = await writeExistingTarget(tx, plan.userId, plan.existing, stopIds);

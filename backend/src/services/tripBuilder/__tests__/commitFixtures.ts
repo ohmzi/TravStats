@@ -4,6 +4,7 @@ import type {
   CommitTargetPlan,
   DraftStation,
   StoredDraft,
+  StopoverPlan,
   TripBuilderDraft,
 } from "../types";
 
@@ -292,5 +293,44 @@ export function fixturePlan(
     photoJourneyIds: [],
     album: { create: false, name: "Northvale loop" },
     unknownNights: 0,
+  };
+}
+
+export const STOPOVER_KEY =
+  "8c2d9e3f-4a5b-4c7d-8e8f-9a0b1c2d3e4f#9d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f60";
+
+/**
+ * One stopover plan (spec 2026-10-11 §5.2): Port Carrow's day out — the
+ * airport first, then the city, no nights. Synthetic fixtures only (public
+ * repository).
+ */
+export function fixtureStopoverPlan(over: Partial<StopoverPlan> = {}): StopoverPlan {
+  return {
+    key: STOPOVER_KEY,
+    name: "Port Carrow 2031 Road Trip",
+    day: "2031-05-03",
+    stations: [
+      {
+        title: "ZPC airport",
+        lat: -44.72,
+        lon: 169.17,
+        startDate: day("2031-05-03"),
+        endDate: day("2031-05-03"),
+        notes: null,
+        night: { kind: "pass" },
+      },
+      {
+        title: "Port Carrow",
+        lat: -44.7,
+        lon: 169.15,
+        startDate: day("2031-05-03"),
+        endDate: day("2031-05-03"),
+        notes: null,
+        night: { kind: "pass" },
+      },
+    ],
+    legModes: ["road"],
+    album: { name: "Port Carrow 2031 Road Trip", assetIds: ["photo-a", "photo-b"] },
+    ...over,
   };
 }
