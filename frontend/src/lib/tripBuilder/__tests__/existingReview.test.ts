@@ -178,6 +178,26 @@ describe("the commit body for an existing trip", () => {
     expect(body.album.removeOutside).toBe(true);
   });
 
+  it("carries the review's name for a matched roadtrip into the body", () => {
+    let state = initialReviewState(draft);
+    state = applyEdit(draft, state, {
+      type: "setAreaName",
+      areaKey: "2031-05-02#1",
+      name: "  Westshire circuit  ",
+    });
+    const body = buildCommitBody(draft, state, form, COMMIT_KEY);
+    expect(body.areas[0].roadtripId).toBe("r1");
+    expect(body.areas[0].name).toBe("Westshire circuit");
+  });
+
+  it("starts the name at the name the scan sent for the area, without recomputing it", () => {
+    // For a matched roadtrip the server sends the stored name as `suggestedName`;
+    // the review must show exactly that, or the field would not be the name at stake.
+    const [area] = draft.areas;
+    const named = existingDraft({ areas: [{ ...area, suggestedName: "Southern loop" }] });
+    expect(initialReviewState(named).areas[0].name).toBe("Southern loop");
+  });
+
   it("follows the user's choices", () => {
     let state = initialReviewState(draft);
     state = applyEdit(draft, state, { type: "setKeepNotSeen", existingId: "st-c", keep: false });

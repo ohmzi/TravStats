@@ -6,6 +6,8 @@
  * every station marked (`status`, `existingId`, `before`), the stored stations the
  * photos do not show listed beside their area (`notSeen`), the stored timeline
  * stops no area matched (`notSeenStops`), and the album section's re-sync preview.
+ * An area matched to a stored roadtrip is shown under that roadtrip's own name,
+ * so the review's Name field is the name the commit keeps or renames.
  * It also returns what it offered (`StoredExisting`, server-only), which the
  * commit holds the client to.
  */
@@ -155,6 +157,7 @@ export function annotateDraftForExisting(
         return { ...area, stations: area.stations.map((s) => ({ ...s, status: "new" as const })) };
       offers.set(match.roadtripId, {
         areaKey: area.key,
+        name: match.name,
         matchedIds: new Set(
           match.reconciled.derived.flatMap((d) => (d.existing ? [d.existing.id] : []))
         ),
@@ -162,6 +165,9 @@ export function annotateDraftForExisting(
       });
       return {
         ...area,
+        // The area IS that stored roadtrip: show its own name, not the derivation for
+        // a new one, so the review's Name field holds what the commit keeps or renames.
+        suggestedName: match.name,
         roadtripId: match.roadtripId,
         stations: area.stations.map((s, i) => annotate(s, match.reconciled.derived[i])),
         notSeen: match.reconciled.notSeen.map((n) => notSeenStation(n, taken, area.startDay)),

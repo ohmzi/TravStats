@@ -267,6 +267,8 @@ export interface ReconcileArea {
 export interface RoadtripMatch {
   areaKey: string;
   roadtripId: string;
+  /** The stored roadtrip's own name: what the review shows, and keeps, unless renamed. */
+  name: string;
   reconciled: ReconciledStations;
 }
 
@@ -275,6 +277,8 @@ export interface RoadtripMatch {
  * trip: first by the number of stations the two share (most wins, best pair
  * first), then by name. A roadtrip serves one area, an area one roadtrip; an
  * area left over becomes a new roadtrip, and a roadtrip left over is not touched.
+ * A match carries the stored roadtrip's own name: the review shows that name for
+ * the area, so the field the user edits is the one the commit keeps or renames.
  */
 export function matchAreasToRoadtrips(
   areas: readonly ReconcileArea[],
@@ -302,7 +306,12 @@ export function matchAreasToRoadtrips(
   const take = (s: (typeof scored)[number]): void => {
     usedAreas.add(s.area.key);
     usedRoadtrips.add(s.roadtrip.id);
-    matches.push({ areaKey: s.area.key, roadtripId: s.roadtrip.id, reconciled: s.reconciled });
+    matches.push({
+      areaKey: s.area.key,
+      roadtripId: s.roadtrip.id,
+      name: s.roadtrip.name,
+      reconciled: s.reconciled,
+    });
   };
 
   for (const s of [...scored].sort((a, b) => b.hits - a.hits)) {

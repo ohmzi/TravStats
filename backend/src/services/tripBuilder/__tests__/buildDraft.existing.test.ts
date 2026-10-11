@@ -145,6 +145,17 @@ describe("buildDraftWith for an existing trip", () => {
     expect([...(draft.existing?.roadtrips.get("r1")?.matchedIds ?? [])]).toEqual(["st-a"]);
   });
 
+  it("shows the stored roadtrip's own name for the matched area, not the derived '·' one", async () => {
+    // The trip already holds a roadtrip called "Northvale loop", so the derived name
+    // would be "Northvale loop · Northvale"; the review shows the stored name instead,
+    // which is also what the commit keeps when the user does not rename it.
+    const draft = await buildDraftWith(deps({ existing }), USER, INPUT, () => undefined);
+
+    const [area] = draft.dto.areas;
+    expect(area.roadtripId).toBe("r1");
+    expect(area.suggestedName).toBe("Northvale loop");
+  });
+
   it("previews the album against the photos of the window and the ones around it", async () => {
     const draft = await buildDraftWith(deps({ existing }), USER, INPUT, () => undefined);
 

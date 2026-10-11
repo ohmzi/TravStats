@@ -372,7 +372,10 @@ export interface NightInputs {
 export interface DraftArea {
   key: string;
   defaultAs: AreaKind;
-  /** Exactly the trip name, or "<Trip> · <mainCity>" (`roadtripAreaNames`). */
+  /**
+   * Exactly the trip name, or "<Trip> · <mainCity>" (`roadtripAreaNames`); for a
+   * re-sync, the stored roadtrip's own name once the area is matched to one.
+   */
   suggestedName: string;
   mainCity: string | null;
   startDay: Day;

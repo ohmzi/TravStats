@@ -3,6 +3,7 @@ jest.mock("../../domainVisibility", () => ({ loadVisibleDomains: jest.fn() }));
 import { prisma } from "../../../db";
 import type { CommitBody } from "../../../schemas/tripBuilder";
 import { loadVisibleDomains } from "../../domainVisibility";
+import { writeCommit } from "../commit";
 import { prepareCommit } from "../commitPlan";
 import { annotateDraftForExisting } from "../existingDraft";
 import { loadExistingState } from "../existingState";
@@ -268,8 +269,42 @@ describe("extendPlanForExisting", () => {
       (await extendPlanForExisting(fx.userId, await storedDraft(seen), northvaleOnly(), basePlan()))
         .existing?.roadtrips ?? [];
     expect(write).toMatchObject({
+      rename: false,
       noop: true,
       diff: { updated: 0, added: 0, removed: 0, unchanged: 1, kept: 3 },
+    });
+  });
+
+  it("writes the reviewed name for a matched roadtrip, and counts the rename as an update", async () => {
+    const renamed = body({ name: "Westshire circuit" });
+    const [write] =
+      (await extendPlanForExisting(fx.userId, await storedDraft(), renamed, basePlan())).existing
+        ?.roadtrips ?? [];
+    expect(write).toMatchObject({
+      name: "Westshire circuit",
+      rename: true,
+      noop: false,
+    });
+    // Two matched stations changed, one was added, one kept — and the rename is the
+    // third update: the panel must not report the roadtrip's name as unchanged.
+    expect(write.diff).toEqual({ updated: 3, unchanged: 1, added: 1, removed: 0, kept: 1 });
+  });
+
+  it("answers 409 TRIP_CHANGED when the stored roadtrip was renamed after the scan", async () => {
+    const scanned = await storedDraft();
+    await prisma.tripRoute.update({
+      where: { id: fx.roadtripId },
+      data: { name: "Renamed elsewhere" },
+    });
+    await expect(
+      extendPlanForExisting(fx.userId, scanned, body(), basePlan())
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: "TRIP_CHANGED",
+    });
+    await prisma.tripRoute.update({
+      where: { id: fx.roadtripId },
+      data: { name: "Northvale loop" },
     });
   });
 
@@ -387,6 +422,35 @@ describe("extendPlanForExisting", () => {
       expect(plan.roadtrips).toEqual([]);
       expect(plan.existing?.roadtrips.map((r) => r.roadtripId)).toEqual([fx.roadtripId]);
       expect(plan.existing?.roadtrips[0].stations.map((s) => s.id)).toContain(fx.station.c);
+    });
+
+    it("writes a renamed matched roadtrip's reviewed name in place", async () => {
+      // The scan saw Northvale alone, so the station list is the stored one; only the
+      // reviewed name differs, and it must reach the route row.
+      const renamed = northvaleOnly();
+      renamed.areas = renamed.areas.map((a) => ({ ...a, name: "Westshire circuit" }));
+      const plan = await prepareCommit(
+        fx.userId,
+        await storedDraft(derivedStations().slice(0, 1)),
+        renamed
+      );
+      expect(plan.existing?.roadtrips[0]).toMatchObject({
+        name: "Westshire circuit",
+        rename: true,
+        // A rename alone rewrites no station: the write applies the name and stops.
+        noop: true,
+        diff: { updated: 1, unchanged: 1, added: 0, removed: 0, kept: 3 },
+      });
+      const written = await writeCommit(plan);
+      expect(written.roadtrips.map((r) => [r.id, r.name])).toEqual([
+        [fx.roadtripId, "Westshire circuit"],
+      ]);
+      const route = await prisma.tripRoute.findUniqueOrThrow({ where: { id: fx.roadtripId } });
+      expect(route.name).toBe("Westshire circuit");
+      await prisma.tripRoute.update({
+        where: { id: fx.roadtripId },
+        data: { name: "Northvale loop" },
+      });
     });
 
     it("does not need two rows for a roadtrip that updates a stored one, because its kept stations are not rows", async () => {

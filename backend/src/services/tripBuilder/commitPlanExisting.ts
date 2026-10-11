@@ -6,12 +6,14 @@
  * out of the plan and builds exactly what the transaction writes:
  * - matched stations keep their id, coordinates, stay and place; their title and
  *   notes are the body's (the draft showed the stored ones, so an edit is the user's);
+ * - the roadtrip's name is the body's too: the draft showed the stored one, so an
+ *   edit is the user's rename, and an untouched name writes nothing;
  * - kept not-seen stations and route corrections are written back unchanged, in place;
  * - a stored station that is neither listed nor kept is removed, and nothing else is.
  *
  * Before any of that, the trip is read again and must hold exactly the stored
- * ids the draft offered (`TRIP_CHANGED` otherwise): deleting by omission is only
- * safe against a list nobody has added to since.
+ * ids and name the draft offered (`TRIP_CHANGED` otherwise): deleting by
+ * omission is only safe against a list nobody has added to since.
  */
 import { AppError } from "../../middleware/errorHandler";
 import type { CommitArea, CommitBody, CommitStation } from "../../schemas/tripBuilder";
@@ -124,6 +126,8 @@ function buildRoadtripWrite(
   if (!offer || offer.areaKey !== area.key || !draftArea) throw mismatch("areas");
   const current = state.roadtrips.find((r) => r.id === roadtripId);
   if (!current) throw tripChanged();
+  // The review showed the stored name; a rename since makes that field stale.
+  if (offer.name !== current.name) throw tripChanged();
 
   // The roadtrip must hold exactly the stations the draft saw.
   const currentIds = new Set(current.stations.filter((s) => s.night !== "via").map((s) => s.id));
@@ -241,6 +245,8 @@ function buildRoadtripWrite(
   const orderUnchanged =
     finalIds.length === current.stations.length &&
     finalIds.every((id, i) => id === current.stations[i].id);
+  // The station list and its legs are what is stored: no station write, and the name is
+  // checked on its own below.
   const noop =
     diff.updated === 0 &&
     diff.added === 0 &&
@@ -249,10 +255,17 @@ function buildRoadtripWrite(
     resetLegs.length === 0 &&
     legModes.every((m) => m === undefined);
 
+  // The reviewed name is the body's, as every other field of the area is. A rename is
+  // an update of its own — the panel and the review must see it — and it is written
+  // even though the stations are a no-op.
+  const rename = area.name !== current.name;
+  if (rename) diff.updated += 1;
+
   return {
     areaKey: area.key,
     roadtripId,
-    name: current.name,
+    name: area.name,
+    rename,
     stations,
     legModes,
     resetLegs,

@@ -101,6 +101,7 @@ describe("writeCommit for an existing trip", () => {
     areaKey: "2031-05-02#1",
     roadtripId: fx.roadtripId,
     name: "Northvale loop",
+    rename: false,
     stations,
     legModes: stations.slice(1).map(() => undefined),
     resetLegs: [],
@@ -147,6 +148,48 @@ describe("writeCommit for an existing trip", () => {
     const after = await legs();
     expect(after).toHaveLength(3);
     expect(after.every((l) => l.source === "routed" && l.mode === "road")).toBe(true);
+  });
+
+  it("renames a matched roadtrip to the reviewed name, and reports it in the result", async () => {
+    const [a, b, c, s] = [fx.station.a, fx.station.b, fx.station.c, fx.station.s];
+    const result = await writeCommit(
+      plan({
+        roadtrips: [
+          write(
+            [
+              station(a, "Northvale", FX.northvale, "2031-05-02", "2031-05-04", { kind: "free" }),
+              station(b, "Port Carrow", FX.portCarrow, "2031-05-04", "2031-05-06", {
+                kind: "pass",
+              }),
+              station(
+                c,
+                "Kelmore",
+                FX.kelmore,
+                "2031-05-06",
+                "2031-05-07",
+                { kind: "free" },
+                "Quiet street"
+              ),
+              station(s, "Tarnside Lodge", FX.tarnside, "2031-05-07", "2031-05-09", {
+                kind: "stay",
+                lodgingStayId: fx.stayId,
+              }),
+            ],
+            {
+              name: "Westshire circuit",
+              rename: true,
+              diff: { updated: 1, unchanged: 4, added: 0, removed: 0, kept: 0 },
+            }
+          ),
+        ],
+      })
+    );
+    const route = await prisma.tripRoute.findUniqueOrThrow({ where: { id: fx.roadtripId } });
+    expect(route.name).toBe("Westshire circuit");
+    expect(result.roadtrips[0]).toMatchObject({
+      id: fx.roadtripId,
+      name: "Westshire circuit",
+    });
   });
 
   it("adds a new station between two stored ones and keeps the legs it does not touch", async () => {

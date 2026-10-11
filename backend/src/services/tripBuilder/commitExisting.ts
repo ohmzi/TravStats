@@ -10,6 +10,8 @@
  * is routed again, and its new mode goes through `opts.legModes`: the one writer
  * applies a mode only to a leg the write created and fails the transaction for
  * any other, so a stale plan cannot leave a ferry carrying a road's geometry.
+ * A roadtrip the review renamed gets its new name on the route row here, in the
+ * same transaction, so the name and the stations cannot land apart.
  */
 import type { DbTransaction } from "../../db";
 import { toDbDate } from "../../shared/time/localDate";
@@ -35,6 +37,13 @@ async function writeMatchedRoadtrip(
     ({ createdLegs } = await replaceStationsInTx(tx, userId, write.roadtripId, write.stations, {
       legModes: write.legModes,
     }));
+  }
+  // The review showed the stored name, so a different one is the user's rename.
+  if (write.rename) {
+    await tx.tripRoute.update({
+      where: { id: write.roadtripId },
+      data: { name: write.name },
+    });
   }
 
   const rows = await tx.tripStop.findMany({

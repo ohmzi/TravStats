@@ -155,9 +155,20 @@ describe("annotateDraftForExisting: a roadtrip area", () => {
   it("remembers what it offered, for the commit to hold the draft to", () => {
     const offer = result.existing.roadtrips.get("r1");
     expect(offer?.areaKey).toBe("2031-05-02#1");
+    expect(offer?.name).toBe("Northvale loop");
     expect([...(offer?.matchedIds ?? [])].sort()).toEqual(["st-a", "st-b", "st-s"]);
     expect([...(offer?.notSeenIds ?? [])]).toEqual(["st-c"]);
     expect(result.existing.tripId).toBe(TRIP);
+  });
+
+  it("names a matched area with the stored roadtrip's own name, not the scan's derivation", () => {
+    // The trip already holds a roadtrip called like the trip, so `roadtripAreaNames`
+    // derives "Northvale loop · Northvale"; the review must show what the roadtrip is
+    // actually called, or the name the user sees is not the name the commit would keep.
+    const derived = draft(TRIP, [area({ suggestedName: "Northvale loop · Northvale" })]);
+    const [only] = annotateDraftForExisting(derived, state()).dto.areas;
+    expect(only.roadtripId).toBe("r1");
+    expect(only.suggestedName).toBe("Northvale loop");
   });
 
   it("offers the stop that no area matched as not seen", () => {

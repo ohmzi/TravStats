@@ -149,6 +149,8 @@ export interface ExistingTripState {
 
 export interface StoredRoadtripOffer {
   areaKey: string;
+  /** The stored roadtrip's name when the draft was made; a rename since fails the commit. */
+  name: string;
   /** Stored stations the draft matched to a derived one. */
   matchedIds: ReadonlySet<string>;
   /** Stored stations the draft offered as not seen. */
@@ -169,14 +171,17 @@ export interface StoredExisting {
 export interface ExistingRoadtripWrite {
   areaKey: string;
   roadtripId: string;
+  /** The reviewed name: the stored one, or the rename the write applies when `rename`. */
   name: string;
+  /** The reviewed name differs from the stored roadtrip's: the write renames the route. */
+  rename: boolean;
   /** The complete ordered station list: matched and kept stations carry their id, new ones do not. */
   stations: StationsInput["stations"];
   /** legModes[i] joins stations[i] and stations[i + 1]; undefined: leave the leg as it is. */
   legModes: Array<LegMode | undefined>;
   /** Stored legs whose mode the user changed: deleted, so they come back straight and are routed again. */
   resetLegs: Array<{ fromStopId: string; toStopId: string }>;
-  /** Nothing differs from what is stored: write nothing. */
+  /** The station list and its legs are what is stored: no station write. A rename is its own flag. */
   noop: boolean;
   diff: RoadtripDiff;
 }
