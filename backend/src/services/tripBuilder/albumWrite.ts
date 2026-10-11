@@ -18,7 +18,9 @@ import { invalidateAlbumAssets } from "../immich/immichAssetCache";
 import { createImmichClient, type ImmichClient } from "../immich/immichClient";
 import { getImmichConnection } from "../immich/immichResolver";
 import { ImmichError, type ImmichAlbum } from "../immich/types";
+import { albumDescriber, previewAlbumSync, resyncTripAlbum } from "./albumResync";
 import { collectWindow } from "./collect";
+import { loadAlbumLinks } from "./existingState";
 import { loadFlights } from "./loadFlights";
 import { PREFLIGHT_TIMEOUT_MS } from "./thresholds";
 import type { AlbumOutcome, CommitBlocked, Day, PreflightBlockReason } from "./types";
@@ -221,11 +223,18 @@ function blockedOutcome(block: CommitBlocked): AlbumOutcome {
  * rebuilt from the trip's own days with the scan's fetch-and-clean step, so it
  * needs no draft and survives a restart. Safe to run again: the album is found
  * by its exact owned name and Immich reports assets already in it as duplicates.
+ *
+ * A trip that already links an owned album re-syncs it (spec §K.3): the target
+ * is the linked album — never a fresh find-or-create by the posted name, which
+ * would give the trip a second album — the outside set is recomputed from the
+ * album's own members (no asset id comes from the request), and the review's
+ * removal choice is carried through.
  */
 export async function retryTripAlbum(
   userId: string,
   tripId: string,
-  name: string | undefined
+  name: string | undefined,
+  removeOutside = false
 ): Promise<AlbumOutcome> {
   const trip = await resolveTrip(userId, tripId);
   const preflight = await preflightAlbum(userId, null);
@@ -246,13 +255,46 @@ export async function retryTripAlbum(
       },
       { immichUserId: preflight.immichUserId, startDay, endDay, targetTripId: tripId }
     );
+    const albumName = name ?? trip.name;
+    const client = preflight.client;
+    const links = await loadAlbumLinks(
+      userId,
+      tripId,
+      albumDescriber(client, preflight.immichUserId)
+    );
+    if (links.some((link) => link.ownedByUser === true)) {
+      const preview = await previewAlbumSync({
+        client,
+        immichUserId: preflight.immichUserId,
+        links,
+        tripName: trip.name,
+        albumName,
+        windowAssetIds: collected.clean.albumAssetIds,
+        contextIds: new Set(collected.clean.context.map((photo) => photo.id)),
+        fetchFrom: collected.window.fetchFrom,
+        fetchTo: collected.window.fetchTo,
+      });
+      return await resyncTripAlbum({
+        userId,
+        tripId,
+        tripName: trip.name,
+        albumName,
+        window: { startDay, endDay },
+        assetIds: collected.clean.albumAssetIds,
+        outsideIds: preview.outside,
+        scanAlbumId: preview.immichAlbumId,
+        removeOutside,
+        client,
+        immichUserId: preflight.immichUserId,
+      });
+    }
     return await writeTripAlbum({
       userId,
       tripId,
-      albumName: name ?? trip.name,
+      albumName,
       description: albumDescription(startDay, endDay),
       assetIds: collected.clean.albumAssetIds,
-      client: preflight.client,
+      client,
       immichUserId: preflight.immichUserId,
     });
   } catch (error) {

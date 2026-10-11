@@ -260,7 +260,7 @@ router.post(
         return;
       }
       const job = startJob("tripBuilder.album", userId, () =>
-        retryTripAlbum(userId, tripId, body.name)
+        retryTripAlbum(userId, tripId, body.name, body.removeOutside ?? false)
       );
       runningAlbumJobs.set(key, job.id);
       res.status(202).json({ jobId: job.id });

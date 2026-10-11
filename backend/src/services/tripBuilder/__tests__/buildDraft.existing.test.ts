@@ -1,4 +1,4 @@
-import { buildDraftWith } from "../buildDraft";
+import { buildDraftWith, type BuilderDeps } from "../buildDraft";
 import type { ExistingDeps } from "../existingDraft";
 import type { ExistingTripState } from "../existingTypes";
 import type { ScanInput } from "../types";
@@ -117,7 +117,7 @@ const existing: ExistingDeps = {
 
 const GATE = { allowed: true, missingScopes: [] as string[] };
 
-function deps(over: { existing?: ExistingDeps | null } = {}) {
+function deps(over: { existing?: ExistingDeps | null; album?: BuilderDeps["album"] } = {}) {
   return builderDeps([...WINDOW_PHOTOS, ...AFTER_WINDOW], {
     targetTrip: {
       id: TRIP,
@@ -166,6 +166,29 @@ describe("buildDraftWith for an existing trip", () => {
       removable: { count: 1, defaultOn: true, allowed: true },
     });
     expect(draft.existing?.album).toEqual({ immichAlbumId: "al-1", outsideIds: ["late-1"] });
+  });
+
+  it("previews nothing on an album the key cannot write", async () => {
+    // The commit skips phase D when the gate blocks the album (§K.3), so a
+    // preview here would offer an update the commit never makes — and its
+    // removal switch would swallow the tick (final review, finding N4-2).
+    const draft = await buildDraftWith(
+      deps({
+        existing,
+        album: {
+          gate: { allowed: false, blockedReason: "missingScopes", missingScopes: ["album.create"] },
+          findOwned: async () => null,
+          linkedTripName: async () => null,
+        },
+      }),
+      USER,
+      INPUT,
+      () => undefined
+    );
+
+    expect(draft.dto.album?.allowed).toBe(false);
+    expect(draft.dto.album?.sync).toBeUndefined();
+    expect(draft.existing?.album).toBeNull();
   });
 
   it("leaves a draft with no existing deps unannotated", async () => {

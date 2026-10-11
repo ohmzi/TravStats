@@ -62,12 +62,15 @@ describe("TripResyncPage", () => {
     await waitFor(() =>
       expect(screen.getByTestId("where")).toHaveTextContent("/trips/builder?job=job-1")
     );
+    // The album is asked for even when the trip links none (§K.3): the scan
+    // only reads, and the review's switch — not this page — decides whether a
+    // new album is made, so the re-sync can create one the trip never had.
     expect(mocks.scan).toHaveBeenCalledWith({
       name: "Northvale loop",
       startDay: "2031-05-02",
       endDay: "2031-05-09",
       inspect: true,
-      createAlbum: false,
+      createAlbum: true,
       target: { kind: "existing", tripId: "t1" },
     });
     // The handoff Task 141's startExistingScan files: the form, the target,
@@ -82,13 +85,13 @@ describe("TripResyncPage", () => {
         startDay: "2031-05-02",
         endDay: "2031-05-09",
         inspect: true,
-        createAlbum: false,
+        createAlbum: true,
         target: { kind: "existing", tripId: "t1" },
       },
     });
   });
 
-  it("also syncs the album when the trip has a linked one", async () => {
+  it("asks for the album the same way when the trip already links one", async () => {
     mocks.getById.mockResolvedValue(
       trip({
         immichAlbums: [{ id: "l1", immichAlbumId: "a1", albumName: "x", assetCount: 3 } as never],

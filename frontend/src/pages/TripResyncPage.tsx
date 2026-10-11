@@ -48,11 +48,12 @@ export default function TripResyncPage(): JSX.Element {
           setProblem(PROBLEM_OF_REFUSAL[span.refusal]);
           return;
         }
-        // The album is on only when the trip already has one: a re-sync
-        // updates it, it does not create one the reader never asked for.
-        const { jobId } = await startExistingScan(trip, {
-          createAlbum: (trip.immichAlbums?.length ?? 0) > 0,
-        });
+        // The album is asked for the way the edit-mode button asks (§K.3): the
+        // scan only reads, and the review's switch — on by default when the key
+        // may, and turnable off there — decides what the commit writes. Gating
+        // it on an album already being linked made these entry points disagree
+        // and left an album-less trip unable to ever get one.
+        const { jobId } = await startExistingScan(trip, { createAlbum: true });
         navigate(`/trips/builder?job=${encodeURIComponent(jobId)}`, { replace: true });
       } catch (err: unknown) {
         if (apiErrorCode(err) === "notConfigured") setProblem("notConfigured");

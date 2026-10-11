@@ -255,7 +255,10 @@ export interface AlbumScanFacts {
 /**
  * The scan's one entry into the re-sync: annotate the draft, then preview the
  * album update. An album that cannot be read is shown as unverified rather than
- * silently previewed as "nothing to do".
+ * silently previewed as "nothing to do", and one the commit will not write —
+ * absent, or blocked by the gate — carries no preview at all: a preview there
+ * would offer an update the commit drops as a whole, removal switch included
+ * (final review, finding N4-2).
  */
 export async function applyExistingTarget(
   existing: ExistingDeps | null | undefined,
@@ -265,7 +268,7 @@ export async function applyExistingTarget(
   if (!existing) return { dto };
   const annotated = annotateDraftForExisting(dto, existing.state);
   const draftAlbum = annotated.dto.album;
-  if (!draftAlbum) return annotated;
+  if (!draftAlbum || draftAlbum.allowed === false) return annotated;
   try {
     const preview = await previewAlbumSync({
       client: existing.client,

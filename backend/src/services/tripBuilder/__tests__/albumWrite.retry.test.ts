@@ -25,12 +25,36 @@ const client = {
   createAlbum: jest.fn(),
   addAssetsToAlbum: jest.fn(),
   getAlbum: jest.fn(),
+  getAlbumInfo: jest.fn(),
+  listAlbumAssets: jest.fn(),
+  removeAssetsFromAlbum: jest.fn(),
 };
 
 describe("retryTripAlbum", () => {
   let userId: string;
   let strangerId: string;
   let tripId: string;
+
+  /** The trip links an album whose name differs from the trip's (spec §K.3: the first owned linked album). */
+  const linkAlbum = async (): Promise<void> => {
+    await prisma.tripImmichAlbum.create({
+      data: {
+        tripId,
+        immichAlbumId: "al-linked",
+        albumName: "Port Carrow tour",
+        mode: "link",
+        sortIdx: 0,
+      },
+    });
+  };
+
+  /** The collected window the removal computation reads: context photos outside [S, E]. */
+  const collectedWindow = (context: string[] = []): void => {
+    (collectWindow as jest.Mock).mockResolvedValue({
+      clean: { albumAssetIds: ["a1", "a2"], context: context.map((id) => ({ id })) },
+      window: { fetchFrom: day("2031-05-01"), fetchTo: day("2031-05-07") },
+    });
+  };
 
   beforeAll(async () => {
     await prisma.user.deleteMany({ where: { username: { in: ["tb-retry", "tb-retry-2"] } } });
@@ -57,7 +81,7 @@ describe("retryTripAlbum", () => {
     (getImmichConnection as jest.Mock).mockResolvedValue(userConn);
     (createImmichClient as jest.Mock).mockReturnValue(client);
     (loadHomePeriods as jest.Mock).mockResolvedValue([]);
-    (collectWindow as jest.Mock).mockResolvedValue({ clean: { albumAssetIds: ["a1", "a2"] } });
+    collectedWindow();
     client.whoami.mockResolvedValue({ id: ME, email: "me@example.test", name: "Me" });
     client.getMyApiKey.mockResolvedValue({ permissions: ["all"] });
     client.findOwnedAlbumByName.mockResolvedValue(null);
@@ -74,6 +98,16 @@ describe("retryTripAlbum", () => {
       assetCount: 2,
       thumbnailAssetId: "a1",
     });
+    client.getAlbumInfo.mockResolvedValue({
+      id: "al-linked",
+      albumName: "Port Carrow tour",
+      description: "TravStats trip · 2031-05-02 – 2031-05-06",
+      ownerId: ME,
+      assetCount: 2,
+      thumbnailAssetId: "a1",
+    });
+    client.listAlbumAssets.mockResolvedValue([]);
+    client.removeAssetsFromAlbum.mockResolvedValue({ removed: 0 });
   });
 
   afterEach(async () => {
@@ -125,6 +159,61 @@ describe("retryTripAlbum", () => {
 
     expect(second).toMatchObject({ status: "linked", reused: true, added: 0, alreadyIn: 2 });
     expect(await prisma.tripImmichAlbum.count({ where: { tripId } })).toBe(1);
+  });
+
+  it("re-syncs the linked album instead of making a second one by the posted name", async () => {
+    // The success panel posts the album's name, which an existing-trip scan
+    // sets to the trip's own name (frontend/src/lib/tripBuilder/draftEdits.ts).
+    // The trip links an album with a different name, so a by-name
+    // find-or-create would make a second album and link it too (final review,
+    // finding N4-3); spec §K.3 updates the linked one.
+    await linkAlbum();
+    collectedWindow();
+
+    const outcome = await retryTripAlbum(userId, tripId, "Northvale loop");
+
+    expect(client.findOwnedAlbumByName).not.toHaveBeenCalled();
+    expect(client.createAlbum).not.toHaveBeenCalled();
+    expect(client.addAssetsToAlbum).toHaveBeenCalledWith("al-linked", ["a1", "a2"]);
+    expect(outcome).toMatchObject({
+      status: "linked",
+      immichAlbumId: "al-linked",
+      albumName: "Port Carrow tour",
+      reused: true,
+      added: 2,
+    });
+    expect(await prisma.tripImmichAlbum.count({ where: { tripId } })).toBe(1);
+  });
+
+  it("runs the review's removal on the linked album, with the ids the server proved outside", async () => {
+    await linkAlbum();
+    collectedWindow(["late-1"]);
+    client.listAlbumAssets.mockResolvedValue([
+      { id: "a1", fileCreatedAt: "2031-05-02T10:00:00.000Z" },
+      { id: "late-1", fileCreatedAt: "2031-05-06T10:00:00.000Z" },
+    ]);
+    client.addAssetsToAlbum.mockResolvedValue({ added: 1, duplicate: 0, refused: [] });
+    client.removeAssetsFromAlbum.mockResolvedValue({ removed: 1 });
+
+    const outcome = await retryTripAlbum(userId, tripId, undefined, true);
+
+    expect(client.removeAssetsFromAlbum).toHaveBeenCalledWith("al-linked", ["late-1"]);
+    expect(outcome).toMatchObject({ status: "linked", added: 1, removed: 1 });
+  });
+
+  it("leaves the linked album's members alone when the review did not tick the removal", async () => {
+    await linkAlbum();
+    collectedWindow(["late-1"]);
+    client.listAlbumAssets.mockResolvedValue([
+      { id: "a1", fileCreatedAt: "2031-05-02T10:00:00.000Z" },
+      { id: "late-1", fileCreatedAt: "2031-05-06T10:00:00.000Z" },
+    ]);
+    client.addAssetsToAlbum.mockResolvedValue({ added: 1, duplicate: 0, refused: [] });
+
+    const outcome = await retryTripAlbum(userId, tripId, undefined, false);
+
+    expect(client.removeAssetsFromAlbum).not.toHaveBeenCalled();
+    expect(outcome).toMatchObject({ status: "linked", removed: 0 });
   });
 
   it("skips a trip with no days of its own without reading the library", async () => {

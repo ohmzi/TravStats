@@ -150,6 +150,18 @@ describe("trip builder OpenAPI documents the re-sync fields", () => {
     });
   });
 
+  describe("the album retry request", () => {
+    const operation = paths["/trip-builder/trips/{tripId}/album"]?.post;
+    const body = operation?.requestBody?.content["application/json"]?.schema;
+
+    it("carries the review's removal choice, whose ids stay the server's", () => {
+      expect(body).toBeDefined();
+      expect(at(body as Node, "name").type).toBe("string");
+      expect(at(body as Node, "removeOutside").type).toBe("boolean");
+      expect(resolve(body as Node).required ?? []).not.toContain("removeOutside");
+    });
+  });
+
   describe("the commit request", () => {
     const operation = paths["/trip-builder/drafts/{id}/commit"]?.post;
     const body = operation?.requestBody?.content["application/json"]?.schema;

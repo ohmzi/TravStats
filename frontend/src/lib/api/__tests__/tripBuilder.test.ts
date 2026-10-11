@@ -89,6 +89,19 @@ describe("tripBuilderApi", () => {
     });
   });
 
+  it("sends the review's removal choice with the retry, and nothing when it is off", async () => {
+    mocks.post.mockResolvedValue({ data: { jobId: JOB } });
+
+    await tripBuilderApi.retryAlbum(TRIP, "Northvale loop", true);
+    await tripBuilderApi.retryAlbum(TRIP, undefined, false);
+
+    expect(mocks.post).toHaveBeenNthCalledWith(1, `/trip-builder/trips/${TRIP}/album`, {
+      name: "Northvale loop",
+      removeOutside: true,
+    });
+    expect(mocks.post).toHaveBeenNthCalledWith(2, `/trip-builder/trips/${TRIP}/album`, {});
+  });
+
   it("addresses a thumbnail by draft and index, never by an asset id", () => {
     expect(tripBuilderApi.previewUrl(DRAFT, 3, "thumbnail")).toBe(
       `https://travstats.example.test/api/v1/trip-builder/drafts/${DRAFT}/preview/3/file?size=thumbnail`

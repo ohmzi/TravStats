@@ -385,6 +385,11 @@ export function useBuilderSession(): BuilderSession {
     await sendCommit(keepEverything(state));
   }, [state, sendCommit]);
 
+  /**
+   * The success panel's retry. The removal choice goes with it: a re-sync's
+   * album failure must not drop the decision the review already made, and the
+   * server recomputes which members that choice applies to.
+   */
   const retryAlbum = useCallback(async (): Promise<void> => {
     if (commit.kind !== "done") return;
     const { result } = commit;
@@ -392,7 +397,8 @@ export function useBuilderSession(): BuilderSession {
     try {
       const { jobId: albumJob } = await tripBuilderApi.retryAlbum(
         result.tripId,
-        state?.album?.name
+        state?.album?.name,
+        state?.existing?.removeOutside === true
       );
       const album = await waitForJob<AlbumOutcome>(albumJob);
       setCommit({ kind: "done", result: { ...result, album }, album: "idle" });

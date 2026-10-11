@@ -49,12 +49,20 @@ export const tripBuilderApi = {
     return data;
   },
 
-  /** Retries a failed or blocked album for a trip that exists; `name` overrides the album's name. */
-  retryAlbum: async (tripId: string, name?: string): Promise<{ jobId: string }> => {
-    const { data } = await api.post<{ jobId: string }>(
-      `/trip-builder/trips/${tripId}/album`,
-      name === undefined ? {} : { name }
-    );
+  /**
+   * Retries a failed or blocked album for a trip that exists. `name` overrides
+   * the album's name; `removeOutside` carries the review's removal choice on a
+   * re-sync, so the retry completes the update the commit was asked for.
+   */
+  retryAlbum: async (
+    tripId: string,
+    name?: string,
+    removeOutside = false
+  ): Promise<{ jobId: string }> => {
+    const body: { name?: string; removeOutside?: boolean } = {};
+    if (name !== undefined) body.name = name;
+    if (removeOutside) body.removeOutside = true;
+    const { data } = await api.post<{ jobId: string }>(`/trip-builder/trips/${tripId}/album`, body);
     return data;
   },
 

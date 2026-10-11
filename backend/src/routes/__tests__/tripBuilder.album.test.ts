@@ -69,7 +69,7 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
     const res = await post(tripId, { name: "Northvale photos" });
     expect(res.status).toBe(202);
     await settleAllJobs();
-    expect(mockRetry).toHaveBeenCalledWith(userId, tripId, "Northvale photos");
+    expect(mockRetry).toHaveBeenCalledWith(userId, tripId, "Northvale photos", false);
     const job = (await request(app).get(`/api/v1/jobs/${res.body.jobId}`).set("Cookie", cookie))
       .body.data;
     expect(job).toMatchObject({ kind: "tripBuilder.album", status: "succeeded", result: OUTCOME });
@@ -78,7 +78,13 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
   it("takes no body at all", async () => {
     expect((await post(tripId)).status).toBe(202);
     await settleAllJobs();
-    expect(mockRetry).toHaveBeenCalledWith(userId, tripId, undefined);
+    expect(mockRetry).toHaveBeenCalledWith(userId, tripId, undefined, false);
+  });
+
+  it("carries the review's removal choice to the retry", async () => {
+    expect((await post(tripId, { removeOutside: true })).status).toBe(202);
+    await settleAllJobs();
+    expect(mockRetry).toHaveBeenCalledWith(userId, tripId, undefined, true);
   });
 
   it("answers 404 for a trip that is not the caller's, before any job starts", async () => {
@@ -90,6 +96,7 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
   it("refuses a body with a field it does not know, an empty name and an id that is no uuid", async () => {
     expect((await post(tripId, { name: "x", extra: 1 })).status).toBe(400);
     expect((await post(tripId, { name: "" })).status).toBe(400);
+    expect((await post(tripId, { removeOutside: "yes" })).status).toBe(400);
     expect((await post("not-a-uuid")).status).toBe(400);
     expect(mockRetry).not.toHaveBeenCalled();
   });
@@ -101,7 +108,7 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
     expect(again.status).toBe(202);
     expect(again.body.jobId).toBe(first.body.jobId);
     expect(mockRetry).toHaveBeenCalledTimes(1);
-    expect(mockRetry).toHaveBeenCalledWith(userId, tripId, undefined);
+    expect(mockRetry).toHaveBeenCalledWith(userId, tripId, undefined, false);
   });
 
   it("collapses two presses made in the same instant into one job", async () => {

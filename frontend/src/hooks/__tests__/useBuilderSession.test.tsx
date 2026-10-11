@@ -569,13 +569,49 @@ describe("the album afterwards", () => {
     const hook = await ready();
     await act(() => hook.result.current.session.submit());
     await act(() => hook.result.current.session.retryAlbum());
-    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, "Southern loop");
+    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, "Southern loop", false);
     const { commit } = hook.result.current.session;
     expect(commit.kind === "done" && commit.result.album).toEqual({
       status: "linked",
       added: 72,
       alreadyIn: 0,
     });
+  });
+
+  it("carries a re-sync's removal choice into the album retry", async () => {
+    // The retry must complete the update the commit was asked for: a re-sync
+    // whose review left the removal on cannot have that decision dropped by
+    // the failure and the retry (final review, finding N4-3).
+    mocks.getDraft.mockResolvedValue(
+      reviewDraft({
+        target: { kind: "existing", tripId: "t-9", tripName: "Southern loop" },
+        album: {
+          name: "Southern loop",
+          existing: null,
+          assetCount: 72,
+          images: 68,
+          videos: 4,
+          allowed: true,
+          missingScopes: [],
+          sync: {
+            target: "linked",
+            toAdd: 0,
+            alreadyIn: 72,
+            removable: { count: 4, defaultOn: true, allowed: true },
+          },
+        },
+      })
+    );
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+    mocks.waitForJob
+      .mockResolvedValueOnce({ ...RESULT, created: false, album: { status: "failed" } })
+      .mockResolvedValueOnce({ status: "linked", removed: 4 });
+    mocks.retryAlbum.mockResolvedValue({ jobId: "album-job" });
+    const hook = mount(draftUrl);
+    await waitFor(() => expect(hook.result.current.session.phase.kind).toBe("ready"));
+    await act(() => hook.result.current.session.submit());
+    await act(() => hook.result.current.session.retryAlbum());
+    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, "Southern loop", true);
   });
 
   it("tells the user when the retry fails, and keeps the trip", async () => {

@@ -299,8 +299,14 @@ export const previewIndexParamSchema = z.coerce
   .max(MAX_PREVIEWS - 1);
 /** `?size=` of the preview route; originals are not served here. */
 export const previewSizeSchema = z.enum(["thumbnail", "preview"]).default("thumbnail");
-/** `POST /trip-builder/trips/:tripId/album`. */
-export const albumRetryBodySchema = z.object({ name: label.optional() }).strict();
+/**
+ * `POST /trip-builder/trips/:tripId/album`. `removeOutside` carries the
+ * review's removal choice on a re-sync; the members it removes are still the
+ * ids the server computed, never the request's.
+ */
+export const albumRetryBodySchema = z
+  .object({ name: label.optional(), removeOutside: z.boolean().optional() })
+  .strict();
 
 export type ScanBody = z.infer<typeof scanBodySchema>;
 export type CommitBody = z.infer<typeof commitBodySchema>;
