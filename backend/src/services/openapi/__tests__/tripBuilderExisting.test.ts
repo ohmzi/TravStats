@@ -142,6 +142,13 @@ describe("trip builder OpenAPI documents the re-sync fields", () => {
       expect(line.properties?.album?.$ref).toBe(`${COMPONENT_PREFIX}TripBuilderAlbumOutcome`);
       expect(commitResult.required ?? []).not.toContain("stopoverAlbums");
     });
+
+    it("carries a line per pitstop area's own album too, retried by its name", () => {
+      const line = at(commitResult, "pitstopAlbums", "[]");
+      expect(keysOf(line)).toEqual(["album", "key", "name"]);
+      expect(line.properties?.album?.$ref).toBe(`${COMPONENT_PREFIX}TripBuilderAlbumOutcome`);
+      expect(commitResult.required ?? []).not.toContain("pitstopAlbums");
+    });
   });
 
   describe("the album outcome", () => {
@@ -166,6 +173,11 @@ describe("trip builder OpenAPI documents the re-sync fields", () => {
       expect(at(body as Node, "name").type).toBe("string");
       expect(at(body as Node, "removeOutside").type).toBe("boolean");
       expect(resolve(body as Node).required ?? []).not.toContain("removeOutside");
+    });
+
+    it("takes a pitstop album's name, whose ids stay the server's", () => {
+      expect(at(body as Node, "pitstopName").type).toBe("string");
+      expect(resolve(body as Node).required ?? []).not.toContain("pitstopName");
     });
   });
 

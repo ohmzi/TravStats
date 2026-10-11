@@ -8,7 +8,7 @@ import { createImmichClient } from "../../immich/immichClient";
 import { getImmichConnection } from "../../immich/immichResolver";
 import type { ImmichAsset } from "../../immich/types";
 import type { ResyncClient } from "../albumResync";
-import { retryStopoverAlbum, stopoverAlbumDescription, writeStopoverAlbum } from "../stopoverAlbum";
+import { pitstopAlbumDescription, retryPitstopAlbum, writePitstopAlbum } from "../stopoverAlbum";
 
 const ME = "0b6f3a52-5d1c-4f43-9c1e-6a7b8c9d0e1f";
 const OTHER = "1c7a4b63-6e2d-4a54-a2f3-7b8c9d0e1f2a";
@@ -92,7 +92,7 @@ function fakeClient(init: {
   };
 }
 
-describe("writeStopoverAlbum", () => {
+describe("writePitstopAlbum", () => {
   let userId: string;
   let tripId: string;
 
@@ -133,7 +133,7 @@ describe("writeStopoverAlbum", () => {
   });
 
   const write = (client: ResyncClient, assetIds: readonly string[] = ["photo-a", "photo-b"]) =>
-    writeStopoverAlbum({
+    writePitstopAlbum({
       userId,
       tripId,
       tripName: TRIP,
@@ -145,7 +145,7 @@ describe("writeStopoverAlbum", () => {
     });
 
   it("writes the exact TravStats trip marker and the album's name as its description", () => {
-    expect(stopoverAlbumDescription(CITY)).toBe("TravStats trip · Port Carrow 2031 Road Trip");
+    expect(pitstopAlbumDescription(CITY)).toBe("TravStats trip · Port Carrow 2031 Road Trip");
   });
 
   it("creates the album by its exact owned name, adds the pictures and links it after the trip's own", async () => {
@@ -246,7 +246,7 @@ describe("writeStopoverAlbum", () => {
   });
 });
 
-describe("retryStopoverAlbum", () => {
+describe("retryPitstopAlbum", () => {
   let userId: string;
   let tripId: string;
 
@@ -280,22 +280,11 @@ describe("retryStopoverAlbum", () => {
 
   const retryWith = (client: ReturnType<typeof fakeClient>, expected: string) => {
     (createImmichClient as jest.Mock).mockReturnValue(client);
-    return retryStopoverAlbum({
+    return retryPitstopAlbum({
       userId,
       tripId,
       tripName: TRIP,
-      stopover: {
-        key: "8c2d9e3f-4a5b-4c7d-8e8f-9a0b1c2d3e4f#9d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f60",
-        title: CITY,
-        city: "Port Carrow",
-        day: "2031-05-03",
-        inFlightId: "8c2d9e3f-4a5b-4c7d-8e8f-9a0b1c2d3e4f",
-        outFlightId: "9d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f60",
-        airportIata: "ZPC",
-        photoIds: ["photo-a", "photo-b"],
-        stations: [],
-        legs: [],
-      },
+      album: { name: CITY, day: "2031-05-03", assetIds: ["photo-a", "photo-b"] },
       expectedImmichUserId: expected,
     });
   };
@@ -322,5 +311,25 @@ describe("retryStopoverAlbum", () => {
       error: { kind: "notConfigured" },
     });
     expect(client.createAlbum).not.toHaveBeenCalled();
+  });
+
+  it("retries a pitstop area's album by its own name, marker and day", async () => {
+    const client = fakeClient({});
+    (createImmichClient as jest.Mock).mockReturnValue(client);
+    const PITSTOP = "Southbridge 2031 Road Trip (Southern loop)";
+
+    const outcome = await retryPitstopAlbum({
+      userId,
+      tripId,
+      tripName: TRIP,
+      album: { name: PITSTOP, day: "2031-05-05", assetIds: ["photo-a"] },
+      expectedImmichUserId: ME,
+    });
+
+    expect(outcome).toMatchObject({ status: "linked", albumName: PITSTOP, added: 1 });
+    expect(client.createAlbum).toHaveBeenCalledWith({
+      albumName: PITSTOP,
+      description: "TravStats trip · Southbridge 2031 Road Trip (Southern loop)",
+    });
   });
 });

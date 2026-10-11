@@ -281,6 +281,8 @@ export type ApiErrorCode =
   | "TRIP_CHANGED"
   /** A stopover-album retry names a key no held committed draft resolves (409): its picture ids exist only there, so the caller must scan again. */
   | "STOPOVER_EXPIRED"
+  /** A pitstop-album retry names an album no held committed draft resolves (409): its picture ids exist only there, so the caller must scan again. */
+  | "PITSTOP_EXPIRED"
   /** Phase B rolled back; nothing was written (the job's error). */
   | "COMMIT_FAILED";
 

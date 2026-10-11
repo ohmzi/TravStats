@@ -469,22 +469,26 @@ export interface CommitResult {
   stops?: RoadtripDiff;
   album: AlbumOutcome;
   /** Success panel (spec §5.4): one entry per stopover the commit gave its own album. */
-  stopoverAlbums?: StopoverAlbumOutcome[];
+  stopoverAlbums?: PitstopAlbumOutcome[];
+  /** Success panel (spec 2026-10-11 pitstops §4): one entry per pitstop area the commit gave its own album. */
+  pitstopAlbums?: PitstopAlbumOutcome[];
 }
 
-/** One stopover album a commit wrote, and what became of it. */
-export interface StopoverAlbumOutcome {
-  /** The stopover key, `<inFlightId>#<outFlightId>`. */
+/** One city album a commit wrote, and what became of it: a stopover's or a pitstop area's own. */
+export interface PitstopAlbumOutcome {
+  /** The stopover key `<inFlightId>#<outFlightId>`, or the pitstop area key `<startDay>#<n>`. */
   key: string;
-  /** The album's name, `<City> <Year> Road Trip`; what its retry posts back. */
+  /** The album's name, `<City> <Year> Road Trip[ (<Trip Name>)]`; what its retry resolves by. */
   name: string;
   album: AlbumOutcome;
 }
 
-/** Which album a success-panel retry names: the trip's own, or a stopover's by key (spec §5.4). */
-export type AlbumRetryTarget = "trip" | `stopover:${string}`;
+/** Which album a success-panel retry names: the trip's own, a stopover's or a pitstop area's by key (§5.4, pitstops §4). */
+export type AlbumRetryTarget = "trip" | `stopover:${string}` | `pitstop:${string}`;
 /** The retry target of a stopover album, from its stopover key. */
 export const stopoverRetry = (key: string): AlbumRetryTarget => `stopover:${key}`;
+/** The retry target of a pitstop area's album, from its area key. */
+export const pitstopRetry = (key: string): AlbumRetryTarget => `pitstop:${key}`;
 
 /** The body of a success-panel album retry: one target, plus the re-sync's removal choice. */
 export interface AlbumRetryBody {
@@ -496,6 +500,13 @@ export interface AlbumRetryBody {
    * it can no longer (final review, finding S2) — never another album.
    */
   stopoverKey?: string;
+  /**
+   * A pitstop area's own album, by the name the scan computed. The server
+   * resolves it against the committed draft that wrote the trip and answers
+   * 409 PITSTOP_EXPIRED when it can no longer (spec 2026-10-11 pitstops §4) —
+   * never another album.
+   */
+  pitstopName?: string;
   /** Re-sync only: the removal choice the commit was sent with. */
   removeOutside?: boolean;
 }

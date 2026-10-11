@@ -40,6 +40,7 @@ import {
 } from "../lib/tripBuilder/reviewView";
 import {
   TRIP_BUILDER_PHASES,
+  pitstopRetry,
   stopoverRetry,
   type AlbumRetryTarget,
   type CommitBlocked,
@@ -166,7 +167,7 @@ function SuccessPanel({
         >
           {(outcome.status === "linked" || outcome.status === "skipped") && (
             <span className="t-caption">
-              {t("tripBuilder:review.success.stopoverAlbum", {
+              {t("tripBuilder:review.success.pitstopAlbum", {
                 name,
                 added: outcome.added ?? 0,
                 already: outcome.alreadyIn ?? 0,
@@ -176,9 +177,37 @@ function SuccessPanel({
           {(outcome.status === "failed" || outcome.status === "blocked") && (
             <>
               <span className="t-caption">
-                {t("tripBuilder:review.success.stopoverAlbumFailed", { name })}
+                {t("tripBuilder:review.success.pitstopAlbumFailed", { name })}
               </span>
               <Button disabled={retrying !== null} onClick={() => onRetryAlbum(stopoverRetry(key))}>
+                {t("tripBuilder:review.success.retryAlbum")}
+              </Button>
+            </>
+          )}
+        </div>
+      ))}
+      {(result.pitstopAlbums ?? []).map(({ key, name, album: outcome }) => (
+        <div
+          key={key}
+          data-album={key}
+          className="flex flex-wrap items-center"
+          style={{ gap: "var(--ts-space-md)" }}
+        >
+          {(outcome.status === "linked" || outcome.status === "skipped") && (
+            <span className="t-caption">
+              {t("tripBuilder:review.success.pitstopAlbum", {
+                name,
+                added: outcome.added ?? 0,
+                already: outcome.alreadyIn ?? 0,
+              })}
+            </span>
+          )}
+          {(outcome.status === "failed" || outcome.status === "blocked") && (
+            <>
+              <span className="t-caption">
+                {t("tripBuilder:review.success.pitstopAlbumFailed", { name })}
+              </span>
+              <Button disabled={retrying !== null} onClick={() => onRetryAlbum(pitstopRetry(key))}>
                 {t("tripBuilder:review.success.retryAlbum")}
               </Button>
             </>

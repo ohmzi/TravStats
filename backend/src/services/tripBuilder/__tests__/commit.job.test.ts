@@ -9,7 +9,7 @@ jest.mock("../albumResync", () => ({
 }));
 jest.mock("../stopoverAlbum", () => ({
   ...jest.requireActual("../stopoverAlbum"),
-  writeStopoverAlbum: jest.fn(),
+  writePitstopAlbum: jest.fn(),
 }));
 jest.mock("../../tour/routing/resolveProvider", () => ({
   resolveRouteProvider: jest.fn(),
@@ -26,17 +26,20 @@ import { resyncTripAlbum } from "../albumResync";
 import { preflightAlbum, writeTripAlbum } from "../albumWrite";
 import { runCommitJob } from "../commit";
 import { beginCommit, clearDraftsForTests, getDraft, putDraft } from "../draftStore";
-import { writeStopoverAlbum } from "../stopoverAlbum";
+import { writePitstopAlbum } from "../stopoverAlbum";
 import type { ExistingCommitPlan, StoredExisting } from "../existingTypes";
 import {
+  AREA_KEY,
   COMMIT_KEY,
   CREATED_AT,
   DRAFT_ID,
   JOURNEY_ID,
   OTHER_COMMIT_KEY,
+  PITSTOP_ALBUM,
   fixtureDraft,
   fixturePlan,
   fixtureStopoverPlan,
+  fixtureStoredPitstop,
   fixtureStoredStopover,
 } from "./commitFixtures";
 import { addStation, FX } from "./existingDb";
@@ -44,7 +47,7 @@ import { addStation, FX } from "./existingDb";
 const mockPreflight = preflightAlbum as jest.Mock;
 const mockWriteAlbum = writeTripAlbum as jest.Mock;
 const mockResync = resyncTripAlbum as jest.Mock;
-const mockStopoverAlbum = writeStopoverAlbum as jest.Mock;
+const mockPitstopAlbum = writePitstopAlbum as jest.Mock;
 const mockProvider = resolveRouteProvider as jest.Mock;
 const ALBUM = {
   status: "linked",
@@ -77,7 +80,7 @@ describe("runCommitJob", () => {
     mockPreflight.mockResolvedValue({ ok: true, client: {}, immichUserId: "immich-user" });
     mockWriteAlbum.mockResolvedValue(ALBUM);
     mockResync.mockResolvedValue({ ...ALBUM, reused: true, removed: 0 });
-    mockStopoverAlbum.mockResolvedValue({ status: "linked", added: 2, alreadyIn: 0 });
+    mockPitstopAlbum.mockResolvedValue({ status: "linked", added: 2, alreadyIn: 0 });
     flightId = (
       await prisma.flight.create({
         data: {
@@ -311,7 +314,7 @@ describe("runCommitJob", () => {
     });
     if (result.status !== "committed") throw new Error("the commit did not write");
     expect(mockPreflight).toHaveBeenCalledTimes(1);
-    expect(mockStopoverAlbum).toHaveBeenCalledWith(
+    expect(mockPitstopAlbum).toHaveBeenCalledWith(
       expect.objectContaining({
         userId,
         tripId: result.tripId,
@@ -343,7 +346,75 @@ describe("runCommitJob", () => {
         },
       ],
     });
-    expect(mockStopoverAlbum).not.toHaveBeenCalled();
+    expect(mockPitstopAlbum).not.toHaveBeenCalled();
+  });
+
+  it("gives a pitstop area its own album, from the area's own photo set", async () => {
+    const base = fixturePlan(userId, [flightId]);
+    const { draft, plan } = begin(false, {
+      roadtrips: [
+        {
+          ...base.roadtrips[0],
+          album: { name: PITSTOP_ALBUM, assetIds: ["photo-a", "photo-b"] },
+        },
+      ],
+    });
+
+    const result = await runCommitJob({ ...draft, pitstops: [fixtureStoredPitstop()] }, plan);
+
+    expect(result).toMatchObject({
+      status: "committed",
+      pitstopAlbums: [
+        {
+          key: AREA_KEY,
+          name: PITSTOP_ALBUM,
+          album: { status: "linked", added: 2, alreadyIn: 0 },
+        },
+      ],
+    });
+    if (result.status !== "committed") throw new Error("the commit did not write");
+    expect(mockPitstopAlbum).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        tripId: result.tripId,
+        tripName: "Northvale loop",
+        name: PITSTOP_ALBUM,
+        day: "2031-05-02",
+        assetIds: ["photo-a", "photo-b"],
+        immichUserId: "immich-user",
+      })
+    );
+  });
+
+  it("makes a pitstop album's blocked preflight its own line, and still commits the trip", async () => {
+    const base = fixturePlan(userId, [flightId]);
+    const { draft, plan } = begin(false, {
+      roadtrips: [
+        {
+          ...base.roadtrips[0],
+          album: { name: PITSTOP_ALBUM, assetIds: ["photo-a", "photo-b"] },
+        },
+      ],
+    });
+    mockPreflight.mockResolvedValue({
+      ok: false,
+      blocked: { status: "blocked", reason: "missingScopes", missingScopes: ["album.create"] },
+    });
+
+    const result = await runCommitJob({ ...draft, pitstops: [fixtureStoredPitstop()] }, plan);
+
+    expect(result).toMatchObject({
+      status: "committed",
+      album: { status: "skipped", skipReason: "notRequested" },
+      pitstopAlbums: [
+        {
+          key: AREA_KEY,
+          name: PITSTOP_ALBUM,
+          album: { status: "blocked", error: { kind: "auth", missingScope: "album.create" } },
+        },
+      ],
+    });
+    expect(mockPitstopAlbum).not.toHaveBeenCalled();
   });
 
   describe("phase D for an existing trip", () => {
@@ -446,12 +517,79 @@ describe("runCommitJob", () => {
           },
         ],
       });
-      expect(mockStopoverAlbum).toHaveBeenCalledWith(
+      expect(mockPitstopAlbum).toHaveBeenCalledWith(
         expect.objectContaining({
           tripId: trip.id,
           name: "Port Carrow 2031 Road Trip",
           // The draft's own stopover carries the day the album stands for.
           day: "2031-05-03",
+          assetIds: ["photo-a", "photo-b"],
+        })
+      );
+    });
+
+    it("writes a matched pitstop area's album from the plan's existing entry, add-only", async () => {
+      // Spec 2026-10-11 pitstops §5: the roadtrip is the area's §K diff's
+      // business — here a no-op — but the album still takes the scan's photos.
+      const { trip, draft, plan } = await beginExisting(false, null);
+      const route = await prisma.tripRoute.create({
+        data: {
+          userId,
+          tripId: trip.id,
+          name: PITSTOP_ALBUM,
+          mode: "road",
+          kind: "roadtrip",
+          vehicle: "car",
+        },
+        select: { id: true },
+      });
+      const matched: ExistingCommitPlan = {
+        tripId: trip.id,
+        offeredStopIds: [],
+        roadtrips: [
+          {
+            areaKey: AREA_KEY,
+            roadtripId: route.id,
+            name: PITSTOP_ALBUM,
+            expectedName: PITSTOP_ALBUM,
+            rename: false,
+            stations: [],
+            offeredIds: [],
+            legModes: [],
+            resetLegs: [],
+            noop: true,
+            diff: { updated: 0, unchanged: 0, added: 0, removed: 0, kept: 0 },
+            album: { name: PITSTOP_ALBUM, assetIds: ["photo-a", "photo-b"] },
+          },
+        ],
+        stopovers: [],
+        stopUpdates: [],
+        stopRemoveIds: [],
+        stopsDiff: { updated: 0, unchanged: 0, added: 0, removed: 0, kept: 0 },
+        album: { removeOutside: false },
+      };
+
+      const result = await runCommitJob(
+        { ...draft, pitstops: [fixtureStoredPitstop()] },
+        { ...plan, roadtrips: [], existing: matched }
+      );
+
+      expect(result).toMatchObject({
+        status: "committed",
+        pitstopAlbums: [
+          {
+            key: AREA_KEY,
+            name: PITSTOP_ALBUM,
+            album: { status: "linked", added: 2, alreadyIn: 0 },
+          },
+        ],
+      });
+      expect(mockPitstopAlbum).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tripId: trip.id,
+          name: PITSTOP_ALBUM,
+          // The stored record carries the day the album stands for.
+          day: "2031-05-02",
           assetIds: ["photo-a", "photo-b"],
         })
       );

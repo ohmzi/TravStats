@@ -666,8 +666,10 @@ export interface CommitResult {
   /** Re-sync only: what the update did to the trip's timeline stops. */
   stops?: RoadtripDiff;
   album: AlbumOutcome;
-  /** Success panel (spec 2026-10-11 §5.4): one entry per stopover the commit gave its own album. */
-  stopoverAlbums?: import("./stopoverAlbum").StopoverAlbumOutcome[];
+  /** Success panel (spec 2026-10-11 §5.4): one line per stopover the commit gave its own album. */
+  stopoverAlbums?: import("./stopoverAlbum").PitstopAlbumOutcome[];
+  /** Success panel (spec 2026-10-11 pitstops §4): one line per pitstop area the commit gave its own album. */
+  pitstopAlbums?: import("./stopoverAlbum").PitstopAlbumOutcome[];
 }
 
 /** Why phase P stopped before any write (§A). */

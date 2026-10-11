@@ -253,5 +253,9 @@ describe("route parameters", () => {
     expect(albumRetryBodySchema.parse({ name: " Northvale " })).toEqual({ name: "Northvale" });
     expect(albumRetryBodySchema.safeParse({ name: "" }).success).toBe(false);
     expect(albumRetryBodySchema.safeParse({ name: "Northvale", extra: 1 }).success).toBe(false);
+    expect(
+      albumRetryBodySchema.parse({ pitstopName: " Southbridge 2031 Road Trip (Southern loop) " })
+    ).toEqual({ pitstopName: "Southbridge 2031 Road Trip (Southern loop)" });
+    expect(albumRetryBodySchema.safeParse({ pitstopName: "" }).success).toBe(false);
   });
 });

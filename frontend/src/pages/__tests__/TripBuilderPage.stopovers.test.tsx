@@ -251,7 +251,7 @@ describe("the success panel's stopover albums", () => {
     await waitFor(() =>
       expect(
         within(line).getByText(
-          'tripBuilder:review.success.stopoverAlbum {"name":"Sundhavn 2031 Road Trip","added":24,"already":0}'
+          'tripBuilder:review.success.pitstopAlbum {"name":"Sundhavn 2031 Road Trip","added":24,"already":0}'
         )
       ).toBeInTheDocument()
     );

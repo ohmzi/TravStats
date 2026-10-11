@@ -8,10 +8,13 @@ import {
   FLIGHT_ELSEWHERE,
   FLIGHT_OUT,
   KEY,
+  PITSTOP_ALBUM,
+  PITSTOP_KEY,
   STOPOVER,
   reviewDraft,
 } from "../../lib/tripBuilder/__tests__/reviewFixtures";
 import {
+  pitstopRetry,
   stopoverRetry,
   type CommitJobResult,
   type TripBuilderDraft,
@@ -673,6 +676,69 @@ describe("the album afterwards", () => {
       added: 24,
       alreadyIn: 0,
     });
+  });
+
+  it("retries a pitstop area's album by that name, and holds its new outcome", async () => {
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+    mocks.waitForJob
+      .mockResolvedValueOnce({
+        ...RESULT,
+        pitstopAlbums: [{ key: PITSTOP_KEY, name: PITSTOP_ALBUM, album: { status: "failed" } }],
+      })
+      .mockResolvedValueOnce({
+        status: "linked",
+        albumName: PITSTOP_ALBUM,
+        added: 18,
+        alreadyIn: 2,
+      });
+    mocks.retryAlbum.mockResolvedValue({ jobId: "album-job" });
+    const hook = await ready();
+    await act(() => hook.result.current.session.submit());
+    await act(() => hook.result.current.session.retryAlbum(pitstopRetry(PITSTOP_KEY)));
+    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, {
+      pitstopName: PITSTOP_ALBUM,
+    });
+    const { commit } = hook.result.current.session;
+    expect(commit.kind === "done" && commit.result.pitstopAlbums?.[0].album).toEqual({
+      status: "linked",
+      albumName: PITSTOP_ALBUM,
+      added: 18,
+      alreadyIn: 2,
+    });
+  });
+
+  it("refuses to believe a pitstop retry that wrote another album", async () => {
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+    mocks.waitForJob
+      .mockResolvedValueOnce({
+        ...RESULT,
+        pitstopAlbums: [{ key: PITSTOP_KEY, name: PITSTOP_ALBUM, album: { status: "failed" } }],
+      })
+      .mockResolvedValueOnce({
+        status: "linked",
+        albumName: "Southern loop",
+        added: 72,
+        alreadyIn: 0,
+      });
+    mocks.retryAlbum.mockResolvedValue({ jobId: "album-job" });
+    const hook = await ready();
+    await act(() => hook.result.current.session.submit());
+    await act(() => hook.result.current.session.retryAlbum(pitstopRetry(PITSTOP_KEY)));
+    expect(mocks.addToast).toHaveBeenCalledWith("error", "tripBuilder:errors.album.retryFailed");
+    const { commit } = hook.result.current.session;
+    expect(commit).toMatchObject({ kind: "done", retrying: null });
+    expect(commit.kind === "done" && commit.result.pitstopAlbums?.[0].album).toEqual({
+      status: "failed",
+    });
+  });
+
+  it("ignores a retry of a pitstop album the commit never wrote", async () => {
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+    mocks.waitForJob.mockResolvedValueOnce(RESULT);
+    const hook = await ready();
+    await act(() => hook.result.current.session.submit());
+    await act(() => hook.result.current.session.retryAlbum(pitstopRetry(PITSTOP_KEY)));
+    expect(mocks.retryAlbum).not.toHaveBeenCalled();
   });
 
   it("refuses to believe a stopover retry that wrote another album", async () => {

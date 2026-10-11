@@ -30,7 +30,7 @@ import {
   writeTripAlbum,
   type AlbumPreflight,
 } from "./albumWrite";
-import { writeStopoverAlbum, type StopoverAlbumOutcome } from "./stopoverAlbum";
+import { writePitstopAlbum, type PitstopAlbumOutcome } from "./stopoverAlbum";
 import { journeyBounds } from "./builderQueries";
 import { writeExistingTarget } from "./commitExisting";
 import { abortCommit, finishCommit } from "./draftStore";
@@ -213,35 +213,34 @@ async function writeStopoverRoadtrips(
  * A matched stopover's own day: the draft's stopover carries it, and the key
  * always names one (`extendPlanForExisting` matches by draft key); the window's
  * first day is only a fallback for hand-built plans, and the day is inert for a
- * stopover album — it passes an explicit description.
+ * city album — it passes an explicit description.
  */
 function matchedStopoverDay(draft: StoredDraft, key: string, plan: CommitPlan): Day {
   return draft.stopovers.find((stopover) => stopover.key === key)?.day ?? plan.window.startDay;
 }
 
 /**
- * Phase D for the stopovers' own albums (spec 2026-10-11 §5.4): one line per
- * toggled stopover album, add-only, each able to fail or block on its own. The
- * trip is already saved, so a blocked preflight here becomes the album's own
- * line and never the trip's failure. `held` is the preflight the trip album
- * took, if it took one; without it the stopovers share one fresh preflight.
- *
- * A matched stopover (spec §6) is no roadtrip or station write — it is already
- * stored — but its city album still takes the scan's pictures: the re-sync
- * split it into `plan.existing.stopovers`, and its entry is written here the
- * same way, add-only.
+ * A pitstop area's own day (spec 2026-10-11 pitstops §4): the stored record
+ * carries it, and the plan's area key always names one; like a stopover's, the
+ * day is inert — the write passes an explicit description.
  */
-async function writeStopoverAlbums(
-  plan: CommitPlan,
-  draft: StoredDraft,
-  tripId: string,
-  held: Extract<AlbumPreflight, { ok: true }> | null
-): Promise<StopoverAlbumOutcome[]> {
-  const toggled = [
+function storedPitstopDay(draft: StoredDraft, areaKey: string, plan: CommitPlan): Day {
+  return draft.pitstops.find((pitstop) => pitstop.key === areaKey)?.day ?? plan.window.startDay;
+}
+
+/** One city album phase D writes: what its line says and what the write needs. */
+interface PitstopAlbumWanted {
+  key: string;
+  name: string;
+  day: Day;
+  assetIds: readonly string[];
+}
+
+/** The stopovers' own albums of the plan (spec 2026-10-11 §5.4, §6): a toggled one, or a matched one whose roadtrip is never rebuilt. */
+function stopoversWanted(plan: CommitPlan, draft: StoredDraft): PitstopAlbumWanted[] {
+  return [
     ...(plan.stopovers ?? []).flatMap((stopover) =>
-      stopover.album === null
-        ? []
-        : [{ key: stopover.key, day: stopover.day, wanted: stopover.album }]
+      stopover.album === null ? [] : [{ key: stopover.key, ...stopover.album, day: stopover.day }]
     ),
     ...(plan.existing?.stopovers ?? []).flatMap((stopover) =>
       stopover.album === null
@@ -249,45 +248,81 @@ async function writeStopoverAlbums(
         : [
             {
               key: stopover.key,
+              ...stopover.album,
               day: matchedStopoverDay(draft, stopover.key, plan),
-              wanted: stopover.album,
             },
           ]
     ),
   ];
-  if (toggled.length === 0) return [];
+}
+
+/** The pitstop areas' own albums of the plan (spec 2026-10-11 pitstops §4, §5): an unmatched area, or a matched one whose album rides its existing write. */
+function pitstopsWanted(plan: CommitPlan, draft: StoredDraft): PitstopAlbumWanted[] {
+  const ofWrite = (areaKey: string, album: { name: string; assetIds: string[] }) => ({
+    key: areaKey,
+    ...album,
+    day: storedPitstopDay(draft, areaKey, plan),
+  });
+  return [
+    ...plan.roadtrips.flatMap((roadtrip) =>
+      roadtrip.album === undefined ? [] : [ofWrite(roadtrip.areaKey, roadtrip.album)]
+    ),
+    ...(plan.existing?.roadtrips ?? []).flatMap((roadtrip) =>
+      roadtrip.album === undefined ? [] : [ofWrite(roadtrip.areaKey, roadtrip.album)]
+    ),
+  ];
+}
+
+/**
+ * Phase D for the trip's own city albums (spec 2026-10-11 §5.4, pitstops §4):
+ * one line per toggled album, add-only, each able to fail or block on its own.
+ * The trip is already saved, so a blocked preflight here becomes the album's
+ * own line and never the trip's failure. `held` is the preflight the trip album
+ * took, if it took one; without it the city albums share one fresh preflight.
+ */
+async function writePitstopAlbums(
+  plan: CommitPlan,
+  draft: StoredDraft,
+  tripId: string,
+  held: Extract<AlbumPreflight, { ok: true }> | null
+): Promise<{ stopovers: PitstopAlbumOutcome[]; pitstops: PitstopAlbumOutcome[] }> {
+  const stopovers = stopoversWanted(plan, draft);
+  const pitstops = pitstopsWanted(plan, draft);
+  const all = [...stopovers, ...pitstops];
+  if (all.length === 0) return { stopovers: [], pitstops: [] };
   let open = held;
   if (open === null) {
     const preflight = await preflightAlbum(plan.userId, draft.immichUserId);
     if (!preflight.ok) {
       const album = blockedOutcome(preflight.blocked);
-      return toggled.map(({ key, wanted }) => ({
-        key,
+      const line = (wanted: PitstopAlbumWanted): PitstopAlbumOutcome => ({
+        key: wanted.key,
         name: wanted.name,
         album,
-      }));
+      });
+      return { stopovers: stopovers.map(line), pitstops: pitstops.map(line) };
     }
     open = preflight;
   }
   const tripName = plan.target.kind === "existing" ? plan.target.tripName : plan.target.trip.name;
-  const lines: StopoverAlbumOutcome[] = [];
-  for (const { key, day, wanted } of toggled) {
+  const lines: PitstopAlbumOutcome[] = [];
+  for (const wanted of all) {
     lines.push({
-      key,
+      key: wanted.key,
       name: wanted.name,
-      album: await writeStopoverAlbum({
+      album: await writePitstopAlbum({
         userId: plan.userId,
         tripId,
         tripName,
         name: wanted.name,
-        day,
+        day: wanted.day,
         assetIds: wanted.assetIds,
         client: open.client,
         immichUserId: open.immichUserId,
       }),
     });
   }
-  return lines;
+  return { stopovers: lines.slice(0, stopovers.length), pitstops: lines.slice(stopovers.length) };
 }
 
 export async function writeCommit(plan: CommitPlan): Promise<PhaseBResult> {
@@ -540,9 +575,11 @@ export async function runCommitJob(draft: StoredDraft, plan: CommitPlan): Promis
       result.album = { status: "failed", error: { kind: "internal" } };
     }
   }
-  // Phase D, the stopovers' own albums (spec 2026-10-11 §5.4): a line each,
-  // add-only, and a preflight that never blocks the trip — the trip is saved.
-  const stopoverAlbums = await writeStopoverAlbums(plan, draft, written.tripId, album);
-  if (stopoverAlbums.length > 0) result.stopoverAlbums = stopoverAlbums;
+  // Phase D, the city albums (spec 2026-10-11 §5.4, pitstops §4): the stopovers'
+  // own albums and the pitstop areas' — a line each, add-only, and a preflight
+  // that never blocks the trip — the trip is saved.
+  const pitstopAlbums = await writePitstopAlbums(plan, draft, written.tripId, album);
+  if (pitstopAlbums.stopovers.length > 0) result.stopoverAlbums = pitstopAlbums.stopovers;
+  if (pitstopAlbums.pitstops.length > 0) result.pitstopAlbums = pitstopAlbums.pitstops;
   return { status: "committed", ...result };
 }

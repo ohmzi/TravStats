@@ -37,7 +37,7 @@ import { getJob, startJob } from "../services/jobs/jobRegistry";
 import { buildTripDraft, progressReporter } from "../services/tripBuilder/buildDraft";
 import { builderCapabilities } from "../services/tripBuilder/capabilities";
 import { retryTripAlbum } from "../services/tripBuilder/albumWrite";
-import { retryStopoverAlbum } from "../services/tripBuilder/stopoverAlbum";
+import { retryPitstopAlbum } from "../services/tripBuilder/stopoverAlbum";
 import { runCommitJob } from "../services/tripBuilder/commit";
 import { prepareCommit } from "../services/tripBuilder/commitPlan";
 import {
@@ -247,13 +247,13 @@ const runningAlbumJobs = new Map<string, string>();
  * A `stopoverKey` retries that stopover's OWN album (spec 2026-10-11 §5.4):
  * the key resolves against the committed draft that wrote the trip, which
  * knows the stopovers it offered and holds the layover's picture ids — those
- * exist nowhere else. A key no held draft resolves is refused with 409
- * STOPOVER_EXPIRED, never answered by the trip's album: the committed draft
- * is in memory, a restart or its TTL ends it, and the caller must scan again
- * (final review, finding S2). A bare `name` is the trip's album, as always —
- * it is never read as a stopover, because the trip's album name may
- * coincide with a stopover's title. The one per-(user, trip) job key still
- * lets one album job run at a time.
+ * exist nowhere else. A `pitstopName` retries a pitstop area's OWN album
+ * (spec 2026-10-11-pitstop §4), resolved by name against the same committed
+ * draft. A target no held draft resolves is refused — 409 STOPOVER_EXPIRED or
+ * 409 PITSTOP_EXPIRED — never answered by the trip's album. A bare `name` is
+ * the trip's album, as always: it is never read as a stopover or a pitstop,
+ * because the trip's album name may coincide with theirs. The one per-(user,
+ * trip) job key still lets one album job run at a time.
  */
 router.post(
   "/trips/:tripId/album",
@@ -276,6 +276,21 @@ router.post(
           "STOPOVER_EXPIRED"
         );
       }
+      // The pitstop's record holds the area's picture ids, and its name is what
+      // the success panel shows; the committed draft is the only place either
+      // exists, so a name nothing resolves is refused, never repaired by
+      // another album (the S2 rule).
+      const pitstop =
+        body.pitstopName === undefined
+          ? undefined
+          : (held?.pitstops ?? []).find((candidate) => candidate.albumName === body.pitstopName);
+      if (body.pitstopName !== undefined && (pitstop === undefined || held === null)) {
+        throw new AppError(
+          "The scan that wrote this pitstop's album is no longer held; scan the trip again",
+          409,
+          "PITSTOP_EXPIRED"
+        );
+      }
 
       // No await from here to `set`, so two presses cannot both see "none running".
       const key = `${userId}:${tripId}`;
@@ -284,17 +299,30 @@ router.post(
         res.status(202).json({ jobId: runningId });
         return;
       }
-      const job = startJob("tripBuilder.album", userId, () =>
-        stopover !== undefined && held !== null
-          ? retryStopoverAlbum({
-              userId,
-              tripId,
-              tripName: trip.name,
-              stopover,
-              expectedImmichUserId: held.immichUserId,
-            })
-          : retryTripAlbum(userId, tripId, body.name, body.removeOutside ?? false)
-      );
+      const job = startJob("tripBuilder.album", userId, () => {
+        if (held === null) {
+          return retryTripAlbum(userId, tripId, body.name, body.removeOutside ?? false);
+        }
+        if (stopover !== undefined) {
+          return retryPitstopAlbum({
+            userId,
+            tripId,
+            tripName: trip.name,
+            album: { name: stopover.title, day: stopover.day, assetIds: stopover.photoIds },
+            expectedImmichUserId: held.immichUserId,
+          });
+        }
+        if (pitstop !== undefined) {
+          return retryPitstopAlbum({
+            userId,
+            tripId,
+            tripName: trip.name,
+            album: { name: pitstop.albumName, day: pitstop.day, assetIds: pitstop.assetIds },
+            expectedImmichUserId: held.immichUserId,
+          });
+        }
+        return retryTripAlbum(userId, tripId, body.name, body.removeOutside ?? false);
+      });
       runningAlbumJobs.set(key, job.id);
       res.status(202).json({ jobId: job.id });
     } catch (error) {

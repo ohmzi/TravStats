@@ -453,6 +453,16 @@ registry.register(
           })
         )
         .optional(),
+      /** Spec 2026-10-11 pitstops §4: present when the commit was asked for a pitstop area's own album. */
+      pitstopAlbums: z
+        .array(
+          z.object({
+            key: z.string().describe("The area's key, `<startDay>#<n>`"),
+            name: z.string().describe("The album's name; its retry posts this back"),
+            album: albumOutcome,
+          })
+        )
+        .optional(),
     })
     .extend(existingResultFields)
     .openapi("TripBuilderCommitResult")
@@ -567,7 +577,11 @@ registry.registerPath({
     "draft that wrote the trip, found by its exact owned name, add-only, never the trip's " +
     "album. A key no held committed draft resolves meets 409 STOPOVER_EXPIRED — the layover's " +
     "picture ids exist only in that draft, so the caller scans again; a bare `name` is always " +
-    "the trip's album. The job result is a `TripBuilderAlbumOutcome`. Only the user's own " +
+    "the trip's album. A posted `pitstopName` retries a pitstop area's own album instead (spec 2026-10-11 " +
+    "pitstops §4): resolved by name against the same committed draft, found by its exact " +
+    "owned name, add-only, never the trip's album; a name no held draft resolves meets 409 " +
+    "PITSTOP_EXPIRED. A bare `name` is always the trip's album. " +
+    "The job result is a `TripBuilderAlbumOutcome`. Only the user's own " +
     "Immich key may write.",
   tags: tag,
   request: {
@@ -580,7 +594,8 @@ registry.registerPath({
     404: { description: "Not the caller's trip", content: errorContent },
     409: {
       description:
-        "`code` STOPOVER_EXPIRED: a stopover retry whose key no held committed draft resolves",
+        "`code` STOPOVER_EXPIRED: a stopover retry whose key no held committed draft " +
+        "resolves; PITSTOP_EXPIRED: a pitstop retry whose name none resolves",
       content: errorContent,
     },
     429: { description: "Too many requests", content: errorContent },

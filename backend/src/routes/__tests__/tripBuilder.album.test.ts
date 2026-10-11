@@ -4,29 +4,32 @@ jest.mock("../../services/tripBuilder/albumWrite", () => ({
 }));
 jest.mock("../../services/tripBuilder/stopoverAlbum", () => ({
   ...jest.requireActual("../../services/tripBuilder/stopoverAlbum"),
-  retryStopoverAlbum: jest.fn(),
+  retryPitstopAlbum: jest.fn(),
 }));
 
 import request from "supertest";
 
 import app from "../../index";
 import { prisma } from "../../db";
+import { immichImportLimiter } from "../../middleware/rateLimit";
 import { clearJobs, settleAllJobs } from "../../services/jobs/jobRegistry";
 import { retryTripAlbum } from "../../services/tripBuilder/albumWrite";
 import { clearDraftsForTests, putDraft } from "../../services/tripBuilder/draftStore";
-import { retryStopoverAlbum } from "../../services/tripBuilder/stopoverAlbum";
+import { retryPitstopAlbum } from "../../services/tripBuilder/stopoverAlbum";
 import type { CommitResult, StoredStopover } from "../../services/tripBuilder/types";
 import {
   fixtureDraft,
+  fixtureStoredPitstop,
   fixtureStoredStopover,
   IMMICH_USER,
+  PITSTOP_ALBUM,
   STOPOVER_KEY,
 } from "../../services/tripBuilder/__tests__/commitFixtures";
 import { generateToken } from "../../utils/jwt";
 import { hashPassword } from "../../utils/password";
 
 const mockRetry = retryTripAlbum as jest.Mock;
-const mockStopoverRetry = retryStopoverAlbum as jest.Mock;
+const mockCityRetry = retryPitstopAlbum as jest.Mock;
 const OUTCOME = {
   status: "linked",
   immichAlbumId: "album-1",
@@ -67,6 +70,15 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
       .id;
   });
 
+  afterEach(async () => {
+    // The cases below press the route more times than `immichImportLimiter`
+    // allows one caller per 15-minute window (RATE_LIMITS.IMMICH_IMPORT_MAX),
+    // so each starts on a fresh bucket; otherwise the later presses would meet
+    // 429 before their handler — a limiter artefact, not the behaviour under
+    // test. Same reset as the rail suites.
+    await immichImportLimiter.resetKey(`user:${userId}`);
+  });
+
   afterAll(async () => {
     await prisma.user.deleteMany({
       where: { username: { in: ["tb-route-album", "tb-route-album-2"] } },
@@ -103,21 +115,88 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
     );
   };
 
+  /** A committed draft of `tripId` whose scan kept one pitstop area's own album. */
+  const committedPitstopDraft = (): void => {
+    const result: CommitResult = {
+      tripId,
+      created: true,
+      roadtrips: [],
+      stopIds: [],
+      flightsAssigned: 0,
+      flightsMovedFrom: [],
+      routing: { routed: 0, straight: 0, ferry: 0, providerAvailable: false },
+      photoJourneysResolved: 0,
+      unknownNights: 0,
+      album: { status: "skipped", skipReason: "notRequested" },
+    };
+    putDraft(
+      fixtureDraft(userId, [], {
+        pitstops: [fixtureStoredPitstop()],
+        status: "committed",
+        result,
+      })
+    );
+  };
+
   it("retries the stopover's own album when the key names one of the draft's stopovers", async () => {
     committedStopoverDraft();
-    mockStopoverRetry.mockResolvedValue(OUTCOME);
+    mockCityRetry.mockResolvedValue(OUTCOME);
 
     expect((await post(tripId, { stopoverKey: STOPOVER_KEY })).status).toBe(202);
     await settleAllJobs();
 
-    expect(mockStopoverRetry).toHaveBeenCalledWith({
+    expect(mockCityRetry).toHaveBeenCalledWith({
       userId,
       tripId,
       tripName: "Northvale loop",
-      stopover: fixtureStoredStopover(),
+      album: {
+        name: "Port Carrow 2031 Road Trip",
+        day: "2031-05-03",
+        assetIds: ["photo-a", "photo-b"],
+      },
       expectedImmichUserId: IMMICH_USER,
     });
     expect(mockRetry).not.toHaveBeenCalled();
+  });
+
+  it("retries a pitstop area's own album when the posted name is one the draft offered", async () => {
+    committedPitstopDraft();
+    mockCityRetry.mockResolvedValue(OUTCOME);
+
+    expect((await post(tripId, { pitstopName: PITSTOP_ALBUM })).status).toBe(202);
+    await settleAllJobs();
+
+    expect(mockCityRetry).toHaveBeenCalledWith({
+      userId,
+      tripId,
+      tripName: "Northvale loop",
+      album: { name: PITSTOP_ALBUM, day: "2031-05-02", assetIds: ["photo-a", "photo-b"] },
+      expectedImmichUserId: IMMICH_USER,
+    });
+    expect(mockRetry).not.toHaveBeenCalled();
+  });
+
+  it("answers 409 PITSTOP_EXPIRED once the committed draft is gone, and touches no album", async () => {
+    committedPitstopDraft();
+    clearDraftsForTests();
+
+    const res = await post(tripId, { pitstopName: PITSTOP_ALBUM });
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ code: "PITSTOP_EXPIRED" });
+    expect(mockRetry).not.toHaveBeenCalled();
+    expect(mockCityRetry).not.toHaveBeenCalled();
+  });
+
+  it("never reads a posted name as a pitstop", async () => {
+    // The name field is the trip album's, as always (the stopover build's
+    // finding S2): a bare `name` may coincide with a pitstop album's.
+    committedPitstopDraft();
+
+    await post(tripId, { name: PITSTOP_ALBUM });
+    await settleAllJobs();
+
+    expect(mockRetry).toHaveBeenCalledWith(userId, tripId, PITSTOP_ALBUM, false);
+    expect(mockCityRetry).not.toHaveBeenCalled();
   });
 
   it("keeps the trip's own album when only a name is posted", async () => {
@@ -127,19 +206,19 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
     await settleAllJobs();
 
     expect(mockRetry).toHaveBeenCalledWith(userId, tripId, "Northvale photos", false);
-    expect(mockStopoverRetry).not.toHaveBeenCalled();
+    expect(mockCityRetry).not.toHaveBeenCalled();
   });
 
   it("answers a second press for the same stopover with the running job (one album job at a time)", async () => {
     committedStopoverDraft();
-    mockStopoverRetry.mockReturnValue(new Promise(() => undefined));
+    mockCityRetry.mockReturnValue(new Promise(() => undefined));
 
     const first = await post(tripId, { stopoverKey: STOPOVER_KEY });
     const again = await post(tripId, { stopoverKey: STOPOVER_KEY });
 
     expect(again.status).toBe(202);
     expect(again.body.jobId).toBe(first.body.jobId);
-    expect(mockStopoverRetry).toHaveBeenCalledTimes(1);
+    expect(mockCityRetry).toHaveBeenCalledTimes(1);
   });
 
   it("starts an album job whose result is the outcome", async () => {
@@ -287,7 +366,7 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album — a stopover key nothi
     expect(res.status).toBe(409);
     expect(res.body).toMatchObject({ code: "STOPOVER_EXPIRED" });
     expect(mockRetry).not.toHaveBeenCalled();
-    expect(mockStopoverRetry).not.toHaveBeenCalled();
+    expect(mockCityRetry).not.toHaveBeenCalled();
   });
 
   it("answers 409 when the newest committed draft offered no stopovers", async () => {
@@ -297,13 +376,13 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album — a stopover key nothi
     expect(res.status).toBe(409);
     expect(res.body).toMatchObject({ code: "STOPOVER_EXPIRED" });
     expect(mockRetry).not.toHaveBeenCalled();
-    expect(mockStopoverRetry).not.toHaveBeenCalled();
+    expect(mockCityRetry).not.toHaveBeenCalled();
   });
 
   it("refuses a key that is no stopover key at all", async () => {
     expect((await refused({ stopoverKey: "not-a-key" })).status).toBe(400);
     expect(mockRetry).not.toHaveBeenCalled();
-    expect(mockStopoverRetry).not.toHaveBeenCalled();
+    expect(mockCityRetry).not.toHaveBeenCalled();
   });
 
   it("never reads a posted name as a stopover", async () => {
@@ -321,6 +400,6 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album — a stopover key nothi
       "Port Carrow 2031 Road Trip",
       false
     );
-    expect(mockStopoverRetry).not.toHaveBeenCalled();
+    expect(mockCityRetry).not.toHaveBeenCalled();
   });
 });
