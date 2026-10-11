@@ -8,6 +8,7 @@ jest.mock("../../../utils/logger", () => ({
   default: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }));
 
+import { createCustomOsrm } from "../../tour/routing/customOsrm";
 import type { RouteProvider } from "../../tour/routing/types";
 import {
   mapWithConcurrency,
@@ -314,6 +315,44 @@ describe("probeLegs", () => {
 
     expect(legs).toHaveLength(9);
     expect(peak).toBe(4);
+  });
+});
+
+describe("a router that accepts and never answers", () => {
+  /**
+   * The real custom OSRM adapter in front of a hung worker: it settles only
+   * when the request's own signal aborts it, the way a real fetch does. The
+   * adapter's bound is tiny here only so the test does not wait the real one.
+   */
+  function stalledRoads(boundMs: number): RoadProbes {
+    const stalled = (_url: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () =>
+          reject(init.signal?.reason ?? new Error("aborted"))
+        );
+      });
+    const provider = createCustomOsrm(
+      "http://osrm.local:5000",
+      stalled as unknown as typeof fetch,
+      boundMs
+    );
+    return {
+      probe: async (a, b) => (await provider.probe?.(a, b)) ?? null,
+      snap: async (c) => (await provider.snap?.(c)) ?? null,
+    };
+  }
+
+  it("reads the scan's road questions as no answer once the adapter's bound passes", async () => {
+    const probes = stalledRoads(20);
+
+    const { noRoadData } = await snapStations([station("n", "visit")], probes);
+    expect(noRoadData).toEqual(["n"]);
+
+    const legs = await probeLegs(
+      [station("n", "visit"), station("p", "visit", PORT_CARROW)],
+      probes
+    );
+    expect(legs).toEqual([null]);
   });
 });
 

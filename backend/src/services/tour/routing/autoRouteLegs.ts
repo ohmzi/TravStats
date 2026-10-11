@@ -46,9 +46,10 @@ export async function applyRoutedLeg(legId: string, routed: RoutedLeg): Promise<
 export const AUTO_ROUTE_MAX_LEGS = 25;
 
 /**
- * The provider adapters carry no timeout of their own, and a save must not
- * hang on a routing service that does not answer. One leg gets this long;
- * the whole pass gets `AUTO_ROUTE_BUDGET_MS`.
+ * The hosted adapters carry no timeout of their own (the custom OSRM bounds
+ * each GET at `OSRM_TIMEOUT_MS`), and a save must not hang on a routing
+ * service that does not answer. One leg gets this long; the whole pass gets
+ * `AUTO_ROUTE_BUDGET_MS`.
  */
 const AUTO_ROUTE_LEG_TIMEOUT_MS = 8_000;
 const AUTO_ROUTE_BUDGET_MS = 15_000;

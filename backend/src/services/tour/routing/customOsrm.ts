@@ -28,6 +28,11 @@ import {
  *   - `GET /nearest/v1/{profile}/{lon},{lat}?number=1` answers
  *     `waypoints[0].location`, a `[lon,lat]` pair on the road; `snap` returns it.
  *
+ * Every GET is bounded by `OSRM_TIMEOUT_MS` (`getJson`): a router that accepts
+ * a connection and then goes silent reads as "no answer" rather than holding
+ * its caller — in the trip builder, an entire scan job — for undici's default
+ * ~300 s per stalled call.
+ *
  * Scope note: this targets OSRM only. Valhalla speaks a different protocol
  * (a `/route` POST with a JSON body, `trip`/`legs`/`shape` response shaped
  * as an encoded polyline, distances in the configured unit rather than a
@@ -131,7 +136,22 @@ function readNearest(value: unknown): Coord | null {
   return { lat: location[1], lon: location[0] };
 }
 
-export function createCustomOsrm(baseUrl: string, fetchImpl: typeof fetch = fetch): RouteProvider {
+/**
+ * How long any single OSRM GET may take before it is abandoned. A healthy
+ * self-hosted OSRM answers in milliseconds; this bound exists for the one that
+ * accepts the connection and then goes silent (a restarting or wedged worker
+ * behind a proxy). Without it, a stalled call holds a probe/snap worker, and
+ * the scan's whole road phase, for undici's ~300 s default. 8 s mirrors the
+ * auto-router's own per-leg bound (`AUTO_ROUTE_LEG_TIMEOUT_MS`).
+ */
+export const OSRM_TIMEOUT_MS = 8_000;
+
+export function createCustomOsrm(
+  baseUrl: string,
+  fetchImpl: typeof fetch = fetch,
+  // Injectable so a test can exercise the bound without waiting it out.
+  timeoutMs: number = OSRM_TIMEOUT_MS
+): RouteProvider {
   // Parsed eagerly: a baseUrl that isn't a valid absolute URL fails clearly
   // and immediately at configuration time (URL's own descriptive error),
   // rather than producing a silently-broken request string on the first
@@ -153,11 +173,16 @@ export function createCustomOsrm(baseUrl: string, fetchImpl: typeof fetch = fetc
     return url.toString();
   }
 
-  /** The JSON body of a GET, or null (logged) when there is none. */
+  /**
+   * The JSON body of a GET, or null (logged) when there is none. Bounded by
+   * `timeoutMs`: a call the router has not answered by then is aborted (its
+   * socket torn down with it) and reads as "no answer" through the catch
+   * below, exactly as an unreachable router does.
+   */
   async function getJson(url: string, what: string): Promise<unknown> {
     let response: Response;
     try {
-      response = await fetchImpl(url);
+      response = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs) });
     } catch (err) {
       logger.warn(
         { provider: "custom", what, error: err instanceof Error ? err.message : String(err) },

@@ -619,6 +619,62 @@ describe("hosted routing adapters", () => {
   });
 });
 
+describe("createCustomOsrm timeouts", () => {
+  // Synthetic coordinates (public repository): two invented towns.
+  const NORTHVALE = { lat: -45.05, lon: 168.7 };
+  const PORT_CARROW = { lat: -44.4, lon: 171.25 };
+
+  /**
+   * A router that accepts every request and never answers on its own — a
+   * restarting or wedged OSRM worker behind a proxy. It settles only when the
+   * request's own signal aborts it, the way a real fetch does; with no signal
+   * it holds the caller forever.
+   */
+  function stalledRouter() {
+    return jest.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(init.signal?.reason ?? new Error("aborted"))
+          );
+        })
+    );
+  }
+
+  it("asks every request with an abort signal, so a router that goes silent can be given up on", async () => {
+    const fetchImpl = jest.fn(async (_url: string, _init?: RequestInit) =>
+      jsonResponse(200, { code: "Ok" })
+    );
+    const provider = createCustomOsrm(
+      "http://osrm.local:5000",
+      fetchImpl as unknown as typeof fetch
+    );
+
+    await provider.route(roadRequest());
+    await provider.probe?.(NORTHVALE, PORT_CARROW);
+    await provider.snap?.(NORTHVALE);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    for (const [, init] of fetchImpl.mock.calls) {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+    }
+  });
+
+  it("reads a router that accepts and never answers as no answer once the bound passes", async () => {
+    // A tiny bound, not the real one: the adapter must give up without the
+    // test waiting out its configured timeout.
+    const provider = createCustomOsrm(
+      "http://osrm.local:5000",
+      stalledRouter() as unknown as typeof fetch,
+      20
+    );
+
+    expect(await provider.probe?.(NORTHVALE, PORT_CARROW)).toBeNull();
+    expect(await provider.snap?.(NORTHVALE)).toBeNull();
+    expect(await provider.route({ from: NORTHVALE, to: PORT_CARROW, mode: "road" })).toBeNull();
+  });
+});
+
 describe("createCustomOsrm warnings", () => {
   // Synthetic coordinates (public repository): two invented towns.
   const NORTHVALE = { lat: -45.05, lon: 168.7 };
