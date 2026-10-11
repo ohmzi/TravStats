@@ -552,11 +552,12 @@ function stopoverRoadtrip(id: string, name: string, day: string): ExistingRoadtr
 }
 
 describe("claimStopovers", () => {
-  const want = (key: string, title: string, day: string): ReconcileStopover => ({
-    key,
-    title,
-    day,
-  });
+  const want = (
+    key: string,
+    title: string,
+    dayFrom: string,
+    dayTo: string = dayFrom
+  ): ReconcileStopover => ({ key, title, dayFrom, dayTo });
 
   it("claims the roadtrip whose name equals the title and whose days fall inside the stopover day", () => {
     const matches = claimStopovers(
@@ -564,6 +565,33 @@ describe("claimStopovers", () => {
       [stopoverRoadtrip("r9", "Northvale 2031 Road Trip", "2031-05-04")]
     );
     expect(matches).toEqual([{ key: "f1#f2", roadtripId: "r9", name: "Northvale 2031 Road Trip" }]);
+  });
+
+  it("claims a midnight-crossing tour over its own span, not the single stopover day", () => {
+    // The A2 fixture's stored rows (final review, finding S1): the airport on the
+    // arrival day, the outing station across midnight. The tour's span is
+    // [05-02, 05-03]; matching the first outing photo's day alone never finds them.
+    const crossing = roadtrip("r9", "Elmwood 2031 Road Trip", [
+      stored({
+        id: "r9a",
+        title: "ZZA Airport",
+        startDate: "2031-05-02",
+        endDate: "2031-05-02",
+        night: "pass",
+      }),
+      stored({
+        id: "r9b",
+        title: "Elmwood",
+        startDate: "2031-05-02",
+        endDate: "2031-05-03",
+        night: "pass",
+      }),
+    ]);
+    const matches = claimStopovers(
+      [want("f1#f2", "Elmwood 2031 Road Trip", "2031-05-02", "2031-05-03")],
+      [crossing]
+    );
+    expect(matches).toEqual([{ key: "f1#f2", roadtripId: "r9", name: "Elmwood 2031 Road Trip" }]);
   });
 
   it("reads the title without case, like every other name match `sameTitle` makes", () => {
@@ -602,6 +630,31 @@ describe("claimStopovers", () => {
     ]);
     expect(
       claimStopovers([want("f1#f2", "Northvale 2031 Road Trip", "2031-05-04")], [spanning])
+    ).toEqual([]);
+  });
+
+  it("does not claim one that reaches beyond even a multi-day tour's span", () => {
+    const beyond = roadtrip("r9", "Elmwood 2031 Road Trip", [
+      stored({
+        id: "r9a",
+        title: "ZZA Airport",
+        startDate: "2031-05-02",
+        endDate: "2031-05-02",
+        night: "pass",
+      }),
+      stored({
+        id: "r9b",
+        title: "Elmwood",
+        startDate: "2031-05-02",
+        endDate: "2031-05-04",
+        night: "pass",
+      }),
+    ]);
+    expect(
+      claimStopovers(
+        [want("f1#f2", "Elmwood 2031 Road Trip", "2031-05-02", "2031-05-03")],
+        [beyond]
+      )
     ).toEqual([]);
   });
 

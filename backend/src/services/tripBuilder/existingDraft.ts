@@ -27,6 +27,7 @@ import {
   type StoredStopoverOffer,
 } from "./existingTypes";
 import {
+  groundSpan,
   reconcileTrip,
   type DerivedStation,
   type NotSeenStation,
@@ -184,11 +185,13 @@ export function annotateDraftForExisting(
     window: { startDay: dto.window.startDay, endDay: dto.window.endDay },
     roadtripAreas,
     stopAreas,
-    stopovers: (dto.stopovers ?? []).map((stopover) => ({
-      key: stopover.key,
-      title: stopover.title,
-      day: stopover.day,
-    })),
+    // The claim runs over the tour's own span, not the stopover's single day: a
+    // midnight-crossing tour spans two, and the commit writes exactly those spans
+    // (final review, finding S1).
+    stopovers: (dto.stopovers ?? []).map((stopover) => {
+      const { startDate: dayFrom, endDate: dayTo } = groundSpan(stopover.stations);
+      return { key: stopover.key, title: stopover.title, dayFrom, dayTo };
+    }),
     state,
   });
   const matchByArea = new Map(result.roadtrips.map((m) => [m.areaKey, m] as const));

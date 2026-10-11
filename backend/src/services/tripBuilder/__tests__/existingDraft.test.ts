@@ -12,6 +12,7 @@ import type {
   ExistingStop,
   ExistingTripState,
 } from "../existingTypes";
+import type { DraftStopover } from "../types";
 import { annotateDraftForExisting, applyExistingTarget, type ExistingDeps } from "../existingDraft";
 import {
   area,
@@ -422,6 +423,116 @@ describe("annotateDraftForExisting: a stopover", () => {
     expect(dto.areas[0].roadtripId).toBeUndefined();
     expect(dto.areas[0].stations.map((s) => s.status)).toEqual(["new", "new"]);
     expect(dto.stopovers?.[0].stored?.roadtripId).toBe("r9");
+  });
+
+  // ── A tour that runs past midnight (final review, finding S1) ──────────────
+  // The A2 fixture's shape (buildDraft.stopover.test.ts): the flight lands late,
+  // the outing set runs past midnight, so the visit station spans two days while
+  // the stopover day stays the first outing photo's. The commit writes exactly
+  // those spans back (deriveStationRows with no nights), so the stored roadtrip
+  // ends one day past `day` — and can never be re-claimed from the single day.
+
+  /** A midnight-crossing stopover: `day` is the first outing photo's, the airport's its arrival's. */
+  function midnightStopover(day: string, airportDay: string, outingLastDay: string): DraftStopover {
+    const stations = [
+      derivedStation(
+        `-894|3382|${airportDay}`,
+        "ZZA Airport",
+        { lat: -44.7, lon: 169.15 },
+        airportDay,
+        airportDay,
+        { kind: "airport" }
+      ),
+      derivedStation(
+        `-909|3382|${day}`,
+        "Elmwood",
+        { lat: -45.45, lon: 169.1 },
+        day,
+        outingLastDay
+      ),
+    ];
+    return stopover({
+      day,
+      title: "Elmwood 2031 Road Trip",
+      stations,
+      legs: [
+        {
+          fromKey: stations[0].key,
+          toKey: stations[1].key,
+          chordKm: 52,
+          routedKm: null,
+          mode: "road",
+          ferryEvidence: null,
+        },
+      ],
+    });
+  }
+
+  /** The rows a first sync wrote for such a tour, read back: `night: "pass"`, spans unchanged. */
+  function crossingRoadtrip(
+    id: string,
+    airportDay: string,
+    outingStart: string,
+    outingEnd: string
+  ): ExistingRoadtrip {
+    return {
+      id,
+      name: "Elmwood 2031 Road Trip",
+      legs: [],
+      stations: [
+        stored({
+          id: `${id}-a`,
+          title: "ZZA Airport",
+          lat: -44.7,
+          lon: 169.15,
+          startDate: airportDay,
+          endDate: airportDay,
+          night: "pass",
+        }),
+        stored({
+          id: `${id}-b`,
+          title: "Elmwood",
+          lat: -45.45,
+          lon: 169.1,
+          startDate: outingStart,
+          endDate: outingEnd,
+          night: "pass",
+        }),
+      ],
+    };
+  }
+
+  it("re-claims a midnight-crossing stopover by the tour's own span, not its single day", () => {
+    const { dto, existing } = annotateDraftForExisting(
+      draft(TRIP, [], { stopovers: [midnightStopover("2031-05-02", "2031-05-02", "2031-05-03")] }),
+      state({ roadtrips: [crossingRoadtrip("r9", "2031-05-02", "2031-05-02", "2031-05-03")] })
+    );
+    expect(dto.stopovers?.[0].stored).toEqual({
+      roadtripId: "r9",
+      name: "Elmwood 2031 Road Trip",
+      albumAssetCount: null,
+    });
+    expect([...(existing.stopovers.get("r9")?.stationIds ?? [])].sort()).toEqual(["r9-a", "r9-b"]);
+  });
+
+  it("re-claims a stopover whose first outing photo fell after midnight", () => {
+    // Landing 23:50 on 02 May, first downtown photo 00:10 on 03 May: `day` is the
+    // photo's (03 May), the airport station's is the arrival's (02 May) — before
+    // `day`, so only the tour's own span holds both.
+    const { dto } = annotateDraftForExisting(
+      draft(TRIP, [], { stopovers: [midnightStopover("2031-05-03", "2031-05-02", "2031-05-03")] }),
+      state({ roadtrips: [crossingRoadtrip("r9", "2031-05-02", "2031-05-03", "2031-05-03")] })
+    );
+    expect(dto.stopovers?.[0].stored?.roadtripId).toBe("r9");
+  });
+
+  it("still offers a stopover as new when its stored roadtrip reaches beyond the tour's span", () => {
+    const { dto, existing } = annotateDraftForExisting(
+      draft(TRIP, [], { stopovers: [midnightStopover("2031-05-02", "2031-05-02", "2031-05-03")] }),
+      state({ roadtrips: [crossingRoadtrip("r9", "2031-05-02", "2031-05-02", "2031-05-04")] })
+    );
+    expect(dto.stopovers?.[0].stored).toBeUndefined();
+    expect(existing.stopovers.size).toBe(0);
   });
 });
 

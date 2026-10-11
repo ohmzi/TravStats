@@ -331,8 +331,14 @@ export interface ReconcileStopover {
   key: string;
   /** The computed title (`<City> <Year> Road Trip`): what a stored roadtrip's name must equal. */
   title: string;
-  /** The stopover day (spec 2026-10-11 §2.2): every dated station must fall inside it. */
-  day: Day;
+  /** The tour's first day (the minimum `firstDay` over its stations). */
+  dayFrom: Day;
+  /**
+   * The tour's last day (the maximum `lastDay`): a tour that crosses midnight
+   * spans two days (final review, finding S1), so the match runs over this span
+   * and not over the stopover's single day.
+   */
+  dayTo: Day;
 }
 
 export interface StopoverMatch {
@@ -342,8 +348,8 @@ export interface StopoverMatch {
   name: string;
 }
 
-/** Every dated, non-correction station lies inside `day`, and at least one station is dated. */
-function landsInsideDay(roadtrip: ExistingRoadtrip, day: Day): boolean {
+/** Every dated, non-correction station lies inside `[dayFrom, dayTo]`, and at least one station is dated. */
+function landsInsideSpan(roadtrip: ExistingRoadtrip, dayFrom: Day, dayTo: Day): boolean {
   const dated = roadtrip.stations.filter(
     (station) => station.night !== "via" && (station.startDate !== null || station.endDate !== null)
   );
@@ -351,7 +357,7 @@ function landsInsideDay(roadtrip: ExistingRoadtrip, day: Day): boolean {
   return dated.every((station) => {
     const start = station.startDate ?? station.endDate;
     const end = station.endDate ?? station.startDate;
-    return start !== null && end !== null && start >= day && end <= day;
+    return start !== null && end !== null && start >= dayFrom && end <= dayTo;
   });
 }
 
@@ -359,9 +365,15 @@ function landsInsideDay(roadtrip: ExistingRoadtrip, day: Day): boolean {
  * The re-sync's stopover match pass (spec 2026-10-11 §6). Storage carries no
  * stopover key and none is added, so a draft stopover claims the trip's
  * roadtrip whose name equals its computed title and whose stations' days all
- * fall inside its day. A roadtrip serves one stopover, a stopover one roadtrip;
- * the returned ids are the claims `reconcileTrip` filters out of the area
- * match, so no area can ever match, steal or duplicate a stopover roadtrip.
+ * fall inside the stopover's own tour span. That span, not the single stopover
+ * day, is what the match must use: the commit writes the tour's spans back
+ * unchanged (`deriveStationRows` with no nights), so a midnight-crossing tour —
+ * or an airport station on the arrival day, earlier than the first outing
+ * photo's — would otherwise never re-claim its own roadtrip, and the review
+ * would offer it as new on every scan (final review, finding S1). A roadtrip
+ * serves one stopover, a stopover one roadtrip; the returned ids are the claims
+ * `reconcileTrip` filters out of the area match, so no area can ever match,
+ * steal or duplicate a stopover roadtrip.
  */
 export function claimStopovers(
   stopovers: readonly ReconcileStopover[],
@@ -374,7 +386,7 @@ export function claimStopovers(
       (roadtrip) =>
         !used.has(roadtrip.id) &&
         sameTitle(stopover.title, roadtrip.name) &&
-        landsInsideDay(roadtrip, stopover.day)
+        landsInsideSpan(roadtrip, stopover.dayFrom, stopover.dayTo)
     );
     if (found === undefined) continue;
     used.add(found.id);
@@ -395,7 +407,7 @@ export interface StopArea {
   >;
 }
 
-/** The first to the last day over a `stops` area's ground stations, which are not empty. */
+/** The first to the last day over a `stops` area's ground stations or a stopover's tour; both are not empty. */
 export function groundSpan(ground: ReadonlyArray<{ firstDay: Day; lastDay: Day }>): {
   startDate: Day;
   endDate: Day;

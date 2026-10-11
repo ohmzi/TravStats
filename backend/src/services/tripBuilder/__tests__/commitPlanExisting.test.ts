@@ -9,7 +9,13 @@ import { prepareCommit } from "../commitPlan";
 import { annotateDraftForExisting } from "../existingDraft";
 import { loadExistingState } from "../existingState";
 import { extendPlanForExisting } from "../commitPlanExisting";
-import type { CommitPlan, DraftStation, StoredDraft, TripBuilderDraft } from "../types";
+import type {
+  CommitPlan,
+  DraftStation,
+  DraftStopover,
+  StoredDraft,
+  TripBuilderDraft,
+} from "../types";
 import {
   addStation,
   createExistingFixture,
@@ -711,6 +717,74 @@ describe("extendPlanForExisting", () => {
     await prisma.tripRoute.delete({ where: { id: routeId } });
   }
 
+  /**
+   * The midnight-crossing stopover of finding S1: the flight lands 22:30 on 02 May
+   * and the outing runs 23:30 → 07:30, so the tour's visit station spans 02→03 May
+   * while `day` stays the first outing photo's (02 May).
+   */
+  const midnightStopover = (): DraftStopover =>
+    stopover({
+      day: "2031-05-02",
+      title: "Elmwood 2031 Road Trip",
+      stations: [
+        derivedStation(
+          "-894|3382|2031-05-02",
+          "ZZA Airport",
+          FX.northvale,
+          "2031-05-02",
+          "2031-05-02",
+          { kind: "airport" }
+        ),
+        derivedStation(
+          "-909|3382|2031-05-02",
+          "Elmwood",
+          FX.southbridge,
+          "2031-05-02",
+          "2031-05-03"
+        ),
+      ],
+      legs: [
+        {
+          fromKey: "-894|3382|2031-05-02",
+          toKey: "-909|3382|2031-05-02",
+          chordKm: 52,
+          routedKm: null,
+          mode: "road",
+          ferryEvidence: null,
+        },
+      ],
+    });
+
+  /** That roadtrip as the first sync wrote it: the airport on 02 May, the town across midnight. */
+  async function midnightRoadtrip(): Promise<{ routeId: string; stationIds: string[] }> {
+    const route = await prisma.tripRoute.create({
+      data: {
+        userId: fx.userId,
+        tripId: fx.tripId,
+        name: "Elmwood 2031 Road Trip",
+        mode: "road",
+        kind: "roadtrip",
+        vehicle: "car",
+      },
+      select: { id: true },
+    });
+    const stationIds: string[] = [
+      await addStation(route.id, 0, {
+        title: "ZZA Airport",
+        at: FX.northvale,
+        startDay: "2031-05-02",
+        endDay: "2031-05-02",
+      }),
+      await addStation(route.id, 1, {
+        title: "Elmwood",
+        at: FX.southbridge,
+        startDay: "2031-05-02",
+        endDay: "2031-05-03",
+      }),
+    ];
+    return { routeId: route.id, stationIds };
+  }
+
   const toggleOn = (): CommitBody["stopovers"] => [
     { key: STOPOVER_KEY, roadtrip: true, album: true },
   ];
@@ -742,6 +816,39 @@ describe("extendPlanForExisting", () => {
       ]);
       // The stored roadtrip is no new roadtrip's duplicate and no area write's target.
       expect((plan.existing?.roadtrips ?? []).map((w) => w.roadtripId)).not.toContain(routeId);
+    } finally {
+      await dropStopoverRoadtrip(routeId);
+    }
+  });
+
+  it("re-claims a midnight-crossing stopover on a re-sync: no second roadtrip enters the write path", async () => {
+    // Finding S1: the stored visit station spans 02→03 May while the stopover day
+    // is the first outing photo's 02 May. A missed claim leaves the toggled
+    // stopover in `plan.stopovers`, and phase B then writes a second identical
+    // roadtrip for it — so the claim must run over the tour's own span.
+    const { routeId, stationIds } = await midnightRoadtrip();
+    try {
+      const scanned = await storedDraft(derivedStations(), { stopovers: [midnightStopover()] });
+      expect(scanned.dto.stopovers?.[0].stored?.roadtripId).toBe(routeId);
+      const plan = await extendPlanForExisting(
+        fx.userId,
+        scanned,
+        body({}, { stopovers: toggleOn() }),
+        {
+          ...basePlan(),
+          stopovers: [stopoverPlan({ name: "Elmwood 2031 Road Trip", assetIds: ["photo-1"] })],
+        }
+      );
+      expect(plan.stopovers).toEqual([]);
+      expect(plan.existing?.stopovers).toEqual([
+        {
+          key: STOPOVER_KEY,
+          roadtripId: routeId,
+          name: "Elmwood 2031 Road Trip",
+          offeredIds: stationIds,
+          album: { name: "Elmwood 2031 Road Trip", assetIds: ["photo-1"] },
+        },
+      ]);
     } finally {
       await dropStopoverRoadtrip(routeId);
     }
