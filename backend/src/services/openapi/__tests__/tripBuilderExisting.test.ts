@@ -180,5 +180,13 @@ describe("trip builder OpenAPI documents the re-sync fields", () => {
       expect(keysOf(at(request, "stops"))).toEqual(["keep", "remove"]);
       expect(at(request, "album", "removeOutside").type).toBe("boolean");
     });
+
+    it("carries the stopover switches, and still no asset id", () => {
+      const request = resolve(body as Node);
+      const stopover = at(request, "stopovers", "[]");
+      expect(keysOf(stopover)).toEqual(["album", "key", "roadtrip"]);
+      expect(at(stopover, "roadtrip").type).toBe("boolean");
+      expect(JSON.stringify(stopover)).not.toMatch(/asset(Id|Ids)\b/);
+    });
   });
 });

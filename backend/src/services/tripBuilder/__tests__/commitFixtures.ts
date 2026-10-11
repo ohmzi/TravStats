@@ -205,6 +205,7 @@ export function fixtureBody(flightIds: readonly string[] = []): CommitBody {
         removeNotSeen: [],
       },
     ],
+    stopovers: [],
     photoJourneyIds: [],
     stops: { keep: [], remove: [] },
     album: { create: false, name: "Northvale loop" },

@@ -32,6 +32,8 @@ import {
 const DAY_PATTERN = "^\\d{4}-\\d{2}-\\d{2}$";
 const STATION_KEY_PATTERN = "^-?\\d+\\|-?\\d+\\|\\d{4}-\\d{2}-\\d{2}(?:~\\d+)?$";
 const AREA_KEY_PATTERN = "^\\d{4}-\\d{2}-\\d{2}#\\d+$";
+const STOPOVER_KEY_PATTERN =
+  "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}#[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
 
 const uuid = z.string().uuid();
 const label = z.string().trim().min(1).max(200);
@@ -55,6 +57,11 @@ export const areaKeySchema = z
   .string()
   .regex(new RegExp(AREA_KEY_PATTERN))
   .openapi({ example: "2031-05-02#1" });
+
+/** `<inFlightId>#<outFlightId>` (spec 2026-10-11 §2.3): the layover's two flights, both uuids. */
+export const stopoverKeySchema = z.string().regex(new RegExp(STOPOVER_KEY_PATTERN)).openapi({
+  example: "ff0f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b#1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+});
 
 /** A night's answer: a station key, or `home` / `unknown` / `flight`. */
 export const nightAssignSchema = z.union([z.enum(NIGHT_SPECIALS), stationKeySchema]);
@@ -220,6 +227,15 @@ function existingIssues(body: ExistingIssueBody, flag: Flag): void {
   onlyExisting(["album", "removeOutside"], body.album.removeOutside === true);
 }
 
+/** One stopover's switches: a roadtrip, and its own album on top of it (spec 2026-10-11 §5.1). */
+const commitStopoverSchema = z
+  .object({
+    key: stopoverKeySchema,
+    roadtrip: z.boolean(),
+    album: z.boolean(),
+  })
+  .strict();
+
 /** `POST /trip-builder/drafts/:id/commit`. Every area is sent, `skip` ones included. */
 export const commitBodySchema = z
   .object({
@@ -229,6 +245,13 @@ export const commitBodySchema = z
     flightIds: z.array(uuid).max(MAX_COMMIT_FLIGHTS),
     nights: z.record(z.string().regex(new RegExp(DAY_PATTERN)), nightAssignSchema),
     areas: z.array(commitAreaSchema).max(MAX_AREAS),
+    /**
+     * The stopovers the user turned into roadtrips (spec 2026-10-11 §5.1); the
+     * review sends only toggled-on candidates, and a key must be one the scan
+     * offered (`commitPlan.ts` refuses the rest). An album needs its roadtrip.
+     * A stopover needs two flights, and a commit lists at most MAX_COMMIT_FLIGHTS.
+     */
+    stopovers: z.array(commitStopoverSchema).max(MAX_COMMIT_FLIGHTS).default([]),
     photoJourneyIds: z.array(uuid).max(MAX_PHOTO_JOURNEYS),
     /** Re-sync only: timeline stops the photos do not show, kept or removed. */
     stops: z
@@ -285,6 +308,16 @@ export const commitBodySchema = z
           flag(["areas", a, "homeEnd"], "homeEnd is on exactly when the last station is home");
         }
       }
+    });
+    const stopoverKeys = new Set<string>();
+    body.stopovers.forEach((stopover, s) => {
+      if (stopover.album && !stopover.roadtrip) {
+        flag(["stopovers", s, "album"], "An album needs the stopover's roadtrip");
+      }
+      if (stopoverKeys.has(stopover.key)) {
+        flag(["stopovers", s, "key"], "A stopover key may appear once");
+      }
+      stopoverKeys.add(stopover.key);
     });
     existingIssues(body, flag);
   });

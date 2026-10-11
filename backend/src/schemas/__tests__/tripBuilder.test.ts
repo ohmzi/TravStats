@@ -13,6 +13,8 @@ const FLIGHT_ID = "9d8c7b6a-5f4e-4d3c-b2a1-0f9e8d7c6b5a";
 const NORTHVALE = "-901|3374|2031-05-02";
 const PORT_CARROW = "-894|3383|2031-05-04";
 const HOME = "-900|3370|2031-05-02";
+/** Synthetic: two invented flights, joined the way a stopover key joins them (spec §2.3). */
+const STOPOVER_KEY = "ff0f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b#1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
 
 type Parsed = {
   success: boolean;
@@ -48,6 +50,10 @@ function area(overrides: Record<string, unknown> = {}) {
     legModes: ["ferry"],
     ...overrides,
   };
+}
+
+function stopover(overrides: Record<string, unknown> = {}) {
+  return { key: STOPOVER_KEY, roadtrip: true, album: false, ...overrides };
 }
 
 function commit(overrides: Record<string, unknown> = {}) {
@@ -177,6 +183,36 @@ describe("commitBodySchema", () => {
     expect(issuePaths(commitBodySchema.safeParse(commit({ target: lower })))).toEqual([
       "target.countries.0",
     ]);
+  });
+
+  it("takes a stopover's switches, refusing an album without its roadtrip", () => {
+    const body = commit({ stopovers: [stopover({ album: true })] });
+    expect(commitBodySchema.safeParse(body).success).toBe(true);
+    const albumOnly = commit({ stopovers: [stopover({ roadtrip: false, album: true })] });
+    expect(issuePaths(commitBodySchema.safeParse(albumOnly))).toEqual(["stopovers.0.album"]);
+  });
+
+  it("refuses a stopover key used twice, or one that is not two flight ids", () => {
+    const twice = commit({ stopovers: [stopover(), stopover()] });
+    expect(issuePaths(commitBodySchema.safeParse(twice))).toEqual(["stopovers.1.key"]);
+    const notAKey = commit({ stopovers: [stopover({ key: "2031-05-02#1" })] });
+    expect(issuePaths(commitBodySchema.safeParse(notAKey))).toEqual(["stopovers.0.key"]);
+  });
+
+  it("defaults the stopovers to none and caps them at the flight budget", () => {
+    expect(commitBodySchema.parse(commit()).stopovers).toEqual([]);
+    const key = (n: number) =>
+      `00000000-0000-4000-8000-${String(n).padStart(12, "0")}#00000000-0000-4000-8000-${String(
+        n + 1000
+      ).padStart(12, "0")}`;
+    const stopovers = Array.from({ length: 101 }, (_, i) => stopover({ key: key(i) }));
+    expect(issuePaths(commitBodySchema.safeParse(commit({ stopovers })))).toEqual(["stopovers"]);
+  });
+
+  it("refuses a field inside a stopover it does not know", () => {
+    expect(
+      commitBodySchema.safeParse(commit({ stopovers: [stopover({ name: "Northvale" })] })).success
+    ).toBe(false);
   });
 });
 
