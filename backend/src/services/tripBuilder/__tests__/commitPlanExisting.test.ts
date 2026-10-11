@@ -73,6 +73,7 @@ describe("extendPlanForExisting", () => {
       stationIndex: new Map(
         seen.map((s) => [s.key, { areaKey: AREA, firstDay: s.firstDay, lastDay: s.lastDay }])
       ),
+      stopovers: [],
       // no area is a `stops` area, so both stored timeline stops are offered as not seen
       existing,
     };
@@ -732,6 +733,7 @@ describe("extendPlanForExisting: timeline stops", () => {
       albumAssetIds: [],
       flightIds: new Set<string>(),
       stationIndex: new Map(),
+      stopovers: [],
       existing,
     };
   }

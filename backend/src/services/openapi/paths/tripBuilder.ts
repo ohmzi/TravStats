@@ -128,6 +128,23 @@ const homeEnd = z.object({
   defaultOn: z.boolean(),
   station: draftStation.optional(),
 });
+/** One leg between two stations of a draft area or a stopover tour. */
+const draftLeg = z.object({
+  fromKey: stationKey,
+  toKey: stationKey,
+  chordKm: z.number(),
+  routedKm: z.number().nullable(),
+  mode: z
+    .enum(BUILDER_LEG_MODES)
+    .describe(
+      "The mode the review shows and the commit writes; the stored leg's on a re-sync match"
+    ),
+  derivedMode: z
+    .enum(BUILDER_LEG_MODES)
+    .optional()
+    .describe("Re-sync only: the mode the scan derived, on a leg that updates a stored one"),
+  ferryEvidence: z.enum(["router", "seaPhotos", "chip"]).nullable(),
+});
 const draftArea = z
   .object({
     key: z.string().regex(/^\d{4}-\d{2}-\d{2}#\d+$/),
@@ -140,30 +157,23 @@ const draftArea = z
     beforeFlightId: z.string().uuid().optional(),
     home: z.object({ start: homeEnd, end: homeEnd, unconfirmed: z.boolean() }),
     stations: z.array(draftStation),
-    legs: z
-      .array(
-        z.object({
-          fromKey: stationKey,
-          toKey: stationKey,
-          chordKm: z.number(),
-          routedKm: z.number().nullable(),
-          mode: z
-            .enum(BUILDER_LEG_MODES)
-            .describe(
-              "The mode the review shows and the commit writes; the stored leg's on a re-sync match"
-            ),
-          derivedMode: z
-            .enum(BUILDER_LEG_MODES)
-            .optional()
-            .describe(
-              "Re-sync only: the mode the scan derived, on a leg that updates a stored one"
-            ),
-          ferryEvidence: z.enum(["router", "seaPhotos", "chip"]).nullable(),
-        })
-      )
-      .describe("legs[i] joins stations[i] and stations[i + 1]"),
+    legs: z.array(draftLeg).describe("legs[i] joins stations[i] and stations[i + 1]"),
   })
   .extend(existingAreaFields(draftStation));
+/** The stopover tour of one layover (spec 2026-10-11 §2.3). */
+const draftStopover = z.object({
+  key: z
+    .string()
+    .describe("`<inFlightId>#<outFlightId>`, stable across scans; outside the area-key namespace"),
+  city: z.string(),
+  title: z.string().describe('"<City> <Year> Road Trip": the roadtrip and the album share it'),
+  day,
+  airportIata: z.string().nullable(),
+  photoCount: z.number().int().describe("The whole layover's photo set: the city album's list"),
+  outingCount: z.number().int().describe("The photos beyond the threshold: the tour's own set"),
+  stations: z.array(draftStation).describe("The tour's stops, the arrival airport first"),
+  legs: z.array(draftLeg).describe("legs[i] joins stations[i] and stations[i + 1]"),
+});
 const noParams = z.object({});
 const warning = z.discriminatedUnion("code", [
   z.object({ code: z.literal("truncated"), params: noParams }),
@@ -313,6 +323,10 @@ export const draftSchema = registry.register(
         })
       ),
       areas: z.array(draftArea),
+      stopovers: z
+        .array(draftStopover)
+        .optional()
+        .describe("The stopover roadtrips the scan offers; absent when none were found"),
       photoJourneys: z.array(
         z.object({
           id: z.string().uuid(),

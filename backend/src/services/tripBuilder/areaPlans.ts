@@ -1,7 +1,8 @@
 /**
  * The movement half of a scan (spec 2026-10-09 §C.5–C.11): from the ground
- * areas the flights left, to named stations, legs and nights. Four phases, one
- * function each, so `buildDraft.ts` reports progress between them. Each takes
+ * areas the flights left, to named stations, legs and nights, and the stopover
+ * tours beside them. One function each, so `buildDraft.ts` reports progress
+ * between them. Each takes
  * and returns plain values; the impure steps (titles, geocoder, airports,
  * road probes) arrive through `BuilderDeps`.
  */
@@ -21,6 +22,7 @@ import { bboxOf, nameClusters } from "./nameClusters";
 import { probeLegs, snapStations, stationsWithoutRoute } from "./probe";
 import { buildSegments, classifySegments } from "./segments";
 import { buildStations } from "./stations";
+import { isStopoverCandidate, outingOf, stopoverOf, stopoverStations } from "./stopovers";
 import { TITLE_REUSE_KM } from "./thresholds";
 import type {
   AreaHome,
@@ -36,6 +38,7 @@ import type {
   PlanStation,
   Segment,
   StationBuild,
+  StoredStopover,
 } from "./types";
 
 /** A photo taken at sea that may serve as ferry and night evidence. */
@@ -126,11 +129,16 @@ function homeAirportName(
   return null;
 }
 
-/** Names the clusters, builds each area's stations and plans its home ends. */
+/**
+ * Names the clusters, builds each area's stations and plans its home ends.
+ * Station keys are minted from the caller's `taken` set, which the stopover
+ * pass shares, so no key is ever minted twice.
+ */
 export async function namesPhase(
   deps: BuilderDeps,
   collected: CollectedWindow,
-  movement: MovementPhase
+  movement: MovementPhase,
+  taken: Set<string>
 ): Promise<BuiltArea[]> {
   if (movement.parts.length === 0) return [];
   const { clusters, photosById } = movement;
@@ -143,7 +151,6 @@ export async function namesPhase(
   const namedById = new Map(named.map((c) => [c.id, c] as const));
   const anchorsById = new Map(collected.anchors.map((a) => [a.id, a] as const));
   const airports = await deps.airports(airportCodes(collected));
-  const taken = new Set<string>();
 
   const built: BuiltArea[] = [];
   for (const part of movement.parts) {
@@ -174,6 +181,65 @@ export async function namesPhase(
     built.push({ part, build, stations: planned.stations, home: planned.home });
   }
   return built;
+}
+
+export interface StopoverPlan {
+  stopover: StoredStopover;
+  /** Station key → up to PREVIEWS_PER_STATION asset ids. SERVER-ONLY. */
+  previewPhotoIds: Map<string, string[]>;
+}
+
+/**
+ * The stopover roadtrip of each layover whose photos went somewhere (spec
+ * 2026-10-11 §2): the outing set's clusters named by the same chain the areas
+ * use, the arrival airport as the first stop, and the legs between them. The
+ * keys come from the areas' own `taken` set, so none collides. No night is
+ * ever assigned here: a stopover is hours, not a stay.
+ */
+export async function stopoversPhase(
+  deps: BuilderDeps,
+  collected: CollectedWindow,
+  split: AreaSplit,
+  movement: MovementPhase,
+  taken: Set<string>
+): Promise<StopoverPlan[]> {
+  if (split.layovers.length === 0) return [];
+  const anchorsById = new Map(collected.anchors.map((a) => [a.id, a] as const));
+  const codes = split.layovers.flatMap((l) => (l.airportIata ? [l.airportIata.toUpperCase()] : []));
+  const airports = await deps.airports(codes);
+  const plans: StopoverPlan[] = [];
+  // The titles minted so far: a later same-city candidate takes the day suffix (plan amendment 1).
+  const takenTitles = new Set<string>();
+
+  for (const layover of split.layovers) {
+    const inFlight = anchorsById.get(layover.inFlightId);
+    if (!inFlight) continue;
+    const outing = outingOf(layover, movement.photosById, inFlight.arr);
+    if (!isStopoverCandidate(outing)) continue;
+    const clusters = clusterCities(outing);
+    const named = await nameClusters(clusters, {
+      existingTitles: await deps.existingTitles(bboxOf(clusters, TITLE_REUSE_KM)),
+      reverseGeocode: deps.reverseGeocode,
+      home: null,
+    });
+    const airport = layover.airportIata
+      ? airports.get(layover.airportIata.toUpperCase())
+      : undefined;
+    const tour = stopoverStations({
+      layover,
+      inFlight,
+      airport: airport ?? null,
+      named,
+      photosById: movement.photosById,
+      taken,
+    });
+    if (tour === null) continue;
+    const probes = await probeLegs(tour.stations, deps.roads.probes);
+    const stopover = stopoverOf({ layover, tour, probes, countryAt: deps.countryAt, takenTitles });
+    takenTitles.add(stopover.title);
+    plans.push({ stopover, previewPhotoIds: tour.previewPhotoIds });
+  }
+  return plans;
 }
 
 /** Snaps stations onto the road, probes each leg and decides road or ferry. */

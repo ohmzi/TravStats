@@ -32,6 +32,7 @@ import {
   namesPhase,
   nightsPhase,
   roadsPhase,
+  stopoversPhase,
 } from "./areaPlans";
 import { assembleWarnings, movementOutsideDates, type UnrecordedFlight } from "./draftWarnings";
 import { applyExistingTarget, type ExistingDeps } from "./existingDraft";
@@ -348,16 +349,34 @@ export async function buildDraftWith(
   report("movement");
   const movement = input.inspect ? movementPhase(photos, split) : emptyMovement(photos);
   report("names");
-  const built = await namesPhase(deps, collected, movement);
+  // One key set for the whole scan: an area station and a stopover station can never take one key.
+  const taken = new Set<string>();
+  const built = await namesPhase(deps, collected, movement, taken);
   report("roads");
   const roaded = await roadsPhase(deps, movement, built);
+  // Every layover that passed the outing test gets its tour; no area plan is touched here.
+  const stopoverPlans = await stopoversPhase(deps, collected, split, movement, taken);
   report("nights");
   // The nights are attributed against the capped plans, so no night can name a
   // station of an area the draft no longer shows (finding B4-1).
   const planCap = capFirst(roaded.plans, MAX_AREAS);
   const night = nightsPhase(collected, movement, planCap.kept);
 
-  const previews = indexPreviews(night.kept);
+  // The stopover stations' thumbnails join the same numbered space as the area stations'.
+  const previews = indexPreviews([
+    ...night.kept,
+    ...stopoverPlans.map((plan) => ({
+      stations: plan.stopover.stations,
+      previewPhotoIds: plan.previewPhotoIds,
+    })),
+  ]);
+  const stopovers = stopoverPlans.map((plan) => ({
+    ...plan.stopover,
+    stations: plan.stopover.stations.map((station) => ({
+      ...station,
+      previewIdx: previews.previewIdx.get(station.key) ?? [],
+    })),
+  }));
   const kinds = new Map(
     night.kept.map((plan) => [plan.key, decideAreaKind(plan, deps.roadtripsVisible)] as const)
   );
@@ -481,6 +500,17 @@ export async function buildDraftWith(
     days: input.inspect ? toDraftDays(window, photos, areas, listed, night.kept) : [],
     nights: night.nights,
     areas,
+    stopovers: stopovers.map((stopover) => ({
+      key: stopover.key,
+      city: stopover.city,
+      title: stopover.title,
+      day: stopover.day,
+      airportIata: stopover.airportIata,
+      photoCount: stopover.photoIds.length,
+      outingCount: stopover.stations.reduce((count, station) => count + station.photoCount, 0),
+      stations: stopover.stations,
+      legs: stopover.legs,
+    })),
     photoJourneys,
     album,
     warnings,
@@ -512,6 +542,7 @@ export async function buildDraftWith(
     albumAssetIds: photos.map((p) => p.id),
     flightIds: new Set(listed.map((a) => a.id)),
     stationIndex: stationIndexOf(areas),
+    stopovers,
   };
 }
 

@@ -168,6 +168,7 @@ export function fixtureDraft(
         (s) => [s.key, { areaKey: AREA_KEY, firstDay: s.firstDay, lastDay: s.lastDay }] as const
       )
     ),
+    stopovers: [],
     ...over,
   };
 }

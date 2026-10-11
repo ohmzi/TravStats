@@ -174,6 +174,30 @@ export interface DraftFlight {
   layover?: { photoCount: number; airportIata: string | null };
 }
 
+/** A stopover the scan offers (spec 2026-10-11 §2.3): a layover with an outing. */
+export interface DraftStopover {
+  /** `${inFlightId}#${outFlightId}` — stable across scans, outside the area-key namespace. */
+  key: string;
+  city: string;
+  /** "<City> <Year> Road Trip": the one name of the roadtrip and its album. */
+  title: string;
+  /** The stopover day (YYYY-MM-DD, on the place's own clock). */
+  day: Day;
+  airportIata: string | null;
+  /** The whole layover's photo set: what the city album would take. */
+  photoCount: number;
+  /** The photos further than the threshold from the airport: the tour's own set. */
+  outingCount: number;
+  /** The tour's stops, the arrival airport first. */
+  stations: DraftStation[];
+  /** legs[i] joins stations[i] and stations[i + 1]. */
+  legs: DraftLeg[];
+  /** Re-sync only: the stored roadtrip this stopover matches (spec §6). */
+  roadtripId?: string;
+  /** Re-sync only: that roadtrip's stored photo count (spec §6). */
+  storedPhotoCount?: number;
+}
+
 export interface PassedThrough {
   title: string;
   firstLocal: LocalMinute;
@@ -296,6 +320,8 @@ export interface TripBuilderDraft {
   days: DraftDay[];
   nights: Record<Day, NightEntry>;
   areas: DraftArea[];
+  /** The stopover roadtrips the scan's layovers offer (spec 2026-10-11 §2.3). */
+  stopovers?: DraftStopover[];
   photoJourneys: DraftPhotoJourney[];
   album: DraftAlbum | null;
   /** Re-sync only: timeline stops the photos do not show. */

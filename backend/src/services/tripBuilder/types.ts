@@ -402,6 +402,26 @@ export interface DraftArea {
   notSeen?: DraftStation[];
 }
 
+/** A stopover the scan offers: a layover with an outing (spec 2026-10-11 §2.3). */
+export interface DraftStopover {
+  /** `${inFlightId}#${outFlightId}` — stable across scans, outside the area-key namespace. */
+  key: string;
+  city: string;
+  /** "<City> <Year> Road Trip": the one name of the roadtrip and its album. */
+  title: string;
+  /** The stopover day (YYYY-MM-DD, on the place's own clock). */
+  day: Day;
+  airportIata: string | null;
+  /** The whole layover's photo set: what the city album would take. */
+  photoCount: number;
+  /** The photos further than the threshold from the airport: the tour's own set. */
+  outingCount: number;
+  /** The tour's stops, the arrival airport first. */
+  stations: DraftStation[];
+  /** legs[i] joins stations[i] and stations[i + 1]. */
+  legs: DraftLeg[];
+}
+
 export interface DraftFlight {
   id: string;
   label: string;
@@ -525,6 +545,8 @@ export interface TripBuilderDraft {
   /** Every night S … E−1; empty without `inspect`. */
   nights: Record<Day, NightEntry>;
   areas: DraftArea[];
+  /** The stopover roadtrips the scan's layovers offer (spec 2026-10-11 §2.3). */
+  stopovers?: DraftStopover[];
   photoJourneys: DraftPhotoJourney[];
   /** Null unless `createAlbum`. */
   album: DraftAlbum | null;
@@ -604,6 +626,8 @@ export interface StoredDraft {
   flightIds: ReadonlySet<string>;
   /** Every station the draft offered, offered home stations included → its area and days. */
   stationIndex: ReadonlyMap<string, StationIndexEntry>;
+  /** The stopover candidates the scan derived; [] when the scan found none (spec §2.3). */
+  stopovers: StoredStopover[];
   /** Re-sync only: what the scan matched and offered. SERVER-ONLY. */
   existing?: StoredExisting;
 }
