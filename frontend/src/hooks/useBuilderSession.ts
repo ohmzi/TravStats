@@ -131,6 +131,8 @@ export function useBuilderSession(): BuilderSession {
   const [carried, setCarried] = useState<BuilderSession["carried"]>(null);
   const [commit, setCommit] = useState<CommitView>({ kind: "idle" });
   const commitKey = useRef("");
+  /** The album removal choice the last sent commit carried; the retry repeats it. */
+  const sentRemoveOutside = useRef(false);
   const handoff = useRef<LauncherHandoff | null>(null);
   const carry = useRef<StoredReview | null>(null);
 
@@ -334,6 +336,10 @@ export function useBuilderSession(): BuilderSession {
       setCommit({ kind: "running" });
       try {
         const body = buildCommitBody(draft, sending, handoff.current.form, commitKey.current);
+        // The retry repeats what this body carried, not what the review state
+        // still holds: the flights-only submit sends keepEverything, so its
+        // retry must send the same keep (final review, finding X1-1).
+        sentRemoveOutside.current = body.album.removeOutside === true;
         const { jobId: commitJob } = await tripBuilderApi.commit(draft.id, body);
         const result = await waitForJob<CommitJobResult>(commitJob);
         if (result.status === "blocked") {
@@ -387,8 +393,9 @@ export function useBuilderSession(): BuilderSession {
 
   /**
    * The success panel's retry. The removal choice goes with it: a re-sync's
-   * album failure must not drop the decision the review already made, and the
-   * server recomputes which members that choice applies to.
+   * album failure must not drop the decision the commit was sent with — the
+   * flights-only submit sends no removal, whatever the review's raw switch
+   * said — and the server recomputes which members that choice applies to.
    */
   const retryAlbum = useCallback(async (): Promise<void> => {
     if (commit.kind !== "done") return;
@@ -398,7 +405,7 @@ export function useBuilderSession(): BuilderSession {
       const { jobId: albumJob } = await tripBuilderApi.retryAlbum(
         result.tripId,
         state?.album?.name,
-        state?.existing?.removeOutside === true
+        sentRemoveOutside.current
       );
       const album = await waitForJob<AlbumOutcome>(albumJob);
       setCommit({ kind: "done", result: { ...result, album }, album: "idle" });

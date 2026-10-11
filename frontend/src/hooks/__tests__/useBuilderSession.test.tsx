@@ -10,7 +10,7 @@ import {
   KEY,
   reviewDraft,
 } from "../../lib/tripBuilder/__tests__/reviewFixtures";
-import type { CommitJobResult } from "../../types/tripBuilder";
+import type { CommitJobResult, TripBuilderDraft } from "../../types/tripBuilder";
 import { useBuilderSession } from "../useBuilderSession";
 
 const mocks = vi.hoisted(() => {
@@ -557,6 +557,28 @@ describe("saving", () => {
 });
 
 describe("the album afterwards", () => {
+  /** An existing trip whose linked album is TravStats-created: removal starts on. */
+  const resyncDraft = (over: Partial<TripBuilderDraft> = {}): TripBuilderDraft =>
+    reviewDraft({
+      target: { kind: "existing", tripId: "t-9", tripName: "Southern loop" },
+      album: {
+        name: "Southern loop",
+        existing: null,
+        assetCount: 72,
+        images: 68,
+        videos: 4,
+        allowed: true,
+        missingScopes: [],
+        sync: {
+          target: "linked",
+          toAdd: 0,
+          alreadyIn: 72,
+          removable: { count: 4, defaultOn: true, allowed: true },
+        },
+      },
+      ...over,
+    });
+
   it("retries the album that failed and holds what it did", async () => {
     mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
     mocks.waitForJob
@@ -582,26 +604,7 @@ describe("the album afterwards", () => {
     // The retry must complete the update the commit was asked for: a re-sync
     // whose review left the removal on cannot have that decision dropped by
     // the failure and the retry (final review, finding N4-3).
-    mocks.getDraft.mockResolvedValue(
-      reviewDraft({
-        target: { kind: "existing", tripId: "t-9", tripName: "Southern loop" },
-        album: {
-          name: "Southern loop",
-          existing: null,
-          assetCount: 72,
-          images: 68,
-          videos: 4,
-          allowed: true,
-          missingScopes: [],
-          sync: {
-            target: "linked",
-            toAdd: 0,
-            alreadyIn: 72,
-            removable: { count: 4, defaultOn: true, allowed: true },
-          },
-        },
-      })
-    );
+    mocks.getDraft.mockResolvedValue(resyncDraft());
     mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
     mocks.waitForJob
       .mockResolvedValueOnce({ ...RESULT, created: false, album: { status: "failed" } })
@@ -612,6 +615,29 @@ describe("the album afterwards", () => {
     await act(() => hook.result.current.session.submit());
     await act(() => hook.result.current.session.retryAlbum());
     expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, "Southern loop", true);
+  });
+
+  it("retries a flights-only re-sync with the keep the empty screen sent", async () => {
+    // The empty-window screen sends keepEverything — it must not remove what it
+    // never drew — so the retry after its album failure must carry that same
+    // keep, not the raw default-on switch the screen replaced (final review,
+    // finding X1-1).
+    mocks.getDraft.mockResolvedValue(
+      resyncDraft({
+        stats: { ...reviewDraft().stats, assets: 0, located: 0 },
+      })
+    );
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+    mocks.waitForJob
+      .mockResolvedValueOnce({ ...RESULT, created: false, album: { status: "failed" } })
+      .mockResolvedValueOnce({ status: "linked", removed: 0 });
+    mocks.retryAlbum.mockResolvedValue({ jobId: "album-job" });
+    const hook = mount(draftUrl);
+    await waitFor(() => expect(hook.result.current.session.phase.kind).toBe("ready"));
+    await act(() => hook.result.current.session.submitFlightsOnly());
+    expect(mocks.commit.mock.calls[0][1].album).toMatchObject({ removeOutside: false });
+    await act(() => hook.result.current.session.retryAlbum());
+    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, "Southern loop", false);
   });
 
   it("tells the user when the retry fails, and keeps the trip", async () => {
