@@ -27,7 +27,7 @@ import { preflightAlbum, writeTripAlbum } from "../albumWrite";
 import { runCommitJob } from "../commit";
 import { beginCommit, clearDraftsForTests, getDraft, putDraft } from "../draftStore";
 import { writeStopoverAlbum } from "../stopoverAlbum";
-import type { StoredExisting } from "../existingTypes";
+import type { ExistingCommitPlan, StoredExisting } from "../existingTypes";
 import {
   COMMIT_KEY,
   CREATED_AT,
@@ -37,7 +37,9 @@ import {
   fixtureDraft,
   fixturePlan,
   fixtureStopoverPlan,
+  fixtureStoredStopover,
 } from "./commitFixtures";
+import { addStation, FX } from "./existingDb";
 
 const mockPreflight = preflightAlbum as jest.Mock;
 const mockWriteAlbum = writeTripAlbum as jest.Mock;
@@ -363,6 +365,7 @@ describe("runCommitJob", () => {
           // The trip this fixture makes holds no timeline stops for a re-sync.
           offeredStopIds: [],
           roadtrips: [],
+          stopovers: [],
           stopUpdates: [],
           stopRemoveIds: [],
           stopsDiff: { updated: 0, unchanged: 0, added: 0, removed: 0, kept: 0 },
@@ -378,6 +381,81 @@ describe("runCommitJob", () => {
       };
       return { trip, plan, draft: { ...draft, existing } };
     }
+
+    it("writes a matched stopover's city album from the plan's existing entry, add-only", async () => {
+      // The re-sync split a matched stopover into `plan.existing.stopovers`
+      // (spec §6): its roadtrip is written nowhere, but phase D still adds the
+      // scan's pictures to its own album — never a removal.
+      const { trip, draft, plan } = await beginExisting(false, null);
+      const route = await prisma.tripRoute.create({
+        data: {
+          userId,
+          tripId: trip.id,
+          name: "Port Carrow 2031 Road Trip",
+          mode: "road",
+          kind: "roadtrip",
+          vehicle: "car",
+        },
+        select: { id: true },
+      });
+      const stationIds = [
+        await addStation(route.id, 0, {
+          title: "ZPC airport",
+          at: FX.portCarrow,
+          startDay: "2031-05-03",
+          endDay: "2031-05-03",
+        }),
+        await addStation(route.id, 1, {
+          title: "Port Carrow",
+          at: FX.portCarrow,
+          startDay: "2031-05-03",
+          endDay: "2031-05-03",
+        }),
+      ];
+      const matched: ExistingCommitPlan = {
+        tripId: trip.id,
+        offeredStopIds: [],
+        roadtrips: [],
+        stopovers: [
+          {
+            key: fixtureStopoverPlan().key,
+            roadtripId: route.id,
+            name: "Port Carrow 2031 Road Trip",
+            offeredIds: stationIds,
+            album: { name: "Port Carrow 2031 Road Trip", assetIds: ["photo-a", "photo-b"] },
+          },
+        ],
+        stopUpdates: [],
+        stopRemoveIds: [],
+        stopsDiff: { updated: 0, unchanged: 0, added: 0, removed: 0, kept: 0 },
+        album: { removeOutside: false },
+      };
+
+      const result = await runCommitJob(
+        { ...draft, stopovers: [fixtureStoredStopover()] },
+        { ...plan, stopovers: [], existing: matched }
+      );
+
+      expect(result).toMatchObject({
+        status: "committed",
+        stopoverAlbums: [
+          {
+            key: fixtureStopoverPlan().key,
+            name: "Port Carrow 2031 Road Trip",
+            album: { status: "linked", added: 2, alreadyIn: 0 },
+          },
+        ],
+      });
+      expect(mockStopoverAlbum).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tripId: trip.id,
+          name: "Port Carrow 2031 Road Trip",
+          // The draft's own stopover carries the day the album stands for.
+          day: "2031-05-03",
+          assetIds: ["photo-a", "photo-b"],
+        })
+      );
+    });
 
     it("re-syncs the trip's album with the ids the scan computed instead of writing a new one", async () => {
       const { trip, draft, plan } = await beginExisting(true, {

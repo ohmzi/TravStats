@@ -19,7 +19,9 @@
  * when the trip no longer holds what the plan offered: the plan is a snapshot
  * from the request, and the job reaches this transaction seconds later. What the
  * transaction itself writes is expected, not a change — its new stops, and the
- * timeline stops a roadtrip write releases back.
+ * timeline stops a roadtrip write releases back. A matched stopover is written
+ * nowhere here: the guard only proves its roadtrip still holds what the scan
+ * offered, before the album step adds members (add-only v1, spec 2026-10-11 §6).
  */
 import type { DbTransaction } from "../../db";
 import { AppError } from "../../middleware/errorHandler";
@@ -174,6 +176,34 @@ async function writeStops(
   }
 }
 
+/**
+ * A matched stopover is add-only (spec 2026-10-11 §6): no station is rebuilt,
+ * renamed or deleted, and phase D only adds the city album's new members. This
+ * re-read is the same offered-ids guard `writeMatchedRoadtrip` runs before
+ * replacing stations: the plan is a snapshot from the request, so a route that
+ * was renamed, had a station added or was deleted since the scan must refuse
+ * (TRIP_CHANGED) instead of committing an "already synced" the review never
+ * showed. It writes nothing itself.
+ */
+async function guardMatchedStopovers(tx: DbTransaction, plan: ExistingCommitPlan): Promise<void> {
+  for (const stopover of plan.stopovers) {
+    const route = await tx.tripRoute.findFirst({
+      where: { id: stopover.roadtripId, tripId: plan.tripId },
+      select: { name: true },
+    });
+    const stops = await tx.tripStop.findMany({
+      where: { routeId: stopover.roadtripId, viaPoint: false },
+      select: { id: true },
+    });
+    if (
+      route?.name !== stopover.name ||
+      !sameSet(new Set(stops.map((stop) => stop.id)), new Set(stopover.offeredIds))
+    ) {
+      throw tripChanged();
+    }
+  }
+}
+
 export async function writeExistingTarget(
   tx: DbTransaction,
   userId: string,
@@ -181,6 +211,7 @@ export async function writeExistingTarget(
   /** The timeline stops `writeStops` in `writeCommit` created for this commit. */
   addedStopIds: readonly string[]
 ): Promise<{ roadtrips: PhaseBRoadtrip[]; stopsDiff: RoadtripDiff }> {
+  await guardMatchedStopovers(tx, plan);
   const roadtrips: PhaseBRoadtrip[] = [];
   const releasedStopIds: string[] = [];
   for (const write of plan.roadtrips) {

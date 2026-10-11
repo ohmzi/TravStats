@@ -36,6 +36,7 @@ import type {
   ExistingCommitPlan,
   ExistingRoadtripWrite,
   ExistingStation,
+  ExistingStopoverWrite,
   ExistingStopUpdate,
   ExistingTripState,
   RoadtripDiff,
@@ -432,10 +433,45 @@ export async function extendPlanForExisting(
   }
   const stops = buildStopWrites(draft, body, state, offered, plan);
 
+  // Matched stopovers (spec 2026-10-11 §6): add-only v1, so each leaves the
+  // new-write path for an album-only entry. The stored roadtrip must still hold
+  // exactly what the scan offered — the same guard `buildRoadtripWrite` runs for
+  // an area — because the review's "already synced" was computed from it.
+  const stopoverOfferByKey = new Map(
+    [...offered.stopovers].map(([roadtripId, offer]) => [offer.key, { roadtripId, offer }] as const)
+  );
+  const matchedStopovers: ExistingStopoverWrite[] = [];
+  const matchedStopoverKeys = new Set<string>();
+  for (const stopover of plan.stopovers ?? []) {
+    const matched = stopoverOfferByKey.get(stopover.key);
+    if (matched === undefined) continue;
+    const current = state.roadtrips.find((r) => r.id === matched.roadtripId);
+    if (current === undefined || current.name !== matched.offer.name) throw tripChanged();
+    const currentIds = new Set(
+      current.stations.filter((station) => station.night !== "via").map((station) => station.id)
+    );
+    if (!sameSet(currentIds, new Set(matched.offer.stationIds))) throw tripChanged();
+    matchedStopoverKeys.add(stopover.key);
+    matchedStopovers.push({
+      key: stopover.key,
+      roadtripId: matched.roadtripId,
+      name: matched.offer.name,
+      // The station write phase B would do for a new stopover is exactly what a
+      // matched one must never get; only the album remains. Nothing else of the
+      // entry is carried: no stations, no night plan, no rename.
+      offeredIds: [...matched.offer.stationIds],
+      album:
+        stopover.album === null
+          ? null
+          : { name: stopover.album.name, assetIds: stopover.album.assetIds },
+    });
+  }
+
   const existing: ExistingCommitPlan = {
     tripId: offered.tripId,
     offeredStopIds: [...offered.stops.matchedIds, ...offered.stops.notSeenIds],
     roadtrips: writes,
+    stopovers: matchedStopovers,
     stopUpdates: stops.updates,
     stopRemoveIds: stops.removeIds,
     stopsDiff: stops.diff,
@@ -444,6 +480,7 @@ export async function extendPlanForExisting(
   return {
     ...plan,
     roadtrips: plan.roadtrips.filter((r) => !handled.has(r.areaKey)),
+    stopovers: (plan.stopovers ?? []).filter((stopover) => !matchedStopoverKeys.has(stopover.key)),
     stops: stops.remaining,
     existing,
   };

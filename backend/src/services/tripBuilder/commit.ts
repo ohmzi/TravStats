@@ -40,6 +40,7 @@ import type {
   CommitJobResult,
   CommitPlan,
   CommitResult,
+  Day,
   PhaseBResult,
   PhaseBRoadtrip,
   StoredDraft,
@@ -209,11 +210,26 @@ async function writeStopoverRoadtrips(
 }
 
 /**
+ * A matched stopover's own day: the draft's stopover carries it, and the key
+ * always names one (`extendPlanForExisting` matches by draft key); the window's
+ * first day is only a fallback for hand-built plans, and the day is inert for a
+ * stopover album — it passes an explicit description.
+ */
+function matchedStopoverDay(draft: StoredDraft, key: string, plan: CommitPlan): Day {
+  return draft.stopovers.find((stopover) => stopover.key === key)?.day ?? plan.window.startDay;
+}
+
+/**
  * Phase D for the stopovers' own albums (spec 2026-10-11 §5.4): one line per
  * toggled stopover album, add-only, each able to fail or block on its own. The
  * trip is already saved, so a blocked preflight here becomes the album's own
  * line and never the trip's failure. `held` is the preflight the trip album
  * took, if it took one; without it the stopovers share one fresh preflight.
+ *
+ * A matched stopover (spec §6) is no roadtrip or station write — it is already
+ * stored — but its city album still takes the scan's pictures: the re-sync
+ * split it into `plan.existing.stopovers`, and its entry is written here the
+ * same way, add-only.
  */
 async function writeStopoverAlbums(
   plan: CommitPlan,
@@ -221,17 +237,32 @@ async function writeStopoverAlbums(
   tripId: string,
   held: Extract<AlbumPreflight, { ok: true }> | null
 ): Promise<StopoverAlbumOutcome[]> {
-  const toggled = (plan.stopovers ?? []).flatMap((stopover) =>
-    stopover.album === null ? [] : [{ stopover, wanted: stopover.album }]
-  );
+  const toggled = [
+    ...(plan.stopovers ?? []).flatMap((stopover) =>
+      stopover.album === null
+        ? []
+        : [{ key: stopover.key, day: stopover.day, wanted: stopover.album }]
+    ),
+    ...(plan.existing?.stopovers ?? []).flatMap((stopover) =>
+      stopover.album === null
+        ? []
+        : [
+            {
+              key: stopover.key,
+              day: matchedStopoverDay(draft, stopover.key, plan),
+              wanted: stopover.album,
+            },
+          ]
+    ),
+  ];
   if (toggled.length === 0) return [];
   let open = held;
   if (open === null) {
     const preflight = await preflightAlbum(plan.userId, draft.immichUserId);
     if (!preflight.ok) {
       const album = blockedOutcome(preflight.blocked);
-      return toggled.map(({ stopover, wanted }) => ({
-        key: stopover.key,
+      return toggled.map(({ key, wanted }) => ({
+        key,
         name: wanted.name,
         album,
       }));
@@ -240,16 +271,16 @@ async function writeStopoverAlbums(
   }
   const tripName = plan.target.kind === "existing" ? plan.target.tripName : plan.target.trip.name;
   const lines: StopoverAlbumOutcome[] = [];
-  for (const { stopover, wanted } of toggled) {
+  for (const { key, day, wanted } of toggled) {
     lines.push({
-      key: stopover.key,
+      key,
       name: wanted.name,
       album: await writeStopoverAlbum({
         userId: plan.userId,
         tripId,
         tripName,
         name: wanted.name,
-        day: stopover.day,
+        day,
         assetIds: wanted.assetIds,
         client: open.client,
         immichUserId: open.immichUserId,

@@ -23,6 +23,7 @@ import {
 
 // Synthetic fixtures only (public repository).
 const USER = "m7k-commit";
+const STOPOVER_KEY = "0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f#1e1e1e1e-1e1e-4e1e-8e1e-1e1e1e1e1e1e";
 
 type Night = ExistingRoadtripWrite["stations"][number]["night"];
 const day = (d: string) => toDbDate(d);
@@ -67,6 +68,7 @@ describe("writeCommit for an existing trip", () => {
       tripId: fx.tripId,
       offeredStopIds: [fx.stop.museum, fx.stop.harbour],
       roadtrips: [],
+      stopovers: [],
       stopUpdates: [],
       stopRemoveIds: [],
       stopsDiff: { updated: 0, unchanged: 0, added: 0, removed: 0, kept: 0 },
@@ -746,6 +748,113 @@ describe("writeCommit for an existing trip", () => {
       fx.station.c,
       fx.station.s,
     ]);
+  });
+
+  /** A one-day roadtrip as a re-sync that already wrote the stopover leaves it. */
+  async function stopoverRoadtrip(): Promise<{ routeId: string; stationIds: string[] }> {
+    const route = await prisma.tripRoute.create({
+      data: {
+        userId: fx.userId,
+        tripId: fx.tripId,
+        name: "Northvale 2031 Road Trip",
+        mode: "road",
+        kind: "roadtrip",
+        vehicle: "car",
+      },
+      select: { id: true },
+    });
+    const stationIds: string[] = [
+      await addStation(route.id, 0, {
+        title: "ZZA Airport",
+        at: FX.northvale,
+        startDay: "2031-05-04",
+        endDay: "2031-05-04",
+      }),
+      await addStation(route.id, 1, {
+        title: "Northvale",
+        at: FX.southbridge,
+        startDay: "2031-05-04",
+        endDay: "2031-05-04",
+      }),
+    ];
+    return { routeId: route.id, stationIds };
+  }
+
+  it("leaves a matched stopover's roadtrip as stored: no station write, no second roadtrip", async () => {
+    const { routeId, stationIds } = await stopoverRoadtrip();
+    const rows = () =>
+      prisma.tripStop.findMany({ where: { routeId }, orderBy: { routeOrderIdx: "asc" } });
+    const before = await rows();
+    await writeCommit(
+      plan({
+        stopovers: [
+          {
+            key: STOPOVER_KEY,
+            roadtripId: routeId,
+            name: "Northvale 2031 Road Trip",
+            offeredIds: stationIds,
+            album: { name: "Northvale 2031 Road Trip", assetIds: ["photo-1"] },
+          },
+        ],
+      })
+    );
+    const after = await rows();
+    expect(after.map((row) => row.id)).toEqual(before.map((row) => row.id));
+    expect(after.map((row) => row.endDate?.toISOString().slice(0, 10))).toEqual(
+      before.map((row) => row.endDate?.toISOString().slice(0, 10))
+    );
+    const named = await prisma.tripRoute.findMany({
+      where: { tripId: fx.tripId, name: "Northvale 2031 Road Trip" },
+      select: { id: true },
+    });
+    expect(named.map((route) => route.id)).toEqual([routeId]);
+  });
+
+  it("answers 409 TRIP_CHANGED when a matched stopover's roadtrip moved since the scan", async () => {
+    const { routeId, stationIds } = await stopoverRoadtrip();
+    await addStation(routeId, 2, {
+      title: "Stray stop",
+      at: FX.portCarrow,
+      startDay: "2031-05-04",
+      endDay: "2031-05-04",
+    });
+    await expect(
+      writeCommit(
+        plan({
+          stopovers: [
+            {
+              key: STOPOVER_KEY,
+              roadtripId: routeId,
+              name: "Northvale 2031 Road Trip",
+              offeredIds: stationIds,
+              album: null,
+            },
+          ],
+        })
+      )
+    ).rejects.toMatchObject({ code: "TRIP_CHANGED" });
+  });
+
+  it("keeps a stored stopover roadtrip through an empty-window re-sync: nothing pruned, nothing duplicated", async () => {
+    // Review Focus 3 (plan 2026-10-11): the re-scan found no photos, so its
+    // flights-only plan knows no area, no stop and no stopover — the stored
+    // roadtrip must survive untouched and no second one may appear.
+    const { routeId, stationIds } = await stopoverRoadtrip();
+    const rows = () =>
+      prisma.tripStop.findMany({ where: { routeId }, orderBy: { routeOrderIdx: "asc" } });
+    const routes = () =>
+      prisma.tripRoute.findMany({ where: { tripId: fx.tripId }, select: { id: true } });
+    const before = await rows();
+    const beforeRoutes = (await routes()).map((route) => route.id).sort();
+    await writeCommit({ ...plan(), stopovers: [] });
+    const after = await rows();
+    expect(after.map((row) => row.id)).toEqual(stationIds);
+    expect(after.map((row) => row.title)).toEqual(before.map((row) => row.title));
+    expect(after.map((row) => row.startDate?.toISOString().slice(0, 10))).toEqual(
+      before.map((row) => row.startDate?.toISOString().slice(0, 10))
+    );
+    const afterRoutes = (await routes()).map((route) => route.id).sort();
+    expect(afterRoutes).toEqual(beforeRoutes);
   });
 });
 

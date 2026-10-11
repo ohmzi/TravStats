@@ -3,12 +3,13 @@ jest.mock("../../domainVisibility", () => ({ loadVisibleDomains: jest.fn() }));
 import { prisma } from "../../../db";
 import type { CommitBody } from "../../../schemas/tripBuilder";
 import { loadVisibleDomains } from "../../domainVisibility";
+import { toDbDate } from "../../../shared/time/localDate";
 import { writeCommit } from "../commit";
 import { prepareCommit } from "../commitPlan";
 import { annotateDraftForExisting } from "../existingDraft";
 import { loadExistingState } from "../existingState";
 import { extendPlanForExisting } from "../commitPlanExisting";
-import type { CommitPlan, DraftStation, StoredDraft } from "../types";
+import type { CommitPlan, DraftStation, StoredDraft, TripBuilderDraft } from "../types";
 import {
   addStation,
   createExistingFixture,
@@ -16,7 +17,15 @@ import {
   FX,
   type ExistingFixture,
 } from "./existingDb";
-import { area, derivedStation, derivedStations, draft, K } from "./existingDraftFixture";
+import {
+  area,
+  derivedStation,
+  derivedStations,
+  draft,
+  K,
+  STOPOVER_KEY,
+  stopover,
+} from "./existingDraftFixture";
 
 const mockDomains = loadVisibleDomains as jest.Mock;
 
@@ -44,10 +53,13 @@ describe("extendPlanForExisting", () => {
    * The stored draft a scan of the fixture trip would leave, annotated against the real database.
    * `seen` is what the photos showed: by default four stations, so Kelmore alone is not seen.
    */
-  async function storedDraft(seen = derivedStations()): Promise<StoredDraft> {
+  async function storedDraft(
+    seen = derivedStations(),
+    over: Partial<TripBuilderDraft> = {}
+  ): Promise<StoredDraft> {
     const state = await loadExistingState(fx.userId, fx.tripId);
     const { dto, existing } = annotateDraftForExisting(
-      draft(fx.tripId, [area({ stations: seen })]),
+      draft(fx.tripId, [area({ stations: seen })], over),
       state
     );
     return {
@@ -152,6 +164,7 @@ describe("extendPlanForExisting", () => {
         nights: 0,
       },
     ],
+    stopovers: [],
     photoJourneyIds: [],
     album: { create: false, name: "Northvale loop" },
     unknownNights: 3,
@@ -618,6 +631,175 @@ describe("extendPlanForExisting", () => {
       newPlan
     );
     expect(out).toBe(newPlan);
+  });
+
+  /**
+   * The scan's stopover plan as `prepareCommit` builds it (spec 2026-10-11 §5.2):
+   * station rows and album asset ids, server-side only. The re-sync split reads
+   * `key` and `album`; the stations exist to keep the entry a real plan entry.
+   */
+  type StopoverWritePlan = NonNullable<CommitPlan["stopovers"]>[number];
+  const stopoverPlan = (album: { name: string; assetIds: string[] } | null): StopoverWritePlan => {
+    const day = toDbDate("2031-05-04");
+    return {
+      key: STOPOVER_KEY,
+      roadtrip: {
+        name: "Northvale 2031 Road Trip",
+        vehicle: "car",
+        stations: [
+          {
+            title: "ZZA Airport",
+            lat: FX.northvale.lat,
+            lon: FX.northvale.lon,
+            startDate: day,
+            endDate: day,
+            notes: null,
+            night: { kind: "pass" },
+          },
+          {
+            title: "Northvale",
+            lat: FX.southbridge.lat,
+            lon: FX.southbridge.lon,
+            startDate: day,
+            endDate: day,
+            notes: null,
+            night: { kind: "pass" },
+          },
+        ],
+      },
+      album,
+    };
+  };
+
+  /** The stored draft of a scan that found the fixture stopover. */
+  async function storedDraftWithStopover(): Promise<StoredDraft> {
+    return storedDraft(derivedStations(), { stopovers: [stopover()] });
+  }
+
+  /** A one-day roadtrip as a re-sync that already wrote the stopover leaves it; dropped after the test. */
+  async function stopoverRoadtrip(): Promise<{ routeId: string; stationIds: string[] }> {
+    const route = await prisma.tripRoute.create({
+      data: {
+        userId: fx.userId,
+        tripId: fx.tripId,
+        name: "Northvale 2031 Road Trip",
+        mode: "road",
+        kind: "roadtrip",
+        vehicle: "car",
+      },
+      select: { id: true },
+    });
+    const stationIds: string[] = [
+      await addStation(route.id, 0, {
+        title: "ZZA Airport",
+        at: FX.northvale,
+        startDay: "2031-05-04",
+        endDay: "2031-05-04",
+      }),
+      await addStation(route.id, 1, {
+        title: "Northvale",
+        at: FX.southbridge,
+        startDay: "2031-05-04",
+        endDay: "2031-05-04",
+      }),
+    ];
+    return { routeId: route.id, stationIds };
+  }
+
+  async function dropStopoverRoadtrip(routeId: string): Promise<void> {
+    await prisma.tripStop.deleteMany({ where: { routeId } });
+    await prisma.tripRoute.delete({ where: { id: routeId } });
+  }
+
+  const toggleOn = (): CommitBody["stopovers"] => [
+    { key: STOPOVER_KEY, roadtrip: true, album: true },
+  ];
+
+  it("moves a matched stopover out of the new-write path: album-only, nothing to rebuild", async () => {
+    const { routeId, stationIds } = await stopoverRoadtrip();
+    try {
+      const scanned = await storedDraftWithStopover();
+      const plan = await extendPlanForExisting(
+        fx.userId,
+        scanned,
+        body({}, { stopovers: toggleOn() }),
+        {
+          ...basePlan(),
+          stopovers: [
+            stopoverPlan({ name: "Northvale 2031 Road Trip", assetIds: ["photo-1", "photo-2"] }),
+          ],
+        }
+      );
+      expect(plan.stopovers).toEqual([]);
+      expect(plan.existing?.stopovers).toEqual([
+        {
+          key: STOPOVER_KEY,
+          roadtripId: routeId,
+          name: "Northvale 2031 Road Trip",
+          offeredIds: stationIds,
+          album: { name: "Northvale 2031 Road Trip", assetIds: ["photo-1", "photo-2"] },
+        },
+      ]);
+      // The stored roadtrip is no new roadtrip's duplicate and no area write's target.
+      expect((plan.existing?.roadtrips ?? []).map((w) => w.roadtripId)).not.toContain(routeId);
+    } finally {
+      await dropStopoverRoadtrip(routeId);
+    }
+  });
+
+  it("answers 409 TRIP_CHANGED when a matched stopover's roadtrip gained a station after the scan", async () => {
+    const { routeId } = await stopoverRoadtrip();
+    try {
+      const scanned = await storedDraftWithStopover();
+      await addStation(routeId, 2, {
+        title: "Stray stop",
+        at: FX.portCarrow,
+        startDay: "2031-05-04",
+        endDay: "2031-05-04",
+      });
+      await expect(
+        extendPlanForExisting(fx.userId, scanned, body({}, { stopovers: toggleOn() }), {
+          ...basePlan(),
+          stopovers: [stopoverPlan({ name: "Northvale 2031 Road Trip", assetIds: ["photo-1"] })],
+        })
+      ).rejects.toMatchObject({ statusCode: 409, code: "TRIP_CHANGED" });
+    } finally {
+      await dropStopoverRoadtrip(routeId);
+    }
+  });
+
+  it("answers 409 TRIP_CHANGED when a matched stopover's roadtrip was renamed after the scan", async () => {
+    const { routeId } = await stopoverRoadtrip();
+    try {
+      const scanned = await storedDraftWithStopover();
+      await prisma.tripRoute.update({
+        where: { id: routeId },
+        data: { name: "Northvale 2031 City Tour" },
+      });
+      await expect(
+        extendPlanForExisting(fx.userId, scanned, body({}, { stopovers: toggleOn() }), {
+          ...basePlan(),
+          stopovers: [stopoverPlan({ name: "Northvale 2031 Road Trip", assetIds: ["photo-1"] })],
+        })
+      ).rejects.toMatchObject({ statusCode: 409, code: "TRIP_CHANGED" });
+    } finally {
+      await dropStopoverRoadtrip(routeId);
+    }
+  });
+
+  it("leaves a stopover with no stored match in the new-write path", async () => {
+    const scanned = await storedDraftWithStopover();
+    const plan = await extendPlanForExisting(
+      fx.userId,
+      scanned,
+      body({}, { stopovers: toggleOn() }),
+      {
+        ...basePlan(),
+        stopovers: [stopoverPlan({ name: "Northvale 2031 Road Trip", assetIds: ["photo-1"] })],
+      }
+    );
+    expect(plan.stopovers).toHaveLength(1);
+    expect(plan.existing?.stopovers).toEqual([]);
   });
 
   /**

@@ -221,6 +221,24 @@ export interface ExistingStopUpdate {
   endDay: Day;
 }
 
+/**
+ * A matched stopover of a re-sync (spec 2026-10-11 §6). Add-only v1: nothing of
+ * the stored roadtrip is rebuilt, renamed or deleted, so there is no station
+ * write — the transaction only re-checks that the roadtrip still holds exactly
+ * what the draft offered, and phase D adds the city album's new members.
+ */
+export interface ExistingStopoverWrite {
+  /** The draft stopover's key (`<inFlightId>#<outFlightId>`). */
+  key: string;
+  roadtripId: string;
+  /** The stored roadtrip's name when the scan matched it; the transaction re-checks it. */
+  name: string;
+  /** Non-correction stations the draft saw: the offered-ids re-read's other half. */
+  offeredIds: readonly string[];
+  /** The city album the review showed; null: the switch was off. Members are added, never removed. */
+  album: { name: string; assetIds: readonly string[] } | null;
+}
+
 export interface ExistingCommitPlan {
   tripId: string;
   /**
@@ -233,6 +251,12 @@ export interface ExistingCommitPlan {
    */
   offeredStopIds: readonly string[];
   roadtrips: ExistingRoadtripWrite[];
+  /**
+   * Matched stopovers: album-only. No station write exists for them (add-only
+   * v1); the transaction re-checks each against `offeredIds` before anything
+   * writes, so a trip that moved since the scan refuses.
+   */
+  stopovers: ExistingStopoverWrite[];
   stopUpdates: ExistingStopUpdate[];
   stopRemoveIds: string[];
   stopsDiff: RoadtripDiff;
