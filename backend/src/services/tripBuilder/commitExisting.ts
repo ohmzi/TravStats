@@ -15,7 +15,9 @@
  *
  * Every write re-reads what it is about to touch and refuses (`TRIP_CHANGED`)
  * when the trip no longer holds what the plan offered: the plan is a snapshot
- * from the request, and the job reaches this transaction seconds later.
+ * from the request, and the job reaches this transaction seconds later. What the
+ * transaction itself writes is expected, not a change — its new stops, and the
+ * timeline stops a roadtrip write releases back.
  */
 import type { DbTransaction } from "../../db";
 import { AppError } from "../../middleware/errorHandler";
@@ -32,9 +34,11 @@ import type { PhaseBRoadtrip } from "./types";
 async function writeMatchedRoadtrip(
   tx: DbTransaction,
   userId: string,
+  tripId: string,
   write: ExistingRoadtripWrite
-): Promise<PhaseBRoadtrip> {
+): Promise<{ roadtrip: PhaseBRoadtrip; releasedStopIds: string[] }> {
   let createdLegs: LegPair[] = [];
+  let releasedStopIds: string[] = [];
   if (!write.noop) {
     // The plan is a snapshot taken in the request; the job then preflights Immich
     // (seconds) before reaching this transaction, and another tab can add a
@@ -49,6 +53,8 @@ async function writeMatchedRoadtrip(
     if (!sameSet(new Set(routeStops.map((stop) => stop.id)), new Set(write.offeredIds))) {
       throw tripChanged();
     }
+    const written = new Set(write.stations.flatMap((s) => (s.id === undefined ? [] : [s.id])));
+    const droppedIds = routeStops.filter((stop) => !written.has(stop.id)).map((stop) => stop.id);
     for (const leg of write.resetLegs) {
       await tx.tripRouteLeg.deleteMany({
         where: { routeId: write.roadtripId, fromStopId: leg.fromStopId, toStopId: leg.toStopId },
@@ -65,6 +71,21 @@ async function writeMatchedRoadtrip(
       if (error instanceof AppError && error.code === "LEG_MODE_CONFLICT") throw tripChanged();
       throw error;
     }
+    // A dropped station that was a timeline stop before it joined the roadtrip
+    // keeps its `tripId`, and `replaceStationsInTx` hands it back to the timeline
+    // rather than deleting it. Of those, whichever now reads as a candidate stop
+    // is in the set `writeStops` re-checks last — this commit released it, so the
+    // set must expect it instead of refusing the commit's own doing; the shared
+    // WHERE is the one the candidates read uses, so the two cannot drift.
+    releasedStopIds =
+      droppedIds.length === 0
+        ? []
+        : (
+            await tx.tripStop.findMany({
+              where: { id: { in: droppedIds }, ...candidateStopsWhere(tripId) },
+              select: { id: true },
+            })
+          ).map((stop) => stop.id);
   }
   // The review showed the stored name, so a different one is the user's rename.
   if (write.rename) {
@@ -84,32 +105,36 @@ async function writeMatchedRoadtrip(
     (mode, i) => mode === "ferry" && created.has(`${rows[i]?.id}>${rows[i + 1]?.id}`)
   ).length;
   return {
-    id: write.roadtripId,
-    name: write.name,
-    stations: rows.filter((row) => !row.viaPoint).length,
-    nights: nightsOf(rows).nights,
-    createdLegs,
-    ferryLegs,
-    diff: write.diff,
+    roadtrip: {
+      id: write.roadtripId,
+      name: write.name,
+      stations: rows.filter((row) => !row.viaPoint).length,
+      nights: nightsOf(rows).nights,
+      createdLegs,
+      ferryLegs,
+      diff: write.diff,
+    },
+    releasedStopIds,
   };
 }
 
 async function writeStops(
   tx: DbTransaction,
   plan: ExistingCommitPlan,
-  addedStopIds: readonly string[]
+  addedStopIds: readonly string[],
+  releasedStopIds: readonly string[]
 ): Promise<void> {
   // The same re-read as `writeMatchedRoadtrip`'s, for the timeline stops: the
   // plan's set is a snapshot, and an update or removal must never touch a row it
   // did not see — nor die as a Prisma not-found under the generic failure. The
-  // stops `writeCommit` added for this commit are part of the trip now, so they
-  // are expected as well; any other difference means the trip moved since the
-  // scan.
+  // stops `writeCommit` added for this commit are part of the trip now, and so
+  // are the stops the roadtrip writes released back to the timeline: both are
+  // expected. Any other difference means the trip moved since the scan.
   const candidates = await tx.tripStop.findMany({
     where: candidateStopsWhere(plan.tripId),
     select: { id: true },
   });
-  const expected = new Set([...plan.offeredStopIds, ...addedStopIds]);
+  const expected = new Set([...plan.offeredStopIds, ...addedStopIds, ...releasedStopIds]);
   if (!sameSet(new Set(candidates.map((stop) => stop.id)), expected)) {
     throw tripChanged();
   }
@@ -149,9 +174,12 @@ export async function writeExistingTarget(
   addedStopIds: readonly string[]
 ): Promise<{ roadtrips: PhaseBRoadtrip[]; stopsDiff: RoadtripDiff }> {
   const roadtrips: PhaseBRoadtrip[] = [];
+  const releasedStopIds: string[] = [];
   for (const write of plan.roadtrips) {
-    roadtrips.push(await writeMatchedRoadtrip(tx, userId, write));
+    const written = await writeMatchedRoadtrip(tx, userId, plan.tripId, write);
+    roadtrips.push(written.roadtrip);
+    releasedStopIds.push(...written.releasedStopIds);
   }
-  await writeStops(tx, plan, addedStopIds);
+  await writeStops(tx, plan, addedStopIds, releasedStopIds);
   return { roadtrips, stopsDiff: plan.stopsDiff };
 }

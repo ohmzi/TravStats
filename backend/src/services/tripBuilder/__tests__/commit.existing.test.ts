@@ -120,6 +120,84 @@ describe("writeCommit for an existing trip", () => {
     });
   const legs = async () => prisma.tripRouteLeg.findMany({ where: { routeId: fx.roadtripId } });
 
+  /**
+   * A stop the route editor borrowed from the trip's timeline into the roadtrip
+   * (`PUT /trips/:id/routes/:routeId/stops`): it keeps its `tripId`, and only a
+   * domain can wrap it. A write that drops it hands it back to the timeline
+   * instead of deleting it (`replaceStationsInTx`), so it becomes a candidate
+   * stop again. The fixture's own stations are trip-owned throughout: removal
+   * deletes them, which is why none of the other tests meets a release.
+   */
+  async function borrowedStation(title: string, domain: string | null = null): Promise<string> {
+    const id = await addStation(fx.roadtripId, 4, {
+      title,
+      at: FX.southbridge,
+      startDay: "2031-05-09",
+      endDay: "2031-05-10",
+      overnight: true,
+    });
+    await prisma.tripStop.update({
+      where: { id },
+      data: { tripId: fx.tripId, domain },
+    });
+    return id;
+  }
+
+  /** The fixture's four stations written back as they are, with `borrowed` left out. */
+  const writeWithout = (borrowed: string) => {
+    const [a, b, c, s] = [fx.station.a, fx.station.b, fx.station.c, fx.station.s];
+    return write(
+      [
+        station(a, "Northvale", FX.northvale, "2031-05-02", "2031-05-04", { kind: "free" }),
+        station(b, "Port Carrow", FX.portCarrow, "2031-05-04", "2031-05-06", { kind: "pass" }),
+        station(
+          c,
+          "Kelmore",
+          FX.kelmore,
+          "2031-05-06",
+          "2031-05-07",
+          { kind: "free" },
+          "Quiet street"
+        ),
+        station(s, "Tarnside Lodge", FX.tarnside, "2031-05-07", "2031-05-09", {
+          kind: "stay",
+          lodgingStayId: fx.stayId,
+        }),
+      ],
+      {
+        offeredIds: [...Object.values(fx.station), borrowed],
+        diff: { updated: 0, unchanged: 4, added: 0, removed: 1, kept: 0 },
+      }
+    );
+  };
+
+  it("hands a removed borrowed station back to the timeline, instead of refusing its own release", async () => {
+    // The dropped station keeps its `tripId`, so the write releases it (routeId
+    // null) rather than deleting it, and a released stop nothing wraps reads as a
+    // candidate stop. That new candidate is this transaction's own doing: the
+    // stop re-check must expect it, or the removal can never commit — a fresh
+    // scan would produce the same plan and the same refusal, forever.
+    const [a, b, c, s] = [fx.station.a, fx.station.b, fx.station.c, fx.station.s];
+    const borrowed = await borrowedStation("Southbridge camp");
+    const result = await writeCommit(plan({ roadtrips: [writeWithout(borrowed)] }));
+    const row = await prisma.tripStop.findUniqueOrThrow({ where: { id: borrowed } });
+    expect(row).toMatchObject({ routeId: null, tripId: fx.tripId });
+    expect((await stored()).map((r) => r.id)).toEqual([a, b, c, s]);
+    expect(result.roadtrips[0]).toMatchObject({ id: fx.roadtripId, stations: 4 });
+  });
+
+  it("releases a removed borrowed station nothing re-scans as a candidate, and expects no new stop", async () => {
+    // A wrapped station (a domain) is not a candidate stop: releasing it must not
+    // make the stop set check expect an id its candidates read will never show,
+    // which would refuse the removal for the opposite reason.
+    const [a, b, c, s] = [fx.station.a, fx.station.b, fx.station.c, fx.station.s];
+    const borrowed = await borrowedStation("Tarnside inn", "hotel");
+    await writeCommit(plan({ roadtrips: [writeWithout(borrowed)] }));
+    const row = await prisma.tripStop.findUniqueOrThrow({ where: { id: borrowed } });
+    expect(row).toMatchObject({ routeId: null, tripId: fx.tripId, domain: "hotel" });
+    expect((await stored()).map((r) => r.id)).toEqual([a, b, c, s]);
+  });
+
   it("keeps station ids and routed legs when a station only changes its dates", async () => {
     const [a, b, c, s] = [fx.station.a, fx.station.b, fx.station.c, fx.station.s];
     await writeCommit(

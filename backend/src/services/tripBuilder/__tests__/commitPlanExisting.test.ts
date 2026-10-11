@@ -541,6 +541,81 @@ describe("extendPlanForExisting", () => {
     );
     expect(out).toBe(newPlan);
   });
+
+  /**
+   * The re-sync can also remove a station that was on the trip's timeline before
+   * a roadtrip borrowed it (`PUT /trips/:id/routes/:routeId/stops`): it keeps its
+   * `tripId`, and the write hands it back to the timeline rather than deleting it
+   * — as a candidate stop, because nothing wraps it. Declared last: the success
+   * case leaves the fixture's roadtrip as the write left it, and this describe's
+   * `afterAll` drops the fixture user.
+   */
+  describe("a removed borrowed station", () => {
+    /** A candidate stop the route editor borrowed into the fixture's roadtrip. */
+    async function borrowSouthbridge(): Promise<string> {
+      const id = await addStation(fx.roadtripId, 4, {
+        title: "Southbridge camp",
+        at: FX.southbridge,
+        startDay: "2031-05-09",
+        endDay: "2031-05-10",
+        overnight: true,
+      });
+      await prisma.tripStop.update({
+        where: { id },
+        data: { tripId: fx.tripId, domain: null },
+      });
+      return id;
+    }
+
+    const removingBody = (borrowed: string): CommitBody =>
+      body({ keepNotSeen: [fx.station.c], removeNotSeen: [borrowed] });
+
+    it("still refuses a stop another writer adds while the plan waits", async () => {
+      const borrowed = await borrowSouthbridge();
+      const plan = await extendPlanForExisting(
+        fx.userId,
+        await storedDraft(),
+        removingBody(borrowed),
+        basePlan()
+      );
+      // The concurrent writer the guard exists for: the plan is a snapshot, and
+      // the album preflight alone is seconds long. The release the write is about
+      // to make must not blunt the refusal of a stop it never offered.
+      const late = await prisma.tripStop.create({
+        data: { tripId: fx.tripId, title: "Late stop", lat: -45.0, lon: 168.7 },
+      });
+
+      await expect(writeCommit(plan)).rejects.toMatchObject({
+        statusCode: 409,
+        code: "TRIP_CHANGED",
+      });
+      // The refusal rolled the whole transaction back: the borrowed station is
+      // where the plan found it, and nothing of the write survives.
+      const row = await prisma.tripStop.findUniqueOrThrow({ where: { id: borrowed } });
+      expect(row.routeId).toBe(fx.roadtripId);
+      await prisma.tripStop.deleteMany({ where: { id: { in: [late.id, borrowed] } } });
+    });
+
+    it("commits the removal: the released stop is expected, not refused as a change", async () => {
+      const borrowed = await borrowSouthbridge();
+      const plan = await extendPlanForExisting(
+        fx.userId,
+        await storedDraft(),
+        removingBody(borrowed),
+        basePlan()
+      );
+      const [write] = plan.existing?.roadtrips ?? [];
+      expect(write.offeredIds).toContain(borrowed);
+      expect(write.stations.map((station) => station.id)).not.toContain(borrowed);
+      expect(write.diff.removed).toBe(1);
+
+      const result = await writeCommit(plan);
+      expect(result.roadtrips[0]).toMatchObject({ id: fx.roadtripId, stations: 5 });
+      // Not deleted: it was on the trip's timeline before the roadtrip borrowed it.
+      const row = await prisma.tripStop.findUniqueOrThrow({ where: { id: borrowed } });
+      expect(row).toMatchObject({ routeId: null, tripId: fx.tripId });
+    });
+  });
 });
 
 describe("extendPlanForExisting: timeline stops", () => {

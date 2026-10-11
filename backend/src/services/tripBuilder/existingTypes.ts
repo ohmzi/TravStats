@@ -208,7 +208,9 @@ export interface ExistingCommitPlan {
    * The timeline stop ids the draft offered (the candidates `loadExistingState`
    * read). The write re-reads them inside its transaction and refuses
    * (TRIP_CHANGED) if the set moved: a stop added, moved into a roadtrip or
-   * removed since the plan would otherwise be updated blind or answer 500.
+   * removed since the plan would otherwise be updated blind or answer 500. The
+   * stops this commit itself wrote, and the stops its roadtrip writes released
+   * back to the timeline, are its own doing and are expected.
    */
   offeredStopIds: readonly string[];
   roadtrips: ExistingRoadtripWrite[];
