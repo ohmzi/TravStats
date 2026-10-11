@@ -212,3 +212,41 @@ describe("a stopover the scan offers", () => {
     expect(within(card()).getByRole("switch", { name: albumName })).toBeDisabled();
   });
 });
+
+describe("the success panel's stopover albums", () => {
+  beforeEach(() => {
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+  });
+
+  it("shows a line per stopover album and retries that one by name", async () => {
+    mocks.waitForJob
+      .mockResolvedValueOnce({
+        ...RESULT,
+        stopoverAlbums: [
+          {
+            key: STOPOVER.key,
+            name: STOPOVER.title,
+            album: { status: "failed", error: { kind: "unreachable" } },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ status: "linked", added: 24, alreadyIn: 0 });
+    mocks.retryAlbum.mockResolvedValue({ jobId: "album-job" });
+    await renderReview();
+    fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.createTrip" }));
+    await screen.findByText("tripBuilder:review.success.created");
+    const line = document.querySelector(`[data-album="${STOPOVER.key}"]`) as HTMLElement;
+    fireEvent.click(
+      within(line).getByRole("button", { name: "tripBuilder:review.success.retryAlbum" })
+    );
+    await waitFor(() => expect(mocks.retryAlbum).toHaveBeenCalled());
+    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, STOPOVER.title, false);
+    await waitFor(() =>
+      expect(
+        within(line).getByText(
+          'tripBuilder:review.success.stopoverAlbum {"name":"Sundhavn 2031 Road Trip","added":24,"already":0}'
+        )
+      ).toBeInTheDocument()
+    );
+  });
+});

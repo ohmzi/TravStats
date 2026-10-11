@@ -357,6 +357,8 @@
       "retryAlbum": "Retry the album",
       "stations_one": "{{count}} stop",
       "stations_other": "{{count}} stops",
+      "stopoverAlbum": "{{name}}: {{added}} added ({{already}} already in)",
+      "stopoverAlbumFailed": "The album “{{name}}” could not be completed. The trip itself was saved.",
       "stops_one": "{{count}} timeline stop",
       "stops_other": "{{count}} timeline stops",
       "unknownNights_one": "{{count}} unknown night",

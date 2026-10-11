@@ -458,7 +458,23 @@ export interface CommitResult {
   unknownNights: number;
   stops?: RoadtripDiff;
   album: AlbumOutcome;
+  /** Success panel (spec §5.4): one entry per stopover the commit gave its own album. */
+  stopoverAlbums?: StopoverAlbumOutcome[];
 }
+
+/** One stopover album a commit wrote, and what became of it. */
+export interface StopoverAlbumOutcome {
+  /** The stopover key, `<inFlightId>#<outFlightId>`. */
+  key: string;
+  /** The album's name, `<City> <Year> Road Trip`; what its retry posts back. */
+  name: string;
+  album: AlbumOutcome;
+}
+
+/** Which album a success-panel retry names: the trip's own, or a stopover's by key (spec §5.4). */
+export type AlbumRetryTarget = "trip" | `stopover:${string}`;
+/** The retry target of a stopover album, from its stopover key. */
+export const stopoverRetry = (key: string): AlbumRetryTarget => `stopover:${key}`;
 
 export type PreflightBlockReason =
   "sharedConnection" | "connectionChanged" | "missingScopes" | "unreachable";

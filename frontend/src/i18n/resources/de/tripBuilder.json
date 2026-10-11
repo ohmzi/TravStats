@@ -357,6 +357,8 @@
       "retryAlbum": "Album erneut versuchen",
       "stations_one": "{{count}} Stopp",
       "stations_other": "{{count}} Stopps",
+      "stopoverAlbum": "{{name}}: {{added}} hinzugefügt ({{already}} schon drin)",
+      "stopoverAlbumFailed": "Das Album „{{name}}“ konnte nicht fertiggestellt werden. Die Reise selbst ist gespeichert.",
       "stops_one": "{{count}} Zeitleisten-Stopp",
       "stops_other": "{{count}} Zeitleisten-Stopps",
       "unknownNights_one": "{{count}} offene Nacht",

@@ -40,6 +40,8 @@ import {
 } from "../lib/tripBuilder/reviewView";
 import {
   TRIP_BUILDER_PHASES,
+  stopoverRetry,
+  type AlbumRetryTarget,
   type CommitBlocked,
   type CommitResult,
   type PreflightBlockReason,
@@ -92,13 +94,13 @@ function Message({
 
 function SuccessPanel({
   result,
-  albumBusy,
+  retrying,
   onRetryAlbum,
   onOpen,
 }: {
   result: CommitResult;
-  albumBusy: boolean;
-  onRetryAlbum: () => void;
+  retrying: AlbumRetryTarget | null;
+  onRetryAlbum: (target: AlbumRetryTarget) => void;
   onOpen: () => void;
 }): JSX.Element {
   const { t } = useTranslation(["tripBuilder"]);
@@ -144,13 +146,45 @@ function SuccessPanel({
         <p className="t-caption">{t("tripBuilder:review.success.noRouting")}</p>
       )}
       {(album.status === "failed" || album.status === "blocked") && (
-        <div className="flex flex-wrap items-center" style={{ gap: "var(--ts-space-md)" }}>
+        <div
+          data-album="trip"
+          className="flex flex-wrap items-center"
+          style={{ gap: "var(--ts-space-md)" }}
+        >
           <span className="t-caption">{t("tripBuilder:review.success.albumFailed")}</span>
-          <Button disabled={albumBusy} onClick={onRetryAlbum}>
+          <Button disabled={retrying !== null} onClick={() => onRetryAlbum("trip")}>
             {t("tripBuilder:review.success.retryAlbum")}
           </Button>
         </div>
       )}
+      {(result.stopoverAlbums ?? []).map(({ key, name, album: outcome }) => (
+        <div
+          key={key}
+          data-album={key}
+          className="flex flex-wrap items-center"
+          style={{ gap: "var(--ts-space-md)" }}
+        >
+          {(outcome.status === "linked" || outcome.status === "skipped") && (
+            <span className="t-caption">
+              {t("tripBuilder:review.success.stopoverAlbum", {
+                name,
+                added: outcome.added ?? 0,
+                already: outcome.alreadyIn ?? 0,
+              })}
+            </span>
+          )}
+          {(outcome.status === "failed" || outcome.status === "blocked") && (
+            <>
+              <span className="t-caption">
+                {t("tripBuilder:review.success.stopoverAlbumFailed", { name })}
+              </span>
+              <Button disabled={retrying !== null} onClick={() => onRetryAlbum(stopoverRetry(key))}>
+                {t("tripBuilder:review.success.retryAlbum")}
+              </Button>
+            </>
+          )}
+        </div>
+      ))}
       <div>
         <Button variant="primary" onClick={onOpen}>
           {t("tripBuilder:review.success.open")}
@@ -564,8 +598,8 @@ export default function TripBuilderPage(): JSX.Element {
     content = (
       <SuccessPanel
         result={commit.result}
-        albumBusy={commit.album === "running"}
-        onRetryAlbum={() => void session.retryAlbum()}
+        retrying={commit.retrying}
+        onRetryAlbum={(target) => void session.retryAlbum(target)}
         onOpen={() => navigate(`/trips/${commit.result.tripId}`)}
       />
     );

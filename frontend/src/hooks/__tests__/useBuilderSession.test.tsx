@@ -8,9 +8,14 @@ import {
   FLIGHT_ELSEWHERE,
   FLIGHT_OUT,
   KEY,
+  STOPOVER,
   reviewDraft,
 } from "../../lib/tripBuilder/__tests__/reviewFixtures";
-import type { CommitJobResult, TripBuilderDraft } from "../../types/tripBuilder";
+import {
+  stopoverRetry,
+  type CommitJobResult,
+  type TripBuilderDraft,
+} from "../../types/tripBuilder";
 import { useBuilderSession } from "../useBuilderSession";
 
 const mocks = vi.hoisted(() => {
@@ -434,7 +439,7 @@ describe("saving", () => {
     expect(hook.result.current.session.commit).toEqual({
       kind: "done",
       result: RESULT,
-      album: "idle",
+      retrying: null,
     });
     const [draftId, body] = mocks.commit.mock.calls[0];
     expect(draftId).toBe(DRAFT_ID);
@@ -638,6 +643,36 @@ describe("the album afterwards", () => {
     expect(mocks.commit.mock.calls[0][1].album).toMatchObject({ removeOutside: false });
     await act(() => hook.result.current.session.retryAlbum());
     expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, "Southern loop", false);
+  });
+
+  it("retries a stopover's album by name, and holds its new outcome", async () => {
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+    mocks.waitForJob
+      .mockResolvedValueOnce({
+        ...RESULT,
+        stopoverAlbums: [{ key: STOPOVER.key, name: STOPOVER.title, album: { status: "failed" } }],
+      })
+      .mockResolvedValueOnce({ status: "linked", added: 24, alreadyIn: 0 });
+    mocks.retryAlbum.mockResolvedValue({ jobId: "album-job" });
+    const hook = await ready();
+    await act(() => hook.result.current.session.submit());
+    await act(() => hook.result.current.session.retryAlbum(stopoverRetry(STOPOVER.key)));
+    expect(mocks.retryAlbum).toHaveBeenCalledWith(RESULT.tripId, STOPOVER.title, false);
+    const { commit } = hook.result.current.session;
+    expect(commit.kind === "done" && commit.result.stopoverAlbums?.[0].album).toEqual({
+      status: "linked",
+      added: 24,
+      alreadyIn: 0,
+    });
+  });
+
+  it("ignores a retry of a stopover album the commit never wrote", async () => {
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+    mocks.waitForJob.mockResolvedValueOnce(RESULT);
+    const hook = await ready();
+    await act(() => hook.result.current.session.submit());
+    await act(() => hook.result.current.session.retryAlbum(stopoverRetry(STOPOVER.key)));
+    expect(mocks.retryAlbum).not.toHaveBeenCalled();
   });
 
   it("tells the user when the retry fails, and keeps the trip", async () => {

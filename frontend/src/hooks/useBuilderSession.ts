@@ -47,8 +47,10 @@ import {
   removeSession,
   writeSession,
 } from "../lib/tripBuilder/session";
+import { stopoverRetry } from "../types/tripBuilder";
 import type {
   AlbumOutcome,
+  AlbumRetryTarget,
   CommitBlocked,
   CommitJobResult,
   CommitResult,
@@ -78,7 +80,12 @@ export type CommitView =
   | { kind: "failed"; message: string; canScanAgain: boolean }
   | { kind: "unknown" }
   | { kind: "already"; tripId: string | null }
-  | { kind: "done"; result: CommitResult; album: "idle" | "running" };
+  | {
+      kind: "done";
+      result: CommitResult;
+      /** Which album's retry is in flight (v1: one at a time); null when none is. */
+      retrying: AlbumRetryTarget | null;
+    };
 
 export interface BuilderSession {
   phase: Phase;
@@ -97,7 +104,8 @@ export interface BuilderSession {
   submit: (withoutAlbum?: boolean) => Promise<void>;
   /** Sends the flights alone: the empty-window screen's re-sync decisions go out as keep. */
   submitFlightsOnly: () => Promise<void>;
-  retryAlbum: () => Promise<void>;
+  /** Retries the album a failed commit left: the trip's own, or a stopover's (spec §5.4). */
+  retryAlbum: (target?: AlbumRetryTarget) => Promise<void>;
   /** Discards the draft and goes back to where the review was started. */
   leave: () => void;
 }
@@ -347,7 +355,7 @@ export function useBuilderSession(): BuilderSession {
           return;
         }
         removeSession(draftKey(draft.id));
-        setCommit({ kind: "done", result, album: "idle" });
+        setCommit({ kind: "done", result, retrying: null });
       } catch (err: unknown) {
         const tripId = alreadyCommittedTripId(err);
         if (err instanceof JobLostError) setCommit({ kind: "unknown" });
@@ -392,28 +400,45 @@ export function useBuilderSession(): BuilderSession {
   }, [state, sendCommit]);
 
   /**
-   * The success panel's retry. The removal choice goes with it: a re-sync's
-   * album failure must not drop the decision the commit was sent with — the
-   * flights-only submit sends no removal, whatever the review's raw switch
-   * said — and the server recomputes which members that choice applies to.
+   * The success panel's retry. The removal choice goes with it for the trip's
+   * own album only: a re-sync's album failure must not drop the decision the
+   * commit was sent with, while a stopover album is add-only (spec §5.4) and
+   * never removes. The server recomputes the members from its own state.
    */
-  const retryAlbum = useCallback(async (): Promise<void> => {
-    if (commit.kind !== "done") return;
-    const { result } = commit;
-    setCommit({ kind: "done", result, album: "running" });
-    try {
-      const { jobId: albumJob } = await tripBuilderApi.retryAlbum(
-        result.tripId,
-        state?.album?.name,
-        sentRemoveOutside.current
-      );
-      const album = await waitForJob<AlbumOutcome>(albumJob);
-      setCommit({ kind: "done", result: { ...result, album }, album: "idle" });
-    } catch {
-      setCommit({ kind: "done", result, album: "idle" });
-      addToast("error", t("tripBuilder:errors.album.retryFailed"));
-    }
-  }, [commit, state, addToast, t]);
+  const retryAlbum = useCallback(
+    async (target: AlbumRetryTarget = "trip"): Promise<void> => {
+      if (commit.kind !== "done") return;
+      const { result } = commit;
+      const stopover =
+        target === "trip"
+          ? undefined
+          : (result.stopoverAlbums ?? []).find((entry) => stopoverRetry(entry.key) === target);
+      if (target !== "trip" && stopover === undefined) return;
+      setCommit({ kind: "done", result, retrying: target });
+      try {
+        const { jobId: albumJob } = await tripBuilderApi.retryAlbum(
+          result.tripId,
+          stopover?.name ?? state?.album?.name,
+          stopover === undefined && sentRemoveOutside.current
+        );
+        const album = await waitForJob<AlbumOutcome>(albumJob);
+        const next: CommitResult =
+          stopover === undefined
+            ? { ...result, album }
+            : {
+                ...result,
+                stopoverAlbums: (result.stopoverAlbums ?? []).map((entry) =>
+                  entry.key === stopover.key ? { ...entry, album } : entry
+                ),
+              };
+        setCommit({ kind: "done", result: next, retrying: null });
+      } catch {
+        setCommit({ kind: "done", result, retrying: null });
+        addToast("error", t("tripBuilder:errors.album.retryFailed"));
+      }
+    },
+    [commit, state, addToast, t]
+  );
 
   const leave = useCallback((): void => {
     if (draft !== null) {
