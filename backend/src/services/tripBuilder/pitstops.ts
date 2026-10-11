@@ -130,3 +130,40 @@ export function pitstopAlbumName(mainCity: string | null, startDay: Day, tripNam
   const base = `${city} ${startDay.slice(0, 4)} Road Trip`;
   return city === tripName ? base : `${base} (${tripName})`;
 }
+
+/** A pitstop area's own album as the commit reads it (spec 2026-10-11 pitstops §4). SERVER-ONLY. */
+export interface StoredPitstop {
+  /** The area key (`<startDay>#<n>`), the same key the DTO area carries. */
+  key: string;
+  /** `<City> <Year> Road Trip (<Trip Name>)`: the name the review showed (§6). */
+  albumName: string;
+  /** The area's first day (`YYYY-MM-DD`, trip zone): the window the album stands for. */
+  day: Day;
+  /** The area's own photo set — the album's members. No request ever carries an id. */
+  assetIds: string[];
+}
+
+/**
+ * The pitstop areas' album records, as the commit reads them (spec §4): an
+ * album takes the area's own photos — its movement and at-sea photos, the
+ * branch-(b) stopover album's own set — and no DTO may carry an id, so the
+ * scan keeps them beside the name. Only a qualifying area is listed, in scan
+ * order.
+ */
+export function storedPitstops(
+  areas: readonly AreaPlan[],
+  found: ReadonlyMap<string, DraftPitstop>
+): StoredPitstop[] {
+  const stored: StoredPitstop[] = [];
+  for (const plan of areas) {
+    const pitstop = found.get(plan.key);
+    if (pitstop === undefined) continue;
+    stored.push({
+      key: plan.key,
+      albumName: pitstop.albumName,
+      day: plan.area.startDay,
+      assetIds: [...plan.area.photoIds, ...plan.area.seaPhotoIds],
+    });
+  }
+  return stored;
+}

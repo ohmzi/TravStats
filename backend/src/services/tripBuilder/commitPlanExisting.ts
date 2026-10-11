@@ -426,9 +426,21 @@ export async function extendPlanForExisting(
 
   const writes: ExistingRoadtripWrite[] = [];
   const handled = new Set<string>();
+  // A matched pitstop area writes no roadtrip of the new-write path and no
+  // station — its §K diff governs the roadtrip — but its own album still takes
+  // the area's pictures (spec 2026-10-11 pitstops §5): `prepareCommit` built it
+  // onto the plan entry, which leaves `plan.roadtrips` here, so the album moves
+  // onto the write it becomes.
+  const albumOf = new Map(
+    plan.roadtrips
+      .filter((roadtrip) => roadtrip.album !== undefined)
+      .map((roadtrip) => [roadtrip.areaKey, roadtrip.album] as const)
+  );
   for (const area of body.areas) {
     if (area.as !== "roadtrip" || area.roadtripId === undefined) continue;
-    writes.push(buildRoadtripWrite(area, area.roadtripId, draft, body, state, offered));
+    const write = buildRoadtripWrite(area, area.roadtripId, draft, body, state, offered);
+    const album = albumOf.get(area.key);
+    writes.push(album === undefined ? write : { ...write, album });
     handled.add(area.key);
   }
   const stops = buildStopWrites(draft, body, state, offered, plan);

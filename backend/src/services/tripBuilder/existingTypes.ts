@@ -210,6 +210,8 @@ export interface ExistingRoadtripWrite {
   /** The station list and its legs are what is stored: no station write. A rename is its own flag. */
   noop: boolean;
   diff: RoadtripDiff;
+  /** The pitstop area's own album (spec 2026-10-11 pitstops §4); absent: the switch was off or the area is no pitstop. */
+  album?: { name: string; assetIds: string[] };
 }
 
 export interface ExistingStopUpdate {

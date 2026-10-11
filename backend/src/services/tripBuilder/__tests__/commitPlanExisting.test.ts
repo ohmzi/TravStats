@@ -33,6 +33,7 @@ import {
   STOPOVER_KEY,
   stopover,
 } from "./existingDraftFixture";
+import { fixtureStoredPitstop, PITSTOP_ALBUM } from "./commitFixtures";
 
 const mockDomains = loadVisibleDomains as jest.Mock;
 
@@ -93,6 +94,7 @@ describe("extendPlanForExisting", () => {
         seen.map((s) => [s.key, { areaKey: AREA, firstDay: s.firstDay, lastDay: s.lastDay }])
       ),
       stopovers: [],
+      pitstops: [],
       // no area is a `stops` area, so both stored timeline stops are offered as not seen
       existing,
     };
@@ -497,6 +499,26 @@ describe("extendPlanForExisting", () => {
       expect(plan.roadtrips).toEqual([]);
       expect(plan.existing?.roadtrips.map((r) => r.roadtripId)).toEqual([fx.roadtripId]);
       expect(plan.existing?.roadtrips[0].stations.map((s) => s.id)).toContain(fx.station.c);
+    });
+
+    it("moves a matched pitstop area's album onto its existing write, album-only", async () => {
+      // Spec 2026-10-11 pitstops §5: a matched area's roadtrip is the §K diff's
+      // business, but its own album still takes the area's current photos — the
+      // entry leaves `plan.roadtrips` in `extendPlanForExisting`, so the album
+      // must ride on the write it becomes.
+      const scanned = await storedDraft(derivedStations(), {
+        areas: [area({ pitstop: { albumName: PITSTOP_ALBUM } })],
+      });
+      const plan = await prepareCommit(
+        fx.userId,
+        { ...scanned, pitstops: [fixtureStoredPitstop()] },
+        body({ album: true })
+      );
+
+      expect(plan.roadtrips).toEqual([]);
+      const [write] = plan.existing?.roadtrips ?? [];
+      expect(write.areaKey).toBe(AREA);
+      expect(write.album).toEqual({ name: PITSTOP_ALBUM, assetIds: ["photo-a", "photo-b"] });
     });
 
     it("accepts the body the review sends for an untouched stored ferry leg, and plans no mode write", async () => {
@@ -1077,6 +1099,7 @@ describe("extendPlanForExisting: timeline stops", () => {
       flightIds: new Set<string>(),
       stationIndex: new Map(),
       stopovers: [],
+      pitstops: [],
       existing,
     };
   }

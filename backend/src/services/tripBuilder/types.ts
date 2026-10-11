@@ -25,7 +25,7 @@ import type { LegPair } from "../../shared/tour/legPlan";
 import type { RoadtripVehicle } from "../../shared/tour/roadtrip";
 import type { ImmichConnectionSource, ImmichErrorKind } from "../immich/types";
 import type { Coord, LegMode } from "../tour/tourDistance";
-import type { DraftStopover } from "./draftStopover";
+import type { DraftStopover, StopoverPlan, StoredStopover } from "./draftStopover";
 import type {
   AlbumRemoveSkip,
   AlbumSyncPreview,
@@ -37,7 +37,7 @@ import type {
   StoredExisting,
 } from "./existingTypes";
 import type { ExcludedCounts, PhotoPoint, RawSegment, ScanWindow, Segment } from "./photoTypes";
-import type { DraftPitstop } from "./pitstops";
+import type { DraftPitstop, StoredPitstop } from "./pitstops";
 
 export {
   NIGHT_FLIGHT,
@@ -410,11 +410,16 @@ export interface DraftArea {
 // `draftStopover.ts`, in their own module because this file sits at the
 // 800-line cap. They are re-exported here, so consumers keep importing them
 // from `./types`.
-export type { DraftStopover, StoredStopoverStatus } from "./draftStopover";
+export type {
+  DraftStopover,
+  StopoverPlan,
+  StoredStopover,
+  StoredStopoverStatus,
+} from "./draftStopover";
 
 // The pitstop DTO shape (spec 2026-10-11 pitstops §2) is declared in
 // `pitstops.ts`, beside the detection that mints it, and re-exported here.
-export type { DraftPitstop } from "./pitstops";
+export type { DraftPitstop, StoredPitstop } from "./pitstops";
 
 export interface DraftFlight {
   id: string;
@@ -576,27 +581,6 @@ export interface StationIndexEntry {
   lastDay: Day;
 }
 
-/**
- * One stopover candidate as the scan derived it (spec 2026-10-11 §2.3). The
- * whole layover's photo ids are kept server-side: they are dropped after the
- * scan today, and the city-album write needs them.
- */
-export interface StoredStopover {
-  key: string;
-  title: string;
-  city: string;
-  day: Day;
-  inFlightId: string;
-  outFlightId: string;
-  airportIata: string | null;
-  /** The whole layover's photo set: the album list (spec §2.2). SERVER-ONLY. */
-  photoIds: string[];
-  /** The tour's stops, the arrival airport first (spec §2.2). */
-  stations: PlanStation[];
-  /** legs[i] joins stations[i] and stations[i + 1]. */
-  legs: PlanLeg[];
-}
-
 export interface StoredDraft {
   id: string;
   ownerId: string;
@@ -622,6 +606,8 @@ export interface StoredDraft {
   stationIndex: ReadonlyMap<string, StationIndexEntry>;
   /** The stopover candidates the scan derived; [] when the scan found none (spec §2.3). */
   stopovers: StoredStopover[];
+  /** The pitstop areas' own albums (spec 2026-10-11 pitstops §4); [] when the scan found none. SERVER-ONLY. */
+  pitstops: StoredPitstop[];
   /** Re-sync only: what the scan matched and offered. SERVER-ONLY. */
   existing?: StoredExisting;
 }
@@ -721,29 +707,9 @@ export interface RoadtripPlan {
   stations: StationsInput["stations"];
   /** `rowLegModes`: legModes[i] joins stations[i] and stations[i + 1]. */
   legModes: BuilderLegMode[];
+  /** The pitstop area's own album (spec 2026-10-11 pitstops §4); absent when its switch is off. SERVER-ONLY ids. */
+  album?: { name: string; assetIds: string[] };
   nights: number;
-}
-
-/**
- * One toggled stopover as the write phase sees it (spec 2026-10-11 §5.2): a
- * roadtrip with no nights — its stations never enter `body.areas` or the night
- * plan — and, when its album switch is on, the album to link beside the trip's.
- */
-export interface StopoverPlan {
-  /** The draft stopover's key, `<inFlightId>#<outFlightId>`. */
-  key: string;
-  /** `<City> <Year> Road Trip`: the roadtrip's and its album's one name (owner ruling). */
-  name: string;
-  /** The stopover day (`YYYY-MM-DD`, trip zone). */
-  day: Day;
-  /** The stored roadtrip a re-sync matched to this stopover (spec §6); set, it is never rebuilt (add-only). */
-  roadtripId?: string;
-  /** `stationsSchema`-parsed `deriveStationRows`, no night assigned (every row a `pass`). */
-  stations: StationsInput["stations"];
-  /** legModes[i] joins stations[i] and stations[i+1] (§2.2: mode evidence, road unless it says otherwise). */
-  legModes: BuilderLegMode[];
-  /** The whole layover's asset ids, SERVER-ONLY; null when the album toggle is off. */
-  album: { name: string; assetIds: string[] } | null;
 }
 
 export type CommitTargetPlan =

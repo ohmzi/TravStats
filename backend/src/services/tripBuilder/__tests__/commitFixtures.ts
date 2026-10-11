@@ -4,6 +4,7 @@ import type {
   CommitTargetPlan,
   DraftStation,
   StoredDraft,
+  StoredPitstop,
   StoredStopover,
   StopoverPlan,
   TripBuilderDraft,
@@ -171,6 +172,7 @@ export function fixtureDraft(
       )
     ),
     stopovers: [],
+    pitstops: [],
     ...over,
   };
 }
@@ -350,6 +352,24 @@ export function fixtureStoredStopover(over: Partial<StoredStopover> = {}): Store
     photoIds: ["photo-a", "photo-b"],
     stations: [],
     legs: [],
+    ...over,
+  };
+}
+
+/** The album name the scan computes for the fixture area as a pitstop (spec 2026-10-11 pitstops §6). */
+export const PITSTOP_ALBUM = "Northvale 2031 Road Trip (Northvale loop)";
+
+/**
+ * The pitstop area's own album record the scan keeps (spec 2026-10-11 pitstops
+ * §4): the name the review showed and the area's own picture set, which no DTO
+ * may carry. Synthetic fixtures only (public repository).
+ */
+export function fixtureStoredPitstop(over: Partial<StoredPitstop> = {}): StoredPitstop {
+  return {
+    key: AREA_KEY,
+    albumName: PITSTOP_ALBUM,
+    day: "2031-05-02",
+    assetIds: ["photo-a", "photo-b"],
     ...over,
   };
 }

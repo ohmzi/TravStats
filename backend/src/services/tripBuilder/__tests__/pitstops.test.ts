@@ -1,4 +1,4 @@
-import { pitstopAlbumName, pitstopAreas, principalDestination } from "../pitstops";
+import { pitstopAlbumName, pitstopAreas, principalDestination, storedPitstops } from "../pitstops";
 import type { Day, NightEntry } from "../types";
 import { area, flight, photo, preciseFlight, station, type AreaFixture } from "./nightsFixtures";
 import { NORTHVALE, PORT_CARROW } from "./placeFixtures";
@@ -247,5 +247,32 @@ describe("pitstopAlbumName", () => {
     expect(pitstopAlbumName("Dunholme", "2032-01-02", "Southern loop")).toBe(
       "Dunholme 2032 Road Trip (Southern loop)"
     );
+  });
+});
+
+describe("storedPitstops", () => {
+  const found = () =>
+    pitstopAreas({
+      areas: [STAY.plan, DESTINATION.plan],
+      nights: NIGHTS,
+      anchors: [F1, F2, F3],
+      photosById: photosById(),
+      mainCities: MAIN_CITIES,
+      tripName: "Southern loop",
+    });
+
+  it("keeps each pitstop's own photo set, under its key, name and day", () => {
+    expect(storedPitstops([STAY.plan, DESTINATION.plan], found())).toEqual([
+      {
+        key: "2031-05-02#1",
+        albumName: "Dunholme 2031 Road Trip (Southern loop)",
+        day: "2031-05-02",
+        assetIds: ["s1", "s2"],
+      },
+    ]);
+  });
+
+  it("lists nothing for an area no scan offered", () => {
+    expect(storedPitstops([DESTINATION.plan], found())).toEqual([]);
   });
 });

@@ -37,7 +37,7 @@ import {
 import { assembleWarnings, movementOutsideDates, type UnrecordedFlight } from "./draftWarnings";
 import { applyExistingTarget, type ExistingDeps } from "./existingDraft";
 import { indexPreviews } from "./stations";
-import { pitstopAreas } from "./pitstops";
+import { pitstopAreas, storedPitstops } from "./pitstops";
 import type { RoadAccess } from "./probe";
 import {
   DRAFT_IDLE_TTL_MS,
@@ -568,6 +568,9 @@ export async function buildDraftWith(
     flightIds: new Set(listed.map((a) => a.id)),
     stationIndex: stationIndexOf(areas),
     stopovers,
+    // The pitstop areas' own album lists (spec 2026-10-11 pitstops §4): the
+    // album takes the area's photos, which no DTO may carry.
+    pitstops: storedPitstops(night.kept, pitstops),
   };
 }
 

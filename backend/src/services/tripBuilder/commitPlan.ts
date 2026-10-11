@@ -235,6 +235,25 @@ function roadtripPlan(area: CommitArea, index: number, nights: CommitBody["night
   };
 }
 
+/**
+ * The pitstop area's own album as the plan carries it (spec 2026-10-11
+ * pitstops §4): the name the review showed, and the area's own photo set,
+ * which only the stored draft holds — no request ever names an asset. An
+ * `album` tick the scan offered no pitstop for is refused like every other
+ * unoffered thing; `assertAreas` runs the same rule, and this is its twin for
+ * the plan itself.
+ */
+function pitstopAlbum(
+  draft: StoredDraft,
+  offered: DraftArea,
+  area: CommitArea
+): RoadtripPlan["album"] {
+  if (!area.album) return undefined;
+  const record = draft.pitstops.find((pitstop) => pitstop.key === offered.key);
+  if (offered.pitstop === undefined || record === undefined) throw mismatch("areas");
+  return { name: offered.pitstop.albumName, assetIds: [...record.assetIds] };
+}
+
 /** Timeline stops of a `stops` area: home and airport stations dropped, a run of one title made one stop. */
 function stopPlans(area: CommitArea): StopPlan[] {
   const stops: StopPlan[] = [];
@@ -369,7 +388,12 @@ export async function prepareCommit(
   const roadtrips = body.areas
     .map((area, index) => ({ area, index }))
     .filter(({ area }) => area.as === "roadtrip")
-    .map(({ area, index }) => roadtripPlan(area, index, body.nights));
+    .map(({ area, index }) => {
+      const offered = known.get(area.key) as DraftArea;
+      const album = pitstopAlbum(draft, offered, area);
+      const planned = roadtripPlan(area, index, body.nights);
+      return album === undefined ? planned : { ...planned, album };
+    });
   const stops = body.areas.filter((a) => a.as === "stops").flatMap(stopPlans);
   const stopovers = stopoverPlans(draft, body);
   const unknownNights = nightsOf(body.window).filter((night) => {

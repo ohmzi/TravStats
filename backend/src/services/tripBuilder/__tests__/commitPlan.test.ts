@@ -12,6 +12,7 @@ import {
   K_SB,
   fixtureBody,
   fixtureDraft,
+  fixtureStoredPitstop,
 } from "./commitFixtures";
 
 const mockDomains = loadVisibleDomains as jest.Mock;
@@ -273,9 +274,15 @@ describe("prepareCommit", () => {
     const pitstop = draft();
     const [area] = pitstop.dto.areas;
     area.pitstop = { albumName: "Northvale 2031 Road Trip (Northvale loop)" };
+    pitstop.pitstops = [fixtureStoredPitstop()];
     const body = fixtureBody([flightId]);
     body.areas[0].album = true;
-    expect((await plan(body, pitstop)).roadtrips).toHaveLength(1);
+    const result = await plan(body, pitstop);
+    expect(result.roadtrips).toHaveLength(1);
+    expect(result.roadtrips[0].album).toEqual({
+      name: "Northvale 2031 Road Trip (Northvale loop)",
+      assetIds: ["photo-a", "photo-b"],
+    });
   });
 
   it("accepts a ticked photo-journey finding the draft offered", async () => {
