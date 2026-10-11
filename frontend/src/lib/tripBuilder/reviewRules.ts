@@ -51,12 +51,20 @@ export function syncArea(area: ReviewArea): ReviewArea {
 
 /**
  * Area names that follow the trip name and the number of roadtrips, for every
- * area the user has not named themselves. The names the scan gave are kept for
- * everything else (an area that is not a roadtrip has no name of its own).
+ * area the user has not named themselves. A matched roadtrip is not named this
+ * way: the scan sent the stored name as its `suggestedName`, and that name is
+ * the roadtrip's until the user edits the field. The names the scan gave are
+ * kept for everything else (an area that is not a roadtrip has no name of its
+ * own).
  */
 export function withSuggestedNames(draft: TripBuilderDraft, state: ReviewState): ReviewState {
   const tripName = state.tripName.trim();
   if (tripName === "") return state;
+  const matched = new Set(
+    draft.areas
+      .filter((candidate) => candidate.roadtripId !== undefined)
+      .map((candidate) => candidate.key)
+  );
   const names = roadtripAreaNames(
     state.areas
       .filter((area) => area.as === "roadtrip")
@@ -74,7 +82,10 @@ export function withSuggestedNames(draft: TripBuilderDraft, state: ReviewState):
   return {
     ...state,
     areas: state.areas.map((area) =>
-      area.as === "roadtrip" && !area.nameEdited && names[area.key] !== undefined
+      area.as === "roadtrip" &&
+      !area.nameEdited &&
+      !matched.has(area.key) &&
+      names[area.key] !== undefined
         ? { ...area, name: names[area.key] }
         : area
     ),

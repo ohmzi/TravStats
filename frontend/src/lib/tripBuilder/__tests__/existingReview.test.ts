@@ -11,7 +11,7 @@ import {
   refusesExistingEdit,
   rowFactsFor,
 } from "../existingReview";
-import { existingDraft, KEY, matchedStopDraft, STOP_KEY } from "./existingFixture";
+import { existingDraft, KEY, matchedStopDraft, station, STOP_KEY } from "./existingFixture";
 
 const COMMIT_KEY = "6a0b7c1d-2e3f-4a5b-8c6d-7e8f9a0b1c2d";
 
@@ -197,6 +197,53 @@ describe("the commit body for an existing trip", () => {
     const [area] = draft.areas;
     const named = existingDraft({ areas: [{ ...area, suggestedName: "Southern loop" }] });
     expect(initialReviewState(named).areas[0].name).toBe("Southern loop");
+  });
+
+  it("keeps that stored name through a kind toggle, and sends it instead of the trip name", () => {
+    // The stored roadtrip is "Northvale loop" while the re-synced trip is named
+    // "NZ 2031". Toggling the matched area's kind must not recompute its name
+    // from the trip name, or "Update trip" would rename the stored roadtrip the
+    // user never touched (the body's name is written as a rename).
+    const [area] = draft.areas;
+    const resort = existingDraft({
+      tripName: "NZ 2031",
+      target: {
+        kind: "existing",
+        tripId: "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c",
+        tripName: "NZ 2031",
+      },
+      areas: [{ ...area, suggestedName: "Northvale loop" }],
+    });
+    let state = initialReviewState(resort);
+    state = applyEdit(resort, state, { type: "setAreaKind", areaKey: area.key, as: "skip" });
+    state = applyEdit(resort, state, { type: "setAreaKind", areaKey: area.key, as: "roadtrip" });
+    expect(state.areas[0].name).toBe("Northvale loop");
+    const body = buildCommitBody(resort, state, { name: "NZ 2031" }, COMMIT_KEY);
+    expect(body.areas[0].name).toBe("Northvale loop");
+  });
+
+  it("leaves every matched roadtrip alone when another area's kind is toggled", () => {
+    // With two matched roadtrips, toggling one area's kind changes the count the
+    // other's name would be recomputed from; both must keep their stored names.
+    const [area] = draft.areas;
+    const second = {
+      ...area,
+      key: "2031-05-05#1",
+      suggestedName: "Southbridge run",
+      mainCity: "Southbridge",
+      roadtripId: "r2",
+      stations: [
+        station("-908|3382|2031-05-05", "Southbridge", "2031-05-05", "2031-05-06", {
+          status: "new" as const,
+        }),
+      ],
+      legs: [],
+    };
+    const resort = existingDraft({ tripName: "NZ 2031", areas: [area, second] });
+    let state = initialReviewState(resort);
+    expect(state.areas.map((a) => a.name)).toEqual(["Northvale loop", "Southbridge run"]);
+    state = applyEdit(resort, state, { type: "setAreaKind", areaKey: second.key, as: "skip" });
+    expect(state.areas[0].name).toBe("Northvale loop");
   });
 
   it("follows the user's choices", () => {
