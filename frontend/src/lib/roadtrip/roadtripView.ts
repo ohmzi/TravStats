@@ -13,7 +13,12 @@ import {
   type RoadtripVehicle,
   type StoredRoadtripVehicle,
 } from "../../shared/tour/roadtrip";
-import type { RoadtripStation, StationInput, StationNightInput } from "../../types/roadtrip";
+import type {
+  RoadtripNights,
+  RoadtripStation,
+  StationInput,
+  StationNightInput,
+} from "../../types/roadtrip";
 
 const DAY_MS = 86_400_000;
 
@@ -56,6 +61,27 @@ export function spanDays(startDate: string | null, endDate: string | null): numb
   const a = dayKey(startDate);
   const b = dayKey(endDate);
   return a && b ? daysBetween(a, b) + 1 : null;
+}
+
+/**
+ * The days a roadtrip's headline counts — the list card's and the map card's,
+ * one rule for both: the inclusive span of the two stored dates where both are
+ * there (the very `spanDays` the figures band prints, so one roadtrip cannot
+ * put two day counts under the one word), and the stored nights + 1 only as
+ * the fallback when a date is missing, where there is no span to count.
+ *
+ * A night SUM is not a span — a cancelled linked stay counts nowhere and a
+ * half-dated free station counts a single night — so the fallback reports
+ * `approximate` exactly while those nights are known only as a lower bound.
+ */
+export function roadtripDays(
+  startDate: string | null,
+  endDate: string | null,
+  nights: Pick<RoadtripNights, "nights" | "nightsKnown">
+): { days: number; approximate: boolean } {
+  const span = spanDays(startDate, endDate);
+  if (span !== null) return { days: span, approximate: false };
+  return { days: nights.nights + 1, approximate: !nights.nightsKnown };
 }
 
 /**

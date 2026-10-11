@@ -15,6 +15,7 @@ import { LODGING_COLOR } from "../../../lib/lodgingColor";
 import { PLACE_COLOR } from "../../../lib/placeColor";
 import { rgbCss } from "../../../lib/flightColor";
 import { roadtripsApi } from "../../../lib/api/roadtrips";
+import { roadtripDays } from "../../../lib/roadtrip/roadtripView";
 import { logger } from "../../../lib/logger";
 import { tokens } from "../../../theme/tokens";
 import type { GeoJSONFeature } from "../../../types";
@@ -270,8 +271,10 @@ export function PlaceBody({
  *
  * It fetches its own figures (`roadtripsApi.get`) because the tab's tour index
  * carries the line and its name, not the days or the station count. It heads
- * the stay figure as DAYS — the stored nights + 1, the same inclusive span the
- * roadtrip card prints (owner, 2026-10-11) — under the shared
+ * the days figure as the roadtrip's own span (`roadtripDays`): the two stored
+ * dates inclusively where the fetched detail has both — the figure the
+ * roadtrip's own figures band prints — and the stored nights + 1 only when a
+ * date is missing (owner, 2026-10-11) — under the shared
  * `common:summary.cardDays` word. A failed or absent figure is a DASH with its
  * reason, never a 0: a roadtrip whose distance did not load is not a roadtrip
  * that covered nothing.
@@ -312,9 +315,12 @@ export function RoadtripBody({
   }, [data.routeId]);
 
   const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
-  // The days a roadtrip spans, one inclusive calendar span — the same reading
-  // its list card prints (owner, 2026-10-11). Null while the fetch is out.
-  const days = detail === null ? null : detail.nights.nights + 1;
+  // The roadtrip's own span in days — its two stored dates inclusively where
+  // the fetched detail has both, the stored nights + 1 only when a date is
+  // missing — the same rule its list card and figures band read (owner,
+  // 2026-10-11). Null while the fetch is out.
+  const days =
+    detail === null ? null : roadtripDays(detail.startDate, detail.endDate, detail.nights).days;
 
   return (
     <>

@@ -16,6 +16,8 @@ vi.mock("../../../hooks/useTranslation", async () => {
 // asserted, so the three-cell row below would never actually run.
 vi.mock("../../map/CardMap", () => ({ default: () => <div data-testid="card-map" /> }));
 
+const at = (day: string) => `${day}T00:00:00.000Z`;
+
 function summary(over: Partial<RoadtripSummary>): RoadtripSummary {
   return {
     id: "rt-1",
@@ -52,10 +54,13 @@ function summary(over: Partial<RoadtripSummary>): RoadtripSummary {
 /** forgejo#160, the roadtrip card: "1 Tag", "1 Stadt" — days since 2026-10-11. */
 describe("RoadtripCard figures in the singular (forgejo#160)", () => {
   it("names one of each in the singular", () => {
-    // A same-day roadtrip: zero nights, which the headline reads as one day.
+    // A same-day roadtrip: zero nights, and one day on its stored dates.
     render(
       <MemoryRouter>
-        <RoadtripCard roadtrip={summary({ nights: 0 })} phase="underway" />
+        <RoadtripCard
+          roadtrip={summary({ nights: 0, endDate: at("2026-10-03") })}
+          phase="underway"
+        />
       </MemoryRouter>
     );
     expect(screen.getByText("Tag")).toBeInTheDocument();
@@ -75,19 +80,65 @@ describe("RoadtripCard figures in the singular (forgejo#160)", () => {
     expect(screen.getByText("Städte")).toBeInTheDocument();
   });
 
-  it("reads the nights as the inclusive DAYS span — five nights away is six days", () => {
+  it("counts the days from the two stored dates — five nights away is six days", () => {
     render(
       <MemoryRouter>
-        <RoadtripCard roadtrip={summary({ nights: 5 })} phase="underway" />
+        <RoadtripCard
+          roadtrip={summary({ startDate: at("2031-05-01"), endDate: at("2031-05-06"), nights: 5 })}
+          phase="underway"
+        />
       </MemoryRouter>
     );
     expect(screen.getByText("Tage").previousElementSibling).toHaveTextContent("6");
   });
 
-  it("carries the approximation marker with the days — a lower bound states so", () => {
+  it("heads the stored date span where the counted nights fall short of it — the page band's own figure", () => {
+    // Twelve days between the two stored dates with only eight nights counted
+    // at the stations (a cancelled stay counts nowhere, a half-dated free
+    // station counts one night). The card must print the DATES' span — the
+    // same `spanDays` the roadtrip's figures band prints — or the card and its
+    // own page would put two counts under the one word.
     render(
       <MemoryRouter>
-        <RoadtripCard roadtrip={summary({ nights: 5, nightsKnown: false })} phase="underway" />
+        <RoadtripCard
+          roadtrip={summary({
+            startDate: at("2031-05-01"),
+            endDate: at("2031-05-12"),
+            nights: 8,
+            nightsKnown: true,
+          })}
+          phase="underway"
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText("Tage").previousElementSibling).toHaveTextContent(/^12$/);
+  });
+
+  it("drops the ≈ once the stored dates give the span — the count is exact, not a lower bound", () => {
+    render(
+      <MemoryRouter>
+        <RoadtripCard
+          roadtrip={summary({
+            startDate: at("2031-05-01"),
+            endDate: at("2031-05-12"),
+            nights: 8,
+            nightsKnown: false,
+          })}
+          phase="underway"
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText("Tage").previousElementSibling).toHaveTextContent(/^12$/);
+    expect(screen.queryByTitle("Mindestens eine Station hat kein Abfahrtsdatum.")).toBeNull();
+  });
+
+  it("carries the approximation marker when a date is missing and the nights are a lower bound", () => {
+    render(
+      <MemoryRouter>
+        <RoadtripCard
+          roadtrip={summary({ endDate: null, nights: 5, nightsKnown: false })}
+          phase="underway"
+        />
       </MemoryRouter>
     );
     expect(screen.getByText("≈ 6")).toBeInTheDocument();

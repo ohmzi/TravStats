@@ -130,8 +130,8 @@ describe("RoadtripsPage", () => {
       }),
     ]);
     renderPage();
-    // Ten nights is eleven days (the inclusive span the card heads since
-    // 2026-10-11), and the lower bound keeps its ≈.
+    // No end date, so the card falls back to the nights + 1 (owner,
+    // 2026-10-11): ten nights is eleven days, and the lower bound keeps its ≈.
     expect(await screen.findByText("≈ 11")).toBeInTheDocument();
     const empty = screen.getByText("Leer").closest("a")!;
     expect(within(empty).getByText("—")).toBeInTheDocument();

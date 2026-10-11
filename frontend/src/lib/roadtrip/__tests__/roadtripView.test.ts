@@ -6,6 +6,7 @@ import {
   isSavable,
   nextMorning,
   nextStation,
+  roadtripDays,
   roadtripPhase,
   sketchPath,
   spanDays,
@@ -65,6 +66,31 @@ describe("days", () => {
 
   it("gives the morning after", () => {
     expect(nextMorning("2026-09-30")).toBe("2026-10-01");
+  });
+
+  it("heads a roadtrip's day count with its two stored dates' inclusive span", () => {
+    // Twelve days on the stored dates with only eight nights counted at the
+    // stations — the dates, not the night sum, are the span. The card and the
+    // roadtrip's figures band both print this by construction: the helper
+    // reads the band's own `spanDays`.
+    const start = at("2031-05-01");
+    const end = at("2031-05-12");
+    expect(spanDays(start, end)).toBe(12);
+    expect(roadtripDays(start, end, { nights: 8, nightsKnown: true })).toEqual({
+      days: 12,
+      approximate: false,
+    });
+  });
+
+  it("falls back to the nights + 1 — ≈ while they are a lower bound — only without a date", () => {
+    expect(roadtripDays(at("2031-05-01"), null, { nights: 8, nightsKnown: true })).toEqual({
+      days: 9,
+      approximate: false,
+    });
+    expect(roadtripDays(null, null, { nights: 8, nightsKnown: false })).toEqual({
+      days: 9,
+      approximate: true,
+    });
   });
 });
 

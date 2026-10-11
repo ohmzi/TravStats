@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Pill from "../ui/Pill";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useDisplayFormat } from "../../lib/displayFormat";
-import type { RoadtripPhase } from "../../lib/roadtrip/roadtripView";
+import { roadtripDays, type RoadtripPhase } from "../../lib/roadtrip/roadtripView";
 import type { RoadtripSummary } from "../../types/roadtrip";
 import CardMap from "../map/CardMap";
 
@@ -48,8 +48,9 @@ function Figure({
  * One roadtrip in the list (design 2026-09-25, board 1): the route sketch,
  * the vehicle, the name, when and where, and three figures — km, days and
  * cities (owner, 2026-10-08 figures; days since 2026-10-11). A figure that is
- * not known is a dash with its reason on hover — never a zero — and a day
- * count derived from nights that are only a lower bound carries "≈".
+ * not known is a dash with its reason on hover — never a zero — and the day
+ * count falls back to the stored nights + 1, carrying "≈" while those nights
+ * are only a lower bound, exactly when a stored date is missing.
  *
  * CITIES is not a station count (owner, 2026-10-08): it is the distinct STATION
  * TITLES the row carries, the same field the roadtrips list strip unions across
@@ -59,15 +60,18 @@ function Figure({
  * flight card, which dashes when no airport can name a city — a known empty
  * against an unknown one; do not unify them (owner, 2026-10-08).
  *
- * THE ROW IS THE LIST STRIP'S RULE AT ROW SCALE. Its days count the stored
- * nights inclusively (nights + 1 — the owner's reading of a trip span, 2026-10-11)
- * and read the shared `common:summary.cardDays` — the one key both journey cards
- * use, so they cannot spell the same figure two ways — and its cities the shared
+ * THE ROW IS THE LIST STRIP'S RULE AT ROW SCALE. Its days are the roadtrip's
+ * own span (`roadtripDays`): the two stored dates' inclusive days where both
+ * are there — the very `spanDays` the detail page's figures band prints, so
+ * one roadtrip cannot put two day counts under the one word — and the stored
+ * nights + 1 only when a date is missing. It reads the shared
+ * `common:summary.cardDays` — the one key both journey cards use, so they
+ * cannot spell the same figure two ways — and its cities the shared
  * `common:summary.cities` over `cityNames`, the field the strip unions. The
  * detail page's figures band is a DIFFERENT surface and keeps its own cells (it
- * has a "slept in" figure the card never had, and its Days come from the two
- * dates while this card's come from the nights) — that difference is deliberate,
- * not something to "fix" into agreement.
+ * has a "slept in" figure the card never had, and it leaves Days out of an
+ * undated roadtrip where the card falls back to the nights) — that difference
+ * is deliberate, not something to "fix" into agreement.
  */
 export default function RoadtripCard({
   roadtrip: r,
@@ -80,9 +84,12 @@ export default function RoadtripCard({
   const navigate = useNavigate();
   const span = useRoadtripSpan();
   const nf = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 });
-  // The stored nights are the data; the headline counts the span's days, one
-  // inclusive calendar span (owner, 2026-10-11): five nights away is six days.
-  const days = r.nights + 1;
+  // The headline is the roadtrip's own span in days: its two stored dates
+  // inclusively where both are there — the figure the detail page's band
+  // prints — and the stored nights + 1 only when a date is missing, the "≈"
+  // staying while those nights are known only as a lower bound (owner,
+  // 2026-10-11).
+  const { days, approximate } = roadtripDays(r.startDate, r.endDate, r);
   const vehicle = [
     r.vehicle ? t(`roadtrips:vehicle.${r.vehicle}`) : null,
     r.vehicleName ? `„${r.vehicleName}“` : null,
@@ -178,9 +185,9 @@ export default function RoadtripCard({
             title={kmKnown ? undefined : t("roadtrips:list.kmUnknown")}
           />
           <Figure
-            value={`${r.nightsKnown ? "" : "≈ "}${nf.format(days)}`}
+            value={`${approximate ? "≈ " : ""}${nf.format(days)}`}
             label={t("common:summary.cardDays", { count: days })}
-            title={r.nightsKnown ? undefined : t("roadtrips:list.nightsApprox")}
+            title={approximate ? t("roadtrips:list.nightsApprox") : undefined}
           />
           <Figure
             value={nf.format(r.cityNames.length)}

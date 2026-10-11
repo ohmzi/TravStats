@@ -76,17 +76,34 @@ describe("the roadtrip card in the shared PinnedCard", () => {
     expect(screen.getByText("Norwegen")).toBeInTheDocument();
   });
 
-  it("heads the stay figure as DAYS — the nights plus the arrival day (owner, 2026-10-11)", async () => {
+  it("heads the days as the nights + 1 while the fetched detail has no dates (owner, 2026-10-11)", async () => {
     get.mockResolvedValue({
       ...DETAIL,
       nights: { nights: 8, nightsKnown: true, placesSlept: 3 },
     });
     await renderCard();
-    // Eight nights is nine days, under the shared day key the roadtrip card
-    // prints — one figure, one word, wherever a card is tapped open.
+    // No dates to span: the stored nights + 1 in scope, under the shared day
+    // key the roadtrip card prints — one figure, one word, wherever a card is
+    // tapped open.
     expect(await screen.findByText("common:summary.cardDays")).toBeInTheDocument();
     expect(screen.getByText("9")).toBeInTheDocument();
     expect(screen.queryByText("common:summary.cardNights")).toBeNull();
+  });
+
+  it("heads the stored date span where the detail has both dates — the roadtrip page band's figure", async () => {
+    get.mockResolvedValue({
+      ...DETAIL,
+      startDate: "2031-05-01T00:00:00.000Z",
+      endDate: "2031-05-12T00:00:00.000Z",
+      nights: { nights: 8, nightsKnown: true, placesSlept: 3 },
+    });
+    await renderCard();
+    // Twelve days on the dates against eight counted nights: the dates win —
+    // the same `roadtripDays` the list card and the roadtrip's figures band
+    // read, so no two surfaces can print two counts for one roadtrip.
+    expect(await screen.findByText("common:summary.cardDays")).toBeInTheDocument();
+    expect(screen.getByText("12")).toBeInTheDocument();
+    expect(screen.queryByText("9")).toBeNull();
   });
 
   it("puts the way in up even when the figures failed — never a 0 for an unknown km", async () => {
