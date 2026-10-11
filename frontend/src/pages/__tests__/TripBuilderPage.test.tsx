@@ -350,7 +350,8 @@ describe("resuming a review", () => {
 describe("the review", () => {
   it("shows the flights, the one on another trip unticked and saying so", async () => {
     await renderDraft();
-    const [out, elsewhere] = screen.getAllByRole("switch", { name: /ZZ/ });
+    const out = screen.getByRole("switch", { name: "ZZ101 ZNV→ZSB" });
+    const elsewhere = screen.getByRole("switch", { name: "ZZ202 ZSB→ZNV" });
     expect(out).toBeChecked();
     expect(elsewhere).not.toBeChecked();
     expect(
@@ -396,7 +397,7 @@ describe("the review", () => {
     const height = "var(--ts-size-button-secondary)";
     // An edit, so the third control (Reset) is drawn. The owner's screenshot
     // (2026-10-11): the amber CTA stood a size taller than Back and Reset.
-    fireEvent.click(screen.getAllByRole("switch", { name: /ZZ202/ })[0]);
+    fireEvent.click(screen.getByRole("switch", { name: "ZZ202 ZSB→ZNV" }));
     expect(screen.getByRole("button", { name: "tripBuilder:review.reset" }).style.height).toBe(
       height
     );
@@ -455,7 +456,7 @@ describe("the review", () => {
   it("asks before going back with edits, and stays when the answer is no", async () => {
     mocks.confirm.mockResolvedValue(false);
     await renderDraft();
-    fireEvent.click(screen.getAllByRole("switch", { name: /ZZ202/ })[0]);
+    fireEvent.click(screen.getByRole("switch", { name: "ZZ202 ZSB→ZNV" }));
     fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.back" }));
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalled());
     expect(where()).toBe(`/trips/builder?draft=${DRAFT_ID}`);
@@ -479,17 +480,17 @@ describe("the review", () => {
       })
     );
     await renderDraft();
-    fireEvent.click(screen.getAllByRole("switch", { name: /ZZ202/ })[0]);
+    fireEvent.click(screen.getByRole("switch", { name: "ZZ202 ZSB→ZNV" }));
     fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.back" }));
     await waitFor(() => expect(where()).toBe("/trips/abc"));
   });
 
   it("takes back every edit on request", async () => {
     await renderDraft();
-    fireEvent.click(screen.getAllByRole("switch", { name: /ZZ202/ })[0]);
-    expect(screen.getAllByRole("switch", { name: /ZZ202/ })[0]).toBeChecked();
+    fireEvent.click(screen.getByRole("switch", { name: "ZZ202 ZSB→ZNV" }));
+    expect(screen.getByRole("switch", { name: "ZZ202 ZSB→ZNV" })).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.reset" }));
-    expect(screen.getAllByRole("switch", { name: /ZZ202/ })[0]).not.toBeChecked();
+    expect(screen.getByRole("switch", { name: "ZZ202 ZSB→ZNV" })).not.toBeChecked();
   });
 });
 
@@ -575,7 +576,7 @@ describe("saving", () => {
     mocks.scan.mockResolvedValue({ jobId: NEXT_JOB });
     mocks.waitForJob.mockReturnValue(new Promise(() => undefined));
     await renderDraft();
-    fireEvent.click(screen.getAllByRole("switch", { name: /ZZ202/ })[0]);
+    fireEvent.click(screen.getByRole("switch", { name: "ZZ202 ZSB→ZNV" }));
     fireEvent.click(createButton());
     expect(await screen.findByText("tripBuilder:errors.commit.draftExpired")).toBeInTheDocument();
 

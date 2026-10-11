@@ -326,6 +326,22 @@
       "sleptNone": "No unknown night is near this stop. Answer the nights between the days instead.",
       "snapped": "Moved {{km}} km onto the road"
     },
+    "stopovers": {
+      "album": "Its own album: {{title}}",
+      "albumNote": "The stopover's photos stay in the trip's album too.",
+      "heading": "{{city}}, {{day}} · {{hours}} h at {{airport}}",
+      "headingNoClock": "{{city}}, {{day}} · times unknown",
+      "hint": "Long layovers you spent in the city",
+      "outing_one": "{{count}} of them away from the airport",
+      "outing_other": "{{count}} of them away from the airport",
+      "photos_one": "{{count}} photo in the city",
+      "photos_other": "{{count}} photos in the city",
+      "roadtrip": "Make it a roadtrip",
+      "synced": "Already synced",
+      "syncedCounts_one": "{{stored}} photo when it was synced · {{count}} now",
+      "syncedCounts_other": "{{stored}} photos when it was synced · {{count}} now",
+      "title": "Stopovers"
+    },
     "success": {
       "albumAdded": "album: {{added}} added ({{already}} already in)",
       "albumFailed": "The album could not be completed. The trip itself was saved.",

@@ -11,7 +11,15 @@ import {
   addDays,
   type NightAssign,
 } from "../../shared/tour/builderNightPlan";
-import type { Day, DraftDay, DraftStation, TripBuilderDraft } from "../../types/tripBuilder";
+import type {
+  Day,
+  DraftDay,
+  DraftFlight,
+  DraftLeg,
+  DraftStation,
+  DraftStopover,
+  TripBuilderDraft,
+} from "../../types/tripBuilder";
 import type { TourGeometry } from "../../types/tour";
 import type { ReviewArea, ReviewState } from "./draftEdits";
 import { nightFits } from "./nightRules";
@@ -155,19 +163,40 @@ export function reviewProblems(draft: TripBuilderDraft, state: ReviewState): Rev
 
 // ─── The map preview ─────────────────────────────────────────────────────────
 
-/** Every station of the areas that will be saved, in travel order. */
-export function previewStations(state: ReviewState): DraftStation[] {
-  return state.areas.filter((area) => area.as !== "skip").flatMap((area) => area.stations);
+/**
+ * How long a stopover was, in whole hours: the key names the two flights it
+ * lies between, and the hours are the clock from the arrival to the departure.
+ * Null when either flight is not in the draft or is known only by its day.
+ */
+export function stopoverHours(
+  flights: readonly DraftFlight[],
+  stopover: DraftStopover
+): number | null {
+  const [inFlightId, outFlightId] = stopover.key.split("#");
+  const from = flights.find((flight) => flight.id === inFlightId)?.arrLocal;
+  const to = flights.find((flight) => flight.id === outFlightId)?.depLocal;
+  if (from === undefined || to === undefined || from.length <= 10 || to.length <= 10) return null;
+  const minutes = (local: string): number => Date.parse(`${local.replace(" ", "T")}:00Z`) / 60_000;
+  return Math.max(0, Math.floor((minutes(to) - minutes(from)) / 60));
+}
+
+/** Every station of the areas that will be saved, then a toggled stopover's, in travel order. */
+export function previewStations(draft: TripBuilderDraft, state: ReviewState): DraftStation[] {
+  return [
+    ...state.areas.filter((area) => area.as !== "skip").flatMap((area) => area.stations),
+    ...(draft.stopovers ?? [])
+      .filter((stopover) => state.stopoverTicks[stopover.key]?.roadtrip === true)
+      .flatMap((stopover) => stopover.stations),
+  ];
 }
 
 /** A straight line through each saved area's stations, drawn as the unrouted legs they are. */
-export function previewGeometry(state: ReviewState): TourGeometry {
+export function previewGeometry(draft: TripBuilderDraft, state: ReviewState): TourGeometry {
   const features: TourGeometry["features"] = [];
-  for (const area of state.areas) {
-    if (area.as === "skip") continue;
-    area.legs.forEach((leg, i) => {
-      const from = area.stations[i];
-      const to = area.stations[i + 1];
+  const addLegs = (stations: readonly DraftStation[], legs: readonly DraftLeg[]): void => {
+    legs.forEach((leg, i) => {
+      const from = stations[i];
+      const to = stations[i + 1];
       if (from === undefined || to === undefined) return;
       features.push({
         type: "Feature",
@@ -187,6 +216,14 @@ export function previewGeometry(state: ReviewState): TourGeometry {
         },
       });
     });
+  };
+  for (const area of state.areas) {
+    if (area.as === "skip") continue;
+    addLegs(area.stations, area.legs);
+  }
+  for (const stopover of draft.stopovers ?? []) {
+    if (state.stopoverTicks[stopover.key]?.roadtrip !== true) continue;
+    addLegs(stopover.stations, stopover.legs);
   }
   return { type: "FeatureCollection", features };
 }

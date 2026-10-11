@@ -26,7 +26,7 @@ const draft = reviewDraft();
 
 describe("ReviewMapPreview", () => {
   it("draws a marker for each station and a line for each leg once the map has loaded", async () => {
-    render(<ReviewMapPreview state={initialReviewState(draft)} />);
+    render(<ReviewMapPreview draft={draft} state={initialReviewState(draft)} />);
     const map = await screen.findByTestId("map");
     expect(map).toHaveAttribute("data-stops", "6");
     expect(map).toHaveAttribute("data-legs", "4");
@@ -38,7 +38,7 @@ describe("ReviewMapPreview", () => {
       type: "delete",
       stationKey: "-904|3388|2031-05-06",
     });
-    render(<ReviewMapPreview state={state} />);
+    render(<ReviewMapPreview draft={draft} state={state} />);
     const map = await screen.findByTestId("map");
     expect(map).toHaveAttribute("data-stops", "5");
     expect(map).toHaveAttribute("data-legs", "3");
@@ -49,7 +49,7 @@ describe("ReviewMapPreview", () => {
     for (const area of draft.areas) {
       state = applyEdit(draft, state, { type: "setAreaKind", areaKey: area.key, as: "skip" });
     }
-    const { container } = render(<ReviewMapPreview state={state} />);
+    const { container } = render(<ReviewMapPreview draft={draft} state={state} />);
     expect(container).toBeEmptyDOMElement();
   });
 });

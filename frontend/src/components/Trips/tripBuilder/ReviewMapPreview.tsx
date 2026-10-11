@@ -4,6 +4,7 @@ import { useTranslation } from "../../../hooks/useTranslation";
 import { DETAIL_MAP_BOX_RADIUS } from "../../../lib/detailChrome";
 import type { ReviewState } from "../../../lib/tripBuilder/draftEdits";
 import { previewGeometry, previewStations } from "../../../lib/tripBuilder/reviewView";
+import type { TripBuilderDraft } from "../../../types/tripBuilder";
 import type { TripMapContent } from "../TripMap";
 
 // The map is heavy (deck.gl, maplibre): it is fetched when a review has a route to draw.
@@ -14,9 +15,18 @@ const TripMap = lazy(() => import("../TripMap"));
  * station and a straight line per leg, dashed because none is routed yet. It
  * follows every edit; an area that is not saved is not drawn.
  */
-export default function ReviewMapPreview({ state }: { state: ReviewState }): JSX.Element | null {
+export default function ReviewMapPreview({
+  draft,
+  state,
+}: {
+  draft: TripBuilderDraft;
+  state: ReviewState;
+}): JSX.Element | null {
   const { t } = useTranslation(["tripBuilder"]);
-  const stations = useMemo(() => previewStations(state), [state.areas]);
+  const stations = useMemo(
+    () => previewStations(draft, state),
+    [draft, state.areas, state.stopoverTicks]
+  );
   const content = useMemo<TripMapContent>(
     () => ({
       stops: stations.map((station) => ({
@@ -34,10 +44,10 @@ export default function ReviewMapPreview({ state }: { state: ReviewState }): JSX
       {
         routeId: "trip-builder-preview",
         name: t("tripBuilder:review.map.title"),
-        geometry: previewGeometry(state),
+        geometry: previewGeometry(draft, state),
       },
     ],
-    [state.areas, t]
+    [draft, state.areas, state.stopoverTicks, t]
   );
   if (stations.length === 0) return null;
 

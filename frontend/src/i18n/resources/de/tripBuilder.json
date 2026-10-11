@@ -326,6 +326,22 @@
       "sleptNone": "Keine offene Nacht liegt in der Nähe dieses Stopps. Beantworte stattdessen die Nächte zwischen den Tagen.",
       "snapped": "{{km}} km auf die Straße verschoben"
     },
+    "stopovers": {
+      "album": "Eigenes Album: {{title}}",
+      "albumNote": "Die Fotos der Zwischenlandung bleiben auch im Album der Reise.",
+      "heading": "{{city}}, {{day}} · {{hours}} h in {{airport}}",
+      "headingNoClock": "{{city}}, {{day}} · Zeiten unbekannt",
+      "hint": "Lange Zwischenlandungen, die du in der Stadt verbracht hast",
+      "outing_one": "{{count}} davon abseits des Flughafens",
+      "outing_other": "{{count}} davon abseits des Flughafens",
+      "photos_one": "{{count}} Foto in der Stadt",
+      "photos_other": "{{count}} Fotos in der Stadt",
+      "roadtrip": "Als Roadtrip anlegen",
+      "synced": "Schon abgeglichen",
+      "syncedCounts_one": "{{stored}} Foto beim Abgleich · {{count}} jetzt",
+      "syncedCounts_other": "{{stored}} Fotos beim Abgleich · {{count}} jetzt",
+      "title": "Zwischenaufenthalte"
+    },
     "success": {
       "albumAdded": "Album: {{added}} hinzugefügt ({{already}} schon drin)",
       "albumFailed": "Das Album konnte nicht fertiggestellt werden. Die Reise selbst ist gespeichert.",

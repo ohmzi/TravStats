@@ -9,9 +9,18 @@ import {
   previewStations,
   reviewProblems,
   stationsByDay,
+  stopoverHours,
   unknownNightCount,
 } from "../reviewView";
-import { KEY, reviewDraft, station } from "./reviewFixtures";
+import {
+  KEY,
+  STOPOVER,
+  STOPOVER_FLIGHTS,
+  STOPOVER_OUT,
+  reviewDraft,
+  station,
+  stopoverDraft,
+} from "./reviewFixtures";
 
 const draft = reviewDraft();
 const start = initialReviewState(draft);
@@ -157,13 +166,13 @@ describe("reviewProblems", () => {
 
 describe("the map preview", () => {
   it("lists the stations of the saved areas", () => {
-    expect(previewStations(start)).toHaveLength(6);
+    expect(previewStations(draft, start)).toHaveLength(6);
     const skipped = run({ type: "setAreaKind", areaKey: "2031-05-05#1", as: "skip" });
-    expect(previewStations(skipped)).toHaveLength(4);
+    expect(previewStations(draft, skipped)).toHaveLength(4);
   });
 
   it("draws one straight line per leg of a saved area, as longitude then latitude", () => {
-    const geometry = previewGeometry(start);
+    const geometry = previewGeometry(draft, start);
     expect(geometry.features).toHaveLength(4);
     expect(geometry.features[0].geometry.coordinates).toEqual([
       [172.64, -43.53],
@@ -177,6 +186,35 @@ describe("the map preview", () => {
       { type: "setLegMode", fromKey: KEY.southbridge, toKey: KEY.tarnside, mode: "ferry" },
       { type: "setAreaKind", areaKey: "2031-05-02#1", as: "skip" }
     );
-    expect(previewGeometry(ferry).features.map((f) => f.properties.mode)).toEqual(["ferry"]);
+    expect(previewGeometry(draft, ferry).features.map((f) => f.properties.mode)).toEqual(["ferry"]);
+  });
+
+  it("adds a stopover's tour once its roadtrip switch is on, and not before", () => {
+    const withStopover = stopoverDraft();
+    const off = initialReviewState(withStopover);
+    expect(previewStations(withStopover, off)).toHaveLength(6);
+    expect(previewGeometry(withStopover, off).features).toHaveLength(4);
+    const on = applyEdit(withStopover, off, {
+      type: "setStopoverTick",
+      key: STOPOVER.key,
+      roadtrip: true,
+      album: false,
+    });
+    expect(previewStations(withStopover, on)).toHaveLength(9);
+    expect(previewGeometry(withStopover, on).features).toHaveLength(6);
+  });
+});
+
+describe("stopoverHours", () => {
+  it("counts the whole hours from the arrival to the departure", () => {
+    expect(stopoverHours(STOPOVER_FLIGHTS, STOPOVER)).toBe(7);
+  });
+
+  it("is null when a flight is missing from the draft or known only by its day", () => {
+    expect(stopoverHours([], STOPOVER)).toBeNull();
+    const dayOnly = STOPOVER_FLIGHTS.map((flight) =>
+      flight.id === STOPOVER_OUT ? { ...flight, depLocal: "2031-05-04", precise: false } : flight
+    );
+    expect(stopoverHours(dayOnly, STOPOVER)).toBeNull();
   });
 });

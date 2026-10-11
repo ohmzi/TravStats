@@ -22,6 +22,7 @@ import ReviewMapPreview from "../components/Trips/tripBuilder/ReviewMapPreview";
 import ReviewNightChip from "../components/Trips/tripBuilder/ReviewNightChip";
 import ReviewPhotoJourneys from "../components/Trips/tripBuilder/ReviewPhotoJourneys";
 import ReviewSection from "../components/Trips/tripBuilder/ReviewSection";
+import ReviewStopovers from "../components/Trips/tripBuilder/ReviewStopovers";
 import ReviewWarnings from "../components/Trips/tripBuilder/ReviewWarnings";
 import ShowUnchangedToggle from "../components/Trips/tripBuilder/ShowUnchangedToggle";
 import { useBuilderSession, type BuilderSession } from "../hooks/useBuilderSession";
@@ -285,6 +286,15 @@ function ReviewScreen({
         ticks={state.flightTicks}
         onTick={(flightId, ticked) => edit({ type: "setFlightTick", flightId, ticked })}
       />
+      <ReviewStopovers
+        stopovers={draft.stopovers ?? []}
+        flights={draft.flights}
+        ticks={state.stopoverTicks}
+        roadtripsHidden={roadtripsHidden}
+        onTick={(key, tick) =>
+          edit({ type: "setStopoverTick", key, roadtrip: tick.roadtrip, album: tick.album })
+        }
+      />
       {draft.album !== null && state.album !== null && (
         <ReviewAlbumSection
           album={draft.album}
@@ -426,7 +436,7 @@ function ReviewScreen({
             {body}
           </ExistingDiffProvider>
           <aside className="lg:sticky" style={{ top: DETAIL_MAP_STICKY_TOP }}>
-            <ReviewMapPreview state={state} />
+            <ReviewMapPreview draft={draft} state={state} />
           </aside>
         </div>
       )}
