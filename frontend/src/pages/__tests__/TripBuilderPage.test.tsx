@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, matchRoutes, useLocation } from "react-router-dom";
 
-import { existingDraft } from "../../lib/tripBuilder/__tests__/existingFixture";
+import { existingDraft, station } from "../../lib/tripBuilder/__tests__/existingFixture";
 import {
   DRAFT_ID,
   FLIGHT_OUT,
@@ -213,8 +213,40 @@ describe("the scan", () => {
     mocks.waitForJob.mockRejectedValue(new mocks.JobLostError());
     renderAt(`/trips/builder?job=${JOB}`);
     expect(await screen.findByText("tripBuilder:review.scan.lost")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "tripBuilder:review.expired.scanAgain" })
+    ).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.back" }));
     expect(where()).toBe("/trips");
+  });
+
+  it("repeats the request a lost scan's hand-off kept, from the lost screen itself", async () => {
+    const scan = {
+      name: "Southern loop",
+      startDay: "2031-05-02",
+      endDay: "2031-05-07",
+      inspect: true,
+      createAlbum: false,
+      target: { kind: "new" },
+    };
+    sessionStorage.setItem(
+      `tb:job:${JOB}`,
+      JSON.stringify({
+        form: { name: "Southern loop" },
+        target: { kind: "new" },
+        returnTo: "/trips",
+        scan,
+      })
+    );
+    mocks.waitForJob
+      .mockRejectedValueOnce(new mocks.JobLostError())
+      .mockReturnValue(new Promise(() => undefined));
+    mocks.scan.mockResolvedValue({ jobId: NEXT_JOB });
+    renderAt(`/trips/builder?job=${JOB}`);
+    expect(await screen.findByText("tripBuilder:review.scan.lost")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.expired.scanAgain" }));
+    await waitFor(() => expect(where()).toBe(`/trips/builder?job=${NEXT_JOB}`));
+    expect(mocks.scan).toHaveBeenCalledWith(scan);
   });
 
   it("gives an Immich failure its own sentence", async () => {
@@ -799,6 +831,61 @@ describe("a window with nothing in it", () => {
     expect(screen.getByText("tripBuilder:review.album.title")).toBeInTheDocument();
     expect(document.querySelectorAll("[data-area]")).toHaveLength(0);
     expect(createButton()).toBeEnabled();
+  });
+});
+
+describe("an empty window on an existing trip", () => {
+  // The empty screen shows only the flights: the re-sync decisions it cannot
+  // show (spec §K.5) are never submitted, so every stored stop is kept and the
+  // album removes nothing.
+  const emptyExisting = (over: Partial<TripBuilderDraft> = {}): TripBuilderDraft =>
+    existingDraft({
+      stats: { ...existingDraft().stats, assets: 0, located: 0 },
+      flights: [reviewDraft().flights[0]],
+      ...over,
+    });
+
+  const flightsOnly = () => screen.getByRole("button", { name: /flightsOnlyExisting/ });
+
+  beforeEach(() => {
+    mocks.commit.mockResolvedValue({ jobId: COMMIT_JOB });
+    mocks.waitForJob.mockResolvedValue({ ...RESULT, created: false, roadtrips: [] });
+  });
+
+  it("keeps every not-seen stop and removes nothing from the album", async () => {
+    await renderDraft(
+      emptyExisting({
+        areas: [],
+        days: [],
+        nights: {},
+        notSeenStops: [
+          station(KEY.tarnside, "Tarnside", "2031-05-07", "2031-05-09", {
+            status: "notSeen",
+            existingId: "stop-o",
+            titleSource: "existing",
+            notSeen: { defaultKeep: false, reason: "outsideWindow" },
+          }),
+        ],
+      })
+    );
+    fireEvent.click(flightsOnly());
+    await screen.findByText("tripBuilder:review.success.updated");
+    expect(mocks.commit.mock.calls[0][1]).toMatchObject({
+      flightIds: [FLIGHT_OUT],
+      stops: { keep: ["stop-o"], remove: [] },
+      album: { removeOutside: false },
+    });
+  });
+
+  it("keeps every not-seen station of the areas it never drew", async () => {
+    await renderDraft(emptyExisting());
+    fireEvent.click(flightsOnly());
+    await screen.findByText("tripBuilder:review.success.updated");
+    const body = mocks.commit.mock.calls[0][1];
+    expect(body.areas[0].keepNotSeen).toEqual(["st-c", "st-d"]);
+    expect(body.areas[0].removeNotSeen).toEqual([]);
+    expect(body.stops).toEqual({ keep: ["stop-h"], remove: [] });
+    expect(body.album.removeOutside).toBe(false);
   });
 });
 

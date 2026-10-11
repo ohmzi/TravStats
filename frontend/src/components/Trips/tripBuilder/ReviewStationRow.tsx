@@ -30,6 +30,8 @@ interface ReviewStationRowProps {
   canMerge: boolean;
   /** The station is an excursion that can be folded back into its base. */
   canFold: boolean;
+  /** The station can be taken out of the route (a matched stop's anchor cannot). */
+  canDelete?: boolean;
   onEdit: (edit: DraftEdit) => void;
 }
 
@@ -46,6 +48,7 @@ export default function ReviewStationRow({
   canSleep,
   canMerge,
   canFold,
+  canDelete = true,
   onEdit,
 }: ReviewStationRowProps): JSX.Element | null {
   const { t } = useTranslation(["tripBuilder"]);
@@ -199,7 +202,10 @@ export default function ReviewStationRow({
               </Button>
             )}
             {station.kind !== "home" && (
-              <Button onClick={() => onEdit({ type: "delete", stationKey: station.key })}>
+              <Button
+                disabled={!canDelete}
+                onClick={() => onEdit({ type: "delete", stationKey: station.key })}
+              >
                 {t("tripBuilder:review.station.delete")}
               </Button>
             )}

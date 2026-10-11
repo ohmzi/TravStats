@@ -29,6 +29,7 @@ import {
   scanFailureKey,
   scanStartFailureKey,
 } from "../lib/tripBuilder/errors";
+import { keepEverything } from "../lib/tripBuilder/existingReview";
 import { scanBodyFor, startRescan } from "../lib/tripBuilder/rescan";
 import {
   carryKey,
@@ -94,6 +95,8 @@ export interface BuilderSession {
   scanAgain: () => Promise<void>;
   /** Sends the commit; `withoutAlbum` first switches the album off (after it was blocked). */
   submit: (withoutAlbum?: boolean) => Promise<void>;
+  /** Sends the flights alone: the empty-window screen's re-sync decisions go out as keep. */
+  submitFlightsOnly: () => Promise<void>;
   retryAlbum: () => Promise<void>;
   /** Discards the draft and goes back to where the review was started. */
   leave: () => void;
@@ -324,18 +327,10 @@ export function useBuilderSession(): BuilderSession {
     });
   }, [draftId, jobId, follow]);
 
-  const submit = useCallback(
-    async (withoutAlbum = false): Promise<void> => {
-      if (draft === null || state === null || handoff.current === null) return;
-      let sending = state;
-      if (withoutAlbum) {
-        sending = applyEdit(draft, state, {
-          type: "setAlbum",
-          create: false,
-          name: state.album?.name ?? state.tripName,
-        });
-        setState(sending);
-      }
+  /** Sends one built body and holds the outcome; the caller decides what goes in it. */
+  const sendCommit = useCallback(
+    async (sending: ReviewState): Promise<void> => {
+      if (draft === null || handoff.current === null) return;
       setCommit({ kind: "running" });
       try {
         const body = buildCommitBody(draft, sending, handoff.current.form, commitKey.current);
@@ -360,8 +355,35 @@ export function useBuilderSession(): BuilderSession {
         }
       }
     },
-    [draft, state, refusal]
+    [draft, refusal]
   );
+
+  const submit = useCallback(
+    async (withoutAlbum = false): Promise<void> => {
+      if (draft === null || state === null) return;
+      let sending = state;
+      if (withoutAlbum) {
+        sending = applyEdit(draft, state, {
+          type: "setAlbum",
+          create: false,
+          name: state.album?.name ?? state.tripName,
+        });
+        setState(sending);
+      }
+      await sendCommit(sending);
+    },
+    [draft, state, sendCommit]
+  );
+
+  /**
+   * The empty-window screen's submit: it draws only the flights, so the re-sync
+   * decisions it never showed (spec §K.5) are sent as keep, with no album
+   * removals — that screen must not delete or remove what it did not show.
+   */
+  const submitFlightsOnly = useCallback(async (): Promise<void> => {
+    if (state === null) return;
+    await sendCommit(keepEverything(state));
+  }, [state, sendCommit]);
 
   const retryAlbum = useCallback(async (): Promise<void> => {
     if (commit.kind !== "done") return;
@@ -401,6 +423,7 @@ export function useBuilderSession(): BuilderSession {
     rescan,
     scanAgain,
     submit,
+    submitFlightsOnly,
     retryAlbum,
     leave,
   };

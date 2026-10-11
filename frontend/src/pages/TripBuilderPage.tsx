@@ -392,7 +392,11 @@ function ReviewScreen({
                 {t("tripBuilder:review.empty.changeDates")}
               </Button>
               {ticked > 0 && (
-                <Button variant="primary" disabled={running} onClick={() => void session.submit()}>
+                <Button
+                  variant="primary"
+                  disabled={running}
+                  onClick={() => void session.submitFlightsOnly()}
+                >
                   {draft.target.kind === "existing"
                     ? t("tripBuilder:review.empty.flightsOnlyExisting", { count: ticked })
                     : t("tripBuilder:review.empty.flightsOnlyNew", { count: ticked })}
@@ -482,7 +486,24 @@ export default function TripBuilderPage(): JSX.Element {
       />
     );
   } else if (phase.kind === "scanLost") {
-    content = <Message kind="degraded" title={t("tripBuilder:review.scan.lost")} action={goBack} />;
+    // The hand-off kept the scan request, so the lost scan can be run again
+    // exactly as it was — the same offer the expired draft makes (spec §G).
+    content = (
+      <Message
+        kind="degraded"
+        title={t("tripBuilder:review.scan.lost")}
+        action={
+          <div className="flex flex-wrap justify-center" style={{ gap: "var(--ts-space-md)" }}>
+            {session.handoff.scan !== undefined && (
+              <Button variant="primary" onClick={() => void session.scanAgain()}>
+                {t("tripBuilder:review.expired.scanAgain")}
+              </Button>
+            )}
+            {goBack}
+          </div>
+        }
+      />
+    );
   } else if (phase.kind === "scanFailed") {
     content = (
       <Message

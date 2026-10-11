@@ -1,5 +1,11 @@
 import type { DraftArea, DraftStation, TripBuilderDraft } from "../../../types/tripBuilder";
 
+/** The keys of `matchedStopDraft`'s one area. */
+export const STOP_KEY = {
+  harbour: "-894|3383|2031-05-04",
+  market: "-894|3383|2031-05-05",
+} as const;
+
 // Synthetic fixtures only (public repository).
 export const KEY = {
   northvale: "-901|3374|2031-05-02",
@@ -176,4 +182,71 @@ export function existingDraft(over: Partial<TripBuilderDraft> = {}): TripBuilder
     warnings: [],
     ...over,
   };
+}
+
+/**
+ * A trip whose only area is a `stops` area matched to one stored stop (`stop-m`,
+ * on its anchor): the second station is one more run of it, with no status.
+ */
+export function matchedStopDraft(over: Partial<TripBuilderDraft> = {}): TripBuilderDraft {
+  const harbour = station(STOP_KEY.harbour, "Port Carrow Harbour", "2031-05-04", "2031-05-04", {
+    status: "changed",
+    existingId: "stop-m",
+    titleSource: "existing",
+    before: { startDate: "2031-05-04", endDate: "2031-05-05", slept: false, stay: false },
+  });
+  const market = station(STOP_KEY.market, "Kelmore Market", "2031-05-05", "2031-05-05", {
+    photoCount: 5,
+  });
+  const area: DraftArea = {
+    key: "2031-05-04#1",
+    defaultAs: "stops",
+    suggestedName: "Port Carrow",
+    mainCity: null,
+    startDay: "2031-05-04",
+    endDay: "2031-05-05",
+    home: {
+      start: { offered: false, defaultOn: false },
+      end: { offered: false, defaultOn: false },
+      unconfirmed: false,
+    },
+    stations: [harbour, market],
+    legs: [
+      {
+        fromKey: STOP_KEY.harbour,
+        toKey: STOP_KEY.market,
+        chordKm: 4,
+        routedKm: null,
+        mode: "road",
+        ferryEvidence: null,
+      },
+    ],
+  };
+  return existingDraft({
+    areas: [area],
+    days: [
+      {
+        day: "2031-05-04",
+        photos: 6,
+        located: 6,
+        stationKeys: [STOP_KEY.harbour],
+        flightIds: [],
+        passedThrough: [],
+      },
+      {
+        day: "2031-05-05",
+        photos: 5,
+        located: 5,
+        stationKeys: [STOP_KEY.market],
+        flightIds: [],
+        passedThrough: [],
+      },
+    ],
+    nights: {
+      "2031-05-04": { assign: STOP_KEY.harbour, reason: "lastPhoto", suggestedStationKeys: [] },
+      "2031-05-05": { assign: "unknown", reason: "unknown", suggestedStationKeys: [] },
+    },
+    notSeenStops: [],
+    ...over,
+  });
 }

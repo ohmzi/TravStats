@@ -10,7 +10,7 @@ import {
   refusesExistingEdit,
   rowFactsFor,
 } from "../existingReview";
-import { existingDraft, KEY } from "./existingFixture";
+import { existingDraft, KEY, matchedStopDraft, STOP_KEY } from "./existingFixture";
 
 const COMMIT_KEY = "6a0b7c1d-2e3f-4a5b-8c6d-7e8f9a0b1c2d";
 
@@ -202,6 +202,55 @@ describe("the commit body for an existing trip", () => {
     expect(
       applyEdit(draft, state, { type: "setAreaKind", areaKey: "2031-05-02#1", as: "stops" })
     ).toBe(state);
+  });
+});
+
+describe("the stops area of an existing trip", () => {
+  const draft = matchedStopDraft();
+  const state = initialReviewState(draft);
+  const form = { name: "Port Carrow" };
+  const areaKey = "2031-05-04#1";
+
+  it("will not turn a matched stop into a roadtrip, and no body can name one", () => {
+    expect(refusesExistingEdit(draft, { type: "setAreaKind", areaKey, as: "roadtrip" })).toBe(true);
+    expect(applyEdit(draft, state, { type: "setAreaKind", areaKey, as: "roadtrip" })).toBe(state);
+    expect(refusesExistingEdit(draft, { type: "setAreaKind", areaKey, as: "skip" })).toBe(false);
+
+    // The guard makes this shape unreachable through the reducer; the body builder
+    // strips the id anyway, so no state can send a stored stop under a new roadtrip.
+    const forced = {
+      ...state,
+      areas: state.areas.map((area) => ({ ...area, as: "roadtrip" as const })),
+    };
+    const body = buildCommitBody(draft, forced, form, COMMIT_KEY);
+    expect(body.areas[0].as).toBe("roadtrip");
+    expect(body.areas[0].roadtripId).toBeUndefined();
+    expect(body.areas[0].stations.some((s) => s.existingId !== undefined)).toBe(false);
+  });
+
+  it("keeps the stored stop's id while the area is stops", () => {
+    const body = buildCommitBody(draft, state, form, COMMIT_KEY);
+    expect(body.areas[0].stations[0].existingId).toBe("stop-m");
+  });
+
+  it("will not remove the anchor: that row is the stored stop", () => {
+    expect(refusesExistingEdit(draft, { type: "delete", stationKey: STOP_KEY.harbour })).toBe(true);
+    expect(applyEdit(draft, state, { type: "delete", stationKey: STOP_KEY.harbour })).toBe(state);
+
+    // Another run of the stop is still the user's to remove.
+    const removed = applyEdit(draft, state, { type: "delete", stationKey: STOP_KEY.market });
+    expect(removed).not.toBe(state);
+    expect(buildCommitBody(draft, removed, form, COMMIT_KEY).areas[0].stations).toEqual([
+      expect.objectContaining({ existingId: "stop-m" }),
+    ]);
+  });
+
+  it("lets the anchor be merged: the merged row keeps the stop's id", () => {
+    const merged = applyEdit(draft, state, { type: "merge", stationKey: STOP_KEY.harbour });
+    expect(merged).not.toBe(state);
+    expect(buildCommitBody(draft, merged, form, COMMIT_KEY).areas[0].stations).toEqual([
+      expect.objectContaining({ key: STOP_KEY.harbour, existingId: "stop-m" }),
+    ]);
   });
 });
 

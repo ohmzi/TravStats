@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import {
   applyEdit,
@@ -8,6 +8,7 @@ import {
 } from "../../../../lib/tripBuilder/draftEdits";
 import { sleptKeys } from "../../../../lib/tripBuilder/planRules";
 import { placeNights } from "../../../../lib/tripBuilder/reviewView";
+import { matchedStopDraft, STOP_KEY } from "../../../../lib/tripBuilder/__tests__/existingFixture";
 import { reviewDraft } from "../../../../lib/tripBuilder/__tests__/reviewFixtures";
 import ReviewAreaSection from "../ReviewAreaSection";
 
@@ -156,5 +157,56 @@ describe("ReviewAreaSection", () => {
     renderArea(1, [{ type: "setAreaKind", areaKey: "2031-05-05#1", as: "skip" }]);
     expect(screen.getByText("tripBuilder:review.area.skipped")).toBeInTheDocument();
     expect(document.querySelectorAll("[data-day]")).toHaveLength(0);
+  });
+});
+
+describe("a stops area matched to a stored stop", () => {
+  const draft = matchedStopDraft();
+
+  function renderMatched(): void {
+    const state = initialReviewState(draft);
+    const area = state.areas[0];
+    render(
+      <ReviewAreaSection
+        draft={draft}
+        state={state}
+        area={area}
+        ordinal={1}
+        nights={placeNights(draft, state).byArea.get(area.key) ?? []}
+        slept={sleptKeys(state)}
+        roadtripsHidden={false}
+        onEdit={vi.fn()}
+      />
+    );
+  }
+
+  /** The row's header is its first button, open or closed. */
+  const toggleRow = (key: string): void => {
+    const row = document.querySelector(`[data-station="${key}"]`) as HTMLElement;
+    fireEvent.click(within(row).getAllByRole("button")[0]);
+  };
+  const removeButton = (): HTMLElement =>
+    screen.getByRole("button", { name: "tripBuilder:review.station.delete" });
+
+  it("offers stops and skip, but not roadtrip: a matched stop cannot become one", () => {
+    renderMatched();
+    expect(
+      screen.getByRole("radio", { name: "tripBuilder:review.area.kinds.stops" })
+    ).toHaveAttribute("aria-checked", "true");
+    expect(
+      screen.getByRole("radio", { name: "tripBuilder:review.area.kinds.skip" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("radio", { name: "tripBuilder:review.area.kinds.roadtrip" })
+    ).toBeNull();
+  });
+
+  it("greys Remove on the anchor, which is the stored stop, and not on another run", () => {
+    renderMatched();
+    toggleRow(STOP_KEY.harbour);
+    expect(removeButton()).toBeDisabled();
+    toggleRow(STOP_KEY.harbour);
+    toggleRow(STOP_KEY.market);
+    expect(removeButton()).toBeEnabled();
   });
 });

@@ -66,12 +66,42 @@ export function applyExistingEdit(
   return { ...existing, removeOutside: edit.remove };
 }
 
-/** A stored roadtrip cannot become timeline stops: the server refuses it, so the reducer does too. */
+/**
+ * The state as the empty-window submit sends it (spec §K.5): that screen shows
+ * no not-seen lists and no album removal switch, so every decision it could not
+ * show goes out as keep for the offered ids, and the album removes nothing.
+ */
+export function keepEverything(state: ReviewState): ReviewState {
+  if (state.existing === null) return state;
+  const keepNotSeen: Record<string, boolean> = {};
+  for (const id of Object.keys(state.existing.keepNotSeen)) keepNotSeen[id] = true;
+  return { ...state, existing: { keepNotSeen, removeOutside: false } };
+}
+
+/**
+ * What the review refuses to edit of a stored trip, so its rows and its reducer
+ * never build one the server would refuse (spec §K.4):
+ * - a stored roadtrip cannot become timeline stops;
+ * - a `stops` area matched to a stored stop — its anchor carries the stop's
+ *   `existingId` — cannot become a new roadtrip (`A new roadtrip has no stored
+ *   stations`) and cannot lose its anchor: `buildStopWrites` follows that id to
+ *   update the stop, and without it the stored stop would stay while the area's
+ *   rows are added again as a second stop.
+ */
 export function refusesExistingEdit(draft: TripBuilderDraft, edit: DraftEdit): boolean {
+  if (edit.type === "delete") {
+    const area = draft.areas.find((a) => a.stations.some((s) => s.key === edit.stationKey));
+    if (area === undefined || area.roadtripId !== undefined) return false;
+    return area.stations.find((s) => s.key === edit.stationKey)?.existingId !== undefined;
+  }
+  if (edit.type !== "setAreaKind") return false;
+  const area = draft.areas.find((a) => a.key === edit.areaKey);
+  if (edit.as === "stops") return area?.roadtripId !== undefined;
+  if (edit.as !== "roadtrip") return false;
   return (
-    edit.type === "setAreaKind" &&
-    edit.as === "stops" &&
-    draft.areas.find((area) => area.key === edit.areaKey)?.roadtripId !== undefined
+    area !== undefined &&
+    area.roadtripId === undefined &&
+    area.stations.some((station) => station.existingId !== undefined)
   );
 }
 
@@ -95,9 +125,12 @@ export function withExistingFields(
     const draftArea = draft.areas.find((a) => a.key === area.key);
     const reviewArea = state.areas.find((a) => a.key === area.key);
     const given = new Map((reviewArea?.stations ?? []).map((s) => [s.key, s.existingId] as const));
+    // A matched stop's id is the stop's: it travels only under `stops`, the one
+    // shape the server accepts it in (a new roadtrip has no stored stations).
+    const storeIds = draftArea?.roadtripId !== undefined || area.as === "stops";
     const stations = area.stations.map((station) => {
       const existingId = given.get(station.key);
-      return existingId === undefined ? station : { ...station, existingId };
+      return existingId === undefined || !storeIds ? station : { ...station, existingId };
     });
     if (draftArea?.roadtripId === undefined) return { ...area, stations };
     const notSeen = idsOf(draftArea.notSeen);

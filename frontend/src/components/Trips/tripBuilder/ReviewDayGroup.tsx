@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import { useTranslation } from "../../../hooks/useTranslation";
 import { useDisplayFormat } from "../../../lib/displayFormat";
 import type { DraftEdit, ReviewArea, ReviewState } from "../../../lib/tripBuilder/draftEdits";
+import { refusesExistingEdit } from "../../../lib/tripBuilder/existingReview";
 import { sleepNight } from "../../../lib/tripBuilder/nightRules";
 import { effectiveNights } from "../../../lib/tripBuilder/planRules";
 import { nightChoices, type DayStation } from "../../../lib/tripBuilder/reviewView";
@@ -108,6 +109,7 @@ export default function ReviewDayGroup({
             canSleep={sleepNight(draft, state, station.key) !== null}
             canMerge={mergeWithNext(chain, index) !== null}
             canFold={foldDayTrip(chain, index) !== null}
+            canDelete={!refusesExistingEdit(draft, { type: "delete", stationKey: station.key })}
             onEdit={onEdit}
           />
         </div>

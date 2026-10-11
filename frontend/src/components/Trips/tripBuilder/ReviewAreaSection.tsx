@@ -74,8 +74,14 @@ export default function ReviewAreaSection({
   );
   const leadNights = nights.filter((night) => night < span.startDay);
   const flight = draft.flights.find((f) => f.id === offered?.afterFlightId);
+  // A `stops` area matched to a stored stop is that stop (its anchor carries
+  // the id): it cannot become a roadtrip, so the option is not offered.
+  const matchedStop =
+    offered?.roadtripId === undefined && area.stations.some((s) => s.existingId !== undefined);
   const kinds = (["roadtrip", "stops", "skip"] as const).filter(
-    (kind) => kind !== "roadtrip" || !roadtripsHidden || area.as === "roadtrip"
+    (kind) =>
+      (kind !== "roadtrip" || !roadtripsHidden || area.as === "roadtrip") &&
+      (kind !== "roadtrip" || !matchedStop)
   );
   const answers = effectiveNights(state);
   const keys = new Set(area.stations.map((station) => station.key));
