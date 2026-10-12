@@ -37,9 +37,10 @@ import enTrips from "../resources/en/trips.json";
  * - `tripBuilder.json` `timeline.roadtrip`, `review.area.kinds.roadtrip`,
  *   `review.stopovers.roadtrip` — the same kind axis inside the builder.
  *
- * The set of FILES that still carry the word is compared too: changing a kept
- * string (or deleting its key) drops a file out of the list and fails this
- * suite until the list below is edited deliberately.
+ * The set of files that still carry the word is compared per locale too:
+ * losing a file's last kept occurrence in one locale drops that locale's file
+ * out of the list and fails this suite until the list below is edited
+ * deliberately.
  */
 
 const RESOURCES = path.resolve(__dirname, "..", "resources");
@@ -110,11 +111,8 @@ describe("the trip vocabulary (design 2026-10-12 §7)", () => {
   });
 
   it("keeps every allowed occurrence, so the allow-list cannot rot silently", () => {
-    const files = Object.keys(hits)
-      .map((entry) => entry.split("/")[1])
-      .filter((name, index, all) => all.indexOf(name) === index)
-      .sort();
-    expect(files).toEqual(Object.keys(KEPT).sort());
+    const expected = LOCALES.flatMap((l) => Object.keys(KEPT).map((f) => `${l}/${f}`)).sort();
+    expect(Object.keys(hits).sort()).toEqual(expected);
   });
 
   it("names the nested entity Trip in both locales' own surfaces", () => {
