@@ -635,6 +635,41 @@ describe("runCommitJob", () => {
       );
     });
 
+    it("updates the trip's own album, by name and add-only, for a route-scoped plan", async () => {
+      // Owner request 2026-10-12: the trip-side Re-sync adds the trip's photos
+      // to the album linked under the trip's STORED name — never the journey's
+      // album — and removes nothing.
+      const { trip, draft, plan } = await beginExisting(false, null);
+      const scoped = {
+        ...plan,
+        target: {
+          kind: "existing" as const,
+          tripId: trip.id,
+          tripName: "Northvale loop",
+          routeId: "b4c1d2e3-f4a5-4b6c-8d7e-9f0a1b2c3d4e",
+          applyWindow: false,
+          countries: ["NZ"],
+        },
+        roadtrips: [],
+        existing: { ...(plan.existing as ExistingCommitPlan), scoped: true, roadtrips: [] },
+      };
+
+      const result = await runCommitJob(draft, scoped);
+
+      expect(result).toMatchObject({ status: "committed" });
+      expect(mockResync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tripId: trip.id,
+          albumName: "Northvale loop",
+          named: true,
+          outsideIds: [],
+          removeOutside: false,
+        })
+      );
+      expect(mockWriteAlbum).not.toHaveBeenCalled();
+      expect(mockPitstopAlbum).not.toHaveBeenCalled();
+    });
+
     it("keeps the trip committed when the re-sync throws", async () => {
       mockResync.mockRejectedValue(new Error("immich exploded"));
       const { draft, plan } = await beginExisting(false, null);
