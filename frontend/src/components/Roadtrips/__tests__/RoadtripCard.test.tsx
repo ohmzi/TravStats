@@ -80,6 +80,22 @@ describe("RoadtripCard figures in the singular (forgejo#160)", () => {
     expect(screen.getByText("Städte")).toBeInTheDocument();
   });
 
+  it("spells a cross-year span with the start's year — the figures band's own string", () => {
+    // 28.12.2030 – 03.01.2031 crosses the year boundary. Dropping the start's
+    // year here would read as one year's travel ("28.12. – 03.01.2031"); the
+    // band drops it only when both ends share a year, and both surfaces must
+    // spell the span identically (`omitStartYear`).
+    render(
+      <MemoryRouter>
+        <RoadtripCard
+          roadtrip={summary({ startDate: at("2030-12-28"), endDate: at("2031-01-03") })}
+          phase="underway"
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText("28.12.2030 – 03.01.2031")).toBeInTheDocument();
+  });
+
   it("counts the days from the two stored dates — five nights away is six days", () => {
     render(
       <MemoryRouter>

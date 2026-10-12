@@ -64,6 +64,20 @@ export function spanDays(startDate: string | null, endDate: string | null): numb
 }
 
 /**
+ * Whether a from–to span may drop the start's year: only when BOTH ends are
+ * in the same calendar year, so a span that crosses New Year keeps it. Without
+ * it a cross-year trip reads as one year's travel — "28.12. – 03.01.2031" is
+ * 2031 on both ends, and it was 2030 the reader left. The list card and the
+ * figures band both print a span, and both read this one rule, so one trip
+ * cannot be spelled two ways on its card and its page.
+ */
+export function omitStartYear(startDate: string | null, endDate: string | null): boolean {
+  const a = dayKey(startDate);
+  const b = dayKey(endDate);
+  return a !== null && b !== null && a.slice(0, 4) === b.slice(0, 4);
+}
+
+/**
  * The days a roadtrip's headline counts — the list card's and the map card's,
  * one rule for both: the inclusive span of the two stored dates where both are
  * there (the very `spanDays` the figures band prints, so one roadtrip cannot

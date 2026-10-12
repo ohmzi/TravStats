@@ -189,6 +189,21 @@ describe("the trip's figures row (design §2)", () => {
     expect(screen.getByText("DE · FR")).toBeInTheDocument();
   });
 
+  it("spells a cross-year span with the start's year — the card's own string", () => {
+    // 28.12.2030 – 03.01.2031 crosses the year boundary: dropping the start's
+    // year would read as one year's travel. The list card prints the same
+    // span through the same rule (`omitStartYear`), and the two surfaces must
+    // spell it identically.
+    renderTrip(
+      trip({
+        startDate: "2030-12-28T00:00:00.000Z",
+        endDate: "2031-01-03T00:00:00.000Z",
+      }),
+      "2031-01-01"
+    );
+    expect(screen.getByText("28.12.2030 – 03.01.2031")).toBeInTheDocument();
+  });
+
   it("keeps a trip on its LAST day underway — the card's own phase, not a day that ended", () => {
     // `roadtripPhase` says the reader is on the road until the last day is
     // over (`UnderwayCard`: "day 3 of 3"); the band's `over` must read the

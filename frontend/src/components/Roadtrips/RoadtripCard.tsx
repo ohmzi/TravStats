@@ -4,11 +4,15 @@ import { Link, useNavigate } from "react-router-dom";
 import Pill from "../ui/Pill";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useDisplayFormat } from "../../lib/displayFormat";
-import { roadtripDays, type RoadtripPhase } from "../../lib/roadtrip/roadtripView";
+import { omitStartYear, roadtripDays, type RoadtripPhase } from "../../lib/roadtrip/roadtripView";
 import type { RoadtripSummary } from "../../types/roadtrip";
 import CardMap from "../map/CardMap";
 
-/** "18.09. – 28.09.2026", or the undated word. */
+/**
+ * "18.09. – 28.09.2026", or the undated word. The start's year goes only when
+ * both ends share it (`omitStartYear`, the figures band's own rule), so a span
+ * across New Year keeps it and the card and the trip's page print one string.
+ */
 export function useRoadtripSpan(): (r: Pick<RoadtripSummary, "startDate" | "endDate">) => string {
   const { t } = useTranslation(["roadtrips"]);
   const display = useDisplayFormat();
@@ -18,7 +22,7 @@ export function useRoadtripSpan(): (r: Pick<RoadtripSummary, "startDate" | "endD
     if (to.slice(0, 10) === r.startDate.slice(0, 10)) {
       return display.date(r.startDate, { timeZone: "UTC" });
     }
-    return `${display.date(r.startDate, { timeZone: "UTC", omitYear: true })} – ${display.date(to, { timeZone: "UTC" })}`;
+    return `${display.date(r.startDate, { timeZone: "UTC", omitYear: omitStartYear(r.startDate, to) })} – ${display.date(to, { timeZone: "UTC" })}`;
   };
 }
 

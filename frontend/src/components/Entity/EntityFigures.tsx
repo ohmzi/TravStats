@@ -8,7 +8,13 @@ import { useDisplayFormat } from "../../lib/displayFormat";
 import { ownDatesDays, roadtripsDrivenKm, type DrivenKms } from "../../lib/entityFigures";
 import { tripEnd, tripStart } from "../../lib/entityTimes";
 import { albumForRoadtrip } from "../../lib/roadtrip/roadtripAlbum";
-import { daysAhead, roadtripDays, roadtripPhase, spanDays } from "../../lib/roadtrip/roadtripView";
+import {
+  daysAhead,
+  omitStartYear,
+  roadtripDays,
+  roadtripPhase,
+  spanDays,
+} from "../../lib/roadtrip/roadtripView";
 import type { Trip } from "../../types";
 import type { RoadtripDetail } from "../../types/roadtrip";
 
@@ -34,9 +40,10 @@ export type EntityFiguresProps = JourneyFiguresProps | TripFiguresProps;
 
 /**
  * "18.09. – 28.09.2026" — the entity's own from–to, the year written once when
- * both ends share it, a single date when the two days are the same. Dates are
- * calendar days (`YYYY-MM-DD…`), shown as the place knew them (`localDate`),
- * never moved by the reader's zone.
+ * both ends share it (`omitStartYear`, the card's own rule — the two surfaces
+ * print one span one way), a single date when the two days are the same. Dates
+ * are calendar days (`YYYY-MM-DD…`), shown as the place knew them
+ * (`localDate`), never moved by the reader's zone.
  */
 function datesText(
   display: ReturnType<typeof useDisplayFormat>,
@@ -46,7 +53,7 @@ function datesText(
   const from = start.slice(0, 10);
   const to = end.slice(0, 10);
   if (from === to) return display.localDate(from);
-  return `${display.localDate(from, { omitYear: from.slice(0, 4) === to.slice(0, 4) })} – ${display.localDate(to)}`;
+  return `${display.localDate(from, { omitYear: omitStartYear(from, to) })} – ${display.localDate(to)}`;
 }
 
 /**
