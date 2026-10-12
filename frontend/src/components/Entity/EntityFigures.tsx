@@ -8,7 +8,7 @@ import { useDisplayFormat } from "../../lib/displayFormat";
 import { ownDatesDays, roadtripsDrivenKm, type DrivenKms } from "../../lib/entityFigures";
 import { tripEnd, tripStart } from "../../lib/entityTimes";
 import { albumForRoadtrip } from "../../lib/roadtrip/roadtripAlbum";
-import { daysAhead, roadtripDays, spanDays } from "../../lib/roadtrip/roadtripView";
+import { daysAhead, roadtripDays, roadtripPhase, spanDays } from "../../lib/roadtrip/roadtripView";
 import type { Trip } from "../../types";
 import type { RoadtripDetail } from "../../types/roadtrip";
 
@@ -58,7 +58,8 @@ function datesText(
  * - Trip (design §2): Dates (from–to) · Driven km · Days · Slept in ·
  *   Countries · Journey (link back) · Album — the trip's OWN album when the
  *   journey links it (`albumForRoadtrip`, the pitstop rule), the journey's
- *   first otherwise.
+ *   first otherwise; the cell links to the TRIP's Gallery tab, which resolves
+ *   the same album.
  *
  * The folds live in `lib/entityFigures.ts` (the sums, the days) and in the
  * level's own modules (`roadtripView.roadtripDays`, `roadtripAlbum`), so the
@@ -157,9 +158,12 @@ function TripFigures({ detail, today }: Omit<TripFiguresProps, "level">): JSX.El
   const n = detail.nights;
   const span = spanDays(detail.startDate, detail.endDate);
   const ahead = daysAhead(detail.startDate, detail.endDate, today);
-  // The roadtrip is over only when it HAD a span and none of it is ahead: an
+  // The roadtrip is over only when it HAD a span and its phase says so: an
   // undated one shows its planned distance, never a "driven" it cannot know.
-  const over = span !== null && ahead === null;
+  // The phase is `roadtripPhase` — the list card's own rule, which keeps the
+  // LAST day underway (`daysAhead` is already null on it) — so one trip cannot
+  // read "Gefahren" here and "unterwegs" on the card the same day.
+  const over = span !== null && roadtripPhase(detail.startDate, detail.endDate, today) === "past";
   // The days read the SAME fold the roadtrip card does (`roadtripDays`), so
   // one roadtrip cannot put two day counts under the one word; `≈` rides the
   // nights fallback exactly while those nights are only a lower bound.
@@ -221,7 +225,10 @@ function TripFigures({ detail, today }: Omit<TripFiguresProps, "level">): JSX.El
       label: t("common:summary.album"),
       value:
         album && journey ? (
-          <Link to={`/trips/${journey.id}?tab=gallery`}>{album.albumName}</Link>
+          // The TRIP's gallery: its tab resolves the same album
+          // (`RoadtripGallery` → `albumForRoadtrip`, journey fallback and all),
+          // so the link lands on the page that shows what the cell names.
+          <Link to={`/roadtrips/${r.id}?tab=gallery`}>{album.albumName}</Link>
         ) : (
           t("common:labels.notAvailable")
         ),

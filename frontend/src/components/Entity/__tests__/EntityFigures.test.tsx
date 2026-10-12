@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 import EntityFigures from "../EntityFigures";
+import { roadtripPhase } from "../../../lib/roadtrip/roadtripView";
 import type { Trip } from "../../../types";
 import type { LinkedAlbum } from "../../../types/immich";
 import type { RoadtripDetail } from "../../../types/roadtrip";
@@ -42,6 +43,7 @@ function journey(over: Partial<Trip> = {}): Trip {
 
 /** The roadtrip half, narrowed to the fields the band reads. */
 interface RoadtripFixture {
+  id?: string;
   name?: string;
   drivenKm?: number;
   distanceKm?: number;
@@ -66,6 +68,7 @@ function trip(over: TripFixture = {}): RoadtripDetail {
     costs: {},
     ...over,
     roadtrip: {
+      id: "rt-1",
       name: "Northvale loop",
       drivenKm: 0,
       distanceKm: 0,
@@ -186,6 +189,53 @@ describe("the trip's figures row (design §2)", () => {
     expect(screen.getByText("DE · FR")).toBeInTheDocument();
   });
 
+  it("keeps a trip on its LAST day underway — the card's own phase, not a day that ended", () => {
+    // `roadtripPhase` says the reader is on the road until the last day is
+    // over (`UnderwayCard`: "day 3 of 3"); the band's `over` must read the
+    // same rule, or one trip reads "Gefahren" in its band and "unterwegs" on
+    // its card on the very day it ends.
+    renderTrip(
+      trip({
+        roadtrip: {
+          id: "rt-1",
+          name: "Northvale loop",
+          drivenKm: 812,
+          distanceKm: 812,
+          startOdometerKm: null,
+          endOdometerKm: null,
+        },
+        startDate: "2031-05-01T00:00:00.000Z",
+        endDate: "2031-05-03T00:00:00.000Z",
+      }),
+      "2031-05-03"
+    );
+    expect(
+      roadtripPhase("2031-05-01T00:00:00.000Z", "2031-05-03T00:00:00.000Z", "2031-05-03")
+    ).toBe("underway");
+    expect(screen.getByText("Strecke")).toBeInTheDocument();
+    expect(screen.queryByText("Gefahren")).not.toBeInTheDocument();
+  });
+
+  it("counts a trip over once its last day has passed", () => {
+    renderTrip(
+      trip({
+        roadtrip: {
+          id: "rt-1",
+          name: "Northvale loop",
+          drivenKm: 812,
+          distanceKm: 812,
+          startOdometerKm: null,
+          endOdometerKm: null,
+        },
+        startDate: "2031-05-01T00:00:00.000Z",
+        endDate: "2031-05-02T00:00:00.000Z",
+      }),
+      "2031-05-03"
+    );
+    expect(screen.getByText("Gefahren")).toBeInTheDocument();
+    expect(screen.queryByText("Strecke")).not.toBeInTheDocument();
+  });
+
   it("reads an undated trip's Days as the stored nights + 1, marked approximate", () => {
     renderTrip(
       trip({
@@ -207,10 +257,11 @@ describe("the trip's figures row (design §2)", () => {
     expect(screen.getAllByText("k.A.")).toHaveLength(2);
   });
 
-  it("shows the trip's own album (albumForRoadtrip) and links to the journey", () => {
+  it("shows the trip's own album (albumForRoadtrip) on the trip's OWN gallery", () => {
     renderTrip(
       trip({
         roadtrip: {
+          id: "rt-1",
           name: "Eastport loop · Southbridge",
           drivenKm: 812,
           distanceKm: 812,
@@ -231,9 +282,12 @@ describe("the trip's figures row (design §2)", () => {
       "href",
       "/trips/t1"
     );
+    // The trip's Gallery tab resolves the same album (albumForRoadtrip), so
+    // the cell points at the TRIP's gallery — a link to the journey's would
+    // show a different album than the cell just named.
     expect(
       screen.getByRole("link", { name: "Southbridge 2031 Road Trip (Eastport loop)" })
-    ).toHaveAttribute("href", "/trips/t1?tab=gallery");
+    ).toHaveAttribute("href", "/roadtrips/rt-1?tab=gallery");
     expect(screen.getByText("47 Fotos")).toBeInTheDocument();
   });
 
