@@ -47,13 +47,31 @@ export function stationDayGroups(
   return groups;
 }
 
-/** The nights a station holds, or null while its dates cannot say. */
+/**
+ * The nights a station holds, or null while its dates cannot say. A
+ * pass-through holds none — the domain skips it (`countRoadtripNights`) and
+ * the chain draws only its day — so the dates a station re-kinded to "pass"
+ * still carries are no night; the `Math.max(1, …)` floor belongs to a station
+ * that asserts a night happened.
+ */
 function nightsOf(s: RoadtripStation): number | null {
   const from = arrivalDay(s);
   const to = departureDay(s);
+  if (s.state === "pass") return null;
   if (!from || !to) return null;
   if (s.state === "stay" && s.stay?.nights != null) return s.stay.nights;
   return Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000));
+}
+
+/**
+ * The chain's warning for a station whose departure is not recorded: its one
+ * night is only approximated. The tab carries the same signal, so the two
+ * surfaces cannot disagree about it.
+ */
+function isApproxNight(s: RoadtripStation): boolean {
+  return (
+    !isStayCancelled(s) && s.state !== "pass" && arrivalDay(s) !== null && departureDay(s) === null
+  );
 }
 
 /**
@@ -115,6 +133,12 @@ export default function RoadtripTimelineTab({ detail }: { detail: RoadtripDetail
                 ? (legFrom.get(s.id) ?? null)
                 : null;
               const nights = nightsOf(s);
+              const approx = isApproxNight(s);
+              // A pass-through is a day, not a night: the chain draws its
+              // arrival day alone, so the tab's date line drops the end date.
+              const days = (
+                s.state === "pass" ? [arrivalDay(s)] : [arrivalDay(s), departureDay(s)]
+              ).filter((d): d is string => d !== null);
               return (
                 <li key={s.id} style={{ paddingBottom: "var(--ts-space-md)" }}>
                   <div
@@ -145,12 +169,12 @@ export default function RoadtripTimelineTab({ detail }: { detail: RoadtripDetail
                           </span>
                         )
                       )}
-                      <span className="t-meta-mono">
-                        {[arrivalDay(s), departureDay(s)]
-                          .filter((d): d is string => d !== null)
-                          .map(short)
-                          .join(" – ")}
-                      </span>
+                      {approx && (
+                        <span style={{ color: "var(--ts-warn)" }}>
+                          {t("roadtrips:timeline.approxNight")}
+                        </span>
+                      )}
+                      <span className="t-meta-mono">{days.map(short).join(" – ")}</span>
                     </div>
                     {(s.stay || s.place) && (
                       <div className="flex flex-wrap items-center" style={{ gap: 8, fontSize: 13 }}>

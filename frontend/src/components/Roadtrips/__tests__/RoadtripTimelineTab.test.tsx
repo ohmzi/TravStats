@@ -147,6 +147,48 @@ describe("RoadtripTimelineTab", () => {
     expect(screen.getAllByText(/02\.05\. – 03\.05\./).length).toBeGreaterThan(0);
   });
 
+  it("counts no night for a pass-through, even one re-kinded with both dates still on it", () => {
+    render(
+      <MemoryRouter>
+        <RoadtripTimelineTab
+          detail={{
+            ...DETAIL,
+            stations: [
+              station("Dunholme", {
+                state: "pass",
+                startDate: at("2031-05-06"),
+                endDate: at("2031-05-08"),
+              }),
+            ],
+            legs: [],
+          }}
+        />
+      </MemoryRouter>
+    );
+    // The chain draws a pass-through's arrival day alone, and a re-kinded
+    // station keeps its dates (the editor clears them for "via" only): the tab
+    // must not turn those dates into a night.
+    expect(screen.queryByText(/roadtrips:nightsCount/)).toBeNull();
+    expect(screen.getByText("06.05.")).toBeInTheDocument();
+    expect(screen.queryByText(/08\.05\./)).toBeNull();
+  });
+
+  it("warns approxNight for a half-dated station, as the chain does", () => {
+    render(
+      <MemoryRouter>
+        <RoadtripTimelineTab
+          detail={{
+            ...DETAIL,
+            stations: [station("Kaupanger", { state: "free", startDate: at("2031-05-06") })],
+            legs: [],
+          }}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText("roadtrips:timeline.approxNight")).toBeInTheDocument();
+    expect(screen.queryByText(/roadtrips:nightsCount/)).toBeNull();
+  });
+
   it("draws the leg between two stations with its mode, distance and duration", () => {
     renderTab();
     expect(screen.getByText("roadtrips:timeline.leg.ferry")).toBeInTheDocument();
