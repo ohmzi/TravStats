@@ -949,6 +949,7 @@ that moves the trip detail page moves all of it.
 above); renaming the URL paths or the Prisma models; any change to the map
 engine or the timeline data model; and the journey level's remaining "trip"
 wording where it names the journey itself.
+
 ### Smaller things
 
 - **One page width.** The three container widths collapse to one, so every page
