@@ -100,6 +100,23 @@ describe("JourneyTripsChain", () => {
     expect(mountain?.textContent).toContain("roadtrips:undated");
   });
 
+  it("dashes an unmeasured trip's km, as its card does — never a zero", () => {
+    // Legs are measured when a save creates them, so a trip with fewer than
+    // two stations has no distance (RoadtripCard's `stationCount >= 2`): the
+    // card prints "—" with the reason on hover, and a node printing "0 km"
+    // would claim a measured zero the data cannot have.
+    vi.mocked(useTripRoadtrips).mockReturnValue({
+      rows: [summary({ id: "r1", name: "Coast run", stationCount: 1, drivenKm: 0 })],
+      settled: true,
+    });
+    renderChain();
+
+    const node = screen.getByText("Coast run").closest("a");
+    expect(node?.textContent).not.toContain("0 km");
+    expect(node?.textContent).toContain("—");
+    expect(node?.querySelector("[title]")).toHaveAttribute("title", "roadtrips:list.kmUnknown");
+  });
+
   it("says the journey holds no trips once the read has settled empty", () => {
     vi.mocked(useTripRoadtrips).mockReturnValue({ rows: [], settled: true });
     renderChain();
