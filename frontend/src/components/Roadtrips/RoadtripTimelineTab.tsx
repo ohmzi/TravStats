@@ -113,7 +113,11 @@ export default function RoadtripTimelineTab({ detail }: { detail: RoadtripDetail
     <div className="flex flex-col" style={{ gap: "var(--ts-space-xl)" }}>
       {groups.map((group, groupIndex) => (
         <section
-          key={group.day ?? `undated-${groupIndex}`}
+          // The day alone is not unique: grouping is by CONSECUTIVE runs of
+          // equal arrival day, so an undated station between two stations of
+          // one day opens a second group for that same day. Key by the run's
+          // own position, which the grouping already decides.
+          key={group.day === null ? `undated-${groupIndex}` : `${group.day}-${groupIndex}`}
           className="flex flex-col"
           style={{ gap: "var(--ts-space-sm)" }}
         >

@@ -224,6 +224,45 @@ describe("RoadtripTimelineTab", () => {
     expect(screen.getByText(/152 km/)).toBeInTheDocument();
   });
 
+  it("heads two groups of the SAME day with their own keys — an undated station in between", () => {
+    // Grouping is by consecutive runs of equal arrival day, so an undated
+    // station between two stations of one day really does open a second group
+    // for that day. The section's key was the day itself, so the two sections
+    // collided and React warned about duplicate keys ("may cause children to
+    // be duplicated and/or omitted") — the key has to be unique per group
+    // without changing the grouping.
+    const errorSpy = vi.spyOn(console, "error");
+    render(
+      <MemoryRouter>
+        <RoadtripTimelineTab
+          detail={{
+            ...DETAIL,
+            stations: [
+              station("Hirtshals", {
+                state: "free",
+                startDate: at("2031-05-02"),
+                endDate: at("2031-05-03"),
+              }),
+              station("Kaupanger", { state: "free" }),
+              station("Dunholme", { state: "pass", startDate: at("2031-05-02") }),
+            ],
+            legs: [],
+          }}
+        />
+      </MemoryRouter>
+    );
+    const warned = errorSpy.mock.calls
+      .flat()
+      .map((a) => String(a))
+      .join(" ");
+    errorSpy.mockRestore();
+
+    expect(warned).not.toContain("same key");
+    // Both runs of the day are ON SCREEN — the collision must not drop one.
+    expect(screen.getAllByText(/roadtrips:timeline\.day:1 · /)).toHaveLength(2);
+    expect(screen.getByText("roadtrips:undated")).toBeInTheDocument();
+  });
+
   it("says there is nothing yet instead of drawing an empty page", () => {
     render(
       <MemoryRouter>
