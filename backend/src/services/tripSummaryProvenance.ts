@@ -4,7 +4,13 @@
  * model's text when and from how many entries — the design's "maschinell · aus
  * n Einträgen · Datum". NULL in all three is "unknown", which is what every
  * summary written before the columns existed stays: it may have been either.
+ *
+ * The roadtrip's own summary (spec 2026-10-12 §6) carries the same two
+ * columns on `trip_routes`, written by its regenerate route alone — nobody
+ * types a roadtrip summary, so nothing there ever says "user".
  */
+import { now } from "../shared/time/clock";
+
 export interface SummaryProvenance {
   summarySource: "llm" | "user" | null;
   summaryGeneratedAt: Date | null;
@@ -20,6 +26,24 @@ const NONE: SummaryProvenance = {
 /** The model wrote it now, from `entryCount` entries. */
 export function llmProvenance(entryCount: number, at: Date = new Date()): SummaryProvenance {
   return { summarySource: "llm", summaryGeneratedAt: at, summaryEntryCount: entryCount };
+}
+
+/* ─────────── the roadtrip's own summary (spec 2026-10-12 §6) ─────────── */
+
+/**
+ * The roadtrip's provenance: the two columns `trip_routes` gained, written by
+ * its regenerate route alone — nobody types a roadtrip summary, so nothing
+ * there ever says "user". There is no entry-count column, which is why
+ * `llmProvenance`'s third field has no twin and this is the whole of it.
+ */
+export interface RoadtripSummaryProvenance {
+  summarySource: "llm";
+  summaryGeneratedAt: Date;
+}
+
+/** The model wrote it now; the shared clock, so a test can pin the instant. */
+export function roadtripLlmProvenance(at: Date = now()): RoadtripSummaryProvenance {
+  return { summarySource: "llm", summaryGeneratedAt: at };
 }
 
 /**

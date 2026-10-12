@@ -161,6 +161,7 @@ describe("Wave A demo guards", () => {
    */
   describe("A6 trip cover image URL", () => {
     let demoTripId: string;
+    let demoRoadtripId: string;
 
     beforeAll(async () => {
       const trip = await prisma.trip.create({
@@ -168,9 +169,15 @@ describe("Wave A demo guards", () => {
         select: { id: true },
       });
       demoTripId = trip.id;
+      const roadtrip = await prisma.tripRoute.create({
+        data: { userId: ids[0], name: "Demo loop", mode: "road", kind: "roadtrip" },
+        select: { id: true },
+      });
+      demoRoadtripId = roadtrip.id;
     });
 
     afterAll(async () => {
+      await prisma.tripRoute.deleteMany({ where: { userId: { in: ids } } });
       await prisma.trip.deleteMany({ where: { userId: ids[0] } });
       await prisma.trip.deleteMany({ where: { userId: ids[1] } });
     });
@@ -231,6 +238,30 @@ describe("Wave A demo guards", () => {
       // matters is that it gets past the guard to reach that answer.
       const res = await request(app)
         .post(`/api/v1/trips/${trip.id}/summarize`)
+        .set("Cookie", userCookie)
+        .send({ language: "de" });
+      expect(res.body.error).not.toBe("DEMO_ACCOUNT_FORBIDDEN");
+      expect(res.status).not.toBe(403);
+    });
+
+    it("refuses the AI roadtrip summary for the shared demo account", async () => {
+      const res = await request(app)
+        .post(`/api/v1/roadtrips/${demoRoadtripId}/summarize`)
+        .set("Cookie", demoCookie)
+        .send({ language: "de" });
+      expect(res.status).toBe(403);
+      expect(res.body.error).toBe("DEMO_ACCOUNT_FORBIDDEN");
+    });
+
+    it("does not refuse the AI roadtrip summary for a normal account", async () => {
+      const roadtrip = await prisma.tripRoute.create({
+        data: { userId: ids[1], name: "Summarised loop", mode: "road", kind: "roadtrip" },
+        select: { id: true },
+      });
+      // No Ollama in the test environment, so the route answers 503 — what
+      // matters is that it gets past the guard to reach that answer.
+      const res = await request(app)
+        .post(`/api/v1/roadtrips/${roadtrip.id}/summarize`)
         .set("Cookie", userCookie)
         .send({ language: "de" });
       expect(res.body.error).not.toBe("DEMO_ACCOUNT_FORBIDDEN");

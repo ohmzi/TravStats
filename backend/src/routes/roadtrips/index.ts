@@ -25,6 +25,18 @@ import { insertRoadtrip } from "../../services/roadtrip/createRoadtrip";
 import { EXPENSE_ORDER, EXPENSE_SELECT, toExpenseDto } from "../../services/expenses/expenseDto";
 import { roadtripCosts } from "../../services/expenses/roadtripCosts";
 
+import { z } from "zod";
+
+import { rejectDemo } from "../../middleware/demoGuard";
+import { AppError } from "../../middleware/errorHandler";
+import { emailParseLimiter } from "../../middleware/rateLimit";
+import { assertLlmCloudConsent, assertLlmEnabled } from "../../services/llm/llmGate";
+import {
+  checkOllamaAvailable,
+  resolveOllamaTarget,
+  summariseRoadtrip,
+} from "../../services/tripSummaryService";
+
 /**
  * Roadtrips (design 2026-09-24). A roadtrip is a `TripRoute` with
  * `kind = "roadtrip"`: this router owns only what is new — the list, the
@@ -253,6 +265,66 @@ router.get(
         summarySource: route.summarySource,
         summaryGeneratedAt: route.summaryGeneratedAt,
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/* ─────────── LLM summary (spec 2026-10-12 §6) ─────────── */
+
+/**
+ * The reader's language travels with the request, exactly as on the journey's
+ * own route (`trips.ts`): the server keeps no per-user language.
+ */
+const summarizeBodySchema = z.object({
+  language: z.enum(["de", "en"]).optional(),
+});
+
+/**
+ * POST /roadtrips/:id/summarize — generate + persist the roadtrip's own
+ * summary, the journey's route one level down (spec 2026-10-12 §6).
+ *
+ * Refused for the SHARED demo account for the same reason as there: the target
+ * below is the OPERATOR's Ollama, lent to every account on the instance. A
+ * tour's id is "not found" (`resolveRoadtrip`), never a summary of a page that
+ * has none — and the answer carries no `summaryEntryCount`, because
+ * `trip_routes` has the three columns of spec §6 and no entry-count column.
+ */
+router.post(
+  "/roadtrips/:id/summarize",
+  authenticate,
+  rejectDemo,
+  requireWriteScope,
+  emailParseLimiter,
+  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.userId!;
+      await resolveRoadtrip(userId, req.params.id);
+
+      const parsed = summarizeBodySchema.safeParse(req.body ?? {});
+      if (!parsed.success) throw new AppError(parsed.error.message, 400);
+      const language = parsed.data.language ?? "de";
+
+      // Switched off by the admin: refused as LLM_DISABLED before any probe,
+      // so the client can tell "turned off" from "unreachable" below.
+      await assertLlmEnabled();
+      // The admin's provider (parser settings), then the environment — the
+      // same resolution the parsers and the journey's summary use.
+      const target = await resolveOllamaTarget();
+      // A cloud provider without the admin's consent is refused before the
+      // probe, with its own code — the brief is personal travel data.
+      await assertLlmCloudConsent(target);
+      const ollamaUp = await checkOllamaAvailable(target);
+      if (!ollamaUp) {
+        throw new AppError(
+          "LLM service unavailable. Configure the AI provider under Admin → Parser and ensure the model is available.",
+          503
+        );
+      }
+
+      const result = await summariseRoadtrip(req.params.id, userId, { language, target });
+      res.json(result);
     } catch (error) {
       next(error);
     }

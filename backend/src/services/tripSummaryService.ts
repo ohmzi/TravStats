@@ -3,8 +3,13 @@ import { prisma } from "../db";
 import logger from "../utils/logger";
 import { llmGenerate, llmProbe, ollamaTarget, type LlmTarget } from "./llm/llmProvider";
 import { assertLlmEnabled } from "./llm/llmGate";
-import { llmProvenance } from "./tripSummaryProvenance";
+import { llmProvenance, roadtripLlmProvenance } from "./tripSummaryProvenance";
 import { resolveReachableLlmTarget } from "./llm/reachableTarget";
+import { deriveTripStatus, tripStatusBounds } from "../shared/statusDerivation";
+import { isStation } from "../shared/tour/roadtrip";
+import { now } from "../shared/time/clock";
+import { profileZoneOf } from "../shared/time/profileZone";
+import { STATION_LLM_SELECT, nightsOf, spanOf } from "./roadtrip/roadtripSummary";
 
 /**
  * LLM-generated trip summaries.
@@ -607,5 +612,186 @@ ${closing}`
     summarySource: "llm",
     summaryGeneratedAt: provenance.summaryGeneratedAt!.toISOString(),
     summaryEntryCount: provenance.summaryEntryCount!,
+  };
+}
+
+/* ─────────── the roadtrip's own summary (spec 2026-10-12 §6) ─────────── */
+
+/** Everything a roadtrip's brief reads: its stations, with their stays. */
+export const ROADTRIP_BRIEF_INCLUDE = {
+  stops: { orderBy: { routeOrderIdx: "asc" }, select: STATION_LLM_SELECT },
+} satisfies Prisma.TripRouteInclude;
+
+export type TripRouteForBrief = Prisma.TripRouteGetPayload<{
+  include: typeof ROADTRIP_BRIEF_INCLUDE;
+}>;
+
+/** The span ends come back as ISO instants; the brief speaks in days, like the journey's. */
+const dayOf = (iso: string | null): string | null => (iso ? iso.slice(0, 10) : null);
+
+/** A station's linked stay, in the journey brief's stay shape. */
+function staysOf(stations: TripRouteForBrief["stops"]): SummaryBrief["stays"] {
+  return stations.filter(isStation).flatMap((s) =>
+    s.lodgingStay
+      ? [
+          {
+            lodging: s.lodgingStay.lodging.name,
+            nights: nightsBetween(s.lodgingStay.checkIn, s.lodgingStay.checkOut),
+            city: s.lodgingStay.lodging.city ?? null,
+            country: s.lodgingStay.lodging.country ?? null,
+            checkIn: isoDate(s.lodgingStay.checkIn),
+            checkOut: isoDate(s.lodgingStay.checkOut),
+            room: null,
+            notes: clip(s.lodgingStay.notes, NOTE_MAX),
+          },
+        ]
+      : []
+  );
+}
+
+/**
+ * The roadtrip brief, as a pure function of the loaded row (spec 2026-10-12 §6:
+ * "the summary covers the trip's own span and stations").
+ *
+ * The SAME `SummaryBrief` the journey's brief has, so the same prompt, the same
+ * compaction and the same closing line apply, and `briefEntityNouns` names only
+ * the kinds this roadtrip carries. Its `stays` are the stations' linked
+ * accommodation, so `routeLine` walks the cities the traveller slept in; a
+ * pass-through is no such place and a route correction is no station at all.
+ * `status` is handed in: `trip_routes` has no status column, and reading the
+ * span against the clock is `roadtripStatus`'s question below.
+ */
+export function briefFromRoadtrip(route: TripRouteForBrief, status: string): SummaryBrief {
+  const nights = nightsOf(route.stops);
+  const span = spanOf(route.stops);
+  return {
+    name: route.name,
+    status,
+    // The model must never count nights; `nightsKnown` false means one
+    // station's length is unknown, and a guessed count would be a wrong fact.
+    nights: nights.nightsKnown ? nights.nights : null,
+    category: null,
+    startDate: dayOf(span.startDate),
+    endDate: dayOf(span.endDate),
+    origin: null,
+    destination: null,
+    countries: [],
+    companions: [],
+    perspective: "I",
+    tags: [],
+    flights: [],
+    cruises: [],
+    stays: staysOf(route.stops),
+    places: [],
+    stops: route.stops
+      .filter(isStation)
+      .map((s) => ({ title: s.title, domain: null, start: isoDate(s.startDate) })),
+    journal: [],
+    notes: clip(route.notes, TRIP_NOTES_MAX),
+  };
+}
+
+/**
+ * The roadtrip's tense: its own span against the clock in the user's profile
+ * zone, derived by the same code the journey's stored status uses. No dated
+ * station reads as "planned" — the default a fresh trip carries.
+ */
+async function roadtripStatus(
+  userId: string,
+  stations: ReadonlyArray<{ startDate: Date | null; endDate: Date | null }>
+): Promise<string> {
+  const { zone } = await profileZoneOf(userId);
+  return (
+    deriveTripStatus(
+      tripStatusBounds({
+        flights: [],
+        cruises: [],
+        roadtrips: [{ stops: [...stations] }],
+        ownStartDate: null,
+        ownEndDate: null,
+        zone,
+      })
+    ) ?? "planned"
+  );
+}
+
+/** No `summaryEntryCount`: `trip_routes` has the three columns of spec §6, nothing more. */
+export interface RoadtripSummariseResult {
+  summary: string;
+  model: string;
+  language: SummaryLanguage;
+  durationMs: number;
+  /** Always "llm" here — the provenance stored with the text. */
+  summarySource: "llm";
+  summaryGeneratedAt: string;
+}
+
+/**
+ * Write the summary for one roadtrip and persist it onto its own columns
+ * (spec §6: "same provider, same Regenerate route shape extended to trips").
+ *
+ * Mirrors `summariseTrip`: the row is read scoped to the user, a tour's id is
+ * not found, and the text is stored with its provenance. A roadtrip filed on
+ * no journey is summarised alike — the columns are the roadtrip's, and its
+ * page shows no summary section while it is detached (§8, out of scope).
+ */
+export async function summariseRoadtrip(
+  routeId: string,
+  userId: string,
+  { language, target, generate = ollamaGenerate }: SummariseOptions
+): Promise<RoadtripSummariseResult> {
+  // The admin switch covers this model call too, exactly as on the journey.
+  await assertLlmEnabled();
+  const route = await prisma.tripRoute.findFirst({
+    where: { id: routeId, userId, kind: "roadtrip" },
+    include: ROADTRIP_BRIEF_INCLUDE,
+  });
+  if (!route) throw new Error("Roadtrip not found");
+
+  const brief = briefFromRoadtrip(route, await roadtripStatus(userId, route.stops));
+  const briefJson = JSON.stringify(compactBrief(brief), null, 2);
+  // The shared clock, so a test can pin the instant the provenance records.
+  const startedAt = now().getTime();
+  logger.info(
+    {
+      model: target.model,
+      provider: target.kind ?? "ollama",
+      routeId,
+      language,
+      briefBytes: briefJson.length,
+    },
+    "[Roadtrip Summary] Sending brief to the model"
+  );
+
+  const raw = await generate(target, {
+    system: buildSystemPrompt(language, briefHasVoice(brief), briefEntityNouns(brief, language)),
+    prompt: buildUserPrompt(language, briefJson),
+  });
+  const narrated = cleanSummary(raw);
+  if (!narrated) throw new Error("Ollama returned empty summary");
+  // The route and the nights are ours, not the model's — see `routeLine`.
+  const closing = routeLine(brief, language);
+  const summary = closing
+    ? `${narrated}
+
+${closing}`
+    : narrated;
+
+  const durationMs = now().getTime() - startedAt;
+  logger.info(
+    { routeId, durationMs, chars: summary.length },
+    "[Roadtrip Summary] Generated successfully"
+  );
+
+  const provenance = roadtripLlmProvenance();
+  await prisma.tripRoute.update({ where: { id: routeId }, data: { summary, ...provenance } });
+
+  return {
+    summary,
+    model: target.model,
+    language,
+    durationMs,
+    summarySource: "llm",
+    summaryGeneratedAt: provenance.summaryGeneratedAt.toISOString(),
   };
 }

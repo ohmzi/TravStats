@@ -275,6 +275,56 @@ registry.registerPath({
 });
 
 registry.registerPath({
+  method: "post",
+  path: "/roadtrips/{id}/summarize",
+  summary: "Write a summary of the roadtrip with a language model",
+  description:
+    "Asks the instance's Ollama (Admin → Parser, or OLLAMA_URL) for a two-paragraph " +
+    "summary built from the roadtrip's own span and stations, in the requested language, " +
+    "and STORES it on the row — the next read of the roadtrip carries it as `summary`, " +
+    'with `summarySource` "llm" and `summaryGeneratedAt`. The journey\'s route one level ' +
+    "down (spec 2026-10-12 §6); `trip_routes` has no entry-count column, so the answer " +
+    "carries none. Rate-limited like the parsers; a run can take minutes.",
+  tags: ["Roadtrips"],
+  request: {
+    params: idParams,
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            language: z
+              .enum(["de", "en"])
+              .optional()
+              .describe("Language of the summary. Absent means German."),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Summary",
+      content: {
+        "application/json": {
+          schema: z.object({
+            summary: z.string(),
+            model: z.string(),
+            language: z.enum(["de", "en"]),
+            durationMs: z.number().int(),
+            summarySource: z
+              .literal("llm")
+              .describe("Stored on the roadtrip with the text, as is the field below"),
+            summaryGeneratedAt: z.string().datetime(),
+          }),
+        },
+      },
+    },
+    404: { description: "Not found, or a tour rather than a roadtrip", content: errorContent },
+    503: { description: "No model configured", content: errorContent },
+  },
+});
+
+registry.registerPath({
   method: "put",
   path: "/roadtrips/{id}/stations",
   summary: "Replace the complete, ordered station list",

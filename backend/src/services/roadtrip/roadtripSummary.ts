@@ -60,6 +60,17 @@ export const STATION_SELECT = {
 } as const;
 
 /**
+ * STATION_SELECT plus a stay's own notes: the words the AI summary's brief
+ * retells and `briefHasVoice` counts (spec 2026-10-12 §6). The narrow
+ * STATION_SELECT remains what every page and list reads; only the summary
+ * pays for the extra column.
+ */
+export const STATION_LLM_SELECT = {
+  ...STATION_SELECT,
+  lodgingStay: { select: { ...STATION_STAY_SELECT, notes: true } },
+} as const;
+
+/**
  * STATION_SELECT plus what only the station DTO needs: how many trip photos
  * are filed at each station (forgejo#139), so the station chain can show them
  * without a call per station. A separate select so the readers that only
