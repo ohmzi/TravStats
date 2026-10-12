@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
 import type { Trip } from "../../types";
@@ -83,8 +83,12 @@ function renderPage(): void {
 
 const dateInputs = (): HTMLInputElement[] =>
   Array.from(document.querySelectorAll<HTMLInputElement>('input[type="date"]'));
+const saveButton = (): HTMLButtonElement =>
+  screen.getByText("trips:modal.save").closest("button") as HTMLButtonElement;
+// The button's own row: what the page says AT the button is a sibling here.
+const saveRow = (): HTMLElement => saveButton().parentElement as HTMLElement;
 const save = (): void => {
-  fireEvent.click(screen.getByText("trips:modal.save").closest("button") as HTMLButtonElement);
+  fireEvent.click(saveButton());
 };
 
 describe("TripEditPage — the journey's form", () => {
@@ -129,7 +133,10 @@ describe("TripEditPage — the journey's form", () => {
     });
     save();
 
-    expect(screen.getByRole("alert")).toHaveTextContent("trips:modal.nameRequired");
+    // The field's own hint (the button's reason is its own line, below).
+    expect(document.getElementById("trip-name-error")).toHaveTextContent(
+      "trips:modal.nameRequired"
+    );
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
@@ -140,8 +147,41 @@ describe("TripEditPage — the journey's form", () => {
     fireEvent.change(dateInputs()[1], { target: { value: "2031-05-01" } });
     save();
 
-    expect(screen.getByText("trips:modal.endBeforeStart")).toBeInTheDocument();
+    // Belt and braces: the field's hint AND the reason beside the button.
+    expect(screen.getAllByText("trips:modal.endBeforeStart")).toHaveLength(2);
+    expect(saveButton()).toBeDisabled();
     expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  describe("the Save button says why it is refused", () => {
+    it("puts the end-before-start reason beside the disabled Save button", async () => {
+      renderPage();
+
+      await screen.findByDisplayValue("Northvale loop");
+      fireEvent.change(dateInputs()[1], { target: { value: "2031-05-01" } });
+
+      expect(within(saveRow()).getByRole("alert")).toHaveTextContent("trips:modal.endBeforeStart");
+      expect(saveButton()).toBeDisabled();
+    });
+
+    it("puts the missing-name reason beside the Save button", async () => {
+      renderPage();
+
+      fireEvent.change(await screen.findByDisplayValue("Northvale loop"), {
+        target: { value: "   " },
+      });
+
+      expect(within(saveRow()).getByRole("alert")).toHaveTextContent("trips:modal.nameRequired");
+    });
+
+    it("renders no reason line for a valid edit, and leaves Save enabled", async () => {
+      renderPage();
+
+      await screen.findByDisplayValue("Northvale loop");
+
+      expect(within(saveRow()).queryByRole("alert")).toBeNull();
+      expect(saveButton()).toBeEnabled();
+    });
   });
 
   it("offers the re-sync after the dates moved, with a link to the resync page", async () => {

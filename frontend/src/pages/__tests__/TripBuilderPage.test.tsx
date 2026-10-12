@@ -421,9 +421,32 @@ describe("the review", () => {
       target: { value: " " },
     });
     expect(createButton()).toBeDisabled();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "tripBuilder:review.problems.blankTripName"
+    const reason = screen.getByRole("alert");
+    expect(reason).toHaveTextContent("tripBuilder:review.problems.blankTripName");
+    // The reason reads as the button's own: the block carrying it is the very
+    // next thing after the header that holds the action row...
+    expect(reason.previousElementSibling).toContainElement(createButton());
+    // ...and the disabled button points at it.
+    expect(createButton()).toHaveAttribute("aria-describedby", reason.id);
+  });
+
+  it("says why Update is off when the window holds no photos", async () => {
+    const base = existingDraft();
+    await renderDraft(existingDraft({ stats: { ...base.stats, assets: 0 } }));
+    expect(updateButton()).toBeDisabled();
+    const reason = screen.getByRole("alert");
+    expect(reason).toHaveTextContent(
+      'tripBuilder:review.empty.noPhotos {"from":"02.05.2031","to":"07.05.2031"}'
     );
+    expect(reason.previousElementSibling).toContainElement(updateButton());
+    expect(updateButton()).toHaveAttribute("aria-describedby", reason.id);
+  });
+
+  it("leaves Update enabled with no reason line when nothing is wrong", async () => {
+    await renderDraft(existingDraft());
+    expect(updateButton()).toBeEnabled();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(updateButton()).not.toHaveAttribute("aria-describedby");
   });
 
   it("scans again for other dates and carries the edits along", async () => {
@@ -830,9 +853,13 @@ describe("a window with nothing in it", () => {
 
   it("says what was checked and offers the three ways on", async () => {
     await renderDraft(nothing(3));
+    // Twice on purpose: the empty screen's own card, and the disabled action's
+    // reason line under the header (same copy, no new string).
     expect(
-      screen.getByText('tripBuilder:review.empty.noPhotos {"from":"02.05.2031","to":"07.05.2031"}')
-    ).toBeInTheDocument();
+      screen.getAllByText(
+        'tripBuilder:review.empty.noPhotos {"from":"02.05.2031","to":"07.05.2031"}'
+      )
+    ).toHaveLength(2);
     expect(
       screen.getByText(/review\.empty\.checked \{"from":"29\.04\.2031","to":"10\.05\.2031"\}/)
     ).toHaveTextContent('tripBuilder:review.empty.partner {"count":3}');

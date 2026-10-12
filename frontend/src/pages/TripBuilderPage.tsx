@@ -317,11 +317,21 @@ function ReviewScreen({
   const roadtripsHidden = draft.warnings.some((w) => w.code === "roadtripsHidden");
   const { startDay, endDay } = draft.window;
 
+  // Why Create/Update is off, said at the button: the reasons block sits in
+  // the very next element after the header that holds the action row, and the
+  // button describes itself by it. A disabled button that only greys out
+  // leaves a hover with nothing but the not-allowed cursor (owner,
+  // 2026-10-12, on the journey page's twin), and the problems list it was
+  // first said in stands a whole name/dates/nights panel below the button.
+  const blockersId = "builder-review-blockers";
+  const blockers = problems.length > 0 || emptyWindow;
+
   const create = (
     <Button
       variant="primary"
       size="toolbar"
       disabled={running || emptyWindow || problems.length > 0}
+      aria-describedby={blockers ? blockersId : undefined}
       onClick={() => void session.submit()}
     >
       {running
@@ -421,6 +431,35 @@ function ReviewScreen({
         }
       />
 
+      {blockers && (
+        <div id={blockersId} role="alert" className="t-caption" style={{ color: "var(--ts-warn)" }}>
+          {problems.length > 0 && (
+            <ul>
+              {problems.map((problem) => (
+                <li key={problem.code === "roadtripTooShort" ? problem.areaKey : problem.code}>
+                  {t(PROBLEM_KEY[problem.code], {
+                    name:
+                      problem.code === "roadtripTooShort"
+                        ? (state.areas.find((a) => a.key === problem.areaKey)?.name ?? "")
+                        : "",
+                  })}
+                </li>
+              ))}
+            </ul>
+          )}
+          {/* The button is off for an empty window too, and the copy that says
+              so already exists — reused, never re-invented. */}
+          {emptyWindow && (
+            <p>
+              {t("tripBuilder:review.empty.noPhotos", {
+                from: fmt.localDate(startDay),
+                to: fmt.localDate(endDay),
+              })}
+            </p>
+          )}
+        </div>
+      )}
+
       {commit.kind === "failed" && (
         <Card
           role="alert"
@@ -452,21 +491,6 @@ function ReviewScreen({
         onCountries={(countries) => edit({ type: "setCountries", countries })}
         onChangeDates={openDates}
       />
-
-      {problems.length > 0 && (
-        <ul role="alert" className="t-caption" style={{ color: "var(--ts-warn)" }}>
-          {problems.map((problem) => (
-            <li key={problem.code === "roadtripTooShort" ? problem.areaKey : problem.code}>
-              {t(PROBLEM_KEY[problem.code], {
-                name:
-                  problem.code === "roadtripTooShort"
-                    ? (state.areas.find((a) => a.key === problem.areaKey)?.name ?? "")
-                    : "",
-              })}
-            </li>
-          ))}
-        </ul>
-      )}
 
       {emptyWindow ? (
         <Message

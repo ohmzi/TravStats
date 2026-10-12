@@ -83,6 +83,7 @@ export default function TripEditPage(): JSX.Element {
     handlePickCover,
     handleRemoveCover,
     saving,
+    nameMissing,
     showNameMissing,
     datesOutOfOrder,
     save,
@@ -380,7 +381,7 @@ export default function TripEditPage(): JSX.Element {
           </Field>
         </section>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             onClick={() => navigate(`/trips/${trip.id}`)}
             type="button"
@@ -389,6 +390,16 @@ export default function TripEditPage(): JSX.Element {
           >
             {t("trips:modal.cancel")}
           </button>
+          {/* The button's own refusal, said where the button is: a disabled
+              Save that only greys out leaves the field's small hint as the
+              sole explanation, and that hint reads as unrelated (owner,
+              2026-10-12: "the update button is disabled and no mention of
+              whats the reason"). The field-level hints stay where they are. */}
+          {!saving && (datesOutOfOrder || nameMissing) && (
+            <p role="alert" className="text-[11px] text-(--danger)">
+              {t(datesOutOfOrder ? "trips:modal.endBeforeStart" : "trips:modal.nameRequired")}
+            </p>
+          )}
           <button
             onClick={() => void handleSave()}
             disabled={saving || datesOutOfOrder}
