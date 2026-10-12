@@ -307,7 +307,7 @@ describe("runCommitJob", () => {
       stopoverAlbums: [
         {
           key: fixtureStopoverPlan().key,
-          name: "Port Carrow 2031 Road Trip",
+          name: "Northvale loop · Port Carrow",
           album: { status: "linked", added: 2, alreadyIn: 0 },
         },
       ],
@@ -319,7 +319,7 @@ describe("runCommitJob", () => {
         userId,
         tripId: result.tripId,
         tripName: "Northvale loop",
-        name: "Port Carrow 2031 Road Trip",
+        name: "Northvale loop · Port Carrow",
         day: "2031-05-03",
         assetIds: ["photo-a", "photo-b"],
         immichUserId: "immich-user",
@@ -341,7 +341,7 @@ describe("runCommitJob", () => {
       album: { status: "skipped", skipReason: "notRequested" },
       stopoverAlbums: [
         {
-          name: "Port Carrow 2031 Road Trip",
+          name: "Northvale loop · Port Carrow",
           album: { status: "blocked", error: { kind: "auth", missingScope: "album.create" } },
         },
       ],
@@ -462,7 +462,7 @@ describe("runCommitJob", () => {
         data: {
           userId,
           tripId: trip.id,
-          name: "Port Carrow 2031 Road Trip",
+          name: "Northvale loop · Port Carrow",
           mode: "road",
           kind: "roadtrip",
           vehicle: "car",
@@ -491,9 +491,9 @@ describe("runCommitJob", () => {
           {
             key: fixtureStopoverPlan().key,
             roadtripId: route.id,
-            name: "Port Carrow 2031 Road Trip",
+            name: "Northvale loop · Port Carrow",
             offeredIds: stationIds,
-            album: { name: "Port Carrow 2031 Road Trip", assetIds: ["photo-a", "photo-b"] },
+            album: { name: "Northvale loop · Port Carrow", assetIds: ["photo-a", "photo-b"] },
           },
         ],
         stopUpdates: [],
@@ -512,7 +512,7 @@ describe("runCommitJob", () => {
         stopoverAlbums: [
           {
             key: fixtureStopoverPlan().key,
-            name: "Port Carrow 2031 Road Trip",
+            name: "Northvale loop · Port Carrow",
             album: { status: "linked", added: 2, alreadyIn: 0 },
           },
         ],
@@ -520,7 +520,7 @@ describe("runCommitJob", () => {
       expect(mockPitstopAlbum).toHaveBeenCalledWith(
         expect.objectContaining({
           tripId: trip.id,
-          name: "Port Carrow 2031 Road Trip",
+          name: "Northvale loop · Port Carrow",
           // The draft's own stopover carries the day the album stands for.
           day: "2031-05-03",
           assetIds: ["photo-a", "photo-b"],

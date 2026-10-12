@@ -1,8 +1,8 @@
 /**
  * A trip's own city albums (spec 2026-10-11 §5.4, spec 2026-10-11-pitstop §4):
- * the stopovers' — "<City> <Year> Road Trip" — and the pitstop areas' —
- * "<City> <Year> Road Trip (<Trip Name>)" — each holding that stretch's
- * pictures while they also stay in the trip's main album.
+ * each holds its stretch's pictures while they also stay in the trip's main
+ * album, and each is named exactly like the trip it belongs to — the scan's
+ * one naming pass mints that string once (owner ruling 2026-10-12).
  *
  * They write through the trip album's own machinery (`resyncTripAlbum`) with the
  * album picked BY NAME, so the trip-named main album can never be their target,
@@ -26,12 +26,12 @@ import type { AlbumOutcome, Day } from "./types";
 export interface PitstopAlbumOutcome {
   /** The stopover's or pitstop area's key; the success panel's own line and retry name it. */
   key: string;
-  /** The album's name, `<City> <Year> Road Trip[ (<Trip Name>)]`; what its retry resolves by. */
+  /** The album's name — its trip's own name; what its retry resolves by. */
   name: string;
   album: AlbumOutcome;
 }
 
-/** "TravStats trip · <City> <Year> Road Trip …": the marker prefix keeps the album findable and ours. */
+/** "TravStats trip · <the trip's name>": the marker prefix keeps the album findable and ours. */
 export function pitstopAlbumDescription(name: string): string {
   return `${TRAVSTATS_ALBUM_MARKER} ${name}`;
 }
@@ -41,7 +41,7 @@ export interface PitstopAlbumInput {
   tripId: string;
   /** The trip's own name; only the main-album rule reads it, which this write never uses. */
   tripName: string;
-  /** `<City> <Year> Road Trip[ (<Trip Name>)]` — the album's name. */
+  /** The trip's own name — the album's name. */
   name: string;
   /** The stretch's own day (`YYYY-MM-DD`): the window the album stands for. */
   day: Day;

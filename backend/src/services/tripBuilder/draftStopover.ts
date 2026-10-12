@@ -15,7 +15,12 @@ export interface DraftStopover {
   /** `${inFlightId}#${outFlightId}` — stable across scans, outside the area-key namespace. */
   key: string;
   city: string;
-  /** "<City> <Year> Road Trip": the one name of the roadtrip and its album. */
+  /**
+   * The trip's name, minted by the scan's one naming pass (`roadtripAreaNames`
+   * over every trip of the journey): "<Journey> · <City>", or the journey's
+   * own name when the journey holds exactly one trip (owner ruling 2026-10-12).
+   * The roadtrip and its album share it.
+   */
   title: string;
   /** The stopover day (YYYY-MM-DD, on the place's own clock). */
   day: Day;
@@ -47,13 +52,16 @@ export interface StoredStopoverStatus {
 }
 
 /**
- * One stopover candidate as the scan derived it (spec 2026-10-11 §2.3). The
- * whole layover's photo ids are kept server-side: they are dropped after the
- * scan today, and the city-album write needs them.
+ * One stopover candidate as the scan derived it (spec 2026-10-11 §2.3), before
+ * the naming pass: everything but the name. The count that decides the
+ * single-trip case spans areas and stopovers alike, and only `buildDraftWith`
+ * can know it (it needs the area kinds), so the derived half carries none
+ * (owner ruling 2026-10-12). The whole layover's photo ids are kept
+ * server-side: they are dropped after the scan today, and the city-album write
+ * needs them.
  */
-export interface StoredStopover {
+export interface DerivedStopover {
   key: string;
-  title: string;
   city: string;
   day: Day;
   inFlightId: string;
@@ -67,6 +75,17 @@ export interface StoredStopover {
   legs: PlanLeg[];
 }
 
+/** A derived stopover with the name the scan's one naming pass minted for it. */
+export interface StoredStopover extends DerivedStopover {
+  /**
+   * The trip's name, minted by the scan's one naming pass — the area roadtrips
+   * and the stopovers together (`roadtripAreaNames`): "<Journey> · <City>", or
+   * the journey's own name when the journey holds exactly one trip (owner
+   * ruling 2026-10-12). One string for the roadtrip and its album.
+   */
+  title: string;
+}
+
 /**
  * One toggled stopover as the write phase sees it (spec 2026-10-11 §5.2): a
  * roadtrip with no nights — its stations never enter `body.areas` or the night
@@ -75,7 +94,7 @@ export interface StoredStopover {
 export interface StopoverPlan {
   /** The draft stopover's key, `<inFlightId>#<outFlightId>`. */
   key: string;
-  /** `<City> <Year> Road Trip`: the roadtrip's and its album's one name (owner ruling). */
+  /** The trip's name: `StoredStopover.title`, the roadtrip's and its album's one string. */
   name: string;
   /** The stopover day (`YYYY-MM-DD`, trip zone). */
   day: Day;

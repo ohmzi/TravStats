@@ -151,7 +151,7 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album", () => {
       tripId,
       tripName: "Northvale loop",
       album: {
-        name: "Port Carrow 2031 Road Trip",
+        name: "Northvale loop · Port Carrow",
         day: "2031-05-03",
         assetIds: ["photo-a", "photo-b"],
       },
@@ -428,13 +428,13 @@ describe("POST /api/v1/trip-builder/trips/:tripId/album — a stopover key nothi
     // name must stay the trip's own album.
     committedDraft([fixtureStoredStopover()]);
 
-    await refused({ name: "Port Carrow 2031 Road Trip" });
+    await refused({ name: "Northvale loop · Port Carrow" });
     await settleAllJobs();
 
     expect(mockRetry).toHaveBeenCalledWith(
       ownerId,
       ownerTripId,
-      "Port Carrow 2031 Road Trip",
+      "Northvale loop · Port Carrow",
       false
     );
     expect(mockCityRetry).not.toHaveBeenCalled();

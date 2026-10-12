@@ -6,14 +6,15 @@
  * An area is a pitstop when it lies strictly between two same-airport flights
  * on different local days and is not the trip's principal destination — the
  * area with the most nights, ties going to the most photo-days and then to the
- * earliest first day. The album is named `<City> <Year> Road Trip (<Trip
- * Name>)` from the shared airport's city — a pitstop is named after its
- * airport, not the area's photo-majority city (owner ruling 2026-10-12) — the
- * parenthetical dropped when it and the trip share a name.
+ * earliest first day. The area's city is the shared airport's — a pitstop is
+ * named after its airport, not the area's photo-majority city (owner ruling
+ * 2026-10-12) — and its album takes the roadtrip row's own name, the string the
+ * scan's one naming pass mints for it (`namedPitstops`), never a second one
+ * (owner ruling 2026-10-12).
  *
  * Pure: the areas, the night plan, the flights, the airport rows and the
  * photos come in as values. `buildDraftWith` runs it once, after the nights
- * are known.
+ * are known, and names its DTO pieces after the naming pass.
  */
 import { airportCityName, airportDisplayName } from "../../utils/airportDisplay";
 import type { AirportData } from "../airportLookup";
@@ -23,8 +24,8 @@ import type { AreaPlan, Day, FlightAnchor, NightEntry, PhotoPoint } from "./type
 /** A pitstop area's DTO piece (spec §2, §6): its album, server-computed, and what a re-sync holds of it (spec §5). */
 export interface DraftPitstop {
   /**
-   * `<City> <Year> Road Trip (<Trip Name>)`; the parenthetical is dropped when
-   * the city is the trip's own name (spec §6).
+   * The area's roadtrip row name, verbatim (`namedPitstops`): the trip's name
+   * is the album's name (owner ruling 2026-10-12).
    */
   albumName: string;
   /**
@@ -114,7 +115,6 @@ export interface PitstopAreasInput {
    * every pitstop here — the pass takes them as they came.
    */
   airports: ReadonlyMap<string, AirportData>;
-  tripName: string;
 }
 
 /**
@@ -134,13 +134,12 @@ export function pitstopCity(airport: AirportData | null, fallback: string | null
 
 /** What the pitstop pass found, over the draft's kept areas. */
 export interface PitstopPass {
-  /** The DTO piece of every qualifying area (spec §2), keyed by the area key. */
-  pitstops: Map<string, DraftPitstop>;
+  /** The qualifying areas' keys (spec §2); the DTO pieces are named later, after the naming pass. */
+  keys: ReadonlySet<string>;
   /**
    * The city each pitstop's roadtrip row takes after the `·`, keyed the same
-   * way — exactly the city its album carries, so the row and the album can
-   * never disagree (owner ruling 2026-10-12). Every other area keeps the main
-   * city its own naming already gave it.
+   * way — the city the naming pass feeds the row and the album (owner ruling
+   * 2026-10-12). Every other area keeps the main city its own naming gave it.
    */
   cities: Map<string, string | null>;
 }
@@ -152,12 +151,13 @@ export interface PitstopPass {
  * fall on different local days, and it is not the principal destination. An
  * area that does not qualify is simply absent from the answer. Each pitstop's
  * city — the shared airport's (`arriving.arrIata`, per `sharesAirport`) — is
- * handed out beside its DTO piece, so the roadtrip row is named from it too.
+ * handed out beside its key, so the naming pass names the roadtrip row from it
+ * too (`namedPitstops`).
  */
 export function pitstopAreas(input: PitstopAreasInput): PitstopPass {
   const destination = principalDestination(input.areas, input.nights, input.photosById);
   const anchorsById = new Map(input.anchors.map((anchor) => [anchor.id, anchor] as const));
-  const pitstops = new Map<string, DraftPitstop>();
+  const keys = new Set<string>();
   const cities = new Map<string, string | null>();
   for (const plan of input.areas) {
     if (plan === destination) continue;
@@ -171,31 +171,34 @@ export function pitstopAreas(input: PitstopAreasInput): PitstopPass {
     const iata = arriving.arrIata;
     const airport = iata === null ? null : (input.airports.get(iata.toUpperCase()) ?? null);
     const city = pitstopCity(airport, input.mainCities.get(plan.key) ?? null);
-    pitstops.set(plan.key, {
-      albumName: pitstopAlbumName(city, plan.area.startDay, input.tripName),
-    });
+    keys.add(plan.key);
     cities.set(plan.key, city);
   }
-  return { pitstops, cities };
+  return { keys, cities };
 }
 
 /**
- * `<City> <Year> Road Trip (<Trip Name>)` (spec §6): City is the pitstop's own
- * city (`pitstopCity` — the shared airport's, else the area's main city), the
- * trip's own name when it has none — and the parenthetical is dropped when
- * the two are the same string. Year is the area's first day's year.
+ * The pitstop DTO pieces: one per qualifying area, each album named exactly
+ * like the roadtrip row that area gets (`names`, the scan's one naming pass),
+ * so the album never mints a second string — two pitstops sharing a city take
+ * the de-duped names the pass doled out (the ` (d MMM)`/numbering convention),
+ * and their albums follow. An area the pass did not name — roadtrips hidden,
+ * so it opens as a stop and stands in no naming list — falls back to the
+ * journey's own name; its album is never written.
  */
-export function pitstopAlbumName(city: string | null, startDay: Day, tripName: string): string {
-  const named = city ?? tripName;
-  const base = `${named} ${startDay.slice(0, 4)} Road Trip`;
-  return named === tripName ? base : `${base} (${tripName})`;
+export function namedPitstops(
+  keys: Iterable<string>,
+  names: Readonly<Record<string, string>>,
+  fallback: string
+): Map<string, DraftPitstop> {
+  return new Map([...keys].map((key) => [key, { albumName: names[key] ?? fallback }] as const));
 }
 
 /** A pitstop area's own album as the commit reads it (spec 2026-10-11 pitstops §4). SERVER-ONLY. */
 export interface StoredPitstop {
   /** The area key (`<startDay>#<n>`), the same key the DTO area carries. */
   key: string;
-  /** `<City> <Year> Road Trip (<Trip Name>)`: the name the review showed (§6). */
+  /** The roadtrip row's own name (`DraftPitstop.albumName`): the name the review showed (§6). */
   albumName: string;
   /** The area's first day (`YYYY-MM-DD`, trip zone): the window the album stands for. */
   day: Day;

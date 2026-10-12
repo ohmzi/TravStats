@@ -6,7 +6,6 @@ import {
   stopoverFromArea,
   stopoverOf,
   stopoverStations,
-  stopoverTitle,
 } from "../stopovers";
 import type { FlightAnchor, Layover, NamedCluster, PhotoPoint, PlanLeg } from "../types";
 import { makePhoto } from "./photoFixtures";
@@ -104,23 +103,11 @@ describe("stopoverStations", () => {
   });
 });
 
-describe("the stopover's name", () => {
-  it("is `<City> <Year> Road Trip`", () => {
-    expect(stopoverTitle("Elmwood", "2031-05-02", new Set<string>())).toBe(
-      "Elmwood 2031 Road Trip"
-    );
-  });
-
-  it("suffixes a later same-city candidate with its day, so two candidates never share a title", () => {
-    const first = stopoverTitle("Elmwood", "2031-05-02", new Set<string>());
-    const second = stopoverTitle("Elmwood", "2031-05-06", new Set([first]));
-    expect(first).toBe("Elmwood 2031 Road Trip");
-    expect(second).toBe("Elmwood 2031 Road Trip (6 May)");
-    // Even two candidates on one day stay apart: the day suffix itself is deduplicated (C.11).
-    const third = stopoverTitle("Elmwood", "2031-05-06", new Set([first, second]));
-    expect(third).toBe("Elmwood 2031 Road Trip (6 May) 2");
-  });
-
+describe("the stopover's city", () => {
+  // The name is not minted here any more (owner ruling 2026-10-12): one naming
+  // pass over every trip of the journey, in `buildDraftWith`, names the area
+  // roadtrips and the stopovers together. What the stopover contributes is its
+  // city and its day.
   it("takes the naming chain's answer, or the airport's city when it has only coordinates", () => {
     expect(stopoverCity([cluster()], AIRPORT_ROW)).toBe("Elmwood");
     const coords = cluster({
@@ -139,10 +126,10 @@ describe("stopoverOf", () => {
       tour,
       probes: [{ distanceKm: 32.5, ferryKm: 0 }],
       countryAt: () => "NZ",
-      takenTitles: new Set<string>(),
     });
     expect(stopover.key).toBe("f1#f2");
-    expect(stopover.title).toBe("Elmwood 2031 Road Trip");
+    // No name yet: the one naming pass in `buildDraftWith` names every trip.
+    expect("title" in stopover).toBe(false);
     expect(stopover.city).toBe("Elmwood");
     expect(stopover.day).toBe("2031-05-02");
     expect(stopover.airportIata).toBe("NVL");
@@ -214,13 +201,11 @@ describe("stopoverFromArea (branch (b))", () => {
       plan: AREA_PLAN,
       airport: AIRPORT_ROW,
       outing: AREA_OUTING,
-      takenTitles: new Set<string>(),
     });
     expect(stopover).not.toBeNull();
     expect(stopover).toMatchObject({
       key: "f1#f2",
       city: "Elmwood",
-      title: "Elmwood 2031 Road Trip",
       day: "2031-05-02",
       inFlightId: "f1",
       outFlightId: "f2",
@@ -231,19 +216,6 @@ describe("stopoverFromArea (branch (b))", () => {
     expect(stopover?.legs).toEqual(AREA_LEGS);
     // The album list is the stretch's movement and at-sea photos together.
     expect(stopover?.photoIds).toEqual(["p1", "p2", "p3", "p4", "p5", "p6"]);
-  });
-
-  it("takes the day and title suffix from the first outing photo", () => {
-    const stopover = stopoverFromArea({
-      area: AREA,
-      inFlight: AREA_IN,
-      outFlight: AREA_OUT,
-      plan: AREA_PLAN,
-      airport: AIRPORT_ROW,
-      outing: AREA_OUTING,
-      takenTitles: new Set(["Elmwood 2031 Road Trip"]),
-    });
-    expect(stopover?.title).toBe("Elmwood 2031 Road Trip (2 May)");
   });
 
   it("refuses an area with no ground station to name it after", () => {
@@ -258,7 +230,6 @@ describe("stopoverFromArea (branch (b))", () => {
         plan: airportOnly,
         airport: AIRPORT_ROW,
         outing: AREA_OUTING,
-        takenTitles: new Set<string>(),
       })
     ).toBeNull();
   });

@@ -1,10 +1,11 @@
 import {
-  pitstopAlbumName,
+  namedPitstops,
   pitstopAreas,
   pitstopCity,
   principalDestination,
   storedPitstops,
 } from "../pitstops";
+import { roadtripAreaNames } from "../../../shared/tour/builderNightPlan";
 import type { AirportData } from "../../airportLookup";
 import type { Day, NightEntry } from "../types";
 import { area, flight, photo, preciseFlight, station, type AreaFixture } from "./nightsFixtures";
@@ -112,40 +113,22 @@ const find = (
     photosById: photosById(),
     mainCities: MAIN_CITIES,
     airports: over.airports ?? AIRPORTS,
-    tripName: "Southern loop",
   });
 
 describe("pitstopAreas", () => {
-  it("offers the stay its own album, and leaves the destination's area to the trip's own", () => {
+  it("elects the stay a pitstop, and leaves the destination's area to the trip's own", () => {
     const found = find();
-    expect([...found.pitstops.keys()]).toEqual(["2031-05-02#1"]);
-    expect(found.pitstops.get("2031-05-02#1")).toEqual({
-      albumName: "Northvale 2031 Road Trip (Southern loop)",
-    });
-    // The city the roadtrip row must take after the `·` is the album's own
-    // (owner ruling 2026-10-12): the scan hands it out beside the DTO piece.
+    expect([...found.keys]).toEqual(["2031-05-02#1"]);
+    // The city the roadtrip row must take after the `·` — the album follows
+    // that same row name later, in `namedPitstops` (owner ruling 2026-10-12):
+    // the scan hands the city out beside the key.
     expect(found.cities.get("2031-05-02#1")).toBe("Northvale");
   });
 
   it("falls back to the area's own main city when the airport cannot name one", () => {
     const found = find({ airports: new Map() });
-    expect(found.pitstops.get("2031-05-02#1")).toEqual({
-      albumName: "Dunholme 2031 Road Trip (Southern loop)",
-    });
+    expect([...found.keys]).toEqual(["2031-05-02#1"]);
     expect(found.cities.get("2031-05-02#1")).toBe("Dunholme");
-  });
-
-  it("drops the parenthetical when the airport's city is the trip's own name", () => {
-    const named = new Map<string, AirportData>([
-      [
-        "ZNV",
-        airport({ name: "Northvale International Airport", municipalityName: "Southern loop" }),
-      ],
-    ]);
-    const found = find({ airports: named });
-    expect(found.pitstops.get("2031-05-02#1")).toEqual({
-      albumName: "Southern loop 2031 Road Trip",
-    });
   });
 
   it("offers nothing when the two flights fall on one local day", () => {
@@ -153,7 +136,7 @@ describe("pitstopAreas", () => {
       depIata: "ZNV",
       arrIata: "ZKA",
     });
-    expect([...find({ anchors: [F1, sameDay, F3] }).pitstops.keys()]).toEqual([]);
+    expect([...find({ anchors: [F1, sameDay, F3] }).keys]).toEqual([]);
   });
 
   it("offers nothing when the two flights do not share an airport", () => {
@@ -161,15 +144,15 @@ describe("pitstopAreas", () => {
       depIata: "ZKM",
       arrIata: "ZKA",
     });
-    expect([...find({ anchors: [F1, away, F3] }).pitstops.keys()]).toEqual([]);
+    expect([...find({ anchors: [F1, away, F3] }).keys]).toEqual([]);
   });
 
   it("reads a pair without times at the day level: two days qualify, one day does not", () => {
     const dayIn = flight("f1", { depIata: "ZKE", arrIata: "ZNV", arrDay: "2031-05-02" });
     const dayOut = flight("f2", { depIata: "ZNV", arrIata: "ZKA", depDay: "2031-05-04" });
-    expect([...find({ anchors: [dayIn, dayOut] }).pitstops.keys()]).toEqual(["2031-05-02#1"]);
+    expect([...find({ anchors: [dayIn, dayOut] }).keys]).toEqual(["2031-05-02#1"]);
     const sameDayOut = flight("f2", { depIata: "ZNV", arrIata: "ZKA", depDay: "2031-05-02" });
-    expect([...find({ anchors: [dayIn, sameDayOut] }).pitstops.keys()]).toEqual([]);
+    expect([...find({ anchors: [dayIn, sameDayOut] }).keys]).toEqual([]);
   });
 
   it("leaves the trip's first and last areas alone — no two flights bound them", () => {
@@ -198,9 +181,8 @@ describe("pitstopAreas", () => {
       photosById: photosById(),
       mainCities: MAIN_CITIES,
       airports: AIRPORTS,
-      tripName: "Southern loop",
     });
-    expect([...found.pitstops.keys()]).toEqual(["2031-05-02#1"]);
+    expect([...found.keys]).toEqual(["2031-05-02#1"]);
   });
 });
 
@@ -321,41 +303,47 @@ describe("principalDestination", () => {
   });
 });
 
-describe("pitstopAlbumName", () => {
-  it("names the album `<City> <Year> Road Trip (<Trip Name>)`", () => {
-    expect(pitstopAlbumName("Dunholme", "2031-05-02", "Southern loop")).toBe(
-      "Dunholme 2031 Road Trip (Southern loop)"
+describe("namedPitstops", () => {
+  it("names each album exactly the roadtrip row's own name — one string, de-duped", () => {
+    // Two pitstops sharing one city and year (the reviewer's finding on
+    // 1cee95ab9): the naming pass is what keeps them apart, and each album
+    // takes that pass's own value — never a second minting.
+    const names = roadtripAreaNames(
+      [
+        { key: "2031-05-02#1", mainCity: "Northvale", startDay: "2031-05-02" },
+        { key: "2031-05-06#1", mainCity: "Northvale", startDay: "2031-05-06" },
+      ],
+      "Southern loop",
+      new Set()
     );
+    const pitstops = namedPitstops(["2031-05-02#1", "2031-05-06#1"], names, "Southern loop");
+    // Two trips sharing one base both take their own day suffix (the C.11
+    // duplicate convention), and each album is that trip's own string.
+    expect(names["2031-05-02#1"]).toBe("Southern loop · Northvale (2 May)");
+    expect(names["2031-05-06#1"]).toBe("Southern loop · Northvale (6 May)");
+    expect(pitstops.get("2031-05-02#1")).toEqual({ albumName: names["2031-05-02#1"] });
+    expect(pitstops.get("2031-05-06#1")).toEqual({ albumName: names["2031-05-06#1"] });
+    expect(new Set([...pitstops.values()].map((pitstop) => pitstop.albumName)).size).toBe(2);
   });
 
-  it("drops the parenthetical when the city and the trip name are the same", () => {
-    expect(pitstopAlbumName("Dunholme", "2031-05-02", "Dunholme")).toBe("Dunholme 2031 Road Trip");
-  });
-
-  it("reads the year from the area's first day", () => {
-    expect(pitstopAlbumName("Dunholme", "2032-01-02", "Southern loop")).toBe(
-      "Dunholme 2032 Road Trip (Southern loop)"
-    );
+  it("falls back to the journey's own name for an area the pass did not name", () => {
+    // Roadtrips hidden: the pitstop opens as a stop and stands in no naming
+    // list, so its album keeps the journey's own name (and is never written).
+    const pitstops = namedPitstops(["2031-05-02#1"], {}, "Southern loop");
+    expect(pitstops.get("2031-05-02#1")).toEqual({ albumName: "Southern loop" });
   });
 });
 
 describe("storedPitstops", () => {
+  /** The pitstop DTO pieces as `buildDraftWith` makes them: named by the one naming pass. */
   const found = () =>
-    pitstopAreas({
-      areas: [STAY.plan, DESTINATION.plan],
-      nights: NIGHTS,
-      anchors: [F1, F2, F3],
-      photosById: photosById(),
-      mainCities: MAIN_CITIES,
-      airports: AIRPORTS,
-      tripName: "Southern loop",
-    }).pitstops;
+    namedPitstops(find().keys, { "2031-05-02#1": "Southern loop · Northvale" }, "Southern loop");
 
   it("keeps each pitstop's own photo set, under its key, name and day", () => {
     expect(storedPitstops([STAY.plan, DESTINATION.plan], found())).toEqual([
       {
         key: "2031-05-02#1",
-        albumName: "Northvale 2031 Road Trip (Southern loop)",
+        albumName: "Southern loop · Northvale",
         day: "2031-05-02",
         assetIds: ["s1", "s2"],
       },

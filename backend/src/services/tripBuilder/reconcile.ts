@@ -329,7 +329,7 @@ export function matchAreasToRoadtrips(
 
 export interface ReconcileStopover {
   key: string;
-  /** The computed title (`<City> <Year> Road Trip`): what a stored roadtrip's name must equal. */
+  /** The computed title (the trip's minted name): what a stored roadtrip's name must equal. */
   title: string;
   /** The tour's first day (the minimum `firstDay` over its stations). */
   dayFrom: Day;

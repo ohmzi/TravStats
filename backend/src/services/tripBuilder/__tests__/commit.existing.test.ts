@@ -330,7 +330,7 @@ describe("writeCommit for an existing trip", () => {
     const albumOnly = write([], {
       noop: true,
       diff: { updated: 0, unchanged: 4, added: 0, removed: 0, kept: 0 },
-      album: { name: "Northvale 2031 Road Trip (Northvale loop)", assetIds: ["x-1"] },
+      album: { name: "Northvale loop · Northvale", assetIds: ["x-1"] },
     });
     await addStation(fx.roadtripId, 4, {
       title: "Southbridge camp",
@@ -348,7 +348,7 @@ describe("writeCommit for an existing trip", () => {
     const albumOnly = write([], {
       noop: true,
       diff: { updated: 0, unchanged: 4, added: 0, removed: 0, kept: 0 },
-      album: { name: "Northvale 2031 Road Trip (Northvale loop)", assetIds: ["x-1"] },
+      album: { name: "Northvale loop · Northvale", assetIds: ["x-1"] },
     });
     await prisma.tripRoute.delete({ where: { id: fx.roadtripId } });
     await expect(writeCommit(plan({ roadtrips: [albumOnly] }))).rejects.toMatchObject({
@@ -792,7 +792,7 @@ describe("writeCommit for an existing trip", () => {
       data: {
         userId: fx.userId,
         tripId: fx.tripId,
-        name: "Northvale 2031 Road Trip",
+        name: "Northvale loop · Northvale",
         mode: "road",
         kind: "roadtrip",
         vehicle: "car",
@@ -827,9 +827,9 @@ describe("writeCommit for an existing trip", () => {
           {
             key: STOPOVER_KEY,
             roadtripId: routeId,
-            name: "Northvale 2031 Road Trip",
+            name: "Northvale loop · Northvale",
             offeredIds: stationIds,
-            album: { name: "Northvale 2031 Road Trip", assetIds: ["photo-1"] },
+            album: { name: "Northvale loop · Northvale", assetIds: ["photo-1"] },
           },
         ],
       })
@@ -840,7 +840,7 @@ describe("writeCommit for an existing trip", () => {
       before.map((row) => row.endDate?.toISOString().slice(0, 10))
     );
     const named = await prisma.tripRoute.findMany({
-      where: { tripId: fx.tripId, name: "Northvale 2031 Road Trip" },
+      where: { tripId: fx.tripId, name: "Northvale loop · Northvale" },
       select: { id: true },
     });
     expect(named.map((route) => route.id)).toEqual([routeId]);
@@ -861,7 +861,7 @@ describe("writeCommit for an existing trip", () => {
             {
               key: STOPOVER_KEY,
               roadtripId: routeId,
-              name: "Northvale 2031 Road Trip",
+              name: "Northvale loop · Northvale",
               offeredIds: stationIds,
               album: null,
             },

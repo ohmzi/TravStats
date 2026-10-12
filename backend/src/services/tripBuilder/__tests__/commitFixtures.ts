@@ -311,7 +311,7 @@ export const STOPOVER_KEY =
 export function fixtureStopoverPlan(over: Partial<StopoverPlan> = {}): StopoverPlan {
   return {
     key: STOPOVER_KEY,
-    name: "Port Carrow 2031 Road Trip",
+    name: "Northvale loop · Port Carrow",
     day: "2031-05-03",
     stations: [
       {
@@ -334,7 +334,7 @@ export function fixtureStopoverPlan(over: Partial<StopoverPlan> = {}): StopoverP
       },
     ],
     legModes: ["road"],
-    album: { name: "Port Carrow 2031 Road Trip", assetIds: ["photo-a", "photo-b"] },
+    album: { name: "Northvale loop · Port Carrow", assetIds: ["photo-a", "photo-b"] },
     ...over,
   };
 }
@@ -343,7 +343,7 @@ export function fixtureStopoverPlan(over: Partial<StopoverPlan> = {}): StopoverP
 export function fixtureStoredStopover(over: Partial<StoredStopover> = {}): StoredStopover {
   return {
     key: STOPOVER_KEY,
-    title: "Port Carrow 2031 Road Trip",
+    title: "Northvale loop · Port Carrow",
     city: "Port Carrow",
     day: "2031-05-03",
     inFlightId: "8c2d9e3f-4a5b-4c7d-8e8f-9a0b1c2d3e4f",
@@ -357,7 +357,7 @@ export function fixtureStoredStopover(over: Partial<StoredStopover> = {}): Store
 }
 
 /** The album name the scan computes for the fixture area as a pitstop (spec 2026-10-11 pitstops §6). */
-export const PITSTOP_ALBUM = "Northvale 2031 Road Trip (Northvale loop)";
+export const PITSTOP_ALBUM = "Northvale loop · Northvale";
 
 /**
  * The pitstop area's own album record the scan keeps (spec 2026-10-11 pitstops

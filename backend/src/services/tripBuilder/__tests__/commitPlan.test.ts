@@ -273,14 +273,14 @@ describe("prepareCommit", () => {
   it("takes a pitstop area's album when the scan offered it", async () => {
     const pitstop = draft();
     const [area] = pitstop.dto.areas;
-    area.pitstop = { albumName: "Northvale 2031 Road Trip (Northvale loop)" };
+    area.pitstop = { albumName: "Northvale loop · Northvale" };
     pitstop.pitstops = [fixtureStoredPitstop()];
     const body = fixtureBody([flightId]);
     body.areas[0].album = true;
     const result = await plan(body, pitstop);
     expect(result.roadtrips).toHaveLength(1);
     expect(result.roadtrips[0].album).toEqual({
-      name: "Northvale 2031 Road Trip (Northvale loop)",
+      name: "Northvale loop · Northvale",
       assetIds: ["photo-a", "photo-b"],
     });
   });

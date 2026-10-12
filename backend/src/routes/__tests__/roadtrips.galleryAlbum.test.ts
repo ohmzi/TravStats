@@ -45,7 +45,7 @@ describe("roadtrip detail — the journey's albums arrive whole", () => {
       data: {
         tripId: trip.id,
         immichAlbumId: "immich-album-1",
-        albumName: "Kelmore 2031 Road Trip (Westmere loop)",
+        albumName: "Westmere loop · Kelmore",
         assetCount: 12,
         thumbnailAssetId: "asset-thumb-1",
         mode: "import",
@@ -72,7 +72,7 @@ describe("roadtrip detail — the journey's albums arrive whole", () => {
     );
     expect(album).toMatchObject({
       immichAlbumId: "immich-album-1",
-      albumName: "Kelmore 2031 Road Trip (Westmere loop)",
+      albumName: "Westmere loop · Kelmore",
       assetCount: 12,
       thumbnailAssetId: "asset-thumb-1",
       mode: "import",

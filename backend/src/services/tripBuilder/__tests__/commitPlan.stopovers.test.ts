@@ -20,7 +20,7 @@ const TOWN_KEY = "309|4203|2031-05-04";
 /** The stopover a scan of the fixture window offered: an afternoon in Eastport. */
 const STOPOVER: StoredStopover = {
   key: STOPOVER_KEY,
-  title: "Eastport 2031 Road Trip",
+  title: "Northvale loop · Eastport",
   city: "Eastport",
   day: "2031-05-04",
   inFlightId: IN_FLIGHT,
@@ -91,7 +91,7 @@ describe("prepareCommit and the stopovers", () => {
     expect(plan.stopovers).toHaveLength(1);
     const [stopover] = plan.stopovers ?? [];
     expect(stopover.key).toBe(STOPOVER_KEY);
-    expect(stopover.name).toBe("Eastport 2031 Road Trip");
+    expect(stopover.name).toBe("Northvale loop · Eastport");
     expect(stopover.roadtripId).toBeUndefined();
     expect(stopover.album).toBeNull();
     expect(
@@ -110,9 +110,12 @@ describe("prepareCommit and the stopovers", () => {
   it("carries the stored photo ids as the album's members when its switch is on", async () => {
     const plan = await prepareCommit(USER, draft(), body(toggled(true, true)));
     expect(plan.stopovers?.[0].album).toEqual({
-      name: "Eastport 2031 Road Trip",
+      // The album takes the roadtrip row's own name — the draft's one title
+      // (owner ruling 2026-10-12), never a second string.
+      name: plan.stopovers?.[0].name,
       assetIds: ["photo-s1", "photo-s2", "photo-s3"],
     });
+    expect(plan.stopovers?.[0].album?.name).toBe("Northvale loop · Eastport");
   });
 
   it("never asks the night plan about a stopover's stations", async () => {

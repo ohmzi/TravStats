@@ -676,7 +676,7 @@ describe("extendPlanForExisting", () => {
     return {
       key: STOPOVER_KEY,
       roadtrip: {
-        name: "Northvale 2031 Road Trip",
+        name: "Northvale loop · Northvale",
         vehicle: "car",
         stations: [
           {
@@ -714,7 +714,7 @@ describe("extendPlanForExisting", () => {
       data: {
         userId: fx.userId,
         tripId: fx.tripId,
-        name: "Northvale 2031 Road Trip",
+        name: "Northvale loop · Northvale",
         mode: "road",
         kind: "roadtrip",
         vehicle: "car",
@@ -751,7 +751,7 @@ describe("extendPlanForExisting", () => {
   const midnightStopover = (): DraftStopover =>
     stopover({
       day: "2031-05-02",
-      title: "Elmwood 2031 Road Trip",
+      title: "Northvale loop · Elmwood",
       stations: [
         derivedStation(
           "-894|3382|2031-05-02",
@@ -787,7 +787,7 @@ describe("extendPlanForExisting", () => {
       data: {
         userId: fx.userId,
         tripId: fx.tripId,
-        name: "Elmwood 2031 Road Trip",
+        name: "Northvale loop · Elmwood",
         mode: "road",
         kind: "roadtrip",
         vehicle: "car",
@@ -844,7 +844,7 @@ describe("extendPlanForExisting", () => {
         {
           ...basePlan(),
           stopovers: [
-            stopoverPlan({ name: "Northvale 2031 Road Trip", assetIds: ["photo-1", "photo-2"] }),
+            stopoverPlan({ name: "Northvale loop · Northvale", assetIds: ["photo-1", "photo-2"] }),
           ],
         }
       );
@@ -853,9 +853,9 @@ describe("extendPlanForExisting", () => {
         {
           key: STOPOVER_KEY,
           roadtripId: routeId,
-          name: "Northvale 2031 Road Trip",
+          name: "Northvale loop · Northvale",
           offeredIds: stationIds,
-          album: { name: "Northvale 2031 Road Trip", assetIds: ["photo-1", "photo-2"] },
+          album: { name: "Northvale loop · Northvale", assetIds: ["photo-1", "photo-2"] },
         },
       ]);
       // The stored roadtrip is no new roadtrip's duplicate and no area write's target.
@@ -880,7 +880,7 @@ describe("extendPlanForExisting", () => {
         body({}, { stopovers: toggleOn() }),
         {
           ...basePlan(),
-          stopovers: [stopoverPlan({ name: "Elmwood 2031 Road Trip", assetIds: ["photo-1"] })],
+          stopovers: [stopoverPlan({ name: "Northvale loop · Elmwood", assetIds: ["photo-1"] })],
         }
       );
       expect(plan.stopovers).toEqual([]);
@@ -888,9 +888,9 @@ describe("extendPlanForExisting", () => {
         {
           key: STOPOVER_KEY,
           roadtripId: routeId,
-          name: "Elmwood 2031 Road Trip",
+          name: "Northvale loop · Elmwood",
           offeredIds: stationIds,
-          album: { name: "Elmwood 2031 Road Trip", assetIds: ["photo-1"] },
+          album: { name: "Northvale loop · Elmwood", assetIds: ["photo-1"] },
         },
       ]);
     } finally {
@@ -911,7 +911,7 @@ describe("extendPlanForExisting", () => {
       await expect(
         extendPlanForExisting(fx.userId, scanned, body({}, { stopovers: toggleOn() }), {
           ...basePlan(),
-          stopovers: [stopoverPlan({ name: "Northvale 2031 Road Trip", assetIds: ["photo-1"] })],
+          stopovers: [stopoverPlan({ name: "Northvale loop · Northvale", assetIds: ["photo-1"] })],
         })
       ).rejects.toMatchObject({ statusCode: 409, code: "TRIP_CHANGED" });
     } finally {
@@ -930,7 +930,7 @@ describe("extendPlanForExisting", () => {
       await expect(
         extendPlanForExisting(fx.userId, scanned, body({}, { stopovers: toggleOn() }), {
           ...basePlan(),
-          stopovers: [stopoverPlan({ name: "Northvale 2031 Road Trip", assetIds: ["photo-1"] })],
+          stopovers: [stopoverPlan({ name: "Northvale loop · Northvale", assetIds: ["photo-1"] })],
         })
       ).rejects.toMatchObject({ statusCode: 409, code: "TRIP_CHANGED" });
     } finally {
@@ -946,7 +946,7 @@ describe("extendPlanForExisting", () => {
       body({}, { stopovers: toggleOn() }),
       {
         ...basePlan(),
-        stopovers: [stopoverPlan({ name: "Northvale 2031 Road Trip", assetIds: ["photo-1"] })],
+        stopovers: [stopoverPlan({ name: "Northvale loop · Northvale", assetIds: ["photo-1"] })],
       }
     );
     expect(plan.stopovers).toHaveLength(1);
@@ -975,9 +975,9 @@ describe("extendPlanForExisting", () => {
         {
           key: STOPOVER_KEY,
           roadtripId: routeId,
-          name: "Northvale 2031 Road Trip",
+          name: "Northvale loop · Northvale",
           offeredIds: stationIds,
-          album: { name: "Northvale 2031 Road Trip", assetIds: ["photo-1", "photo-2"] },
+          album: { name: "Northvale loop · Northvale", assetIds: ["photo-1", "photo-2"] },
         },
       ]);
       expect((plan.existing?.roadtrips ?? []).map((w) => w.roadtripId)).not.toContain(routeId);
@@ -1526,7 +1526,7 @@ describe("extendPlanForExisting: a pitstop that supersedes a stored stop", () =>
   const STOP_AREA = "2031-05-06#1";
   const ANCHOR = "-908|3370|2031-05-06";
   const LIBRARY = "-911|3364|2031-05-07";
-  const ALBUM = "Kelmore 2031 Road Trip (Northvale loop)";
+  const ALBUM = "Northvale loop · Kelmore";
 
   const anchor = (): DraftStation =>
     derivedStation(ANCHOR, "Kelmore Museum", FX.kelmore, "2031-05-06", "2031-05-07");

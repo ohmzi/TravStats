@@ -13,7 +13,7 @@ import { pitstopAlbumDescription, retryPitstopAlbum, writePitstopAlbum } from ".
 const ME = "0b6f3a52-5d1c-4f43-9c1e-6a7b8c9d0e1f";
 const OTHER = "1c7a4b63-6e2d-4a54-a2f3-7b8c9d0e1f2a";
 const TRIP = "Northvale loop";
-const CITY = "Port Carrow 2031 Road Trip";
+const CITY = "Northvale loop · Port Carrow";
 const day = (value: string): Date => new Date(`${value}T00:00:00.000Z`);
 
 interface FakeAlbum {
@@ -145,7 +145,7 @@ describe("writePitstopAlbum", () => {
     });
 
   it("writes the exact TravStats trip marker and the album's name as its description", () => {
-    expect(pitstopAlbumDescription(CITY)).toBe("TravStats trip · Port Carrow 2031 Road Trip");
+    expect(pitstopAlbumDescription(CITY)).toBe("TravStats trip · Northvale loop · Port Carrow");
   });
 
   it("creates the album by its exact owned name, adds the pictures and links it after the trip's own", async () => {
@@ -155,7 +155,7 @@ describe("writePitstopAlbum", () => {
 
     expect(client.createAlbum).toHaveBeenCalledWith({
       albumName: CITY,
-      description: "TravStats trip · Port Carrow 2031 Road Trip",
+      description: "TravStats trip · Northvale loop · Port Carrow",
     });
     expect(client.addAssetsToAlbum).toHaveBeenCalledWith(expect.any(String), [
       "photo-a",
@@ -178,7 +178,7 @@ describe("writePitstopAlbum", () => {
         {
           id: "al-city",
           albumName: CITY,
-          description: "TravStats trip · Port Carrow 2031 Road Trip",
+          description: "TravStats trip · Northvale loop · Port Carrow",
           ownerId: ME,
         },
       ],
@@ -210,7 +210,7 @@ describe("writePitstopAlbum", () => {
         {
           id: "al-city",
           albumName: CITY,
-          description: "TravStats trip · Port Carrow 2031 Road Trip",
+          description: "TravStats trip · Northvale loop · Port Carrow",
           ownerId: ME,
         },
       ],
@@ -297,7 +297,7 @@ describe("retryPitstopAlbum", () => {
     expect(outcome).toMatchObject({ status: "linked", albumName: CITY, added: 2 });
     expect(client.createAlbum).toHaveBeenCalledWith({
       albumName: CITY,
-      description: "TravStats trip · Port Carrow 2031 Road Trip",
+      description: "TravStats trip · Northvale loop · Port Carrow",
     });
     expect(await prisma.tripImmichAlbum.count({ where: { tripId } })).toBe(1);
   });
@@ -316,7 +316,7 @@ describe("retryPitstopAlbum", () => {
   it("retries a pitstop area's album by its own name, marker and day", async () => {
     const client = fakeClient({});
     (createImmichClient as jest.Mock).mockReturnValue(client);
-    const PITSTOP = "Southbridge 2031 Road Trip (Southern loop)";
+    const PITSTOP = "Southern loop · Southbridge";
 
     const outcome = await retryPitstopAlbum({
       userId,
@@ -329,7 +329,7 @@ describe("retryPitstopAlbum", () => {
     expect(outcome).toMatchObject({ status: "linked", albumName: PITSTOP, added: 1 });
     expect(client.createAlbum).toHaveBeenCalledWith({
       albumName: PITSTOP,
-      description: "TravStats trip · Southbridge 2031 Road Trip (Southern loop)",
+      description: "TravStats trip · Southern loop · Southbridge",
     });
   });
 });

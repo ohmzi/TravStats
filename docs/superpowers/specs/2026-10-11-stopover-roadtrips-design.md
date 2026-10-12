@@ -44,7 +44,7 @@ For each candidate the scan derives a stopover tour from the outing set, with th
 - **Stations.** Cluster the outing photos (the same city-cluster/median machinery areas use), in time order. The tour **always begins with the arrival airport as its first stop** (title = the airport's city/name, rendered like the area airport anchors), then the derived clusters. That guarantees at least two stations whenever the candidate exists (a single downtown cluster still yields `[<airport>, downtown]`), which the roadtrip model and the review's `roadtripTooShort` check both want. Station keys are minted in the same pass and from the same scan-wide `taken` set as area stations, so keys never collide.
 - **Legs.** Between consecutive stations, by the existing leg machinery (mode evidence; road unless evidence says otherwise) — for a compact downtown cluster this is usually a single short leg from the airport.
 - **Nights: none.** A stopover is hours; no night is assigned to its stations, and they never enter the night plan.
-- **Name.** `<City> <Year> Road Trip`, where City is the existing naming chain's answer for the outing set (Immich city majority → reverse geocode, falling back to the airport's city) and Year is the stopover day's year in the trip's local time. The name is both the roadtrip's name and the album name (owner ruling).
+- **Name.** `<City> <Year> Road Trip`, where City is the existing naming chain's answer for the outing set (Immich city majority → reverse geocode, falling back to the airport's city) and Year is the stopover day's year in the trip's local time. The name is both the roadtrip's name and the album name (owner ruling). **Ruling (2026-10-12), superseding the form above:** a stopover is a trip of the journey like an area roadtrip, and every trip of a journey takes one name rule — `<Journey name> · <City>`, or the journey's own name when the journey holds exactly one trip — with the clash suffixes C.11 already has (` (d MMM)`, then numbering) dealt out over the whole set, areas and stopovers counted together. City is the stopover's own (the chain's answer, the airport's city when it ran out); the name is still both the roadtrip's and its album's. Synthetic example: journey "Northvale loop" with a stopover in Westmere reads "Northvale loop · Westmere", and a journey holding only that stopover reads "Northvale loop".
 - **Album asset list.** The stopover's album pictures are the **whole layover's photo set** (`Layover.photoIds`, all 98 in the probed case), not only the outing set.
 - **Previews.** The stopover stations' thumbnails join the draft's numbered preview space (no Immich asset id crosses the API) exactly as area stations do.
 
@@ -58,7 +58,7 @@ For each candidate the scan derives a stopover tour from the outing set, with th
 DraftStopover = {
   key: string            // `${inFlightId}#${outFlightId}` — stable across scans
   city: string           // "Eastport"
-  title: string          // "Eastport 2031 Road Trip"
+  title: string          // "Northvale loop · Westmere" — the journey-and-city name (§2.2's 2026-10-12 ruling)
   day: string            // the stopover day (YYYY-MM-DD, trip zone)
   airportIata: string | null
   photoCount: number     // the whole layover set (album list)

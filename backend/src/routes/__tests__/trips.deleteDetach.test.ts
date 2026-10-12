@@ -69,7 +69,7 @@ describe("deleting a journey", () => {
       data: {
         tripId: journey.id,
         immichAlbumId: "immich-album-1",
-        albumName: "Dunholme 2031 Road Trip (Northvale run)",
+        albumName: "Northvale run · Dunholme",
         assetCount: 52,
         mode: "link",
       },

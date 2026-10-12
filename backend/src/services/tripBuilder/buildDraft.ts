@@ -37,7 +37,7 @@ import {
 import { assembleWarnings, movementOutsideDates, type UnrecordedFlight } from "./draftWarnings";
 import { applyExistingTarget, type ExistingDeps } from "./existingDraft";
 import { indexPreviews } from "./stations";
-import { pitstopAreas, storedPitstops } from "./pitstops";
+import { namedPitstops, pitstopAreas, storedPitstops } from "./pitstops";
 import type { RoadAccess } from "./probe";
 import {
   DRAFT_IDLE_TTL_MS,
@@ -74,6 +74,7 @@ import {
   type ScanWindow,
   type StationIndexEntry,
   type StoredDraft,
+  type StoredStopover,
   type TripBuilderDraft,
 } from "./types";
 import { windowDays } from "./window";
@@ -398,9 +399,7 @@ export async function buildDraftWith(
     photosById: movement.photosById,
     mainCities,
     airports: stopoverPass.airports,
-    tripName: input.name,
   });
-  const pitstops = pitstopPass.pitstops;
   // The kind each area opens as. A pitstop opens as Roadtrip with its own album
   // (spec §3): the review seed reads this `defaultAs`, the commit sends its
   // `as`, and the re-sync reconciles the area as a roadtrip on the same value —
@@ -413,31 +412,51 @@ export async function buildDraftWith(
       (plan) =>
         [
           plan.key,
-          pitstops.has(plan.key) && deps.roadtripsVisible
+          pitstopPass.keys.has(plan.key) && deps.roadtripsVisible
             ? "roadtrip"
             : decideAreaKind(plan, deps.roadtripsVisible),
         ] as const
     )
   );
-  // A pitstop rides the roadtrip naming like any other roadtrip's area, so the
-  // review seed equals what `withSuggestedNames` recomputes after an edit. The
-  // city it is named over is the pitstop's own — the same string its album
-  // carries (`pitstopPass.cities`) — never the photo-majority main city, so
-  // the row and the album can never disagree (owner ruling 2026-10-12). Every
-  // other area keeps the main city its own naming gave it.
+  // The city a trip is named after: the pitstop's own — the shared airport's,
+  // the string its album inherits — else the area's photo-majority main city
+  // (owner ruling 2026-10-12).
   const cityOf = (key: string): string | null =>
     pitstopPass.cities.get(key) ?? mainCities.get(key) ?? null;
-  const names = roadtripAreaNames(
-    night.kept
+  // ─── One naming pass for every trip of the journey (owner ruling 2026-10-12)
+  // A trip is a roadtrip-kind area or a stopover candidate, and both kinds take
+  // ONE name rule (`roadtripAreaNames`): "<Journey name> · <City>", the
+  // journey's own name when the journey holds exactly one trip, with the
+  // clash suffixes (` (d MMM)`, numbering) over the whole set. The count and
+  // the clash pool therefore span both kinds — an only-area journey and an
+  // only-stopover journey take the journey name the same way — and in travel
+  // order, so the earliest same-city trip keeps the plain base. Everything
+  // named below (the area rows, the stopover rows, the pitstop albums) reads
+  // this one result: no second string is ever minted.
+  const nameInputs = [
+    ...night.kept
       .filter((plan) => kinds.get(plan.key) === "roadtrip")
       .map((plan) => ({
         key: plan.key,
         mainCity: cityOf(plan.key),
         startDay: plan.area.startDay,
       })),
+    ...stopovers.map((stopover) => ({
+      key: stopover.key,
+      mainCity: stopover.city,
+      startDay: stopover.day,
+    })),
+  ].sort((a, b) => (a.startDay < b.startDay ? -1 : a.startDay > b.startDay ? 1 : 0));
+  const names = roadtripAreaNames(
+    nameInputs,
     input.name,
     new Set(deps.targetTrip?.roadtripNames ?? [])
   );
+  const namedStopovers: StoredStopover[] = stopovers.map((stopover) => ({
+    ...stopover,
+    title: names[stopover.key] ?? input.name,
+  }));
+  const pitstops = namedPitstops(pitstopPass.keys, names, input.name);
   const areas = night.kept.map((plan) => {
     const area = toDraftArea(
       withPreviews(plan, previews.previewIdx),
@@ -465,7 +484,14 @@ export async function buildDraftWith(
   });
   const labels =
     areas.length > 0
-      ? draftLabels(areas, homeTitleOf(collected.homeAt(window.startDay)))
+      ? draftLabels(
+          // The label reads the area's PHOTO-MAJORITY main city, never the
+          // airport city a pitstop's row and album are named from: the owner's
+          // ruling names trips and albums, and a label is neither (review of
+          // 1cee95ab9, finding 1). `mainCities` is that un-overridden value.
+          areas.map((area) => ({ ...area, mainCity: mainCities.get(area.key) ?? null })),
+          homeTitleOf(collected.homeAt(window.startDay))
+        )
       : { originLabel: null, destinationLabel: null };
 
   const images = photos.filter((p) => p.type === "IMAGE").length;
@@ -555,7 +581,7 @@ export async function buildDraftWith(
     days: input.inspect ? toDraftDays(window, photos, areas, listed, night.kept) : [],
     nights: night.nights,
     areas,
-    stopovers: stopovers.map((stopover) => ({
+    stopovers: namedStopovers.map((stopover) => ({
       key: stopover.key,
       city: stopover.city,
       title: stopover.title,
@@ -604,7 +630,7 @@ export async function buildDraftWith(
     albumAssetIds: photos.map((p) => p.id),
     flightIds: new Set(listed.map((a) => a.id)),
     stationIndex: stationIndexOf(areas),
-    stopovers,
+    stopovers: namedStopovers,
     // The pitstop areas' own album lists (spec 2026-10-11 pitstops §4): the
     // album takes the area's photos, which no DTO may carry.
     pitstops: storedPitstopRecords,

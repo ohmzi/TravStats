@@ -16,7 +16,6 @@
  * The scan-side wiring (`areaPlans.ts`, `stopoversPhase`) does the clustering,
  * naming and probing around it.
  */
-import { dayMonthLabel } from "../../shared/tour/builderNightPlan";
 import { defaultStationNotes } from "../../shared/tour/builderStations";
 import { airportCityName, airportDisplayName } from "../../utils/airportDisplay";
 import type { AirportData } from "../airportLookup";
@@ -30,6 +29,7 @@ import type {
   AreaPlan,
   CountryAt,
   Day,
+  DerivedStopover,
   FlightAnchor,
   GroundArea,
   Layover,
@@ -37,7 +37,6 @@ import type {
   PhotoPoint,
   PlanStation,
   StationSpan,
-  StoredStopover,
   TitleSource,
 } from "./types";
 
@@ -74,25 +73,12 @@ export function isStopoverCandidate(outing: readonly PhotoPoint[]): boolean {
 }
 
 /**
- * `<City> <Year> Road Trip`: the one name of the roadtrip and its album (owner
- * ruling). A base `takenTitles` already holds — the titles the scan minted for
- * earlier candidates — gets the day suffix C.11's roadtrip names use
- * (`roadtripAreaNames`: ` (d MMM)` of this stopover's own day), so two
- * stopovers in one city and year stay distinct; a suffix that is itself taken
- * gets the same numeric ending (plan 2026-10-11, controller amendment 1).
- */
-export function stopoverTitle(city: string, day: Day, takenTitles: ReadonlySet<string>): string {
-  const base = `${city} ${day.slice(0, 4)} Road Trip`;
-  const wanted = takenTitles.has(base) ? `${base} (${dayMonthLabel(day)})` : base;
-  let title = wanted;
-  for (let n = 2; takenTitles.has(title); n++) title = `${wanted} ${n}`;
-  return title;
-}
-
-/**
  * The city a stopover is named after (spec §2.2): the naming chain's own
  * answer for the biggest cluster of the outing set, and the airport's city when
- * the chain ran out and named the place by its coordinates.
+ * the chain ran out and named the place by its coordinates. The name itself is
+ * minted by the scan's one naming pass (`buildDraftWith`), never here: a
+ * stopover is a trip like an area, and every trip of a journey takes its name
+ * from the one rule (owner ruling 2026-10-12).
  */
 export function stopoverCity(named: readonly NamedCluster[], airport: AirportData | null): string {
   return chainCity(
@@ -253,19 +239,18 @@ export interface StopoverAssemblyInput {
   /** The router's answers for airport→stop1, stop1→stop2 …; null without probes. */
   probes: ReadonlyArray<RouteProbe | null>;
   countryAt: CountryAt;
-  /** The titles the scan has minted so far: a later same-city candidate gets the day suffix. */
-  takenTitles: ReadonlySet<string>;
 }
 
 /**
  * The stopover the draft stores (spec §2.3): the whole layover's photo set (the
  * album list), the tour's stations, and the legs between them. No nights: a
- * stopover is hours, not a stay.
+ * stopover is hours, not a stay. No name either — the scan's one naming pass
+ * mints every trip's name, areas and stopovers alike (owner ruling
+ * 2026-10-12).
  */
-export function stopoverOf(input: StopoverAssemblyInput): StoredStopover {
+export function stopoverOf(input: StopoverAssemblyInput): DerivedStopover {
   return {
     key: `${input.layover.inFlightId}#${input.layover.outFlightId}`,
-    title: stopoverTitle(input.tour.city, input.tour.day, input.takenTitles),
     city: input.tour.city,
     day: input.tour.day,
     inFlightId: input.layover.inFlightId,
@@ -296,8 +281,6 @@ export interface AreaStopoverInput {
   airport: AirportData | null;
   /** The stretch's outing set (`outingOf`), in time order. */
   outing: readonly PhotoPoint[];
-  /** The titles the scan has minted so far. */
-  takenTitles: ReadonlySet<string>;
 }
 
 /**
@@ -309,7 +292,7 @@ export interface AreaStopoverInput {
  * album exactly as before. Null when the area has no ground station: there is
  * no city to name it after, and nothing here could name one.
  */
-export function stopoverFromArea(input: AreaStopoverInput): StoredStopover | null {
+export function stopoverFromArea(input: AreaStopoverInput): DerivedStopover | null {
   const first = input.outing[0];
   if (first === undefined) return null;
   if (!input.plan.stations.some(isGroundStation)) return null;
@@ -317,7 +300,6 @@ export function stopoverFromArea(input: AreaStopoverInput): StoredStopover | nul
   if (city.trim() === "") return null;
   return {
     key: `${input.inFlight.id}#${input.outFlight.id}`,
-    title: stopoverTitle(city, first.day, input.takenTitles),
     city,
     day: first.day,
     inFlightId: input.inFlight.id,

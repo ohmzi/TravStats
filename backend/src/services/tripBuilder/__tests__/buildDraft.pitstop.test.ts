@@ -158,7 +158,11 @@ const RE_SYNC_STATE: ExistingTripState = {
     {
       linkId: "l-dunholme",
       immichAlbumId: "al-dunholme",
-      albumName: "Northvale 2031 Road Trip (Southern loop)",
+      // The only trip of this journey is the stay's pitstop, so its album
+      // carries the journey's own name (owner ruling 2026-10-12: a one-trip
+      // journey's trip takes the journey's name) — the name the commit's
+      // add-only write resolves by.
+      albumName: "Southern loop",
       assetCount: 7,
       ownedByUser: true,
       travstatsMarker: true,
@@ -178,7 +182,9 @@ describe("buildDraftWith: a multi-day same-airport stay", () => {
     // Northvale, not the photos' own Dunholme.
     expect(dto.areas.map((area) => area.mainCity)).toEqual(["Northvale", "Southhollow"]);
     const [stay, destination] = dto.areas;
-    expect(stay.pitstop).toEqual({ albumName: "Northvale 2031 Road Trip (Southern loop)" });
+    // The album takes the roadtrip row's own name — the one naming pass mints
+    // both, so the album never carries a second string (owner ruling 2026-10-12).
+    expect(stay.pitstop).toEqual({ albumName: "Southern loop · Northvale" });
     // The destination keeps the trip's own album; its own flight pair qualifies
     // for nothing because it is not a pitstop's business (spec §2).
     expect(destination.pitstop).toBeUndefined();
@@ -208,7 +214,7 @@ describe("buildDraftWith: a multi-day same-airport stay", () => {
     const [stay] = dto.areas;
     expect(stay.mainCity).toBe("Northvale");
     expect(stay.suggestedName).toBe("Southern loop · Northvale");
-    expect(stay.pitstop?.albumName).toBe("Northvale 2031 Road Trip (Southern loop)");
+    expect(stay.pitstop?.albumName).toBe(stay.suggestedName);
   });
 
   it("marks nothing when the two flights fall on one local day", async () => {
@@ -237,8 +243,10 @@ describe("buildDraftWith: a multi-day same-airport stay", () => {
     );
     expect(dto.warnings.map((w) => w.code)).toContain("roadtripsHidden");
     // The pitstop is still offered — its album switch is what the warning
-    // explains away — but it opens as the ordinary kind, not as a roadtrip.
-    expect(dto.areas[0].pitstop).toEqual({ albumName: "Northvale 2031 Road Trip (Southern loop)" });
+    // explains away — but it opens as the ordinary kind, not as a roadtrip:
+    // no naming pass covers it, so its album keeps the journey's own name (and
+    // is never written).
+    expect(dto.areas[0].pitstop).toEqual({ albumName: "Southern loop" });
     expect(dto.areas[0].defaultAs).toBe("stops");
   });
 
@@ -394,6 +402,61 @@ describe("buildDraftWith: a re-sync whose stay is still a timeline stop", () => 
     expect(stay.stations.some((s) => s.existingId === "stop-dunholme")).toBe(true);
     expect(dto.notSeenStops).toEqual([]);
     // The pitstop's own album is still the offer (spec §3).
-    expect(dto.areas[0].pitstop).toEqual({ albumName: "Northvale 2031 Road Trip (Southern loop)" });
+    expect(dto.areas[0].pitstop).toEqual({ albumName: "Southern loop · Northvale" });
+  });
+});
+
+// ─── The naming city stays out of the destination label ──────────────────────
+
+/** Leaves three days later, so the stay's photos can outspan the destination's. */
+const LONG_STAY_FLIGHT_OUT = preciseFlight({
+  id: F2,
+  label: "ZZ110 NVL→SLM",
+  depIata: "NVL",
+  arrIata: "SLM",
+  dep: { lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+  arr: { lat: -16.52, lon: -68.12 },
+  depLocal: "2031-05-05T18:00",
+  arrLocal: "2031-05-05T20:30",
+});
+
+/** The stay: a day at each end of it, so its photos span three days but it holds ONE night — the destination holds two. */
+const LONG_STAY_AT_DUNHOLME = photosAt("ls", DUNHOLME, [
+  "2031-05-02T11:00",
+  "2031-05-02T13:00",
+  "2031-05-05T09:00",
+]);
+/** The destination's two cities, the two nights after the second flight. */
+const LONG_STAY_AT_SOUTHHOLLOW = photosAt("sh", SOUTHHOLLOW, [
+  "2031-05-05T23:00",
+  "2031-05-06T12:00",
+]);
+const LONG_STAY_AT_DUNMERE = photosAt("dm", DUNMERE, ["2031-05-06T15:00", "2031-05-06T17:00"]);
+
+describe("buildDraftWith: the longest area is the pitstop", () => {
+  it("keeps the destination label the photo-majority city while the row and album take the airport's", async () => {
+    // Review of 1cee95ab9, finding 1: the airport city is the row's and the
+    // album's (owner ruling 2026-10-12), and it stays out of the journey's
+    // destination label — `destinationLabel` is the longest area's own
+    // photo-majority main city (`draftLabels`, `mainCityOf`), never the city
+    // the pitstop's name borrowed from its airport.
+    const { dto } = await buildDraftWith(
+      deps(
+        LONG_STAY_FLIGHT_OUT,
+        [...LONG_STAY_AT_DUNHOLME, ...LONG_STAY_AT_SOUTHHOLLOW, ...LONG_STAY_AT_DUNMERE],
+        {}
+      ),
+      USER,
+      INPUT,
+      () => undefined
+    );
+    const [stay, destination] = dto.areas;
+    // The stay outspans the destination, so it is the label's own area — and
+    // the label is Dunholme, where its photos are, not Northvale (its airport).
+    expect(stay.pitstop).toEqual({ albumName: "Southern loop · Northvale" });
+    expect(stay.mainCity).toBe("Northvale");
+    expect(dto.destinationLabel).toBe("Dunholme");
+    // The destination still names itself from its own photos.
+    expect(destination.suggestedName).toMatch(/^Southern loop · /);
   });
 });

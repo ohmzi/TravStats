@@ -411,6 +411,7 @@ export interface DraftArea {
 // 800-line cap. They are re-exported here, so consumers keep importing them
 // from `./types`.
 export type {
+  DerivedStopover,
   DraftStopover,
   StopoverPlan,
   StoredStopover,

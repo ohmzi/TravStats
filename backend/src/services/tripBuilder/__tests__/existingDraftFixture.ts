@@ -146,7 +146,7 @@ export function stopover(over: Partial<DraftStopover> = {}): DraftStopover {
   return {
     key: STOPOVER_KEY,
     city: "Northvale",
-    title: "Northvale 2031 Road Trip",
+    title: "Northvale loop · Northvale",
     day: "2031-05-04",
     airportIata: "ZZA",
     photoCount: 98,

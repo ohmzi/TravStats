@@ -156,7 +156,9 @@ const draftPitstop = z
   .object({
     albumName: z
       .string()
-      .describe('"<City> <Year> Road Trip (<Trip Name>)": the server-computed album name'),
+      .describe(
+        "The area's roadtrip row name: the album carries the same string (owner ruling 2026-10-12)"
+      ),
   })
   .extend(existingPitstopFields)
   .describe("Present when the area is a pitstop: a multi-day same-airport stay with its own album");
@@ -185,7 +187,11 @@ const draftStopover = z
         "`<inFlightId>#<outFlightId>`, stable across scans; outside the area-key namespace"
       ),
     city: z.string(),
-    title: z.string().describe('"<City> <Year> Road Trip": the roadtrip and the album share it'),
+    title: z
+      .string()
+      .describe(
+        "The trip's name (<Journey> · <City>, or the journey's name for a one-trip journey): the roadtrip and the album share it"
+      ),
     day,
     airportIata: z.string().nullable(),
     photoCount: z.number().int().describe("The whole layover's photo set: the city album's list"),

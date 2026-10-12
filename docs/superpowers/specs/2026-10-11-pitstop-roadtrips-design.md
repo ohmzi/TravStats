@@ -60,13 +60,15 @@ Both the kind and the album tick are ordinary review edits: recorded in the `Dra
 
 `<City> <Year> Road Trip (<Trip Name>)`, where:
 
-- **City** is the roadtrip's own main-city title (§C.11's main city — the same string the roadtrip name uses after the `·`);
-- **Year** is the area's `firstDay` year in the trip's zone;
+- **City** is the roadtrip's own main-city title (§C.11's main city — the same string the roadtrip name uses after the `·`) — superseded twice below: the airport now supplies the city (2026-10-12 ruling), and the album no longer reads a City at all (2026-10-12 naming ruling);
+- **Year** is the area's `firstDay` year in the trip's zone — no longer part of any name (2026-10-12 naming ruling below);
 - **Trip Name** is the trip's name; when City and the trip's name are equal (a destination-like case the rule mostly excludes), the parenthetical is dropped.
 
 The album's description keeps the exact `TravStats trip ·` prefix so the marker rules (and any future removal default) hold, exactly like the other two album classes.
 
-**Ruling (2026-10-12).** City is the city the **airport** serves, not the area's photo-majority `mainCity`: the owner, asked whether a stay whose photos sat in one town should be named for that town or for the airport both bounding flights used, answered the airport's city. The shared airport's served city therefore comes first, and a catalogue city that lists two (a "Northvale/Seeb" row — the airport serves Northvale) counts as its first name; then the airport's own display name, where no city can be trusted; then the area's main city, the rule this replaces. The roadtrip row takes the same city — the string its name follows the `·` with is the album's City — so the two can never disagree.
+**Ruling (2026-10-12).** City is the city the **airport** serves, not the area's photo-majority `mainCity`: the owner, asked whether a stay whose photos sat in one town should be named for that town or for the airport both bounding flights used, answered the airport's city. The shared airport's served city therefore comes first, and a catalogue city that lists two (a "Northvale/Seeb" row — the airport serves Northvale) counts as its first name; then the airport's own display name, where no city can be trusted; then the area's main city, the rule this replaces. The roadtrip row follows that city after the `·` — as far as the naming ruling below leaves it a `·`-form name at all.
+
+**Ruling (2026-10-12, the naming convention).** The album is not minted from a city and a year any more: it takes the trip's own name — the one string the scan's naming pass mints for the roadtrip row (`roadtripAreaNames`): `<Journey name> · <City>`, or the journey's own name when the journey holds exactly one trip, the clash suffixes (` (d MMM)`, then numbering) included. City is still the pitstop's own (the ruling above); what changed is that the album never mints a second string from it. So row and album agree by construction on a fresh scan, scoped: a re-sync's matched roadtrip keeps its stored (possibly hand-renamed) name while the album keeps the name the scan minted; a clash disambiguator is part of that one string, not a second one; and a single-roadtrip area has no city slot at all — its name, row and album alike, is simply the journey's own. Synthetic example: journey "Northvale loop" holding a stay in Westmere names the row and the album "Northvale loop · Westmere"; holding only that stay, "Northvale loop".
 
 ## 7. Out of scope (v1)
 

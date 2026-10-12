@@ -262,7 +262,7 @@ describe("route parameters", () => {
     // and year share it (review round 2), so the old field is gone.
     expect(
       albumRetryBodySchema.safeParse({
-        pitstopName: "Southbridge 2031 Road Trip (Southern loop)",
+        pitstopName: "Southern loop · Southbridge",
       }).success
     ).toBe(false);
   });

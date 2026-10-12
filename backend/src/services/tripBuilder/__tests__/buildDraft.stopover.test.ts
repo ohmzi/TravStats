@@ -140,7 +140,11 @@ describe("buildDraftWith: a layover whose photos went somewhere", () => {
     expect(stopover).toMatchObject({
       key: `${F1}#${F2}`,
       city: "Elmwood",
-      title: "Elmwood 2031 Road Trip",
+      // The journey's only trip, so it takes the journey's own name (owner
+      // ruling 2026-10-12: "<Journey name> · <City>", or just the journey's
+      // name for a one-trip journey) — and its album takes the same string
+      // (`commitPlan` writes one name for both).
+      title: "Southern loop",
       day: "2031-05-02",
       airportIata: "NVL",
       photoCount: 7,
@@ -224,10 +228,13 @@ describe("buildDraftWith: a layover whose photos went somewhere", () => {
     expect(dto.stopovers).toHaveLength(1);
     const [stopover] = dto.stopovers ?? [];
     // The day is the first outing photo's (23:30 on 02 May), not the last photo's or the departure's.
+    // The destination area is a single-city stop, not a trip, so the journey
+    // holds one trip and the stopover takes the journey's name (owner ruling
+    // 2026-10-12).
     expect(stopover).toMatchObject({
       key: `${F1}#${F2}`,
       day: "2031-05-02",
-      title: "Elmwood 2031 Road Trip",
+      title: "Southern loop",
       photoCount: 9,
       outingCount: 5,
     });
@@ -363,10 +370,12 @@ describe("buildDraftWith: two qualifying stopovers in one city and year", () => 
     expect(first).toMatchObject({ key: `${F3}#${F4}`, city: "Elmwood" });
     expect(second).toMatchObject({ key: `${F5}#${F6}`, city: "Elmwood" });
     expect(first.key).not.toBe(second.key);
-    // One name each for the roadtrip and its album: the first keeps the plain one, the
-    // second takes the ` (d MMM)` of its own day, the duplicate convention C.11 shares.
-    expect(first.title).toBe("Elmwood 2031 Road Trip");
-    expect(second.title).toBe("Elmwood 2031 Road Trip (20 Jun)");
+    // One name each for the roadtrip and its album: every trip of the journey
+    // is "<Journey> · <City>" (owner ruling 2026-10-12), and two trips sharing
+    // a city take their own day suffixes — the ` (d MMM)` duplicate convention
+    // C.11 shares — so the two can never collide.
+    expect(first.title).toBe("Back through Northvale · Elmwood (6 Jun)");
+    expect(second.title).toBe("Back through Northvale · Elmwood (20 Jun)");
     expect(first.title).not.toBe(second.title);
   });
 });
@@ -451,7 +460,9 @@ describe("buildDraftWith: a stretch between two flights sharing an airport, its 
     expect(stopover).toMatchObject({
       key: `${G1}#${G2}`,
       city: "Dunholme",
-      title: "Dunholme 2031 Road Trip",
+      // The reclassified stretch leaves the areas, so the journey holds this
+      // one trip: it takes the journey's name (owner ruling 2026-10-12).
+      title: "Southern loop",
       day: "2031-05-02",
       airportIata: "NVL",
       photoCount: 5,
@@ -682,16 +693,62 @@ describe("buildDraftWith: a layover and two reclassified areas sharing one name"
     expect(dto.areas).toEqual([]);
     expect(dto.stopovers?.map((s) => s.key)).toEqual([`${H1}#${H2}`, `${H3}#${H4}`, `${H5}#${H6}`]);
     expect(dto.stopovers?.map((s) => s.city)).toEqual(["Elmwood", "Elmwood", "Elmwood"]);
-    // Branch (a) keeps exactly its own candidate; the two reclassified areas
-    // then take the day suffixes the one taken-titles set deals out.
+    // Every trip of the journey shares the one convention (owner ruling
+    // 2026-10-12): "<Journey> · <City>", and three trips sharing one city take
+    // their own day suffixes, the one naming pass dealing them out (C.11's own
+    // convention).
     expect(dto.stopovers?.map((s) => s.title)).toEqual([
-      "Elmwood 2031 Road Trip",
-      "Elmwood 2031 Road Trip (6 May)",
-      "Elmwood 2031 Road Trip (7 May)",
+      "Southward twice · Elmwood (2 May)",
+      "Southward twice · Elmwood (6 May)",
+      "Southward twice · Elmwood (7 May)",
     ]);
     const [layover] = dto.stopovers ?? [];
     expect(layover).toMatchObject({ day: "2031-05-02", airportIata: "NVL", photoCount: 7 });
     expect(layover.stations.map((s) => s.kind)).toEqual(["airport", "visit"]);
+  });
+});
+
+// ─── One layover beside one roadtrip area: two trips, one rule ───────────────
+
+describe("buildDraftWith: a layover beside a roadtrip area", () => {
+  /** The destination's second city, so the area is a roadtrip (two cities). */
+  const DUNMERE: Place = { lat: -46.5, lon: 169.7, city: "Dunmere", state: "Southland" };
+  const AT_DUNMERE = photosAt("dm", DUNMERE, [
+    "2031-05-03T12:00",
+    "2031-05-03T13:00",
+    "2031-05-03T14:00",
+  ]);
+
+  it("names the stopover and the area by the one convention, each from its own city", async () => {
+    // Two offerings in one scan: counting them together is what the ruling
+    // wants — neither kind is decided alone, so neither takes the bare journey
+    // name (owner ruling 2026-10-12; the count spans both kinds).
+    const draft = await buildDraftWith(midnightDeps({}), USER, INPUT, () => undefined);
+    // The control: the single-city destination is a timeline stop, not a trip,
+    // so the journey still holds one trip and the stopover keeps its name.
+    expect(draft.dto.stopovers?.[0].title).toBe("Southern loop");
+
+    const withArea = await buildDraftWith(
+      builderDeps([...MID_AT_AIRPORT, ...MID_AT_ELMWOOD, ...AT_SOUTHHOLLOW, ...AT_DUNMERE], {
+        loadFlights: async () => [MID_FLIGHT_IN, MID_FLIGHT_OUT],
+        airports: async () =>
+          new Map([
+            [
+              "NVL",
+              { name: "Northvale International Airport", lat: NORTHVALE.lat, lon: NORTHVALE.lon },
+            ],
+          ]),
+      }),
+      USER,
+      INPUT,
+      () => undefined
+    );
+    const { dto } = withArea;
+    // Two cities make the destination a roadtrip, so the journey now holds two
+    // trips and BOTH take the journey-and-city name.
+    const roadtripArea = dto.areas.find((area) => area.defaultAs === "roadtrip");
+    expect(roadtripArea?.suggestedName).toMatch(/^Southern loop · /);
+    expect(dto.stopovers?.map((s) => s.title)).toEqual(["Southern loop · Elmwood"]);
   });
 });
 

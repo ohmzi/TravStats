@@ -36,6 +36,7 @@ import type {
   AreaSplit,
   CityCluster,
   Day,
+  DerivedStopover,
   GroundArea,
   HomeAtDay,
   ImplicitGap,
@@ -44,7 +45,6 @@ import type {
   PlanStation,
   Segment,
   StationBuild,
-  StoredStopover,
 } from "./types";
 
 /** A photo taken at sea that may serve as ferry and night evidence. */
@@ -190,13 +190,13 @@ export async function namesPhase(
 }
 
 export interface StopoverPlan {
-  stopover: StoredStopover;
+  stopover: DerivedStopover;
   /** Station key → up to PREVIEWS_PER_STATION asset ids. SERVER-ONLY. */
   previewPhotoIds: Map<string, string[]>;
 }
 
 export interface StopoverPass {
-  /** The candidates, branch (a) first, then branch (b), each in scan order. */
+  /** The candidates, branch (a) first, then branch (b), each in scan order; the scan's naming pass names them. */
   plans: StopoverPlan[];
   /** The branch-(b) areas that leave the draft's areas (spec §2, amended). */
   reclassifiedAreaKeys: Set<string>;
@@ -217,8 +217,11 @@ export interface StopoverPass {
  * areas whose own photos pass the outing test, which are reclassified out of the
  * areas with their own stations, previews and legs as the tour. The keys come
  * from the areas' own `taken` set, so none collides. No night is ever assigned
- * here: a stopover is hours, not a stay. The branch-(b) candidates are minted
- * after the layover ones, so what branch (a) is offered never changes.
+ * here: a stopover is hours, not a stay. No name is minted here either: the
+ * scan's one naming pass names every trip of the journey — areas and stopovers
+ * alike — once the count is knowable (owner ruling 2026-10-12). The
+ * branch-(b) candidates are derived after the layover ones, so what branch (a)
+ * is offered never changes.
  */
 export async function stopoversPhase(
   deps: BuilderDeps,
@@ -241,8 +244,6 @@ export async function stopoversPhase(
   ];
   const airports = await deps.airports(codes);
   const plans: StopoverPlan[] = [];
-  // The titles minted so far: a later same-city candidate takes the day suffix (plan amendment 1).
-  const takenTitles = new Set<string>();
 
   for (const layover of split.layovers) {
     const inFlight = anchorsById.get(layover.inFlightId);
@@ -268,8 +269,7 @@ export async function stopoversPhase(
     });
     if (tour === null) continue;
     const probes = await probeLegs(tour.stations, deps.roads.probes);
-    const stopover = stopoverOf({ layover, tour, probes, countryAt: deps.countryAt, takenTitles });
-    takenTitles.add(stopover.title);
+    const stopover = stopoverOf({ layover, tour, probes, countryAt: deps.countryAt });
     plans.push({ stopover, previewPhotoIds: tour.previewPhotoIds });
   }
 
@@ -303,10 +303,8 @@ export async function stopoversPhase(
       plan,
       airport: airport ?? null,
       outing,
-      takenTitles,
     });
     if (stopover === null) continue;
-    takenTitles.add(stopover.title);
     reclassifiedAreaKeys.add(plan.key);
     plans.push({ stopover, previewPhotoIds: plan.previewPhotoIds });
   }

@@ -332,7 +332,7 @@ describe("annotateDraftForExisting: a stopover", () => {
   // The roadtrip a first sync wrote for the fixture stopover: two stations, one day.
   const stopoverRoadtrip: ExistingRoadtrip = {
     id: "r9",
-    name: "Northvale 2031 Road Trip",
+    name: "Northvale loop · Northvale",
     legs: [],
     stations: [
       stored({
@@ -365,12 +365,12 @@ describe("annotateDraftForExisting: a stopover", () => {
     );
     expect(dto.stopovers?.[0].stored).toEqual({
       roadtripId: "r9",
-      name: "Northvale 2031 Road Trip",
+      name: "Northvale loop · Northvale",
       albumAssetCount: null,
     });
     const offer = existing.stopovers.get("r9");
     expect(offer?.key).toBe(STOPOVER_KEY);
-    expect(offer?.name).toBe("Northvale 2031 Road Trip");
+    expect(offer?.name).toBe("Northvale loop · Northvale");
     expect([...(offer?.stationIds ?? [])].sort()).toEqual(["st-air", "st-town"]);
   });
 
@@ -382,7 +382,7 @@ describe("annotateDraftForExisting: a stopover", () => {
           {
             linkId: "l9",
             immichAlbumId: "al-9",
-            albumName: "Northvale 2031 Road Trip",
+            albumName: "Northvale loop · Northvale",
             assetCount: 96,
             ownedByUser: true,
             travstatsMarker: true,
@@ -406,7 +406,7 @@ describe("annotateDraftForExisting: a stopover", () => {
   it("keeps the stopover roadtrip out of the area match, even for an area that would claim it", () => {
     const steal = area({
       key: "2031-05-04#1",
-      suggestedName: "Northvale 2031 Road Trip",
+      suggestedName: "Northvale loop · Northvale",
       stations: [
         derivedStation(
           "-893|3382|2031-05-04",
@@ -468,7 +468,7 @@ describe("annotateDraftForExisting: a stopover", () => {
     ];
     return stopover({
       day,
-      title: "Elmwood 2031 Road Trip",
+      title: "Northvale loop · Elmwood",
       stations,
       legs: [
         {
@@ -492,7 +492,7 @@ describe("annotateDraftForExisting: a stopover", () => {
   ): ExistingRoadtrip {
     return {
       id,
-      name: "Elmwood 2031 Road Trip",
+      name: "Northvale loop · Elmwood",
       legs: [],
       stations: [
         stored({
@@ -524,7 +524,7 @@ describe("annotateDraftForExisting: a stopover", () => {
     );
     expect(dto.stopovers?.[0].stored).toEqual({
       roadtripId: "r9",
-      name: "Elmwood 2031 Road Trip",
+      name: "Northvale loop · Elmwood",
       albumAssetCount: null,
     });
     expect([...(existing.stopovers.get("r9")?.stationIds ?? [])].sort()).toEqual(["r9-a", "r9-b"]);
@@ -553,7 +553,7 @@ describe("annotateDraftForExisting: a stopover", () => {
 
 describe("annotateDraftForExisting: a pitstop area", () => {
   /** The album the scan computes for the fixture's roadtrip area (spec pitstop §6). */
-  const ALBUM = "Northvale 2031 Road Trip (Northvale loop)";
+  const ALBUM = "Northvale loop · Northvale";
   const linked = (name: string, assetCount: number) => ({
     linkId: "l10",
     immichAlbumId: "al-10",

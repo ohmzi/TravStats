@@ -65,7 +65,7 @@ describe("writeCommit, the stopover roadtrips", () => {
     });
     expect(routes.map((route) => [route.name, route.orderIdx])).toEqual([
       ["Northvale loop", 0],
-      ["Port Carrow 2031 Road Trip", 1],
+      ["Northvale loop · Port Carrow", 1],
     ]);
     const stopover = routes[1];
     expect(stopover).toMatchObject({
@@ -91,7 +91,7 @@ describe("writeCommit, the stopover roadtrips", () => {
 
     expect(written.roadtrips.map((r) => [r.name, r.stations, r.nights])).toEqual([
       ["Northvale loop", 3, 3],
-      ["Port Carrow 2031 Road Trip", 2, 0],
+      ["Northvale loop · Port Carrow", 2, 0],
     ]);
   });
 
@@ -118,7 +118,7 @@ describe("writeCommit, the stopover roadtrips", () => {
 
     expect(
       await prisma.tripRoute.count({
-        where: { tripId: written.tripId, name: "Port Carrow 2031 Road Trip" },
+        where: { tripId: written.tripId, name: "Northvale loop · Port Carrow" },
       })
     ).toBe(0);
     expect(written.roadtrips.map((r) => r.name)).toEqual(["Northvale loop"]);
