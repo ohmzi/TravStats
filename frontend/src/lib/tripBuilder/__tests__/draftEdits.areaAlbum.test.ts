@@ -25,6 +25,13 @@ const bodyArea = (body: ReturnType<typeof buildCommitBody>, key: string) =>
   body.areas.find((area) => area.key === key);
 
 describe("initialReviewState with a pitstop", () => {
+  it("opens the pitstop area as the roadtrip the scan defaulted it to (spec §3)", () => {
+    // The review seed consumes `defaultAs` unchanged: the scan is the one place
+    // that gives a pitstop its Roadtrip default, so the card, the commit body
+    // and the re-sync read the same value with no layer compensating.
+    expect(reviewArea(start, PITSTOP_KEY)?.as).toBe("roadtrip");
+  });
+
   it("starts the pitstop area's own album on (spec §3: checked by default)", () => {
     expect(reviewArea(start, PITSTOP_KEY)?.album).toBe(true);
   });
@@ -90,6 +97,17 @@ describe("replaying a pitstop album edit", () => {
     const again = reapplyEdits(draft, state.edits);
     expect(again.state).toEqual(state);
     expect(again.kept).toBe(2);
+  });
+
+  it("keeps the user's explicit stop choice through a replay, and the album off in the body", () => {
+    // The scan's roadtrip default is only a default (spec §3): an explicit
+    // `setAreaKind` edit replays over it, and the body then carries the stop
+    // with no album, exactly as the card drew it.
+    const stops = run({ type: "setAreaKind", areaKey: PITSTOP_KEY, as: "stops" });
+    const again = reapplyEdits(draft, stops.edits);
+    expect(reviewArea(again.state, PITSTOP_KEY)?.as).toBe("stops");
+    const body = buildCommitBody(draft, again.state, FORM, COMMIT_KEY);
+    expect(bodyArea(body, PITSTOP_KEY)).toMatchObject({ as: "stops", album: false });
   });
 
   it("drops the edit when a re-scan no longer offers the pitstop", () => {

@@ -1,4 +1,6 @@
 import { buildDraftWith } from "../buildDraft";
+import type { ExistingDeps } from "../existingDraft";
+import type { ExistingTripState } from "../existingTypes";
 import type { ScanInput } from "../types";
 import { NORTHVALE, builderDeps, photosAt, preciseFlight, type Place } from "./builderFixtures";
 
@@ -16,6 +18,8 @@ const F2 = "2b2c3d4e-5f60-4172-9b3c-4d5e6f7a8b9c";
 const DUNHOLME: Place = { lat: -44.744, lon: 168.7, city: "Dunholme", state: "Westshire" };
 /** The destination after the second flight. */
 const SOUTHHOLLOW: Place = { lat: -46.0, lon: 169.5, city: "Southhollow", state: "Southland" };
+/** About 60 km inland of Southhollow: the destination's second city, so the destination is a roadtrip and only the stay is a pitstop. */
+const DUNMERE: Place = { lat: -45.46, lon: 169.5, city: "Dunmere", state: "Southland" };
 
 const FLIGHT_IN = preciseFlight({
   id: F1,
@@ -76,6 +80,12 @@ const AT_SOUTHHOLLOW_SAME_DAY = photosAt("sh", SOUTHHOLLOW, [
   "2031-05-04T12:00",
   "2031-05-05T12:00",
 ]);
+/** The destination's second city: one day inland, after the flight out of the stay. */
+const AT_DUNMERE = photosAt("dm", DUNMERE, [
+  "2031-05-06T11:00",
+  "2031-05-06T13:00",
+  "2031-05-06T15:00",
+]);
 
 const INPUT: ScanInput = {
   name: "Southern loop",
@@ -103,10 +113,55 @@ const deps = (
     ...over,
   });
 
+const RE_SYNC_TRIP = "3d5c7b91-2a4e-4c8d-9f1b-6e7a8c9d0e1f";
+const STORED_ROADTRIP = "r-dunholme";
+
+/** The trip already holds the stay as a roadtrip with its own album (spec §5). */
+const RE_SYNC_STATE: ExistingTripState = {
+  tripId: RE_SYNC_TRIP,
+  tripName: "Southern loop",
+  startDay: "2031-05-02",
+  endDay: "2031-05-07",
+  countries: ["NZ"],
+  roadtrips: [
+    {
+      id: STORED_ROADTRIP,
+      name: "Dunholme stay",
+      legs: [],
+      stations: [
+        {
+          id: "st-dunholme",
+          title: "Dunholme",
+          lat: DUNHOLME.lat,
+          lon: DUNHOLME.lon,
+          startDate: "2031-05-02",
+          endDate: "2031-05-03",
+          night: "stay",
+          lodgingStayId: null,
+          placeId: null,
+          notes: null,
+        },
+      ],
+    },
+  ],
+  stops: [],
+  flightIds: [],
+  albums: [
+    {
+      linkId: "l-dunholme",
+      immichAlbumId: "al-dunholme",
+      albumName: "Dunholme 2031 Road Trip (Southern loop)",
+      assetCount: 7,
+      ownedByUser: true,
+      travstatsMarker: true,
+    },
+  ],
+};
+
 describe("buildDraftWith: a multi-day same-airport stay", () => {
   it("marks the stay a pitstop with its album name, and leaves the destination alone", async () => {
     const { dto } = await buildDraftWith(
-      deps(FLIGHT_OUT, [...AT_DUNHOLME, ...AT_SOUTHHOLLOW]),
+      deps(FLIGHT_OUT, [...AT_DUNHOLME, ...AT_SOUTHHOLLOW, ...AT_DUNMERE]),
       USER,
       INPUT,
       () => undefined
@@ -117,9 +172,15 @@ describe("buildDraftWith: a multi-day same-airport stay", () => {
     // The destination keeps the trip's own album; its own flight pair qualifies
     // for nothing because it is not a pitstop's business (spec §2).
     expect(destination.pitstop).toBeUndefined();
-    // Nothing else about the area changes (spec §2): the scan's own kind default
-    // is untouched; the review gives a pitstop its Roadtrip default (spec §3).
-    expect(stay.defaultAs).toBe("stops");
+    // The scan carries the pitstop's Roadtrip default (spec §3): the review
+    // seed, the commit's `as` and the re-sync's roadtrip match all read this
+    // one DTO field, so no layer has to compensate (final review, finding Q1).
+    expect(stay.defaultAs).toBe("roadtrip");
+    // The pitstop is named over the same roadtrip-naming list as every other
+    // roadtrip area, so the review seed equals what `withSuggestedNames`
+    // recomputes after an edit — not the bare trip name.
+    expect(stay.suggestedName).toBe("Southern loop · Dunholme");
+    expect(destination.suggestedName).toBe("Southern loop · Southhollow");
   });
 
   it("marks nothing when the two flights fall on one local day", async () => {
@@ -135,9 +196,11 @@ describe("buildDraftWith: a multi-day same-airport stay", () => {
   });
 
   it("carries the roadtripsHidden warning for a pitstop when roadtrips are off in Settings", async () => {
-    // The review disables the pitstop's kind and album switches from this warning
-    // (spec §3, the S3-1a lesson): the scan must carry it for a pitstop whose area
-    // kind is the scan's own `stops`.
+    // For this account the pitstop's kind falls back to the scan's own `stops`
+    // (the commit refuses a roadtrip for it), and this warning is what drives
+    // the review's disabled switches and says why (spec §3, the S3-1a lesson):
+    // every area here is a single-city stop, so only the pitstop clause can
+    // carry it.
     const { dto } = await buildDraftWith(
       deps(FLIGHT_OUT, [...AT_DUNHOLME, ...AT_SOUTHHOLLOW], { roadtripsVisible: false }),
       USER,
@@ -145,5 +208,52 @@ describe("buildDraftWith: a multi-day same-airport stay", () => {
       () => undefined
     );
     expect(dto.warnings.map((w) => w.code)).toContain("roadtripsHidden");
+    // The pitstop is still offered — its album switch is what the warning
+    // explains away — but it opens as the ordinary kind, not as a roadtrip.
+    expect(dto.areas[0].pitstop).toEqual({ albumName: "Dunholme 2031 Road Trip (Southern loop)" });
+    expect(dto.areas[0].defaultAs).toBe("stops");
+  });
+
+  it("matches the stay's stored roadtrip on a re-sync, album status included", async () => {
+    // The live case of spec §5: the stay's roadtrip already exists on the trip.
+    // The scan's own default makes the area a roadtrip area, so the existing
+    // matcher claims the stored roadtrip instead of offering the stay again as
+    // a new stop (final review, finding Q1-4).
+    const existing: ExistingDeps = {
+      state: RE_SYNC_STATE,
+      immichUserId: USER,
+      client: {
+        getAlbumInfo: async () => {
+          throw new Error("no album read is part of this scan");
+        },
+        listAlbumAssets: async () => {
+          throw new Error("no album read is part of this scan");
+        },
+        findOwnedAlbumByName: async () => {
+          throw new Error("no album read is part of this scan");
+        },
+        getMyApiKey: async () => {
+          throw new Error("no album read is part of this scan");
+        },
+      },
+    };
+    const { dto } = await buildDraftWith(
+      deps(FLIGHT_OUT, [...AT_DUNHOLME, ...AT_SOUTHHOLLOW], {
+        targetTrip: {
+          id: RE_SYNC_TRIP,
+          name: "Southern loop",
+          countries: ["NZ"],
+          roadtripNames: ["Dunholme stay"],
+        },
+        existing,
+      }),
+      USER,
+      { ...INPUT, target: { kind: "existing", tripId: RE_SYNC_TRIP } },
+      () => undefined
+    );
+    const [stay] = dto.areas;
+    expect(stay.roadtripId).toBe(STORED_ROADTRIP);
+    expect(stay.suggestedName).toBe("Dunholme stay");
+    expect(stay.pitstop?.stored).toEqual({ albumAssetCount: 7, photoCount: 5 });
   });
 });

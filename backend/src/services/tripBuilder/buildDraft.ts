@@ -383,9 +383,6 @@ export async function buildDraftWith(
       previewIdx: previews.previewIdx.get(station.key) ?? [],
     })),
   }));
-  const kinds = new Map(
-    night.kept.map((plan) => [plan.key, decideAreaKind(plan, deps.roadtripsVisible)] as const)
-  );
   const mainCities = new Map(
     night.kept.map((plan) => [plan.key, mainCityOf(plan.stations, night.nights)] as const)
   );
@@ -399,6 +396,26 @@ export async function buildDraftWith(
     mainCities,
     tripName: input.name,
   });
+  // The kind each area opens as. A pitstop opens as Roadtrip with its own album
+  // (spec §3): the review seed reads this `defaultAs`, the commit sends its
+  // `as`, and the re-sync reconciles the area as a roadtrip on the same value —
+  // one default, no layer compensates (final review, finding Q1). An account
+  // with roadtrips switched off keeps the ordinary kind even for a pitstop:
+  // the commit refuses a roadtrip for it, and the `roadtripsHidden` warning
+  // below is what disables the review's switches.
+  const kinds = new Map(
+    night.kept.map(
+      (plan) =>
+        [
+          plan.key,
+          pitstops.has(plan.key) && deps.roadtripsVisible
+            ? "roadtrip"
+            : decideAreaKind(plan, deps.roadtripsVisible),
+        ] as const
+    )
+  );
+  // A pitstop rides the roadtrip naming like any other roadtrip's area, so the
+  // review seed equals what `withSuggestedNames` recomputes after an edit.
   const names = roadtripAreaNames(
     night.kept
       .filter((plan) => kinds.get(plan.key) === "roadtrip")
@@ -474,8 +491,10 @@ export async function buildDraftWith(
         // S3-1a): the review disables its switch from this warning, so a scan whose
         // areas are all single-city stops (or absent) must carry it as well.
         stopovers.length > 0 ||
-        // A pitstop's Roadtrip default and album switch are roadtrips too, and its
-        // area kind is the scan's own `stops` (spec 2026-10-11 pitstops §2, §3).
+        // A pitstop's album switch is a roadtrip's too: for this account its
+        // area kind falls back to the scan's own `stops` (spec 2026-10-11
+        // pitstops §3), and the review needs this warning to explain — and
+        // disable — the switch it cannot offer.
         pitstops.size > 0),
     overlapping: await deps.overlappingTrips(window, targetTripId),
     flights: listed,
