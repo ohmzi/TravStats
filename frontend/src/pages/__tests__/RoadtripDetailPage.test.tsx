@@ -123,6 +123,23 @@ describe("RoadtripDetailPage", () => {
     expect(await screen.findByTestId("editor")).toHaveTextContent("today");
   });
 
+  it("keeps the editor's exit chrome off the overview — no status line, no Done", async () => {
+    renderAt("/roadtrips/rt");
+    await screen.findByText("Fjorde 2026");
+    // The autosave status and the Done button rode the head's action slot
+    // until the template (spec §2.1); they are the editor's way out, so a
+    // page that is not being edited must not draw them above the stations.
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByText("roadtrips:detail.done")).not.toBeInTheDocument();
+  });
+
+  it("shows the autosave status and Done while the editor is open", async () => {
+    renderAt("/roadtrips/rt?station=neu");
+    await screen.findByTestId("editor");
+    expect(screen.getByRole("status")).toHaveTextContent("roadtrips:editor.status.saved");
+    expect(screen.getByText("roadtrips:detail.done")).toBeInTheDocument();
+  });
+
   it("opens the trip's gallery through ?tab=gallery with the loaded detail", async () => {
     vi.mocked(roadtripsApi.get).mockResolvedValue({
       ...DETAIL,

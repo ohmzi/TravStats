@@ -294,24 +294,26 @@ export default function RoadtripDetailPage(): JSX.Element {
             {/* The editor's way out: the autosave status and the Done button
                 that rode the head's action slot until the template (spec §2.1:
                 the head is the name, the flags and ONE Edit link). */}
-            <div className="flex flex-wrap items-center" style={{ gap: 12 }}>
-              <span
-                role="status"
-                className="flex items-center"
-                style={{ gap: 6, fontSize: 13, color: STATUS_COLOR[save.status] }}
-              >
-                {save.status === "saved" && <Icon name="check" size={14} />}
-                {t(`roadtrips:editor.status.${save.status}`)}
-                {save.status === "error" && (
-                  <button type="button" className="underline" onClick={() => void save.flush()}>
-                    {t("roadtrips:editor.status.retry")}
-                  </button>
-                )}
-              </span>
-              <Button variant="primary" onClick={() => void finishEditing()}>
-                {t("roadtrips:detail.done")}
-              </Button>
-            </div>
+            {editing && (
+              <div className="flex flex-wrap items-center" style={{ gap: 12 }}>
+                <span
+                  role="status"
+                  className="flex items-center"
+                  style={{ gap: 6, fontSize: 13, color: STATUS_COLOR[save.status] }}
+                >
+                  {save.status === "saved" && <Icon name="check" size={14} />}
+                  {t(`roadtrips:editor.status.${save.status}`)}
+                  {save.status === "error" && (
+                    <button type="button" className="underline" onClick={() => void save.flush()}>
+                      {t("roadtrips:editor.status.retry")}
+                    </button>
+                  )}
+                </span>
+                <Button variant="primary" onClick={() => void finishEditing()}>
+                  {t("roadtrips:detail.done")}
+                </Button>
+              </div>
+            )}
 
             <div
               className="grid items-start lg:grid-cols-[minmax(0,1fr)_minmax(340px,440px)]"
