@@ -48,7 +48,9 @@ vi.mock("../../components/NavigationBar", () => ({
 }));
 
 // The overview's roadtrip list has its own endpoint and its own test.
-vi.mock("../../components/Roadtrips/useTripRoadtrips", () => ({ useTripRoadtrips: () => [] }));
+vi.mock("../../components/Roadtrips/useTripRoadtrips", () => ({
+  useTripRoadtrips: () => ({ rows: [], settled: true }),
+}));
 
 // The journey overview draws its map; it has its own suite, and here it would
 // only mount a canvas jsdom has no WebGL for.

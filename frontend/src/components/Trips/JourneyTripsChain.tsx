@@ -14,15 +14,21 @@ import { useTripRoadtrips } from "../Roadtrips/useTripRoadtrips";
  *
  * The rows come from the roadtrips list (`useTripRoadtrips`) and the span from
  * `useRoadtripSpan` — the same hook the itinerary cards head with, so a node
- * and a card cannot disagree about one trip's span. An empty chain says so
- * rather than drawing a blank.
+ * and a card cannot disagree about one trip's span. A finished read that found
+ * no trips says so; while the read is still in flight, after it failed, or
+ * with the domain off, the chain draws nothing rather than assert an empty
+ * journey — "no trips" is a claim only a finished read can make.
  */
-export default function JourneyTripsChain({ tripId }: { tripId: string }): JSX.Element {
+export default function JourneyTripsChain({ tripId }: { tripId: string }): JSX.Element | null {
   const { t, i18n } = useTranslation(["trips", "roadtrips"]);
   const { isEnabled } = useEnabledDomains();
   const nf = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 });
   const span = useRoadtripSpan();
-  const trips = useTripRoadtrips(tripId, isEnabled("roadtrip"));
+  const { rows: trips, settled } = useTripRoadtrips(tripId, isEnabled("roadtrip"));
+
+  if (!settled) {
+    return null;
+  }
 
   if (trips.length === 0) {
     return <p className="t-caption">{t("trips:overview.noTrips")}</p>;

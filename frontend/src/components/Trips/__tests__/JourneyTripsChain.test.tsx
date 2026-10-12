@@ -61,8 +61,8 @@ function summary(over: Partial<RoadtripSummary>): RoadtripSummary {
   };
 }
 
-function renderChain(): void {
-  render(
+function renderChain(): ReturnType<typeof render> {
+  return render(
     <MemoryRouter>
       <JourneyTripsChain tripId="j1" />
     </MemoryRouter>
@@ -71,17 +71,20 @@ function renderChain(): void {
 
 describe("JourneyTripsChain", () => {
   it("draws one node per trip, each linking to its page with span, km and stations", () => {
-    vi.mocked(useTripRoadtrips).mockReturnValue([
-      summary({
-        id: "r1",
-        name: "Coast run",
-        startDate: "2031-05-02T00:00:00.000Z",
-        endDate: "2031-05-08T00:00:00.000Z",
-        drivenKm: 1370.4,
-        stationCount: 10,
-      }),
-      summary({ id: "r2", name: "Mountain run" }),
-    ]);
+    vi.mocked(useTripRoadtrips).mockReturnValue({
+      rows: [
+        summary({
+          id: "r1",
+          name: "Coast run",
+          startDate: "2031-05-02T00:00:00.000Z",
+          endDate: "2031-05-08T00:00:00.000Z",
+          drivenKm: 1370.4,
+          stationCount: 10,
+        }),
+        summary({ id: "r2", name: "Mountain run" }),
+      ],
+      settled: true,
+    });
     renderChain();
 
     const coast = screen.getByText("Coast run").closest("a");
@@ -97,9 +100,18 @@ describe("JourneyTripsChain", () => {
     expect(mountain?.textContent).toContain("roadtrips:undated");
   });
 
-  it("says the journey holds no trips, rather than drawing an empty chain", () => {
-    vi.mocked(useTripRoadtrips).mockReturnValue([]);
+  it("says the journey holds no trips once the read has settled empty", () => {
+    vi.mocked(useTripRoadtrips).mockReturnValue({ rows: [], settled: true });
     renderChain();
     expect(screen.getByText("trips:overview.noTrips")).toBeInTheDocument();
+  });
+
+  it("draws nothing until the read settles — a failed or pending read is not an empty journey", () => {
+    vi.mocked(useTripRoadtrips).mockReturnValue({ rows: [], settled: false });
+    const { container } = renderChain();
+    // The sentence would tell the reader to re-sync their trips from Immich,
+    // which is false advice while the list is in flight or the request failed.
+    expect(screen.queryByText("trips:overview.noTrips")).toBeNull();
+    expect(container).toBeEmptyDOMElement();
   });
 });

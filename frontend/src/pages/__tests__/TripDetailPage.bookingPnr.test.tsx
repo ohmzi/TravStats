@@ -62,7 +62,9 @@ vi.mock("../../components/NavigationBar", () => ({
 vi.mock("../../components/Trips/TripMapWithTours", () => ({
   default: () => <div data-testid="map" />,
 }));
-vi.mock("../../components/Roadtrips/useTripRoadtrips", () => ({ useTripRoadtrips: () => [] }));
+vi.mock("../../components/Roadtrips/useTripRoadtrips", () => ({
+  useTripRoadtrips: () => ({ rows: [], settled: true }),
+}));
 
 import TripDetailPage from "../TripDetailPage";
 

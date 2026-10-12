@@ -4,6 +4,22 @@ import { roadtripsApi } from "../../lib/api/roadtrips";
 import { logger } from "../../lib/logger";
 import type { RoadtripSummary } from "../../types/roadtrip";
 
+/** What the journey's overview can say about its trips right now. */
+export interface TripRoadtrips {
+  /**
+   * The journey's own roadtrips — the list rows whose `tripId` is the
+   * journey's. Empty until the read behind `settled` has landed.
+   */
+  rows: RoadtripSummary[];
+  /**
+   * True only once a read of the roadtrips list has landed for this journey.
+   * While the read is in flight, when it fails and when the roadtrip domain is
+   * off it stays false, so no surface claims the journey holds no trips before
+   * a successful read says so.
+   */
+  settled: boolean;
+}
+
 /**
  * The roadtrips a journey holds, for the journey's overview.
  *
@@ -14,25 +30,31 @@ import type { RoadtripSummary } from "../../types/roadtrip";
  * cannot head a node; the legs and stops this payload adds are the ones the
  * itinerary list's cards already draw.
  *
- * Empty while loading, when the domain is off, and when the call fails — the
- * overview lists what it has and says nothing about what it could not ask, the
- * same way it treats every other linked entry.
+ * Rows are empty while the read is in flight, when the domain is off and when
+ * the call fails; `settled` is what tells those states apart from a journey
+ * that truly holds no roadtrips, so a failed request never reads as an empty
+ * journey.
  */
-export function useTripRoadtrips(tripId: string, enabled: boolean): RoadtripSummary[] {
-  const [rows, setRows] = useState<RoadtripSummary[]>([]);
+export function useTripRoadtrips(tripId: string, enabled: boolean): TripRoadtrips {
+  const [state, setState] = useState<TripRoadtrips>({ rows: [], settled: false });
   useEffect(() => {
+    // A read starts unsettled, and rows never outlive their journey.
+    setState({ rows: [], settled: false });
     if (!enabled) {
-      setRows([]);
       return;
     }
     let cancelled = false;
     roadtripsApi
       .list()
-      .then((routes) => !cancelled && setRows(routes.filter((r) => r.tripId === tripId)))
+      .then((routes) => {
+        if (!cancelled) {
+          setState({ rows: routes.filter((r) => r.tripId === tripId), settled: true });
+        }
+      })
       .catch((err: unknown) => logger.warn("Loading a trip's roadtrips failed", err));
     return () => {
       cancelled = true;
     };
   }, [tripId, enabled]);
-  return rows;
+  return state;
 }

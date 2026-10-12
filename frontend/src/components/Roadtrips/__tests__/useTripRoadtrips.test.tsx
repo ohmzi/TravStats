@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 
 vi.mock("../../../lib/api/roadtrips", () => ({ roadtripsApi: { list: vi.fn() } }));
+vi.mock("../../../lib/logger", () => ({ logger: { warn: vi.fn() } }));
 
 import { roadtripsApi } from "../../../lib/api/roadtrips";
+import { logger } from "../../../lib/logger";
 import { useTripRoadtrips } from "../useTripRoadtrips";
 import type { RoadtripSummary } from "../../../types/roadtrip";
 
@@ -56,27 +58,55 @@ const DETACHED = summary({ id: "r3", tripId: null, name: "Detached run" });
 describe("useTripRoadtrips", () => {
   beforeEach(() => {
     vi.mocked(roadtripsApi.list).mockReset().mockResolvedValue([MINE, OTHER, DETACHED]);
+    vi.mocked(logger.warn).mockClear();
   });
 
   it("keeps only the journey's own roadtrips, dates and all", async () => {
     const { result } = renderHook(() => useTripRoadtrips("j1", true));
-    await waitFor(() => expect(result.current).toHaveLength(1));
-    expect(result.current[0].id).toBe("r1");
+    await waitFor(() => expect(result.current.rows).toHaveLength(1));
+    // A landed read is settled: only now may the chain say "no trips".
+    expect(result.current.settled).toBe(true);
+    expect(result.current.rows[0].id).toBe("r1");
     // The span and the km a chain node heads with travel with the row.
-    expect(result.current[0].startDate).toBe("2031-05-02T00:00:00.000Z");
-    expect(result.current[0].drivenKm).toBe(90);
+    expect(result.current.rows[0].startDate).toBe("2031-05-02T00:00:00.000Z");
+    expect(result.current.rows[0].drivenKm).toBe(90);
+  });
+
+  it("reports the read unsettled while the list is still in flight", async () => {
+    let land: (rows: RoadtripSummary[]) => void = () => undefined;
+    vi.mocked(roadtripsApi.list).mockReturnValue(
+      new Promise((resolve) => {
+        land = resolve;
+      })
+    );
+    const { result } = renderHook(() => useTripRoadtrips("j1", true));
+    await waitFor(() => expect(roadtripsApi.list).toHaveBeenCalled());
+    // Nothing has landed, so nothing may read as an empty journey yet.
+    expect(result.current).toEqual({ rows: [], settled: false });
+
+    land([OTHER, MINE]);
+    await waitFor(() => expect(result.current.settled).toBe(true));
+    expect(result.current.rows.map((r) => r.id)).toEqual(["r1"]);
   });
 
   it("asks for nothing while the roadtrip domain is off", async () => {
     const { result } = renderHook(() => useTripRoadtrips("j1", false));
-    await waitFor(() => expect(result.current).toEqual([]));
-    expect(roadtripsApi.list).not.toHaveBeenCalled();
+    await waitFor(() => expect(roadtripsApi.list).not.toHaveBeenCalled());
+    // No read was asked for, so nothing has settled; the chain stays silent.
+    expect(result.current).toEqual({ rows: [], settled: false });
   });
 
-  it("stays empty when the list cannot be read, and never throws", async () => {
+  it("stays empty and unsettled when the list cannot be read, and never throws", async () => {
     vi.mocked(roadtripsApi.list).mockRejectedValue(new Error("offline"));
     const { result } = renderHook(() => useTripRoadtrips("j1", true));
-    await waitFor(() => expect(roadtripsApi.list).toHaveBeenCalled());
-    expect(result.current).toEqual([]);
+    await waitFor(() =>
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Loading a trip's roadtrips failed",
+        expect.any(Error)
+      )
+    );
+    // A failed read is not a settled one: the chain must not claim the journey
+    // holds no trips, nor send the reader to re-sync over a dead request.
+    expect(result.current).toEqual({ rows: [], settled: false });
   });
 });

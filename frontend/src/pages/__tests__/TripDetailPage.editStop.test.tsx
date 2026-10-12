@@ -44,7 +44,9 @@ vi.mock("../../components/NavigationBar", () => ({ default: () => <div /> }));
 vi.mock("../../components/Trips/TripMapWithTours", () => ({
   default: () => <div data-testid="map" />,
 }));
-vi.mock("../../components/Roadtrips/useTripRoadtrips", () => ({ useTripRoadtrips: () => [] }));
+vi.mock("../../components/Roadtrips/useTripRoadtrips", () => ({
+  useTripRoadtrips: () => ({ rows: [], settled: true }),
+}));
 
 vi.mock("../../components/Trips/StopModal", () => ({
   default: ({ stop }: { stop: { id: string } | null }) => (

@@ -79,7 +79,9 @@ vi.mock("../hooks/usePlacesVisible", () => ({
 // overlapped, so only running the suite showed it.
 vi.mock("../hooks/useHasLlm", () => ({ useHasLlm: () => true }));
 // The trip overview lists its roadtrips from their own endpoint; not this suite's subject.
-vi.mock("../components/Roadtrips/useTripRoadtrips", () => ({ useTripRoadtrips: () => [] }));
+vi.mock("../components/Roadtrips/useTripRoadtrips", () => ({
+  useTripRoadtrips: () => ({ rows: [], settled: true }),
+}));
 // The same overview draws its map now; it has its own suite, and here it would
 // only mount a canvas jsdom has no WebGL for.
 vi.mock("../components/Trips/TripMapWithTours", () => ({
