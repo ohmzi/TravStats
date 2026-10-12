@@ -32,10 +32,10 @@ function formatKm(value: number): string {
  * others alongside them rather than splitting the reader's tours across
  * two places they have to remember.
  *
- * Three visually distinct states, the same discipline `TourSectionList`
- * keeps and for the same reason: a failed load must never render an empty
- * list, because "nothing yet" and "we could not ask" look identical and
- * the reader cannot tell which they are looking at.
+ * Three visually distinct states, and for the same reason the trip page's
+ * lists keep them: a failed load must never render an empty list, because
+ * "nothing yet" and "we could not ask" look identical and the reader cannot
+ * tell which they are looking at.
  */
 export default function ToursPage(): JSX.Element {
   const { t } = useTranslation(["trips", "roadtrips", "common"]);

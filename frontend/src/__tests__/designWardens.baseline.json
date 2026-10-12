@@ -103,7 +103,6 @@
     "components/Training/ParseLogStats.tsx",
     "components/Trips/ImmichAlbumSection.tsx",
     "components/Trips/PhotoLightbox.tsx",
-    "components/Trips/TourSectionList.tsx",
     "components/Trips/TourStopAssigner.tsx",
     "components/Trips/TourTrackList.tsx",
     "components/YearHeatmap.tsx",
