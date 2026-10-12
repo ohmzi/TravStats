@@ -7,8 +7,9 @@
  * has before: `/api/asset` -> `/api/assets`), they are the entire blast radius.
  *
  * Read-only except the album writes (create, add and remove assets, set the
- * description): the trip builder (spec 2026-10-09) writes ONE album per trip and
- * nothing else to Immich.
+ * description, rename — `immichAlbums.ts`): the trip builder (spec 2026-10-09)
+ * writes ONE album per trip and nothing else to Immich, and the naming repair
+ * (scripts/renameTripNames.ts) only renames albums that already exist.
  *
  * Two shapes worth remembering:
  *  - `AlbumResponseDto` carries NO asset array. Album contents come from

@@ -55,6 +55,13 @@ export interface ImmichAlbumCalls {
   getAlbumInfo(albumId: string): Promise<ImmichAlbumInfo>;
   /** `PATCH /albums/:id` (scope `album.update`): only the description. */
   setAlbumDescription(albumId: string, description: string): Promise<void>;
+  /**
+   * `PATCH /albums/:id` (scope `album.update`): name AND description at once —
+   * the rename a stored album owes when the naming convention changes under it
+   * (scripts/renameTripNames.ts). Same endpoint and body shape as
+   * `createAlbum`, and the one call the script makes.
+   */
+  updateAlbum(albumId: string, input: { albumName: string; description: string }): Promise<void>;
 }
 
 /** One album as the app reads it; null for an entry without a usable id. */
@@ -238,6 +245,17 @@ export function createAlbumCalls(
           { description },
           jsonConfig
         );
+      } catch (error) {
+        throw toImmichError(error, `albums/${albumId} patch`);
+      }
+    },
+
+    async updateAlbum(
+      albumId: string,
+      input: { albumName: string; description: string }
+    ): Promise<void> {
+      try {
+        await axios.patch(url(`/albums/${encodeURIComponent(albumId)}`), input, jsonConfig);
       } catch (error) {
         throw toImmichError(error, `albums/${albumId} patch`);
       }

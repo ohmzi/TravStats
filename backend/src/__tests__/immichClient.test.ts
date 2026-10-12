@@ -562,3 +562,34 @@ describe("getMyApiKey", () => {
     });
   });
 });
+
+describe("updateAlbum", () => {
+  it("PATCHes /api/albums/:id with the new name and description together", async () => {
+    mockedAxios.patch.mockResolvedValueOnce({ data: { id: "alb-1" } });
+
+    await createImmichClient(CONN).updateAlbum("alb-1", {
+      albumName: "Karachi 2031 · Elmwood",
+      description: "TravStats trip · Karachi 2031 · Elmwood",
+    });
+
+    expect(mockedAxios.patch).toHaveBeenCalledWith(
+      "https://immich.lan/api/albums/alb-1",
+      {
+        albumName: "Karachi 2031 · Elmwood",
+        description: "TravStats trip · Karachi 2031 · Elmwood",
+      },
+      expect.objectContaining({ headers: { "x-api-key": "secret-key" } })
+    );
+  });
+
+  it("maps a refusal to the ImmichError taxonomy", async () => {
+    mockedAxios.patch.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 403, data: { message: "Missing required permission: album.update" } },
+    });
+
+    await expect(
+      createImmichClient(CONN).updateAlbum("alb-1", { albumName: "n", description: "d" })
+    ).rejects.toMatchObject({ name: "ImmichError", kind: "auth" });
+  });
+});
