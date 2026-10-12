@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import type { Trip, TripCategory } from "../../types";
 import { tripsApi } from "../../lib/api";
 import { useToastStore } from "../../store/toastStore";
@@ -12,12 +12,12 @@ import { useTripEntrySuggestions } from "../../hooks/useTripEntrySuggestions";
 import { tripEntrySpan } from "../../lib/tripEntrySpan";
 import { formatDate } from "../../lib/displayFormat";
 import { saveErrorMessage } from "../../lib/saveErrorMessage";
-import { CoverPreview, Field, fromDateInput, toDateInput } from "./tripFormParts";
+import { CoverPreview, Field } from "./tripFormParts";
+import { useTripForm } from "./useTripForm";
 import EditBuildButton from "./tripBuilder/EditBuildButton";
 import TripBuilderLauncher from "./tripBuilder/TripBuilderLauncher";
 import TripImmichOptions from "./tripBuilder/TripImmichOptions";
 import { useImmichBuild } from "./tripBuilder/useImmichBuild";
-import { offerResync } from "./tripBuilder/offerResync";
 
 interface TripModalProps {
   trip: Trip | null; // null = create mode
@@ -56,34 +56,54 @@ export default function TripModal({
   const addToast = useToastStore((s) => s.addToast);
 
   const [tab, setTab] = useState<ModalTab>("general");
-  const [name, setName] = useState(trip?.name ?? "");
-  const [description, setDescription] = useState(trip?.description ?? "");
-  const [color, setColor] = useState(trip?.color ?? PALETTE[0]);
-  const [category, setCategory] = useState<TripCategory | "">(trip?.category ?? "");
-  const [startDate, setStartDate] = useState(toDateInput(trip?.startDate ?? null));
-  const [endDate, setEndDate] = useState(toDateInput(trip?.endDate ?? null));
-  const [originLabel, setOriginLabel] = useState(trip?.originLabel ?? "");
-  const [destinationLabel, setDestinationLabel] = useState(trip?.destinationLabel ?? "");
-  const [tags, setTags] = useState<string[]>(trip?.tags ?? []);
-  const [companions, setCompanions] = useState<string[]>(trip?.companions ?? []);
-  const [notes, setNotes] = useState(trip?.notes ?? "");
-  // Cover is upload-only. The chosen file is buffered and uploaded on save,
-  // so it works even while creating a brand-new trip (before an id exists).
-  // `coverUrl` holds the existing server cover; `coverFile`/`coverPreview`
-  // hold a pending local pick; `removeCover` marks an explicit clear.
-  const [coverUrl, setCoverUrl] = useState(trip?.coverImageUrl ?? "");
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [removeCover, setRemoveCover] = useState(false);
-  const [saving, setSaving] = useState(false);
-  // The server refuses a name of only whitespace (schemas/trip.ts). Said at
-  // the field once a save was tried, instead of a save button greyed out
-  // with no word of why.
-  const [saveTried, setSaveTried] = useState(false);
-  const nameMissing = !name.trim();
-  const showNameMissing = saveTried && nameMissing;
-  const [uploadingCover, setUploadingCover] = useState(false);
-  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  // The form itself — its fields, its seeding, its cover buffer, its refusals,
+  // its payloads and its edit-save sequence — is shared with the edit page
+  // (`useTripForm`), so the two surfaces of the trip form cannot drift. This
+  // modal keeps what the page does not have: the tabs, the create mode and
+  // the Immich scan hand-off.
+  const {
+    name,
+    setName,
+    description,
+    setDescription,
+    color,
+    setColor,
+    category,
+    setCategory,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    originLabel,
+    setOriginLabel,
+    destinationLabel,
+    setDestinationLabel,
+    tags,
+    setTags,
+    companions,
+    setCompanions,
+    notes,
+    setNotes,
+    coverUrl,
+    coverFile,
+    coverPreview,
+    uploadingCover,
+    coverInputRef,
+    handlePickCover,
+    handleRemoveCover,
+    saving,
+    setSaving,
+    nameMissing,
+    showNameMissing,
+    datesOutOfOrder,
+    validate,
+    updateInput,
+    createInput,
+    uploadCoverIfPicked,
+    save,
+  } = useTripForm(trip);
+
   // Offered under the two place labels, never written into them: the labels
   // stay the user's free text.
   const placeSuggestions = useTripEntrySuggestions(trip?.id ?? null);
@@ -93,129 +113,38 @@ export default function TripModal({
   const offerEntrySpan =
     entrySpan !== null && (entrySpan.start !== startDate || entrySpan.end !== endDate);
 
-  // Release the object URL of a pending pick when it changes or on unmount.
-  useEffect(() => {
-    return () => {
-      if (coverPreview) URL.revokeObjectURL(coverPreview);
-    };
-  }, [coverPreview]);
-
-  const handlePickCover = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setCoverFile(file);
-    setCoverPreview(URL.createObjectURL(file));
-    setRemoveCover(false);
-  };
-
-  const handleRemoveCover = (): void => {
-    setCoverFile(null);
-    setCoverPreview(null);
-    setCoverUrl("");
-    setRemoveCover(true);
-  };
-
-  useEffect(() => {
-    if (!trip) return;
-    setName(trip.name);
-    setDescription(trip.description ?? "");
-    setColor(trip.color);
-    setCategory(trip.category ?? "");
-    setStartDate(toDateInput(trip.startDate));
-    setEndDate(toDateInput(trip.endDate));
-    setOriginLabel(trip.originLabel ?? "");
-    setDestinationLabel(trip.destinationLabel ?? "");
-    setTags(trip.tags);
-    setCompanions(trip.companions);
-    setNotes(trip.notes ?? "");
-    setCoverUrl(trip.coverImageUrl ?? "");
-    setCoverFile(null);
-    setCoverPreview(null);
-    setRemoveCover(false);
-  }, [trip]);
-
-  // Both inputs are `type="date"`, so their values are YYYY-MM-DD and compare
-  // correctly as strings. The audit saved 10.08. → 01.08. through this very
-  // form and got a 200 (SRV-TRIP-DATE-001); the server refuses that now, and
-  // this says WHICH field is wrong instead of raising a generic save toast.
-  const datesOutOfOrder = Boolean(startDate && endDate && endDate < startDate);
   // The two Immich switches of a new trip; with one on, Save scans the photos first.
   const build = useImmichBuild(trip === null && initialInspect, startDate, endDate);
   // What Save sends for an existing trip. A change in it, or a picked cover, is an unsaved edit:
   // the Immich trip builder reads the saved trip, so its button waits for a saved form.
-  const updateInput = {
-    name: name.trim(),
-    description: description.trim() || null,
-    color,
-    category: category === "" ? null : category,
-    startDate: fromDateInput(startDate),
-    endDate: fromDateInput(endDate),
-    originLabel: originLabel.trim() || null,
-    destinationLabel: destinationLabel.trim() || null,
-    tags,
-    companions,
-    notes: notes.trim() || null,
-    ...(removeCover ? { coverImageUrl: null } : {}),
-  };
   const unsaved = useFormDirty([updateInput, coverFile]);
 
   const handleSave = async (): Promise<void> => {
-    setSaveTried(true);
-    if (nameMissing) {
+    if (!validate()) {
       // The name lives on the first tab; a save tried from another one must
       // still show the reader the field that stopped it.
-      setTab("general");
+      if (nameMissing) setTab("general");
       return;
     }
-    if (datesOutOfOrder) return;
+
+    // An existing trip: the shared edit core (update → cover upload → success
+    // toast → the §K.1 re-sync offer).
+    if (trip) {
+      const savedTrip = await save();
+      if (savedTrip) onSaved();
+      return;
+    }
+
     setSaving(true);
     try {
-      // The cover image is never sent as a field here — it's uploaded
-      // separately below. We only touch coverImageUrl to clear an existing
-      // cover when the user explicitly removed it.
-      let savedTrip: Trip;
-      if (trip) {
-        savedTrip = await tripsApi.update(trip.id, updateInput);
-      } else {
-        const input = {
-          name: name.trim(),
-          description: description.trim() || undefined,
-          color,
-          category: category === "" ? undefined : category,
-          startDate: fromDateInput(startDate) ?? undefined,
-          endDate: fromDateInput(endDate) ?? undefined,
-          originLabel: originLabel.trim() || undefined,
-          destinationLabel: destinationLabel.trim() || undefined,
-          tags,
-          companions,
-          notes: notes.trim() || undefined,
-        };
-        // A switch is on: the photos are scanned and reviewed before the trip is written.
-        if (build.scanning) return build.launch(input);
-        savedTrip = await tripsApi.create(input);
-      }
-
-      // Upload a freshly picked cover against the now-guaranteed trip id.
-      // A failure here shouldn't lose the saved trip data — surface a
-      // cover-specific error but still treat the save as done.
-      if (coverFile) {
-        setUploadingCover(true);
-        try {
-          await tripsApi.uploadCover(savedTrip.id, coverFile);
-        } catch {
-          addToast("error", t("trips:gallery.uploadError"));
-        } finally {
-          setUploadingCover(false);
-        }
-      }
-
-      addToast("success", trip ? t("trips:toasts.updated") : t("trips:toasts.created"));
-      offerResync({ trip, tripId: savedTrip.id, startDate, endDate, addToast, t });
+      // A switch is on: the photos are scanned and reviewed before the trip is written.
+      if (build.scanning) return build.launch(createInput);
+      const savedTrip = await tripsApi.create(createInput);
+      await uploadCoverIfPicked(savedTrip.id);
+      addToast("success", t("trips:toasts.created"));
       onSaved();
     } catch (err: unknown) {
-      const fallback = trip ? "trips:toasts.updateError" : "trips:toasts.createError";
-      addToast("error", saveErrorMessage(err, t, fallback));
+      addToast("error", saveErrorMessage(err, t, "trips:toasts.createError"));
     } finally {
       setSaving(false);
     }

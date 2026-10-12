@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import AppShell from "../components/ui/AppShell";
@@ -8,14 +8,13 @@ import TagInput from "../components/TagInput";
 import SuggestionChips from "../components/common/SuggestionChips";
 import TripDeleteConfirm from "../components/Trips/TripDeleteConfirm";
 import ResyncFromImmich from "../components/Trips/tripBuilder/ResyncFromImmich";
-import { offerResync } from "../components/Trips/tripBuilder/offerResync";
-import { CoverPreview, Field, fromDateInput, toDateInput } from "../components/Trips/tripFormParts";
+import { CoverPreview, Field } from "../components/Trips/tripFormParts";
+import { useTripForm } from "../components/Trips/useTripForm";
 import { useTranslation } from "../hooks/useTranslation";
 import { useTripEntrySuggestions } from "../hooks/useTripEntrySuggestions";
 import { tripsApi } from "../lib/api/trips";
 import { formatDate } from "../lib/displayFormat";
 import { logger } from "../lib/logger";
-import { saveErrorMessage } from "../lib/saveErrorMessage";
 import { TRIP_COLORS as PALETTE } from "../lib/tripColors";
 import { tripEntrySpan } from "../lib/tripEntrySpan";
 import { useToastStore } from "../store/toastStore";
@@ -39,8 +38,10 @@ const CATEGORY_ICON: Record<TripCategory, string> = {
  * flow; deleting a journey detaches its trips and never touches the Immich
  * album — the §J rule).
  *
- * The modal stays for the other screens that open it; this page is edit-only,
- * so it has no create path, no Immich build switches and no tabs.
+ * The form itself — its fields, its refusals, its payload and its save
+ * sequence — is `useTripForm`, the same core `TripModal` renders, so the two
+ * edit surfaces cannot drift. This page adds what the modal cannot: loading a
+ * journey by id, the page chrome, and the delete confirm.
  */
 export default function TripEditPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
@@ -50,36 +51,42 @@ export default function TripEditPage(): JSX.Element {
 
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [color, setColor] = useState<string>(PALETTE[0]);
-  const [category, setCategory] = useState<TripCategory | "">("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [originLabel, setOriginLabel] = useState("");
-  const [destinationLabel, setDestinationLabel] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
-  const [companions, setCompanions] = useState<string[]>([]);
-  const [notes, setNotes] = useState("");
-  // Cover is upload-only and buffered until save, exactly as in the modal:
-  // `coverUrl` holds the server's current cover, `coverFile`/`coverPreview` a
-  // pending pick, `removeCover` an explicit clear.
-  const [coverUrl, setCoverUrl] = useState("");
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [removeCover, setRemoveCover] = useState(false);
-  const [uploadingCover, setUploadingCover] = useState(false);
-  const coverInputRef = useRef<HTMLInputElement>(null);
-
-  const [saving, setSaving] = useState(false);
-  // The server refuses a name of only whitespace (schemas/trip.ts): said at the
-  // field once a save was tried, instead of a save button greyed out with no
-  // word of why — the same rule the modal's form follows.
-  const [saveTried, setSaveTried] = useState(false);
-  const nameMissing = !name.trim();
-  const showNameMissing = saveTried && nameMissing;
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const {
+    name,
+    setName,
+    description,
+    setDescription,
+    color,
+    setColor,
+    category,
+    setCategory,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    originLabel,
+    setOriginLabel,
+    destinationLabel,
+    setDestinationLabel,
+    tags,
+    setTags,
+    companions,
+    setCompanions,
+    notes,
+    setNotes,
+    coverUrl,
+    coverPreview,
+    uploadingCover,
+    coverInputRef,
+    handlePickCover,
+    handleRemoveCover,
+    saving,
+    showNameMissing,
+    datesOutOfOrder,
+    save,
+  } = useTripForm(trip);
 
   const placeSuggestions = useTripEntrySuggestions(trip?.id ?? null);
   const entrySpan = trip ? tripEntrySpan(trip) : null;
@@ -101,98 +108,9 @@ export default function TripEditPage(): JSX.Element {
     })();
   }, [id]);
 
-  // Seed the form from the loaded journey — the modal seeds the same way.
-  useEffect(() => {
-    if (!trip) return;
-    setName(trip.name);
-    setDescription(trip.description ?? "");
-    setColor(trip.color);
-    setCategory(trip.category ?? "");
-    setStartDate(toDateInput(trip.startDate));
-    setEndDate(toDateInput(trip.endDate));
-    setOriginLabel(trip.originLabel ?? "");
-    setDestinationLabel(trip.destinationLabel ?? "");
-    setTags(trip.tags);
-    setCompanions(trip.companions);
-    setNotes(trip.notes ?? "");
-    setCoverUrl(trip.coverImageUrl ?? "");
-    setCoverFile(null);
-    setCoverPreview(null);
-    setRemoveCover(false);
-  }, [trip]);
-
-  // Release the object URL of a pending pick when it changes or on unmount.
-  useEffect(() => {
-    return () => {
-      if (coverPreview) URL.revokeObjectURL(coverPreview);
-    };
-  }, [coverPreview]);
-
-  const handlePickCover = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setCoverFile(file);
-    setCoverPreview(URL.createObjectURL(file));
-    setRemoveCover(false);
-  };
-
-  const handleRemoveCover = (): void => {
-    setCoverFile(null);
-    setCoverPreview(null);
-    setCoverUrl("");
-    setRemoveCover(true);
-  };
-
-  // Both inputs are `type="date"`, so their values are YYYY-MM-DD and compare
-  // correctly as strings; the server refuses an end before the start, and this
-  // says WHICH field is wrong instead of raising a generic save toast.
-  const datesOutOfOrder = Boolean(startDate && endDate && endDate < startDate);
-
-  const updateInput = {
-    name: name.trim(),
-    description: description.trim() || null,
-    color,
-    category: category === "" ? null : category,
-    startDate: fromDateInput(startDate),
-    endDate: fromDateInput(endDate),
-    originLabel: originLabel.trim() || null,
-    destinationLabel: destinationLabel.trim() || null,
-    tags,
-    companions,
-    notes: notes.trim() || null,
-    ...(removeCover ? { coverImageUrl: null } : {}),
-  };
-
   const handleSave = async (): Promise<void> => {
-    if (!trip) return;
-    setSaveTried(true);
-    if (nameMissing || datesOutOfOrder) return;
-    setSaving(true);
-    try {
-      // The cover image is never sent as a field — it is uploaded separately
-      // below; only an explicit clear travels as `coverImageUrl: null`.
-      const savedTrip = await tripsApi.update(trip.id, updateInput);
-      if (coverFile) {
-        setUploadingCover(true);
-        try {
-          await tripsApi.uploadCover(savedTrip.id, coverFile);
-        } catch {
-          addToast("error", t("trips:gallery.uploadError"));
-        } finally {
-          setUploadingCover(false);
-        }
-      }
-      addToast("success", t("trips:toasts.updated"));
-      // A moved date leaves the album and the stations built for the old one;
-      // the toast offers the re-sync (§K.1) — the modal makes the same offer.
-      offerResync({ trip, tripId: savedTrip.id, startDate, endDate, addToast, t });
-      navigate(`/trips/${savedTrip.id}`);
-    } catch (err: unknown) {
-      addToast("error", saveErrorMessage(err, t, "trips:toasts.updateError"));
-    } finally {
-      setSaving(false);
-    }
+    const savedTrip = await save();
+    if (savedTrip) navigate(`/trips/${savedTrip.id}`);
   };
 
   const handleDelete = async (): Promise<void> => {
