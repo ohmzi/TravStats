@@ -10,10 +10,12 @@ import EntityHeader from "../components/Entity/EntityHeader";
 import EntityPage from "../components/Entity/EntityPage";
 import EntityTabBar from "../components/ui/EntityTabBar";
 import LegDialog from "../components/Roadtrips/LegDialog";
+import RoadtripGallery from "../components/Roadtrips/RoadtripGallery";
 import RoadtripMapPanel from "../components/Roadtrips/RoadtripMapPanel";
 import RoadtripTimelineTab from "../components/Roadtrips/RoadtripTimelineTab";
 import RoadtripTourCards from "../components/Roadtrips/RoadtripTourCards";
 import RoadtripCostsSection from "../components/Roadtrips/RoadtripCostsSection";
+import { Placeholder } from "../components/Trips/TripDetailPanels";
 import { RoadtripRailConversion } from "../components/rail/RoadtripRailConversion";
 import StationEditor, { type EditorStart } from "../components/Roadtrips/StationEditor";
 import StationTimeline from "../components/Roadtrips/StationTimeline";
@@ -275,6 +277,13 @@ export default function RoadtripDetailPage(): JSX.Element {
             <RoadtripMapPanel detail={detail} geometry={geometry} />
           </div>
         )}
+
+        {tab === "gallery" &&
+          (detail.trip ? (
+            <RoadtripGallery detail={detail} onChanged={() => void load()} />
+          ) : (
+            <Placeholder text={t("roadtrips:detail.noAlbum")} />
+          ))}
 
         {(editing || tab === "overview") && (
           <>

@@ -11,6 +11,14 @@ vi.mock("../../components/Trips/TripMap", () => ({ default: () => <div data-test
 vi.mock("../../components/Roadtrips/StationEditor", () => ({
   default: ({ start }: { start: string }) => <div data-testid="editor">{start}</div>,
 }));
+// The gallery fetches its album through Immich; its own suite owns that, and
+// this one owns that the tab hands it the loaded detail (network guard,
+// forgejo#110).
+vi.mock("../../components/Roadtrips/RoadtripGallery", () => ({
+  default: ({ detail }: { detail: RoadtripDetail }) => (
+    <div data-testid="roadtrip-gallery">{detail.roadtrip.name}</div>
+  ),
+}));
 vi.mock("../../lib/api/roadtrips", () => ({ roadtripsApi: { get: vi.fn() } }));
 vi.mock("../../lib/api/tours", () => ({
   toursApi: {
@@ -92,5 +100,20 @@ describe("RoadtripDetailPage", () => {
   it("arrives from “Heutige Nacht eintragen” with the editor open on tonight", async () => {
     renderAt("/roadtrips/rt?station=heute");
     expect(await screen.findByTestId("editor")).toHaveTextContent("today");
+  });
+
+  it("opens the trip's gallery through ?tab=gallery with the loaded detail", async () => {
+    vi.mocked(roadtripsApi.get).mockResolvedValue({
+      ...DETAIL,
+      trip: { id: "t1", name: "Eastport loop", immichAlbums: [] },
+    });
+    renderAt("/roadtrips/rt?tab=gallery");
+    expect(await screen.findByTestId("roadtrip-gallery")).toHaveTextContent("Fjorde 2026");
+  });
+
+  it("says so when a detached trip has no journey to carry an album", async () => {
+    renderAt("/roadtrips/rt?tab=gallery");
+    expect(await screen.findByText("roadtrips:detail.noAlbum")).toBeInTheDocument();
+    expect(screen.queryByTestId("roadtrip-gallery")).not.toBeInTheDocument();
   });
 });

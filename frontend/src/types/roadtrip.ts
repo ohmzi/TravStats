@@ -11,6 +11,7 @@ import type {
 } from "../shared/tour/roadtrip";
 import type { TourLeg, TourRoute, TrackSource } from "./tour";
 import type { RoadtripCosts, TripExpense } from "./expense";
+import type { LinkedAlbum } from "./immich";
 
 export interface RoadtripNights {
   /** Nights at linked stays — the SAME figure the lodging statistics hold. */
@@ -132,12 +133,14 @@ export interface RoadtripDetail {
   trip: {
     id: string;
     name: string;
-    immichAlbums?: Array<{
-      id: string;
-      albumName: string;
-      immichAlbumId: string;
-      assetCount: number;
-    }>;
+    /**
+     * The journey's linked albums IN FULL (template spec §3, Gallery): the
+     * trip's Gallery tab resolves the trip's own album from these rows and
+     * renders it through the journey's `ImmichAlbumSection`, which reads
+     * `mode`, `thumbnailAssetId`, `sortIdx` and `lastSyncedAt` besides the
+     * names.
+     */
+    immichAlbums?: LinkedAlbum[];
   } | null;
   startDate: string | null;
   endDate: string | null;

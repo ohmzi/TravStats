@@ -272,6 +272,10 @@
     "tourAt": "at station {{station}}",
     "noElevation": "The recording has no elevation.",
     "noMoving": "The recording has no timestamps.",
+    "gallery": {
+      "detached": "This trip belongs to no journey, so it has no album.",
+      "empty": "No album linked yet — albums hang off the journey."
+    },
     "source": {
       "gpx": "GPX",
       "fit": "FIT",

@@ -102,4 +102,21 @@ describe("TripGallery — uploaded-photos section visibility (#179)", () => {
       expect(screen.getByText("immich:albums.link")).toBeInTheDocument();
     }
   );
+
+  it("shows one section per linked album — the journey's Gallery carries them all (template spec §3)", () => {
+    const second: LinkedAlbum = {
+      ...ALBUM,
+      id: "link-2",
+      immichAlbumId: "a2",
+      albumName: "Kelmore 2031 Road Trip",
+    };
+    render(
+      <TripGallery tripId="trip-1" photos={[]} immichAlbums={[ALBUM, second]} onChange={vi.fn()} />
+    );
+
+    expect(screen.getAllByTestId("immich-album-section").map((el) => el.textContent)).toEqual([
+      "Rome",
+      "Kelmore 2031 Road Trip",
+    ]);
+  });
 });

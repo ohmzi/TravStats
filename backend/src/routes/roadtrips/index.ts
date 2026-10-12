@@ -183,7 +183,23 @@ router.get(
                 // this section — a roadtrip can move between trips — so it is
                 // read through the trip rather than linked here.
                 immichAlbums: {
-                  select: { id: true, albumName: true, immichAlbumId: true, assetCount: true },
+                  // Every field the journey's `LinkedAlbum` carries (template
+                  // spec §3, Gallery): the trip's Gallery tab resolves the
+                  // trip's own album from these rows and renders it through
+                  // `ImmichAlbumSection`, which reads `mode`,
+                  // `thumbnailAssetId`, `sortIdx` and `lastSyncedAt` besides
+                  // the names. A four-field copy would badge an imported album
+                  // as "linked" and offer no resync.
+                  select: {
+                    id: true,
+                    immichAlbumId: true,
+                    albumName: true,
+                    assetCount: true,
+                    thumbnailAssetId: true,
+                    mode: true,
+                    sortIdx: true,
+                    lastSyncedAt: true,
+                  },
                   orderBy: { sortIdx: "asc" },
                 },
               },

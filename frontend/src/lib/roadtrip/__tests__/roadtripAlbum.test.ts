@@ -14,7 +14,16 @@ const ROADTRIP = `${TRIP} · ${CITY}`;
 const STOPOVER = `${CITY} 2031 Road Trip`;
 
 function album(albumName: string, assetCount = 12): RoadtripJourneyAlbum {
-  return { id: albumName, immichAlbumId: `a-${albumName}`, albumName, assetCount };
+  return {
+    id: albumName,
+    immichAlbumId: `a-${albumName}`,
+    albumName,
+    assetCount,
+    thumbnailAssetId: null,
+    mode: "link",
+    sortIdx: 0,
+    lastSyncedAt: null,
+  };
 }
 
 function journey(albums?: RoadtripJourneyAlbum[]): NonNullable<RoadtripDetail["trip"]> {

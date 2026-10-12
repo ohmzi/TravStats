@@ -55,7 +55,18 @@ const DETAIL: RoadtripDetail = {
   trip: {
     id: "trip-1",
     name: "Sommerreise",
-    immichAlbums: [{ id: "al-1", albumName: "Sommerreise", immichAlbumId: "im-1", assetCount: 40 }],
+    immichAlbums: [
+      {
+        id: "al-1",
+        albumName: "Sommerreise",
+        immichAlbumId: "im-1",
+        assetCount: 40,
+        thumbnailAssetId: null,
+        mode: "link",
+        sortIdx: 0,
+        lastSyncedAt: null,
+      },
+    ],
   },
   startDate: at("2026-09-18"),
   endDate: at("2026-09-28"),
