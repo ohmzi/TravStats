@@ -11,6 +11,7 @@ const REASONS: ReadonlyArray<readonly [keyof ExcludedCounts, string]> = [
   ["inFlight", "tripBuilder:review.excluded.inFlight"],
   ["atSea", "tripBuilder:review.excluded.atSea"],
   ["unlocated", "tripBuilder:review.excluded.unlocated"],
+  ["locationCarried", "tripBuilder:review.excluded.locationCarried"],
   ["dayGuessed", "tripBuilder:review.excluded.dayGuessed"],
 ];
 

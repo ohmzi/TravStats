@@ -281,7 +281,10 @@ export interface ExcludedCounts {
   misdated: number;
   inFlight: number;
   atSea: number;
+  /** Photos with no location at all (no GPS of their own, no located photo before them). */
   unlocated: number;
+  /** Photos that took the most recent located photo's location (owner ruling 2026-10-12). */
+  locationCarried: number;
   dayGuessed: number;
 }
 

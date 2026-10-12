@@ -56,6 +56,7 @@ describe("trip builder wire vocabulary", () => {
           inFlight: 0,
           atSea: 0,
           unlocated: 12,
+          locationCarried: 0,
           dayGuessed: 0,
         },
         truncated: false,

@@ -354,6 +354,7 @@ export function reviewDraft(over: Partial<TripBuilderDraft> = {}): TripBuilderDr
         inFlight: 3,
         atSea: 0,
         unlocated: 2,
+        locationCarried: 0,
         dayGuessed: 0,
       },
       truncated: false,

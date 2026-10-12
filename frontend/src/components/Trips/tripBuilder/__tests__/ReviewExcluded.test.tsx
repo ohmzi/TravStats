@@ -18,6 +18,7 @@ const NONE: ExcludedCounts = {
   inFlight: 0,
   atSea: 0,
   unlocated: 0,
+  locationCarried: 0,
   dayGuessed: 0,
 };
 
@@ -33,6 +34,14 @@ describe("ReviewExcluded", () => {
       'tripBuilder:review.excluded.partner {"count":5}',
       'tripBuilder:review.excluded.inFlight {"count":3}',
       'tripBuilder:review.excluded.unlocated {"count":2}',
+    ]);
+  });
+
+  it("says how many photos took the last located photo's place", () => {
+    render(<ReviewExcluded excluded={{ ...NONE, unlocated: 1, locationCarried: 4 }} />);
+    expect(screen.getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      'tripBuilder:review.excluded.unlocated {"count":1}',
+      'tripBuilder:review.excluded.locationCarried {"count":4}',
     ]);
   });
 });

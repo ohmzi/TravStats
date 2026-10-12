@@ -228,6 +228,8 @@
       "hint": "Deine eigenen Fotos bleiben im Album",
       "inFlight_one": "{{count}} Foto im Flug aufgenommen",
       "inFlight_other": "{{count}} Fotos im Flug aufgenommen",
+      "locationCarried_one": "{{count}} Foto ohne GPS übernahm den Ort des letzten georteten Fotos",
+      "locationCarried_other": "{{count}} Fotos ohne GPS übernahmen den Ort des letzten georteten Fotos",
       "misdated_one": "{{count}} Foto mit falschem Datum",
       "misdated_other": "{{count}} Fotos mit falschem Datum",
       "partner_one": "{{count}} Foto aus einer Partner-Bibliothek",

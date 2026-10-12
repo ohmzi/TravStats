@@ -141,6 +141,7 @@ export function existingDraft(over: Partial<TripBuilderDraft> = {}): TripBuilder
         inFlight: 0,
         atSea: 0,
         unlocated: 4,
+        locationCarried: 0,
         dayGuessed: 0,
       },
       truncated: false,
