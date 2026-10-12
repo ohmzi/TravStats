@@ -12,6 +12,7 @@ import EntityTabBar from "../components/ui/EntityTabBar";
 import LegDialog from "../components/Roadtrips/LegDialog";
 import RoadtripGallery from "../components/Roadtrips/RoadtripGallery";
 import RoadtripMapPanel from "../components/Roadtrips/RoadtripMapPanel";
+import RoadtripSummaryPanel from "../components/Roadtrips/RoadtripSummaryPanel";
 import RoadtripTimelineTab from "../components/Roadtrips/RoadtripTimelineTab";
 import RoadtripLogisticsTab from "../components/Roadtrips/RoadtripLogisticsTab";
 import { Placeholder } from "../components/Trips/TripDetailPanels";
@@ -63,7 +64,7 @@ export default function RoadtripDetailPage(): JSX.Element {
   const [params, setParams] = useSearchParams();
   // The tab labels live in the `trips` namespace — the same keys the journey
   // page's bar draws, so the shared tab set cannot spell its words twice.
-  const { t } = useTranslation(["roadtrips", "common", "trips"]);
+  const { t, i18n } = useTranslation(["roadtrips", "common", "trips"]);
   const navigate = useNavigate();
   const addToast = useToastStore((s) => s.addToast);
   const todayZone = useTodayZone();
@@ -365,6 +366,21 @@ export default function RoadtripDetailPage(): JSX.Element {
                 {!editing && <span className="t-caption">{t("roadtrips:detail.mapHint")}</span>}
               </aside>
             </div>
+
+            {/* Spec §1, §6: the trip's own summary reads BELOW its map, as the
+                journey's reads below its own — the same card on both levels. A
+                detached trip (no journey) shows no summary section at all (spec
+                §8), because the summary belongs to a trip that is filed. */}
+            {detail.trip !== null && (
+              <div style={{ marginTop: "var(--ts-space-xl)" }}>
+                <RoadtripSummaryPanel
+                  roadtripId={r.id}
+                  summary={detail.summary}
+                  language={i18n.language}
+                  onChanged={() => void load()}
+                />
+              </div>
+            )}
           </>
         )}
       </EntityPage>

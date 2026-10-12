@@ -27,6 +27,11 @@ vi.mock("../../components/Roadtrips/RoadtripLogisticsTab", () => ({
     <div data-testid="roadtrip-logistics">{detail.roadtrip.name}</div>
   ),
 }));
+// The summary card writes through the trip's own route and has its own suite;
+// here it is a stub, so this file owns its PLACE and the detached-trip gate.
+vi.mock("../../components/Roadtrips/RoadtripSummaryPanel", () => ({
+  default: () => <div data-testid="roadtrip-summary" />,
+}));
 vi.mock("../../lib/api/roadtrips", () => ({ roadtripsApi: { get: vi.fn() } }));
 vi.mock("../../lib/api/tours", () => ({
   toursApi: {
@@ -55,6 +60,9 @@ const DETAIL: RoadtripDetail = {
     endOdometerKm: null,
   } as never,
   countries: ["DE", "DK", "NO"],
+  summary: null,
+  summarySource: null,
+  summaryGeneratedAt: null,
   trip: null,
   startDate: at("2026-09-18"),
   endDate: at("2026-09-28"),
@@ -94,6 +102,11 @@ describe("RoadtripDetailPage", () => {
     vi.useRealTimers();
     vi.clearAllMocks();
   });
+
+  const FILED: RoadtripDetail = {
+    ...DETAIL,
+    trip: { id: "t1", name: "Eastport loop", immichAlbums: [] },
+  };
 
   it("heads the page with its name and its figures", async () => {
     renderAt("/roadtrips/rt");
@@ -135,5 +148,19 @@ describe("RoadtripDetailPage", () => {
     await screen.findByText("Fjorde 2026");
     expect(screen.queryByText("roadtrips:detail.toursTitle")).not.toBeInTheDocument();
     expect(screen.queryByText("roadtrips:costs.title")).not.toBeInTheDocument();
+  });
+
+  it("reads the trip's own summary below the map (template spec §1, §6)", async () => {
+    vi.mocked(roadtripsApi.get).mockResolvedValue(FILED);
+    renderAt("/roadtrips/rt");
+    const map = await screen.findByTestId("map");
+    const summary = screen.getByTestId("roadtrip-summary");
+    expect(map.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows no summary section on a detached trip (template spec §8)", async () => {
+    renderAt("/roadtrips/rt");
+    await screen.findByText("Fjorde 2026");
+    expect(screen.queryByTestId("roadtrip-summary")).not.toBeInTheDocument();
   });
 });

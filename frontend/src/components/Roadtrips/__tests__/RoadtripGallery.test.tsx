@@ -44,6 +44,9 @@ function detail(roadtripName: string, trip: RoadtripDetail["trip"]): RoadtripDet
   return {
     roadtrip: { id: "rt1", name: roadtripName } as never,
     countries: [],
+    summary: null,
+    summarySource: null,
+    summaryGeneratedAt: null,
     trip,
     startDate: null,
     endDate: null,

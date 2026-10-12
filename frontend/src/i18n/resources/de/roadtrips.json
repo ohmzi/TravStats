@@ -286,6 +286,18 @@
       "healthconnect": "Health Connect"
     }
   },
+  "summary": {
+    "title": "KI-Zusammenfassung",
+    "cta": "Lass die KI eine kurze, persönliche Zusammenfassung dieses Trips schreiben — aus seinen Stationen, Etappen und Tagestouren, in deiner Sprache.",
+    "generateButton": "Zusammenfassung erstellen",
+    "regenerate": "Neu generieren",
+    "generating": "Schreibt … das kann ein paar Minuten dauern",
+    "generated": "Zusammenfassung erstellt",
+    "error": "Zusammenfassung fehlgeschlagen",
+    "unavailable": "KI-Dienst nicht erreichbar. Ollama richtet der Admin unter Admin → Parser ein.",
+    "disabled": "Die KI-Zusammenfassung ist abgeschaltet – der Admin hat das KI-Modell unter Admin → Parser deaktiviert.",
+    "cloudNotConsented": "Der KI-Anbieter liegt außerhalb des Netzwerks, und der Administrator hat dem Senden von Reisedaten dorthin nicht zugestimmt."
+  },
   "timeline": {
     "day": "Tag {{n}}",
     "today": "Heute",

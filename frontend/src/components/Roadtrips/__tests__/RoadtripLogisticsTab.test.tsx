@@ -38,6 +38,9 @@ vi.mock("../../rail/RoadtripRailConversion", () => ({
 const DETAIL: RoadtripDetail = {
   roadtrip: { id: "rt1", name: "Fjorde 2026", vehicle: "campervan" } as never,
   countries: [],
+  summary: null,
+  summarySource: null,
+  summaryGeneratedAt: null,
   trip: null,
   startDate: null,
   endDate: null,

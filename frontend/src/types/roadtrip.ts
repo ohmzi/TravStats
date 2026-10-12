@@ -126,6 +126,14 @@ export interface RoadtripDetail {
   roadtrip: TourRoute;
   countries: string[];
   /**
+   * The trip's own AI summary (template spec §6), stored and generated like
+   * the journey's: Task J2's trio sits at the DETAIL's top level, beside
+   * `countries` and `nights` — never on the nested `roadtrip`.
+   */
+  summary: string | null;
+  summarySource: string | null;
+  summaryGeneratedAt: string | null;
+  /**
    * The journey this roadtrip belongs to, with the Immich albums linked to it.
    * The album hangs off the TRIP, not off this section — a roadtrip can move
    * between trips — so the roadtrip page reads it through the trip.

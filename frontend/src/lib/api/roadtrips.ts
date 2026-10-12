@@ -1,4 +1,5 @@
 import { api } from "./client";
+import { API_TIMEOUTS } from "../../config/constants";
 import type { RouteKind, TourActivity, RoadtripVehicle } from "../../shared/tour/roadtrip";
 import type { TourRoute } from "../../types/tour";
 import type {
@@ -65,6 +66,30 @@ export const roadtripsApi = {
   confirmKind: async (routeId: string): Promise<TourRoute> => {
     const { data } = await api.post<{ route: TourRoute }>(`/tours/${routeId}/kind/confirm`);
     return data.route;
+  },
+
+  /* ─────────── LLM summary (template spec §6) ─────────── */
+
+  /**
+   * The trip's own summary, generated and stored like the journey's
+   * (`POST /trips/:id/summarize`): `language` is the reader's UI language —
+   * the server keeps no per-user language and writes German when none travels
+   * with the request.
+   */
+  summarize: async (
+    id: string,
+    language: "de" | "en"
+  ): Promise<{ summary: string; model: string; language: "de" | "en"; durationMs: number }> => {
+    // Ollama generation routinely takes >10s, so the long PARSER timeout —
+    // the 10s DEFAULT aborts the request while the backend is still writing,
+    // surfacing an error toast even though the summary succeeds server-side.
+    const { data } = await api.post<{
+      summary: string;
+      model: string;
+      language: "de" | "en";
+      durationMs: number;
+    }>(`/roadtrips/${id}/summarize`, { language }, { timeout: API_TIMEOUTS.PARSER });
+    return data;
   },
 };
 

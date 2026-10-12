@@ -24,6 +24,12 @@ vi.mock("../../components/Roadtrips/RoadtripTimelineTab", () => ({
 vi.mock("../../components/Roadtrips/StationEditor", () => ({
   default: ({ start }: { start: string }) => <div data-testid="editor">{start}</div>,
 }));
+// The summary card asks the parser capabilities and writes through the trip's
+// own route; it has its own suite, and its PLACE on this page is pinned by
+// RoadtripDetailPage.test.tsx. Here it is a stub, so nothing reaches out.
+vi.mock("../../components/Roadtrips/RoadtripSummaryPanel", () => ({
+  default: () => <div data-testid="roadtrip-summary" />,
+}));
 vi.mock("../../lib/api/roadtrips", () => ({ roadtripsApi: { get: vi.fn() } }));
 vi.mock("../../lib/api/tours", () => ({
   toursApi: {
@@ -52,6 +58,9 @@ const DETAIL: RoadtripDetail = {
     endOdometerKm: null,
   } as never,
   countries: ["DE", "DK", "NO"],
+  summary: null,
+  summarySource: null,
+  summaryGeneratedAt: null,
   trip: {
     id: "trip-1",
     name: "Sommerreise",
