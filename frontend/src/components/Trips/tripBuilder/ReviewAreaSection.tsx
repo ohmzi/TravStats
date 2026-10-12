@@ -77,9 +77,14 @@ export default function ReviewAreaSection({
   const leadNights = nights.filter((night) => night < span.startDay);
   const flight = draft.flights.find((f) => f.id === offered?.afterFlightId);
   // A `stops` area matched to a stored stop is that stop (its anchor carries
-  // the id): it cannot become a roadtrip, so the option is not offered.
+  // the id): it cannot become a roadtrip, so the option is not offered. A
+  // pitstop area is the exception (final review, finding Q2): converting it is
+  // the point — the commit writes its roadtrip and removes the stop it
+  // supersedes — so the matched stop must not hide the kind.
   const matchedStop =
-    offered?.roadtripId === undefined && area.stations.some((s) => s.existingId !== undefined);
+    offered?.pitstop === undefined &&
+    offered?.roadtripId === undefined &&
+    area.stations.some((s) => s.existingId !== undefined);
   const kinds = (["roadtrip", "stops", "skip"] as const).filter(
     (kind) =>
       (kind !== "roadtrip" || !roadtripsHidden || area.as === "roadtrip") &&

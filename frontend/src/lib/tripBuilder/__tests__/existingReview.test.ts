@@ -11,7 +11,14 @@ import {
   refusesExistingEdit,
   rowFactsFor,
 } from "../existingReview";
-import { existingDraft, KEY, matchedStopDraft, station, STOP_KEY } from "./existingFixture";
+import {
+  existingDraft,
+  KEY,
+  matchedPitstopDraft,
+  matchedStopDraft,
+  station,
+  STOP_KEY,
+} from "./existingFixture";
 
 const COMMIT_KEY = "6a0b7c1d-2e3f-4a5b-8c6d-7e8f9a0b1c2d";
 
@@ -417,5 +424,45 @@ describe("the review state of an existing trip", () => {
     const body = buildCommitBody(rescanned, again.state, { name: "Northvale loop" }, COMMIT_KEY);
     expect(body.areas[0].keepNotSeen).toEqual(["st-d"]);
     expect(body.album.removeOutside).toBe(false);
+  });
+});
+
+describe("a pitstop area matched to a stored stop", () => {
+  const draft = matchedPitstopDraft();
+  const areaKey = "2031-05-04#1";
+  const state = initialReviewState(draft);
+  const form = { name: "Port Carrow 2031 Road Trip (Northvale loop)" };
+
+  it("opens as its roadtrip and commits it: the superseded stop does not travel under the new roadtrip", () => {
+    // Final review, finding Q2: the live conversion. The area is a pitstop the
+    // trip still holds as the timeline stop the pre-feature build wrote; the
+    // scan matches that stop onto the anchor and offers the roadtrip default.
+    expect(state.areas[0].as).toBe("roadtrip");
+    expect(refusesExistingEdit(draft, { type: "setAreaKind", areaKey, as: "roadtrip" })).toBe(
+      false
+    );
+    // The F1 guard stays for an ordinary matched stop.
+    expect(
+      refusesExistingEdit(matchedStopDraft(), { type: "setAreaKind", areaKey, as: "roadtrip" })
+    ).toBe(true);
+
+    const body = buildCommitBody(draft, state, form, COMMIT_KEY);
+    expect(body.areas[0]).toMatchObject({ as: "roadtrip", album: true });
+    expect(body.areas[0].roadtripId).toBeUndefined();
+    // A new roadtrip has no stored stations: the commit derives the removal,
+    // and no body may name the stop under the roadtrip (the server refuses it).
+    expect(body.areas[0].stations.some((s) => s.existingId !== undefined)).toBe(false);
+  });
+
+  it("can go down to stops and back: the stop is kept as before when the user declines", () => {
+    const stops = applyEdit(draft, state, { type: "setAreaKind", areaKey, as: "stops" });
+    expect(stops).not.toBe(state);
+    expect(buildCommitBody(draft, stops, form, COMMIT_KEY).areas[0].stations[0].existingId).toBe(
+      "stop-m"
+    );
+
+    const back = applyEdit(draft, stops, { type: "setAreaKind", areaKey, as: "roadtrip" });
+    expect(back.areas[0].as).toBe("roadtrip");
+    expect(buildCommitBody(draft, back, form, COMMIT_KEY).areas[0].album).toBe(true);
   });
 });

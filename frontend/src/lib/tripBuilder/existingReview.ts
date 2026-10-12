@@ -86,7 +86,10 @@ export function keepEverything(state: ReviewState): ReviewState {
  *   `existingId` — cannot become a new roadtrip (`A new roadtrip has no stored
  *   stations`) and cannot lose its anchor: `buildStopWrites` follows that id to
  *   update the stop, and without it the stored stop would stay while the area's
- *   rows are added again as a second stop.
+ *   rows are added again as a second stop. A pitstop area is the one exception
+ *   (spec 2026-10-11 pitstops §5, final review finding Q2): converting it is
+ *   the feature — the commit writes its roadtrip and removes the stop it
+ *   supersedes — so the flip stays open for it.
  */
 export function refusesExistingEdit(draft: TripBuilderDraft, edit: DraftEdit): boolean {
   if (edit.type === "delete") {
@@ -98,8 +101,8 @@ export function refusesExistingEdit(draft: TripBuilderDraft, edit: DraftEdit): b
   const area = draft.areas.find((a) => a.key === edit.areaKey);
   if (edit.as === "stops") return area?.roadtripId !== undefined;
   if (edit.as !== "roadtrip") return false;
+  if (area === undefined || area.pitstop !== undefined) return false;
   return (
-    area !== undefined &&
     area.roadtripId === undefined &&
     area.stations.some((station) => station.existingId !== undefined)
   );

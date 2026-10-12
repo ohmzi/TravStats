@@ -319,6 +319,27 @@ function buildStopWrites(
   const updates: ExistingStopUpdate[] = [];
   const diff = emptyDiff();
   let remaining = [...plan.stops];
+  // A pitstop area the body rebuilds as a roadtrip (spec 2026-10-11 pitstops
+  // §5; final review, finding Q2): the draft matched the stored stop the stay
+  // was first committed as onto the area's anchor, and a new roadtrip cannot
+  // adopt that stop (`A new roadtrip has no stored stations`). The stop is the
+  // roadtrip's predecessor, so the conversion owes its removal — derived here,
+  // on the same `stopRemoveIds` path a not-seen removal takes, so one
+  // transaction leaves the roadtrip where the stop was and never both. This is
+  // the server twin of the review's matched-stop guard: only a pitstop may
+  // supersede its stop; for any other matched stop a body that dropped the id
+  // and named a roadtrip would add the roadtrip and leave the stop behind.
+  const supersededStopIds: string[] = [];
+  for (const area of body.areas) {
+    if (area.as !== "roadtrip" || area.roadtripId !== undefined) continue;
+    const draftArea = draft.dto.areas.find((a) => a.key === area.key);
+    if (draftArea === undefined) throw mismatch("areas");
+    const anchor = draftArea.stations.find((s) => s.kind !== "home" && s.kind !== "airport");
+    const stopId = anchor?.existingId;
+    if (stopId === undefined || !offered.stops.matchedIds.has(stopId)) continue;
+    if (draftArea.pitstop === undefined) throw mismatch("stations");
+    if (!supersededStopIds.includes(stopId)) supersededStopIds.push(stopId);
+  }
   for (const area of body.areas) {
     if (area.as !== "stops") continue;
     const ground = area.stations.filter((s) => s.kind !== "home" && s.kind !== "airport");
@@ -398,9 +419,9 @@ function buildStopWrites(
     }
   }
   diff.added = remaining.length;
-  diff.removed = body.stops.remove.length;
+  diff.removed = body.stops.remove.length + supersededStopIds.length;
   diff.kept = body.stops.keep.length;
-  return { updates, removeIds: [...body.stops.remove], diff, remaining };
+  return { updates, removeIds: [...body.stops.remove, ...supersededStopIds], diff, remaining };
 }
 
 /**

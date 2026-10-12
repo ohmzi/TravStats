@@ -11,6 +11,7 @@ import { loadExistingState } from "../existingState";
 import { extendPlanForExisting } from "../commitPlanExisting";
 import type {
   CommitPlan,
+  DraftArea,
   DraftStation,
   DraftStopover,
   StoredDraft,
@@ -1507,5 +1508,207 @@ describe("extendPlanForExisting: timeline stops", () => {
       code: "TRIP_CHANGED",
     });
     await prisma.tripStop.deleteMany({ where: { id: added.id } });
+  });
+});
+
+describe("extendPlanForExisting: a pitstop that supersedes a stored stop", () => {
+  let fx: ExistingFixture;
+  beforeAll(async () => {
+    fx = await createExistingFixture(`${USER}-pitstop`);
+  });
+  afterAll(async () => {
+    await dropFixtureUser(`${USER}-pitstop`);
+  });
+  beforeEach(() => mockDomains.mockResolvedValue(["flight", "roadtrip"]));
+
+  const STOP_AREA = "2031-05-06#1";
+  const ANCHOR = "-908|3370|2031-05-06";
+  const LIBRARY = "-911|3364|2031-05-07";
+  const ALBUM = "Kelmore 2031 Road Trip (Northvale loop)";
+
+  const anchor = (): DraftStation =>
+    derivedStation(ANCHOR, "Kelmore Museum", FX.kelmore, "2031-05-06", "2031-05-07");
+  const library = (): DraftStation =>
+    derivedStation(
+      LIBRARY,
+      "Kelmore Library",
+      { lat: FX.kelmore.lat - 0.01, lon: FX.kelmore.lon },
+      "2031-05-07",
+      "2031-05-08",
+      { notes: null }
+    );
+
+  /** The stored draft the re-scan leaves: the stay is a pitstop, the stored stop is its predecessor. */
+  async function pitstopDraft(
+    defaultAs: DraftArea["defaultAs"] = "roadtrip"
+  ): Promise<StoredDraft> {
+    const stations = [anchor(), library()];
+    const pitstopArea = area({
+      key: STOP_AREA,
+      defaultAs,
+      pitstop: defaultAs === "roadtrip" ? { albumName: ALBUM } : undefined,
+      stations,
+    });
+    const state = await loadExistingState(fx.userId, fx.tripId);
+    const { dto, existing } = annotateDraftForExisting(draft(fx.tripId, [pitstopArea]), {
+      ...state,
+      // No stored roadtrip is the area's: the stay is held as the museum stop.
+      roadtrips: [],
+    });
+    return {
+      id: dto.id,
+      ownerId: fx.userId,
+      createdAt: 0,
+      touchedAt: 0,
+      status: "ready",
+      input: {
+        name: "Northvale loop",
+        startDay: "2031-05-02",
+        endDay: "2031-05-09",
+        inspect: true,
+        createAlbum: false,
+        target: { kind: "existing", tripId: fx.tripId },
+      },
+      immichUserId: "immich-user-1",
+      connSource: "user",
+      dto,
+      previewAssetIds: [],
+      albumAssetIds: [],
+      flightIds: new Set<string>(),
+      stationIndex: new Map(
+        stations.map((s) => [
+          s.key,
+          { areaKey: STOP_AREA, firstDay: s.firstDay, lastDay: s.lastDay },
+        ])
+      ),
+      stopovers: [],
+      pitstops: [fixtureStoredPitstop({ key: STOP_AREA, albumName: ALBUM, day: "2031-05-06" })],
+      existing,
+    };
+  }
+
+  const bodyStation = (s: DraftStation): CommitBody["areas"][number]["stations"][number] => ({
+    key: s.key,
+    title: s.title,
+    lat: s.lat,
+    lon: s.lon,
+    kind: "visit",
+    firstDay: s.firstDay,
+    lastDay: s.lastDay,
+  });
+
+  /** The body the review sends for the conversion: the roadtrip, its album, no stored station. */
+  const convertedBody = (over: Partial<CommitBody> = {}): CommitBody => ({
+    commitKey: COMMIT_KEY,
+    window: { startDay: "2031-05-02", endDay: "2031-05-09" },
+    target: { kind: "existing", tripId: fx.tripId, applyWindow: false },
+    flightIds: [],
+    nights: {},
+    areas: [
+      {
+        key: STOP_AREA,
+        as: "roadtrip",
+        name: ALBUM,
+        vehicle: "car",
+        homeStart: false,
+        homeEnd: false,
+        stations: [bodyStation(anchor()), bodyStation(library())],
+        legModes: ["road"],
+        album: true,
+      },
+    ],
+    stopovers: [],
+    photoJourneyIds: [],
+    // The one stop no area claims: the harbour, kept.
+    stops: { keep: [fx.stop.harbour], remove: [] },
+    album: { create: false, name: ALBUM },
+    ...over,
+  });
+
+  const emptyPlan = (): CommitPlan => ({
+    draftId: "d0d0d0d0-d0d0-4d0d-8d0d-d0d0d0d0d0d0",
+    userId: fx.userId,
+    window: { startDay: "2031-05-02", endDay: "2031-05-09" },
+    target: {
+      kind: "existing",
+      tripId: fx.tripId,
+      tripName: "Northvale loop",
+      applyWindow: false,
+      countries: ["NZ"],
+    },
+    flightIds: [],
+    stops: [],
+    roadtrips: [],
+    stopovers: [],
+    photoJourneyIds: [],
+    album: { create: false, name: ALBUM },
+    unknownNights: 0,
+  });
+
+  it("plans the new roadtrip and the removal of the stop it supersedes, in one plan", async () => {
+    const plan = await prepareCommit(fx.userId, await pitstopDraft(), convertedBody());
+    // The roadtrip cannot adopt a stored stop: the stop is the removal the
+    // conversion owes, on the same path a not-seen stop's remove takes.
+    expect(plan.roadtrips.map((r) => r.areaKey)).toEqual([STOP_AREA]);
+    expect(plan.roadtrips[0].album).toEqual({ name: ALBUM, assetIds: ["photo-a", "photo-b"] });
+    expect(plan.stops).toEqual([]);
+    expect(plan.existing?.stopUpdates).toEqual([]);
+    expect(plan.existing?.stopRemoveIds).toEqual([fx.stop.museum]);
+    expect(plan.existing?.stopsDiff).toEqual({
+      updated: 0,
+      unchanged: 0,
+      added: 0,
+      removed: 1,
+      kept: 1,
+    });
+  });
+
+  it("refuses an ordinary matched stop turned into a roadtrip: only a pitstop supersedes its stop", async () => {
+    // The same area without the pitstop marking: the F1 guard's server twin.
+    // Left unchecked the body would add the roadtrip and leave the stop behind
+    // — the same stay twice, which is the defect this unit exists for.
+    const plain = await pitstopDraft("stops");
+    await expect(
+      extendPlanForExisting(fx.userId, plain, convertedBody(), emptyPlan())
+    ).rejects.toMatchObject({ statusCode: 400, code: "DRAFT_MISMATCH", field: "stations" });
+  });
+
+  it("answers 409 TRIP_CHANGED when the superseded stop moved by the time the write runs", async () => {
+    const plan = await prepareCommit(fx.userId, await pitstopDraft(), convertedBody());
+    await prisma.tripStop.update({
+      where: { id: fx.stop.museum },
+      data: { routeId: fx.roadtripId, routeOrderIdx: 4 },
+    });
+    try {
+      await expect(writeCommit(plan)).rejects.toMatchObject({
+        statusCode: 409,
+        code: "TRIP_CHANGED",
+      });
+      // The whole transaction rolled back: the roadtrip the plan would have
+      // written is not there either.
+      expect(await prisma.tripRoute.count({ where: { tripId: fx.tripId, name: ALBUM } })).toBe(0);
+    } finally {
+      await prisma.tripStop.update({
+        where: { id: fx.stop.museum },
+        data: { routeId: null, routeOrderIdx: null },
+      });
+    }
+  });
+
+  it("commits both in one transaction: the roadtrip appears, the stop it supersedes is gone", async () => {
+    const plan = await prepareCommit(fx.userId, await pitstopDraft(), convertedBody());
+    const result = await writeCommit(plan);
+    const route = await prisma.tripRoute.findFirstOrThrow({
+      where: { tripId: fx.tripId, name: ALBUM },
+    });
+    const stops = await prisma.tripStop.findMany({
+      where: { routeId: route.id, viaPoint: false },
+      orderBy: { routeOrderIdx: "asc" },
+    });
+    expect(stops.map((s) => s.title)).toEqual(["Kelmore Museum", "Kelmore Library"]);
+    expect(await prisma.tripStop.findUnique({ where: { id: fx.stop.museum } })).toBeNull();
+    expect(result.stopsDiff?.removed).toBe(1);
+    // One transaction: the trip's own timeline keeps the stop no area claimed.
+    expect(await prisma.tripStop.findUnique({ where: { id: fx.stop.harbour } })).not.toBeNull();
   });
 });

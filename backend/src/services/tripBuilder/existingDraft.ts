@@ -27,7 +27,9 @@ import {
   type StoredStopoverOffer,
 } from "./existingTypes";
 import {
+  derivedStopOf,
   groundSpan,
+  reconcileStations,
   reconcileTrip,
   type DerivedStation,
   type NotSeenStation,
@@ -220,6 +222,32 @@ export function annotateDraftForExisting(
   });
   const matchByArea = new Map(result.roadtrips.map((m) => [m.areaKey, m] as const));
 
+  // The stored stop a pitstop supersedes (spec 2026-10-11 pitstops §5; final
+  // review, finding Q2): the pre-feature build wrote the same stay as a
+  // timeline stop, so a pitstop area the trip holds no roadtrip for still has
+  // the stop it succeeds. That stop is matched onto the area's anchor — the one
+  // match the commit can act on, since a new roadtrip carries no stored station
+  // — and leaves the not-seen list it would otherwise be offered in, where a
+  // default keep would leave the same stay twice once the roadtrip commits.
+  const supersededStops = new Map<string, ReconciledStation>();
+  const claimedStopIds = new Set<string>();
+  for (const area of dto.areas) {
+    if (area.defaultAs !== "roadtrip" || area.pitstop === undefined) continue;
+    if (matchByArea.has(area.key)) continue;
+    const derivedStop = derivedStopOf(area);
+    if (derivedStop === null) continue;
+    const candidates = result.stops.notSeen
+      .filter((notSeen) => !claimedStopIds.has(notSeen.stored.id))
+      .map((notSeen) => notSeen.stored);
+    const [rec] = reconcileStations([derivedStop], candidates, {
+      startDay: dto.window.startDay,
+      endDay: dto.window.endDay,
+    }).derived;
+    if (rec?.existing === undefined) continue;
+    claimedStopIds.add(rec.existing.id);
+    supersededStops.set(area.key, rec);
+  }
+
   const taken = new Set<string>(
     dto.areas.flatMap((a) => [
       ...a.stations.map((s) => s.key),
@@ -255,8 +283,24 @@ export function annotateDraftForExisting(
   const areas = dto.areas.map((area): DraftArea => {
     if (area.defaultAs === "roadtrip") {
       const match = matchByArea.get(area.key);
-      if (!match)
-        return { ...area, stations: area.stations.map((s) => ({ ...s, status: "new" as const })) };
+      if (!match) {
+        const superseded = supersededStops.get(area.key);
+        if (superseded === undefined)
+          return {
+            ...area,
+            stations: area.stations.map((s) => ({ ...s, status: "new" as const })),
+          };
+        // The stored stop is the area's predecessor: its anchor carries it, so
+        // the review shows what the area was committed as and the commit can
+        // remove it when the roadtrip is chosen. The rest of the area is fresh,
+        // like any unmatched roadtrip's.
+        return {
+          ...area,
+          stations: area.stations.map((s) =>
+            s.key === superseded.key ? annotate(s, superseded) : { ...s, status: "new" as const }
+          ),
+        };
+      }
       offers.set(match.roadtripId, {
         areaKey: area.key,
         name: match.name,
@@ -292,9 +336,11 @@ export function annotateDraftForExisting(
         };
   });
 
-  const matchedStopIds = new Set(
-    [...result.stops.matched.values()].flatMap((rec) => (rec.existing ? [rec.existing.id] : []))
-  );
+  const matchedStopIds = new Set([
+    ...[...result.stops.matched.values()].flatMap((rec) => (rec.existing ? [rec.existing.id] : [])),
+    ...claimedStopIds,
+  ]);
+  const leftoverStops = result.stops.notSeen.filter((n) => !claimedStopIds.has(n.stored.id));
   const flights = dto.flights.map((f) =>
     state.flightIds.includes(f.id) ? { ...f, locked: true, defaultAssign: true } : f
   );
@@ -304,7 +350,7 @@ export function annotateDraftForExisting(
       ...dto,
       areas,
       flights,
-      notSeenStops: result.stops.notSeen.map((n) => notSeenStation(n, taken, dto.window.startDay)),
+      notSeenStops: leftoverStops.map((n) => notSeenStation(n, taken, dto.window.startDay)),
       ...(annotatedStopovers === undefined ? {} : { stopovers: annotatedStopovers }),
     },
     existing: {
@@ -313,7 +359,7 @@ export function annotateDraftForExisting(
       stopovers: stopoverOffers,
       stops: {
         matchedIds: matchedStopIds,
-        notSeenIds: new Set(result.stops.notSeen.map((n) => n.stored.id)),
+        notSeenIds: new Set(leftoverStops.map((n) => n.stored.id)),
       },
       album: null,
     },

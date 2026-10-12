@@ -8,7 +8,13 @@ import {
 } from "../../../../lib/tripBuilder/draftEdits";
 import { sleptKeys } from "../../../../lib/tripBuilder/planRules";
 import { placeNights } from "../../../../lib/tripBuilder/reviewView";
-import { matchedStopDraft, STOP_KEY } from "../../../../lib/tripBuilder/__tests__/existingFixture";
+import {
+  MATCHED_PITSTOP_ALBUM,
+  matchedPitstopDraft,
+  matchedStopDraft,
+  stopsMatchedPitstopDraft,
+  STOP_KEY,
+} from "../../../../lib/tripBuilder/__tests__/existingFixture";
 import {
   PITSTOP_ALBUM,
   PITSTOP_KEY,
@@ -324,5 +330,54 @@ describe("a pitstop area", () => {
     expect(album).toBeChecked();
     expect(album).toBeDisabled();
     expect(screen.queryByText("tripBuilder:warnings.roadtripsHidden")).toBeNull();
+  });
+});
+
+describe("a pitstop area matched to a stored stop", () => {
+  const AREA_KEY = "2031-05-04#1";
+  const ALBUM_NAME = `tripBuilder:review.area.album {"name":"${MATCHED_PITSTOP_ALBUM}"}`;
+
+  function renderMatchedPitstop(draft: TripBuilderDraft, edits: DraftEdit[] = []): void {
+    const state = edits.reduce((s, e) => applyEdit(draft, s, e), initialReviewState(draft));
+    const area = state.areas[0];
+    render(
+      <ReviewAreaSection
+        draft={draft}
+        state={state}
+        area={area}
+        ordinal={1}
+        nights={placeNights(draft, state).byArea.get(area.key) ?? []}
+        slept={sleptKeys(state)}
+        roadtripsHidden={false}
+        onEdit={vi.fn()}
+      />
+    );
+  }
+
+  it("keeps Roadtrip offered with its album switch on: the stop it supersedes is the conversion", () => {
+    // Final review, finding Q2: the scan matches the stored stop the stay was
+    // first committed as onto the area's anchor, and the scan's pitstop default
+    // opens the area as the roadtrip. The matched stop must not hide the kind
+    // (the card used to drop it) — committing the roadtrip removes the stop.
+    renderMatchedPitstop(matchedPitstopDraft());
+    expect(
+      screen.getByRole("radio", { name: "tripBuilder:review.area.kinds.roadtrip" })
+    ).toHaveAttribute("aria-checked", "true");
+    const album = screen.getByRole("switch", { name: ALBUM_NAME });
+    expect(album).toBeChecked();
+    expect(album).toBeEnabled();
+  });
+
+  it("keeps Roadtrip selectable when the pitstop was offered as stops: the flip reaches its album switch", () => {
+    // The pre-default shape (and the flip back from the stop the user chose to
+    // keep): the option must be there and the reducer must accept it.
+    const draft = stopsMatchedPitstopDraft();
+    renderMatchedPitstop(draft, [{ type: "setAreaKind", areaKey: AREA_KEY, as: "roadtrip" }]);
+    expect(
+      screen.getByRole("radio", { name: "tripBuilder:review.area.kinds.roadtrip" })
+    ).toHaveAttribute("aria-checked", "true");
+    const album = screen.getByRole("switch", { name: ALBUM_NAME });
+    expect(album).toBeChecked();
+    expect(album).toBeEnabled();
   });
 });

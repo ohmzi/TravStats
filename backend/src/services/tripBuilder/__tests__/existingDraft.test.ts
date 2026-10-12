@@ -580,6 +580,44 @@ describe("annotateDraftForExisting: a pitstop area", () => {
     expect(dto.areas[0].pitstop).toEqual({ albumName: ALBUM });
   });
 
+  it("matches the stored stop a pitstop supersedes onto its anchor, and offers it nowhere else", () => {
+    // Final review, finding Q2: the pre-feature build wrote the same stay as a
+    // timeline stop, so a pitstop area the trip holds no roadtrip for still has
+    // the stop it succeeds. The stop is matched onto the area's anchor — the one
+    // match the commit can act on — instead of being offered as an unrelated
+    // "not seen" stop the user would silently keep beside the new roadtrip.
+    const pitstopArea = area({
+      key: "2031-05-06#1",
+      defaultAs: "roadtrip",
+      pitstop: { albumName: ALBUM },
+      stations: [
+        derivedStation(
+          "-908|3370|2031-05-06",
+          "Kelmore Museum",
+          { lat: -45.42, lon: 168.52 },
+          "2031-05-06",
+          "2031-05-07"
+        ),
+      ],
+    });
+    const { dto, existing } = annotateDraftForExisting(
+      draft(TRIP, [pitstopArea]),
+      state({ roadtrips: [], stops: [museum] })
+    );
+    const [anchor] = dto.areas[0].stations;
+    expect(anchor).toMatchObject({ status: "changed", existingId: "stop-m" });
+    expect(anchor.before).toEqual({
+      startDate: "2031-05-06",
+      endDate: "2031-05-06",
+      slept: false,
+      stay: false,
+    });
+    expect(dto.areas[0].roadtripId).toBeUndefined();
+    expect([...existing.stops.matchedIds]).toEqual(["stop-m"]);
+    expect([...existing.stops.notSeenIds]).toEqual([]);
+    expect(dto.notSeenStops).toEqual([]);
+  });
+
   it("leaves an ordinary area without a pitstop untouched", () => {
     const { dto } = annotateDraftForExisting(draft(TRIP, [area()]), state());
     expect(dto.areas[0].pitstop).toBeUndefined();

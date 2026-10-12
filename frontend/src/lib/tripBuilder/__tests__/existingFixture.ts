@@ -184,6 +184,9 @@ export function existingDraft(over: Partial<TripBuilderDraft> = {}): TripBuilder
   };
 }
 
+/** The album the live pitstop conversion shows (spec 2026-10-11 pitstops §6). */
+export const MATCHED_PITSTOP_ALBUM = "Port Carrow 2031 Road Trip (Northvale loop)";
+
 /**
  * A trip whose only area is a `stops` area matched to one stored stop (`stop-m`,
  * on its anchor): the second station is one more run of it, with no status.
@@ -249,4 +252,32 @@ export function matchedStopDraft(over: Partial<TripBuilderDraft> = {}): TripBuil
     notSeenStops: [],
     ...over,
   });
+}
+
+/**
+ * The live §K conversion (final review, finding Q2): the trip holds the stay
+ * as the timeline stop the pre-feature build wrote, the re-scan marks the area
+ * a pitstop and matches that stop onto the area's anchor while the scan's
+ * default opens it as the roadtrip (spec 2026-10-11 pitstops §3, §5).
+ */
+export function matchedPitstopDraft(over: Partial<TripBuilderDraft> = {}): TripBuilderDraft {
+  const draft = matchedStopDraft(over);
+  return {
+    ...draft,
+    areas: draft.areas.map((area): DraftArea => ({
+      ...area,
+      defaultAs: "roadtrip",
+      suggestedName: MATCHED_PITSTOP_ALBUM,
+      pitstop: { albumName: MATCHED_PITSTOP_ALBUM },
+    })),
+  };
+}
+
+/** The same matched pitstop before the pitstop default: its scan kind is still `stops`. */
+export function stopsMatchedPitstopDraft(): TripBuilderDraft {
+  const draft = matchedPitstopDraft();
+  return {
+    ...draft,
+    areas: draft.areas.map((area): DraftArea => ({ ...area, defaultAs: "stops" })),
+  };
 }

@@ -257,3 +257,69 @@ describe("buildDraftWith: a multi-day same-airport stay", () => {
     expect(stay.pitstop?.stored).toEqual({ albumAssetCount: 7, photoCount: 5 });
   });
 });
+
+describe("buildDraftWith: a re-sync whose stay is still a timeline stop", () => {
+  /** The same re-sync, but the pre-feature build wrote the stay as the timeline stop (the live case). */
+  const STOP_RE_SYNC_STATE: ExistingTripState = {
+    ...RE_SYNC_STATE,
+    roadtrips: [],
+    stops: [
+      {
+        id: "stop-dunholme",
+        title: "Dunholme",
+        lat: DUNHOLME.lat,
+        lon: DUNHOLME.lon,
+        startDay: "2031-05-02",
+        endDay: "2031-05-03",
+        notes: null,
+      },
+    ],
+    albums: [],
+  };
+
+  it("claims the stored stop onto the pitstop area, so the roadtrip can succeed it", async () => {
+    // Final review, finding Q2: the trip holds the stay as the stop, not the
+    // roadtrip. The pitstop area (scan default: Roadtrip, its album offered)
+    // takes that stop onto its anchor — the review can keep it as the stop or
+    // convert it, and the commit removes the stop when the roadtrip wins.
+    const { dto } = await buildDraftWith(
+      deps(FLIGHT_OUT, [...AT_DUNHOLME, ...AT_SOUTHHOLLOW, ...AT_DUNMERE], {
+        targetTrip: {
+          id: RE_SYNC_TRIP,
+          name: "Southern loop",
+          countries: ["NZ"],
+          roadtripNames: [],
+        },
+        existing: {
+          state: STOP_RE_SYNC_STATE,
+          immichUserId: USER,
+          client: {
+            getAlbumInfo: async () => {
+              throw new Error("no album read is part of this scan");
+            },
+            listAlbumAssets: async () => {
+              throw new Error("no album read is part of this scan");
+            },
+            findOwnedAlbumByName: async () => {
+              throw new Error("no album read is part of this scan");
+            },
+            getMyApiKey: async () => {
+              throw new Error("no album read is part of this scan");
+            },
+          },
+        },
+      }),
+      USER,
+      { ...INPUT, target: { kind: "existing", tripId: RE_SYNC_TRIP } },
+      () => undefined
+    );
+    const [stay] = dto.areas;
+    expect(stay.defaultAs).toBe("roadtrip");
+    expect(stay.roadtripId).toBeUndefined();
+    // The stop the stay was committed as is the area's anchor, not a "not seen" stop.
+    expect(stay.stations.some((s) => s.existingId === "stop-dunholme")).toBe(true);
+    expect(dto.notSeenStops).toEqual([]);
+    // The pitstop's own album is still the offer (spec §3).
+    expect(dto.areas[0].pitstop).toEqual({ albumName: "Dunholme 2031 Road Trip (Southern loop)" });
+  });
+});
