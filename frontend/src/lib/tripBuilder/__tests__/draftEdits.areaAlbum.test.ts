@@ -8,7 +8,14 @@ import {
   type DraftEdit,
   type ReviewState,
 } from "../draftEdits";
-import { COMMIT_KEY, FLIGHT_OUT, PITSTOP_KEY, pitstopDraft, reviewDraft } from "./reviewFixtures";
+import {
+  COMMIT_KEY,
+  FLIGHT_OUT,
+  PITSTOP_KEY,
+  pitstopDraft,
+  reviewDraft,
+  syncedPitstopDraft,
+} from "./reviewFixtures";
 
 const draft = pitstopDraft();
 const start = initialReviewState(draft);
@@ -116,5 +123,29 @@ describe("replaying a pitstop album edit", () => {
       { type: "setFlightTick", flightId: FLIGHT_OUT, ticked: false },
     ]);
     expect([kept, total]).toEqual([1, 2]);
+  });
+});
+
+describe("a pitstop the wire reports as stored", () => {
+  // Final review, finding Q3-3: the card renders a synced pitstop's switch
+  // checked, disabled, with the "Already synced" pill — but a replayed
+  // `setAreaAlbum` edit (carried across a re-scan that now annotates the area
+  // `stored`, e.g. the album appeared after the untick) used to be accepted.
+  // `ReviewArea.album` then read false while the card showed ON, and the body
+  // skipped the add-only re-sync the locked row promises (spec §5). The
+  // reducer now refuses the locked edit, as the stopover twin does.
+  it("drops a replayed untick and keeps the album on in the body", () => {
+    const synced = syncedPitstopDraft();
+    const start = initialReviewState(synced);
+    expect(
+      applyEdit(synced, start, { type: "setAreaAlbum", areaKey: PITSTOP_KEY, album: false })
+    ).toBe(start);
+    const { state, kept, total } = reapplyEdits(synced, [
+      { type: "setAreaAlbum", areaKey: PITSTOP_KEY, album: false },
+    ]);
+    expect([kept, total]).toEqual([0, 1]);
+    expect(reviewArea(state, PITSTOP_KEY)?.album).toBe(true);
+    const body = buildCommitBody(synced, state, FORM, COMMIT_KEY);
+    expect(bodyArea(body, PITSTOP_KEY)?.album).toBe(true);
   });
 });

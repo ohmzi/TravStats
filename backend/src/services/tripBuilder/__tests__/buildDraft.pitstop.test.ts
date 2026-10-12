@@ -2,7 +2,15 @@ import { buildDraftWith } from "../buildDraft";
 import type { ExistingDeps } from "../existingDraft";
 import type { ExistingTripState } from "../existingTypes";
 import type { ScanInput } from "../types";
-import { NORTHVALE, builderDeps, photosAt, preciseFlight, type Place } from "./builderFixtures";
+import {
+  NORTHVALE,
+  OPEN_WATER_A,
+  builderDeps,
+  countryAtFixture,
+  photosAt,
+  preciseFlight,
+  type Place,
+} from "./builderFixtures";
 
 /**
  * The pitstop the scan marks on a multi-day same-airport stay (spec 2026-10-11
@@ -255,6 +263,52 @@ describe("buildDraftWith: a multi-day same-airport stay", () => {
     expect(stay.roadtripId).toBe(STORED_ROADTRIP);
     expect(stay.suggestedName).toBe("Dunholme stay");
     expect(stay.pitstop?.stored).toEqual({ albumAssetCount: 7, photoCount: 5 });
+  });
+
+  it("shows the album's own set as the pitstop's count, not the stations' sum", async () => {
+    // Final review, finding Q3-1: the album takes the area's movement AND at-sea
+    // photos (`storedPitstops`' `assetIds`), and the sea photos never become
+    // stations. The "now" count the review shows must be that list — the set the
+    // album holds or, on the missing-album path, immediately receives — or the
+    // counts line disagrees with Immich right after the commit it describes.
+    const atSea = photosAt("sea", OPEN_WATER_A, ["2031-05-03T13:00", "2031-05-03T13:30"]);
+    const existing: ExistingDeps = {
+      state: RE_SYNC_STATE,
+      immichUserId: USER,
+      client: {
+        getAlbumInfo: async () => {
+          throw new Error("no album read is part of this scan");
+        },
+        listAlbumAssets: async () => {
+          throw new Error("no album read is part of this scan");
+        },
+        findOwnedAlbumByName: async () => {
+          throw new Error("no album read is part of this scan");
+        },
+        getMyApiKey: async () => {
+          throw new Error("no album read is part of this scan");
+        },
+      },
+    };
+    const { dto } = await buildDraftWith(
+      deps(FLIGHT_OUT, [...AT_DUNHOLME, ...atSea, ...AT_SOUTHHOLLOW], {
+        countryAt: countryAtFixture,
+        targetTrip: {
+          id: RE_SYNC_TRIP,
+          name: "Southern loop",
+          countries: ["NZ"],
+          roadtripNames: ["Dunholme stay"],
+        },
+        existing,
+      }),
+      USER,
+      { ...INPUT, target: { kind: "existing", tripId: RE_SYNC_TRIP } },
+      () => undefined
+    );
+    const [stay] = dto.areas;
+    expect(stay.roadtripId).toBe(STORED_ROADTRIP);
+    // Five movement photos and two the boundaries put at sea: the album's set.
+    expect(stay.pitstop?.stored).toEqual({ albumAssetCount: 7, photoCount: 7 });
   });
 });
 

@@ -122,8 +122,13 @@ export function setAreaAlbum(
 ): ReviewState {
   const offered = draft.areas.find((candidate) => candidate.key === edit.areaKey);
   // The switch exists only for a pitstop area (spec 2026-10-11 pitstops §3): a
-  // re-scan that no longer offers the pitstop drops the edit with it.
-  if (offered?.pitstop === undefined) return state;
+  // re-scan that no longer offers the pitstop drops the edit with it. A stored
+  // (already synced) pitstop is refused too, as the stopover twin refuses its
+  // locked pair: the card renders that switch checked and disabled, so a
+  // replayed edit from before the album existed must not leave `ReviewArea.album`
+  // false under a locked ON row — the body would then skip the add-only re-sync
+  // the locked row promises (spec §5, final review finding Q3-3).
+  if (offered?.pitstop === undefined || offered.pitstop.stored !== undefined) return state;
   const a = areaIndex(state, edit.areaKey);
   if (a < 0) return state;
   return accept(state, edit, { areas: withAreaAt(state, a, { album: edit.album }) });

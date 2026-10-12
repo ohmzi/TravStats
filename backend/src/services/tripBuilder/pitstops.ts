@@ -24,10 +24,14 @@ export interface DraftPitstop {
    */
   albumName: string;
   /**
-   * Re-sync only: set ⇔ the trip already links an album of exactly `albumName`
-   * — the review shows the album switch ON, locked, marked *already synced*,
-   * with the stored count beside the current one (spec §5). Only a matched
-   * area carries it: the annotation is the match's to make.
+   * Re-sync only: set ⇔ the trip links a *user-owned* album of exactly
+   * `albumName` — the link the album's own named write targets
+   * (`pickLinkedAlbum`), so the review shows the album switch ON, locked,
+   * marked *already synced*, with the stored count beside the current one
+   * (spec §5). A partner's same-named link, or one the scan could not
+   * describe, is not the write's album and stays unmarked (final review,
+   * finding Q3-6). Only a matched area carries it: the annotation is the
+   * match's to make.
    */
   stored?: StoredPitstopStatus;
 }
@@ -36,7 +40,7 @@ export interface DraftPitstop {
 export interface StoredPitstopStatus {
   /** The linked album's member count when the scan read it (the link row's `assetCount`). */
   albumAssetCount: number;
-  /** The area's own photo count now (its stations' counts, summed); the review's "now" beside it. */
+  /** The area's own member count now — its movement and at-sea photos, the list the album takes (`StoredPitstop.assetIds`); the review's "now" beside it. */
   photoCount: number;
 }
 

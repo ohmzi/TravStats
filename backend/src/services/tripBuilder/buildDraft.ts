@@ -560,6 +560,12 @@ export async function buildDraftWith(
     warnings,
   };
 
+  // The pitstop areas' own album records (spec 2026-10-11 pitstops §4): the
+  // album takes the area's photos, which no DTO may carry. Computed before the
+  // re-sync annotation so the review's "now" count is the same list's length —
+  // the movement and at-sea photos, not the stations' sum (final review,
+  // finding Q3-1).
+  const storedPitstopRecords = storedPitstops(night.kept, pitstops);
   const applied = await applyExistingTarget(
     deps.existing,
     {
@@ -568,7 +574,8 @@ export async function buildDraftWith(
       fetchFrom: collected.window.fetchFrom,
       fetchTo: collected.window.fetchTo,
     },
-    dto
+    dto,
+    new Map(storedPitstopRecords.map((pitstop) => [pitstop.key, pitstop.assetIds.length] as const))
   );
 
   return {
@@ -589,7 +596,7 @@ export async function buildDraftWith(
     stopovers,
     // The pitstop areas' own album lists (spec 2026-10-11 pitstops §4): the
     // album takes the area's photos, which no DTO may carry.
-    pitstops: storedPitstops(night.kept, pitstops),
+    pitstops: storedPitstopRecords,
   };
 }
 

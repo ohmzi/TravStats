@@ -43,20 +43,31 @@ async function writeMatchedRoadtrip(
 ): Promise<{ roadtrip: PhaseBRoadtrip; releasedStopIds: string[] }> {
   let createdLegs: LegPair[] = [];
   let releasedStopIds: string[] = [];
+  // The plan is a snapshot taken in the request; the job then preflights Immich
+  // (seconds) before reaching this transaction, and another tab can add a
+  // station meanwhile. `replaceStationsInTx` deletes every route stop the plan's
+  // list does not name, so re-read the route here and refuse unless it holds
+  // exactly what the draft offered: nothing the plan never saw is deleted by
+  // omission, silently or otherwise. The re-read also runs for an album-only
+  // write (final review, finding Q3-5): such a write replaces nothing, but phase
+  // D still adds to — or creates — the pitstop album after this transaction, on
+  // a roadtrip the review never showed, so the same guard applies;
+  // `guardMatchedStopovers` re-checks its roadtrip unconditionally for the same
+  // reason.
+  const guardsRoute = !write.noop || write.album !== undefined;
+  const routeStops = guardsRoute
+    ? await tx.tripStop.findMany({
+        where: { routeId: write.roadtripId, viaPoint: false },
+        select: { id: true },
+      })
+    : [];
+  if (
+    guardsRoute &&
+    !sameSet(new Set(routeStops.map((stop) => stop.id)), new Set(write.offeredIds))
+  ) {
+    throw tripChanged();
+  }
   if (!write.noop) {
-    // The plan is a snapshot taken in the request; the job then preflights Immich
-    // (seconds) before reaching this transaction, and another tab can add a
-    // station meanwhile. `replaceStationsInTx` deletes every route stop the plan's
-    // list does not name, so re-read the route here and refuse unless it holds
-    // exactly what the draft offered: nothing the plan never saw is deleted by
-    // omission, silently or otherwise.
-    const routeStops = await tx.tripStop.findMany({
-      where: { routeId: write.roadtripId, viaPoint: false },
-      select: { id: true },
-    });
-    if (!sameSet(new Set(routeStops.map((stop) => stop.id)), new Set(write.offeredIds))) {
-      throw tripChanged();
-    }
     const written = new Set(write.stations.flatMap((s) => (s.id === undefined ? [] : [s.id])));
     const droppedIds = routeStops.filter((stop) => !written.has(stop.id)).map((stop) => stop.id);
     for (const leg of write.resetLegs) {

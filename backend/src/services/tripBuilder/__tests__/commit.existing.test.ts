@@ -321,6 +321,42 @@ describe("writeCommit for an existing trip", () => {
     });
   });
 
+  it("answers TRIP_CHANGED when an album-only no-op write meets a route that gained a station", async () => {
+    // Final review, finding Q3-5: a matched pitstop whose stations are unchanged
+    // is `noop`, so the offered-ids re-read used to be skipped — yet phase D
+    // still writes (or creates) its album after this transaction, on a roadtrip
+    // the review never showed. The re-read now covers a write that carries an
+    // album, matching `guardMatchedStopovers`' always-on re-check.
+    const albumOnly = write([], {
+      noop: true,
+      diff: { updated: 0, unchanged: 4, added: 0, removed: 0, kept: 0 },
+      album: { name: "Northvale 2031 Road Trip (Northvale loop)", assetIds: ["x-1"] },
+    });
+    await addStation(fx.roadtripId, 4, {
+      title: "Southbridge camp",
+      at: FX.southbridge,
+      startDay: "2031-05-09",
+      endDay: "2031-05-10",
+    });
+    await expect(writeCommit(plan({ roadtrips: [albumOnly] }))).rejects.toMatchObject({
+      statusCode: 409,
+      code: "TRIP_CHANGED",
+    });
+  });
+
+  it("answers TRIP_CHANGED when an album-only no-op write meets a deleted route", async () => {
+    const albumOnly = write([], {
+      noop: true,
+      diff: { updated: 0, unchanged: 4, added: 0, removed: 0, kept: 0 },
+      album: { name: "Northvale 2031 Road Trip (Northvale loop)", assetIds: ["x-1"] },
+    });
+    await prisma.tripRoute.delete({ where: { id: fx.roadtripId } });
+    await expect(writeCommit(plan({ roadtrips: [albumOnly] }))).rejects.toMatchObject({
+      statusCode: 409,
+      code: "TRIP_CHANGED",
+    });
+  });
+
   it("adds a new station between two stored ones and keeps the legs it does not touch", async () => {
     const [a, b, c, s] = [fx.station.a, fx.station.b, fx.station.c, fx.station.s];
     const result = await writeCommit(

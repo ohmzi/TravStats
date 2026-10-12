@@ -69,7 +69,8 @@ describe("extendPlanForExisting", () => {
     const state = await loadExistingState(fx.userId, fx.tripId);
     const { dto, existing } = annotateDraftForExisting(
       draft(fx.tripId, [area({ stations: seen })], over),
-      state
+      state,
+      new Map()
     );
     return {
       id: dto.id,
@@ -1074,10 +1075,11 @@ describe("extendPlanForExisting: timeline stops", () => {
   async function stopsDraftOf(stations: DraftStation[]): Promise<StoredDraft> {
     const stopsArea = area({ key: "2031-05-06#1", defaultAs: "stops", stations });
     const state = await loadExistingState(fx.userId, fx.tripId);
-    const { dto, existing } = annotateDraftForExisting(draft(fx.tripId, [stopsArea]), {
-      ...state,
-      roadtrips: [],
-    });
+    const { dto, existing } = annotateDraftForExisting(
+      draft(fx.tripId, [stopsArea]),
+      { ...state, roadtrips: [] },
+      new Map()
+    );
     return {
       id: dto.id,
       ownerId: fx.userId,
@@ -1550,11 +1552,15 @@ describe("extendPlanForExisting: a pitstop that supersedes a stored stop", () =>
       stations,
     });
     const state = await loadExistingState(fx.userId, fx.tripId);
-    const { dto, existing } = annotateDraftForExisting(draft(fx.tripId, [pitstopArea]), {
-      ...state,
-      // No stored roadtrip is the area's: the stay is held as the museum stop.
-      roadtrips: [],
-    });
+    const { dto, existing } = annotateDraftForExisting(
+      draft(fx.tripId, [pitstopArea]),
+      {
+        ...state,
+        // No stored roadtrip is the area's: the stay is held as the museum stop.
+        roadtrips: [],
+      },
+      new Map()
+    );
     return {
       id: dto.id,
       ownerId: fx.userId,

@@ -833,21 +833,25 @@ the stopover cards keep their off-by-default rule.
 now the pitstop albums share one writer, one marker and one retry. A
 pitstop's photos stay in the trip's main album untouched. A failed album
 never fails the trip: the success panel shows a line per album, each with
-its own retry, and a retry resolves its album by name, so it can never
-write the wrong one. A pitstop album is add-only: nothing is ever removed
-from it, and the builder never deletes it.
+its own retry, and a city album's retry resolves its album by its key
+against the committed draft that wrote the trip — refused (409) rather
+than guessing when that draft is gone — so it can never write the wrong
+one. A pitstop album is add-only: nothing is ever removed from it, and
+the builder never deletes it.
 
 **Re-syncing a pitstop is add-only.** A pitstop area matches its stored
 roadtrip through the ordinary area matching — station overlap — unchanged;
-what is new is the album's state in the review. When a linked album of the
-computed name exists, the review shows the switch on and marked *already
-synced*, the current photo count beside the stored one, and committing
-writes nothing. When the album is missing — an area that became a roadtrip
-before this feature existed is the live case — the switch shows on, and
-committing creates the album from the area's current photos **without
-touching the roadtrip**: the area's own diff still governs the roadtrip,
-and an unchanged re-sync writes no stations at all. An unmatched pitstop
-writes its roadtrip and album together, as at first commit. The
+what is new is the album's state in the review. When the trip links the
+user's own album of the computed name, the review shows the switch on and
+marked *already synced*, the current photo count beside the stored one,
+and committing writes no station — the album's re-sync adds only the
+members it lacks, nothing when nothing changed. When the album is missing
+— an area that became a roadtrip before this feature existed is the live
+case — the switch shows on, and committing creates the album from the
+area's current photos **without touching the roadtrip**: the area's own
+diff still governs the roadtrip, and an unchanged re-sync writes no
+stations at all. An unmatched pitstop writes its roadtrip and album
+together, as at first commit. The
 `TRIP_CHANGED` guards, the claim-before-areas discipline and the add-only
 v1 boundaries are those of the stopover feature; pitstop albums inherit
 them.

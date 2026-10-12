@@ -151,9 +151,11 @@ export default function ReviewAreaSection({
               <span className="flex flex-wrap items-baseline" style={{ gap: "var(--ts-space-sm)" }}>
                 <Pill color="var(--ts-good)">{t("tripBuilder:review.area.synced")}</Pill>
                 <span className="t-caption">
+                  {/* i18next inflects on `count`, and the noun modifies the synced
+                      count, so the numbers travel under those names (finding Q3-7). */}
                   {t("tripBuilder:review.area.syncedCounts", {
-                    stored: stored.albumAssetCount,
-                    count: stored.photoCount,
+                    count: stored.albumAssetCount,
+                    now: stored.photoCount,
                   })}
                 </span>
               </span>

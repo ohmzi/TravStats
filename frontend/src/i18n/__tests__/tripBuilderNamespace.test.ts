@@ -13,6 +13,29 @@ describe("the tripBuilder namespace", () => {
 });
 
 /**
+ * The synced pitstop's counts line inflects on the number its noun belongs to
+ * (final review, finding Q3-7): i18next picks `_one`/`_other` from `count`, the
+ * noun modifies the synced count, and the "now" count travels as its own
+ * `now` param — so both numbers read true whichever of the two is 1. The
+ * string was copied from the stopover card's, which keys the plural on the
+ * wrong number; that older string is left as it was.
+ */
+describe("the synced pitstop's counts line", () => {
+  it.each(["en", "de"] as const)(
+    "%s: the noun follows the synced count, not the current one",
+    (lng) => {
+      const t = i18n.getFixedT(lng, "tripBuilder");
+      expect(t("review.area.syncedCounts", { count: 18, now: 1 })).toBe(
+        lng === "en" ? "18 photos when it was synced · 1 now" : "18 Fotos beim Abgleich · 1 jetzt"
+      );
+      expect(t("review.area.syncedCounts", { count: 1, now: 20 })).toBe(
+        lng === "en" ? "1 photo when it was synced · 20 now" : "1 Foto beim Abgleich · 20 jetzt"
+      );
+    }
+  );
+});
+
+/**
  * The popup tells the person where to go ("Settings › Services", "Settings ›
  * Modules"). A path that names a page Settings does not have sends them to a
  * dead end, which is what "Settings › Beta" did: the beta gate is an admin

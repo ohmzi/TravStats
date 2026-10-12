@@ -162,7 +162,7 @@ describe("a pitstop area in the review", () => {
     expect(album).toBeDisabled();
     expect(within(box).getByText("tripBuilder:review.area.synced")).toBeInTheDocument();
     expect(
-      within(box).getByText('tripBuilder:review.area.syncedCounts {"stored":18,"count":20}')
+      within(box).getByText('tripBuilder:review.area.syncedCounts {"count":18,"now":20}')
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.createTrip" }));
     await waitFor(() => expect(mocks.commit).toHaveBeenCalled());

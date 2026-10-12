@@ -166,7 +166,7 @@ export interface DraftArea {
 export interface StoredPitstopStatus {
   /** The linked album's member count when the scan read it; the review's "when it was synced". */
   albumAssetCount: number;
-  /** The area's own photo count now; the review's "now" beside it. */
+  /** The area's own member count now — its movement and at-sea photos, the list the album takes; the review's "now" beside it. */
   photoCount: number;
 }
 
@@ -174,7 +174,7 @@ export interface StoredPitstopStatus {
 export interface DraftPitstop {
   /** `<City> <Year> Road Trip (<Trip Name>)`; the parenthetical is dropped when the city is the trip's own name. */
   albumName: string;
-  /** Re-sync only: set ⇔ the trip already links an album of exactly `albumName`. */
+  /** Re-sync only: set ⇔ the trip links the user's own album of exactly `albumName` — the album the commit re-syncs. */
   stored?: StoredPitstopStatus;
 }
 

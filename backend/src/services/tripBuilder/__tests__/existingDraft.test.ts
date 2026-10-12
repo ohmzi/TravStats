@@ -12,8 +12,12 @@ import type {
   ExistingStop,
   ExistingTripState,
 } from "../existingTypes";
-import type { DraftStopover } from "../types";
-import { annotateDraftForExisting, applyExistingTarget, type ExistingDeps } from "../existingDraft";
+import type { DraftStopover, TripBuilderDraft } from "../types";
+import {
+  annotateDraftForExisting as annotateWithCounts,
+  applyExistingTarget,
+  type ExistingDeps,
+} from "../existingDraft";
 import {
   area,
   derivedStation,
@@ -24,6 +28,17 @@ import {
   STOPOVER_KEY,
   stopover,
 } from "./existingDraftFixture";
+
+/**
+ * The annotation under test, with the pitstop album counts a scan carries
+ * (`StoredPitstop.assetIds.length`): the tests that do not exercise a pitstop's
+ * album pass none, and the pitstop tests name the area's own member count.
+ */
+const annotateDraftForExisting = (
+  dto: TripBuilderDraft,
+  state: ExistingTripState,
+  counts: ReadonlyMap<string, number> = new Map()
+): ReturnType<typeof annotateWithCounts> => annotateWithCounts(dto, state, counts);
 
 // Synthetic fixtures only (public repository).
 const TRIP = "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c";
@@ -549,16 +564,20 @@ describe("annotateDraftForExisting: a pitstop area", () => {
   });
 
   it("marks a matched pitstop's album as already synced when the trip links it, with both counts", () => {
+    // The "now" count is the scan's own member count for the area
+    // (`storedPitstops`' `assetIds.length`): the movement and at-sea photos the
+    // album takes, not the four fixture stations' 48 — sea and transit-noise
+    // photos never become stations but are album members (finding Q3-1).
     const { dto } = annotateDraftForExisting(
       draft(TRIP, [area({ pitstop: { albumName: ALBUM } })]),
-      state({ albums: [linked(ALBUM, 96)] })
+      state({ albums: [linked(ALBUM, 96)] }),
+      new Map([["2031-05-02#1", 55]])
     );
     // The area match is the existing one, untouched: the roadtrip is still the match.
     expect(dto.areas[0].roadtripId).toBe("r1");
-    // The area's own photos now: the four fixture stations at 12 photos each.
     expect(dto.areas[0].pitstop).toEqual({
       albumName: ALBUM,
-      stored: { albumAssetCount: 96, photoCount: 48 },
+      stored: { albumAssetCount: 96, photoCount: 55 },
     });
   });
 
@@ -569,6 +588,24 @@ describe("annotateDraftForExisting: a pitstop area", () => {
     );
     expect(dto.areas[0].roadtripId).toBe("r1");
     expect(dto.areas[0].pitstop).toEqual({ albumName: ALBUM });
+  });
+
+  it("keeps a matched pitstop unmarked while the same-named link is not the user's", () => {
+    // Final review, finding Q3-6: the writer resolves a named album only through
+    // a link the user owns (`pickLinkedAlbum`, `ownedByUser === true`) and
+    // otherwise creates a fresh album of that name. A same-named link that is
+    // the partner's — or one the scan could not describe — is not the write's
+    // target, so "already synced" with a locked switch would promise a re-sync
+    // the commit does not make.
+    for (const ownedByUser of [false, null]) {
+      const foreign = { ...linked(ALBUM, 96), ownedByUser };
+      const { dto } = annotateDraftForExisting(
+        draft(TRIP, [area({ pitstop: { albumName: ALBUM } })]),
+        state({ albums: [foreign] })
+      );
+      expect(dto.areas[0].roadtripId).toBe("r1");
+      expect(dto.areas[0].pitstop).toEqual({ albumName: ALBUM });
+    }
   });
 
   it("leaves an unmatched pitstop alone: the annotation is the match's to make", () => {
@@ -685,7 +722,7 @@ describe("applyExistingTarget", () => {
 
   it("changes nothing for a new trip", async () => {
     const dto = draft(TRIP);
-    expect(await applyExistingTarget(null, facts, dto)).toEqual({ dto });
+    expect(await applyExistingTarget(null, facts, dto, new Map())).toEqual({ dto });
   });
 
   it("previews the album sync and remembers which album and which members it judged", async () => {
@@ -693,7 +730,12 @@ describe("applyExistingTarget", () => {
       asset("w1", "2031-05-03T09:00:00.000Z"),
       asset("c1", "2031-05-01T09:00:00.000Z"),
     ]);
-    const out = await applyExistingTarget(deps(list), facts, draft(TRIP, [area()], { album }));
+    const out = await applyExistingTarget(
+      deps(list),
+      facts,
+      draft(TRIP, [area()], { album }),
+      new Map()
+    );
     expect(out.dto.album?.sync).toEqual({
       target: "linked",
       toAdd: 2,
@@ -707,7 +749,12 @@ describe("applyExistingTarget", () => {
     const failing = jest.fn(async () => {
       throw new Error("immich unreachable");
     });
-    const out = await applyExistingTarget(deps(failing), facts, draft(TRIP, [area()], { album }));
+    const out = await applyExistingTarget(
+      deps(failing),
+      facts,
+      draft(TRIP, [area()], { album }),
+      new Map()
+    );
     expect(out.dto.album).toMatchObject({ allowed: false, blockedReason: "unverified" });
     expect(out.dto.album?.sync).toBeUndefined();
     expect(out.existing?.album).toBeNull();

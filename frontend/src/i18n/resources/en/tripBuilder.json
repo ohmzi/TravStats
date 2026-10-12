@@ -158,8 +158,8 @@
       "skipped": "This area is not saved.",
       "summary": "{{stations}} stops · {{nights}} nights",
       "synced": "Already synced",
-      "syncedCounts_one": "{{stored}} photo when it was synced · {{count}} now",
-      "syncedCounts_other": "{{stored}} photos when it was synced · {{count}} now",
+      "syncedCounts_one": "{{count}} photo when it was synced · {{now}} now",
+      "syncedCounts_other": "{{count}} photos when it was synced · {{now}} now",
       "title": "Area {{n}}",
       "vehicle": "Vehicle",
       "vehicles": {

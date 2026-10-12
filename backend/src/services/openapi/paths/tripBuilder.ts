@@ -450,7 +450,9 @@ registry.register(
         .array(
           z.object({
             key: z.string().describe("The stopover's key, `<inFlightId>#<outFlightId>`"),
-            name: z.string().describe("The album's name; its retry posts this back"),
+            name: z
+              .string()
+              .describe("The album's name; its retry posts the entry's `key` back (`stopoverKey`)"),
             album: albumOutcome,
           })
         )
@@ -460,7 +462,9 @@ registry.register(
         .array(
           z.object({
             key: z.string().describe("The area's key, `<startDay>#<n>`"),
-            name: z.string().describe("The album's name; its retry posts this back"),
+            name: z
+              .string()
+              .describe("The album's name; its retry posts the entry's `key` back (`pitstopKey`)"),
             album: albumOutcome,
           })
         )

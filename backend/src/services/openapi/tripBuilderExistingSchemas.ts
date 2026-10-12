@@ -65,10 +65,14 @@ export const existingPitstopFields = {
       photoCount: z
         .number()
         .int()
-        .describe("The area's own photo count now: the count the review shows beside it"),
+        .describe(
+          "The area's own photo count now: its movement and at-sea photos, the list the album takes; the review shows it beside the synced count"
+        ),
     })
     .optional()
-    .describe("Re-sync only: the linked album of exactly this pitstop's name the trip holds"),
+    .describe(
+      "Re-sync only: the user's own linked album of exactly this pitstop's name; when set, the review locks the album switch, marked as already synced"
+    ),
 };
 
 /** Extends the draft album schema. */

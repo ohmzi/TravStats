@@ -5,6 +5,7 @@ interface Node {
   $ref?: string;
   type?: string;
   enum?: string[];
+  description?: string;
   items?: Node;
   properties?: Record<string, Node>;
   required?: string[];
@@ -48,5 +49,14 @@ describe("trip builder OpenAPI documents the pitstop album", () => {
     expect(Object.keys(pitstop.properties ?? {})).toContain("albumName");
     expect(at(pitstop, "albumName").type).toBe("string");
     expect(JSON.stringify(pitstop)).not.toMatch(/asset(Id|Ids)\b/);
+  });
+
+  it("says the album outcome's retry posts the entry's key, not the name", () => {
+    // Final review, finding Q3-2: the retry resolves by `pitstopKey` against the
+    // committed draft (two areas in one city and year share the name), so a
+    // caller following the old "posts this back" wording would post `name` and
+    // re-sync the TRIP's album under the city album's name instead.
+    const commit = at(schemas.TripBuilderCommitResult, "pitstopAlbums", "[]", "name");
+    expect(commit.description).toContain("pitstopKey");
   });
 });

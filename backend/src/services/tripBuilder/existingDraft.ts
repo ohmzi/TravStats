@@ -17,7 +17,7 @@
  */
 import { deriveStationRows, type NightPlanStation } from "../../shared/tour/builderNightPlan";
 import logger from "../../utils/logger";
-import { previewAlbumSync, type AlbumResyncClient } from "./albumResync";
+import { pickLinkedAlbum, previewAlbumSync, type AlbumResyncClient } from "./albumResync";
 import {
   isSleptNight,
   type ExistingRoadtrip,
@@ -165,32 +165,46 @@ function storedAlbumCount(state: ExistingTripState, name: string): number | null
   return state.albums.find((album) => album.albumName === name)?.assetCount ?? null;
 }
 
-/** The area's own photos now: the counts its card shows per station, summed. */
-function areaPhotoCount(area: DraftArea): number {
-  return area.stations.reduce((count, station) => count + station.photoCount, 0);
-}
-
 /**
  * A matched pitstop's stored album (spec 2026-10-11 pitstops §5): set ⇔ the
- * trip links an album of exactly the pitstop's name, so the review shows the
- * album switch ON and marked *already synced*, with the linked count beside
- * the area's own count now. A linked album of another name is not it — only
- * the exact name counts, and an unmatched area carries nothing.
+ * trip links a user-owned album of exactly the pitstop's name — the link the
+ * album write's own named target resolution would take (`pickLinkedAlbum`), so
+ * the review shows the switch ON and marked *already synced* only when the
+ * commit really re-syncs that album; a partner's same-named link, or one the
+ * scan could not describe, is not it, and claiming it would promise a re-sync
+ * the commit never makes (final review, finding Q3-6).
+ *
+ * `count` is the area's own member count the scan stored (`storedPitstops`
+ * carries the album's list beside the draft): its movement and at-sea photos,
+ * the set the album holds or receives — not the stations' sum, which the
+ * transit-noise and at-sea photos the album also takes are absent from (final
+ * review, finding Q3-1). An unmatched area carries nothing.
  */
 function annotatePitstop(
   pitstop: DraftPitstop,
-  area: DraftArea,
+  count: number | undefined,
   state: ExistingTripState
 ): DraftPitstop {
-  const count = storedAlbumCount(state, pitstop.albumName);
-  return count === null
-    ? pitstop
-    : { ...pitstop, stored: { albumAssetCount: count, photoCount: areaPhotoCount(area) } };
+  const linked = pickLinkedAlbum(state.albums, state.tripName, pitstop.albumName);
+  if (linked === null) return pitstop;
+  if (count === undefined) {
+    // `storedPitstops` lists exactly the areas the draft carries a pitstop for,
+    // so a matched pitstop without a count is a caller that assembled neither.
+    throw new Error(`Pitstop album "${pitstop.albumName}" carries no photo count`);
+  }
+  return { ...pitstop, stored: { albumAssetCount: linked.assetCount, photoCount: count } };
 }
 
 export function annotateDraftForExisting(
   dto: TripBuilderDraft,
-  state: ExistingTripState
+  state: ExistingTripState,
+  /**
+   * Pitstop area key → the album's own member count (`StoredPitstop.assetIds.length`,
+   * spec pitstops §5): `buildDraftWith` computes it from the scan, which no DTO
+   * may carry; the review's "now" beside the synced count is this number, not
+   * the stations' sum (final review, finding Q3-1).
+   */
+  pitstopCounts: ReadonlyMap<string, number>
 ): { dto: TripBuilderDraft; existing: StoredExisting } {
   const assigns: Record<string, string> = Object.fromEntries(
     Object.entries(dto.nights).map(([day, entry]) => [day, entry.assign] as const)
@@ -324,7 +338,7 @@ export function annotateDraftForExisting(
         notSeen: match.reconciled.notSeen.map((n) => notSeenStation(n, taken, area.startDay)),
         ...(area.pitstop === undefined
           ? {}
-          : { pitstop: annotatePitstop(area.pitstop, area, state) }),
+          : { pitstop: annotatePitstop(area.pitstop, pitstopCounts.get(area.key), state) }),
       };
     }
     const stop = result.stops.matched.get(area.key);
@@ -384,10 +398,12 @@ export interface AlbumScanFacts {
 export async function applyExistingTarget(
   existing: ExistingDeps | null | undefined,
   album: AlbumScanFacts,
-  dto: TripBuilderDraft
+  dto: TripBuilderDraft,
+  /** The pitstop areas' own member counts, as `annotateDraftForExisting` reads them. */
+  pitstopCounts: ReadonlyMap<string, number>
 ): Promise<{ dto: TripBuilderDraft; existing?: StoredExisting }> {
   if (!existing) return { dto };
-  const annotated = annotateDraftForExisting(dto, existing.state);
+  const annotated = annotateDraftForExisting(dto, existing.state, pitstopCounts);
   const draftAlbum = annotated.dto.album;
   if (!draftAlbum || draftAlbum.allowed === false) return annotated;
   try {

@@ -158,8 +158,8 @@
       "skipped": "Dieses Gebiet wird nicht gespeichert.",
       "summary": "{{stations}} Stopps · {{nights}} Nächte",
       "synced": "Schon abgeglichen",
-      "syncedCounts_one": "{{stored}} Foto beim Abgleich · {{count}} jetzt",
-      "syncedCounts_other": "{{stored}} Fotos beim Abgleich · {{count}} jetzt",
+      "syncedCounts_one": "{{count}} Foto beim Abgleich · {{now}} jetzt",
+      "syncedCounts_other": "{{count}} Fotos beim Abgleich · {{now}} jetzt",
       "title": "Gebiet {{n}}",
       "vehicle": "Fahrzeug",
       "vehicles": {

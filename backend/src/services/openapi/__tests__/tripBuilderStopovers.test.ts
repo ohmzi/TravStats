@@ -5,6 +5,7 @@ interface Node {
   $ref?: string;
   type?: string;
   enum?: string[];
+  description?: string;
   items?: Node;
   properties?: Record<string, Node>;
   required?: string[];
@@ -74,5 +75,12 @@ describe("trip builder OpenAPI documents the stopover tour", () => {
     expect(at(stopover, "stations", "[]", "previewIdx").type).toBe("array");
     expect(at(stopover, "legs", "[]", "mode").enum).toEqual(["road", "ferry"]);
     expect(JSON.stringify(stopover)).not.toMatch(/asset(Id|Ids)\b/);
+  });
+
+  it("says the album outcome's retry posts the entry's key, not the name", () => {
+    // The same lie the pitstop line carried (final review, finding Q3-2): the
+    // stopover retry resolves by `stopoverKey`, never by the album's name.
+    const commit = at(schemas.TripBuilderCommitResult, "stopoverAlbums", "[]", "name");
+    expect(commit.description).toContain("stopoverKey");
   });
 });

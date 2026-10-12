@@ -317,7 +317,7 @@ describe("a pitstop area", () => {
     expect(album).toBeDisabled();
     expect(screen.getByText("tripBuilder:review.area.synced")).toBeInTheDocument();
     expect(
-      screen.getByText('tripBuilder:review.area.syncedCounts {"stored":18,"count":20}')
+      screen.getByText('tripBuilder:review.area.syncedCounts {"count":18,"now":20}')
     ).toBeInTheDocument();
   });
 
