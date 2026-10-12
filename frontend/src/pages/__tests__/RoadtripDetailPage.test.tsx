@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import RoadtripDetailPage from "../RoadtripDetailPage";
 import { roadtripsApi } from "../../lib/api/roadtrips";
-import { toursApi } from "../../lib/api/tours";
 import type { RoadtripDetail } from "../../types/roadtrip";
 
 vi.mock("../../components/NavigationBar", () => ({ default: () => <div /> }));
@@ -62,6 +61,13 @@ function renderAt(path: string): void {
   );
 }
 
+/**
+ * The trip page through the shared shell (spec 2026-10-12 §2): the name, the
+ * figures band and the editor's arrival. The tab set itself is pinned by
+ * `RoadtripDetailPage.tabs.test.tsx`; the head's furniture (the phase pill,
+ * the head's own actions) and the footer delete were ruled away with the
+ * template, so the cases that pinned them went with them.
+ */
 describe("RoadtripDetailPage", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -73,53 +79,14 @@ describe("RoadtripDetailPage", () => {
     vi.clearAllMocks();
   });
 
-  it("heads the page with where the trip stands and its figures", async () => {
+  it("heads the page with its name and its figures", async () => {
     renderAt("/roadtrips/rt");
     expect(await screen.findByText("Fjorde 2026")).toBeInTheDocument();
-    expect(screen.getByText("roadtrips:phase.underway:8")).toBeInTheDocument();
     expect(screen.getByText("1.370 km")).toBeInTheDocument();
     // DAYS remains; the NIGHTS cell is gone (owner, 2026-10-08) because it
     // restated the same stretch of time as Days. 18.–28.09 is eleven days.
     expect(screen.getByText("11")).toBeInTheDocument();
     expect(screen.queryByText("roadtrips:detail.figNights")).not.toBeInTheDocument();
-  });
-
-  it("turns the stations into the editor in place", async () => {
-    renderAt("/roadtrips/rt");
-    fireEvent.click(await screen.findByText("roadtrips:detail.edit"));
-    expect(screen.getByTestId("editor")).toHaveTextContent("plain");
-    expect(screen.getByTestId("map")).toBeInTheDocument();
-  });
-
-  it("draws the head's route link and its edit button at one size", async () => {
-    renderAt("/roadtrips/rt");
-    // The SAME row the journey page draws from the same two components, so it
-    // gets the same one-size treatment (owner, 2026-10-11).
-    const link = await screen.findByRole("link", { name: "roadtrips:editLegs" });
-    const edit = screen.getByRole("button", { name: "roadtrips:detail.edit" });
-    expect(link.style.height).toBe("var(--ts-size-button-secondary)");
-    expect(edit.style.height).toBe("var(--ts-size-button-secondary)");
-  });
-
-  it("asks once more before deleting a roadtrip's costs with it, then sends the opt-in", async () => {
-    // forgejo#140: a roadtrip with costs and no trip answers 409 with the count.
-    vi.mocked(toursApi.removeStandalone)
-      .mockRejectedValueOnce(
-        Object.assign(new Error("conflict"), {
-          isAxiosError: true,
-          response: { status: 409, data: { code: "SECTION_HAS_EXPENSES", expenseCount: 2 } },
-        })
-      )
-      .mockResolvedValueOnce(undefined);
-    renderAt("/roadtrips/rt");
-    fireEvent.click(await screen.findByText("roadtrips:delete"));
-    fireEvent.click(screen.getByText("roadtrips:deleteConfirm.confirm"));
-    fireEvent.click(await screen.findByText("roadtrips:deleteWithCosts.confirm"));
-    await waitFor(() => expect(toursApi.removeStandalone).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(toursApi.removeStandalone).mock.calls).toEqual([
-      ["rt", { deleteExpenses: false }],
-      ["rt", { deleteExpenses: true }],
-    ]);
   });
 
   it("arrives from “Heutige Nacht eintragen” with the editor open on tonight", async () => {

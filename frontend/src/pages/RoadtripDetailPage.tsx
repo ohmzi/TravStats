@@ -1,36 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import AppShell from "../components/ui/AppShell";
-import ActionLink from "../components/ui/ActionLink";
 import Button from "../components/ui/Button";
-import DetailHeader from "../components/ui/DetailHeader";
 import EmptyState from "../components/ui/EmptyState";
-import Pill from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
-import ConfirmModal from "../components/Training/ConfirmModal";
-import TripMap, { type TripMapContent } from "../components/Trips/TripMap";
+import EntityHeader from "../components/Entity/EntityHeader";
+import EntityPage from "../components/Entity/EntityPage";
+import EntityTabBar from "../components/ui/EntityTabBar";
 import LegDialog from "../components/Roadtrips/LegDialog";
-import RoadtripFigures from "../components/Roadtrips/RoadtripFigures";
+import RoadtripMapPanel from "../components/Roadtrips/RoadtripMapPanel";
+import RoadtripTimelineTab from "../components/Roadtrips/RoadtripTimelineTab";
 import RoadtripTourCards from "../components/Roadtrips/RoadtripTourCards";
 import RoadtripCostsSection from "../components/Roadtrips/RoadtripCostsSection";
 import { RoadtripRailConversion } from "../components/rail/RoadtripRailConversion";
 import StationEditor, { type EditorStart } from "../components/Roadtrips/StationEditor";
 import StationTimeline from "../components/Roadtrips/StationTimeline";
-import { stationHighlightLayer } from "../components/Roadtrips/stationHighlightLayer";
 import type { SaveStatus } from "../components/Roadtrips/useStationAutosave";
 import { useTranslation } from "../hooks/useTranslation";
-import { useDomainColors } from "../hooks/useDomainColors";
 import { roadtripsApi } from "../lib/api/roadtrips";
 import { toursApi } from "../lib/api/tours";
-import { useDisplayFormat } from "../lib/displayFormat";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
-import { sectionExpenseCount } from "../lib/sectionExpenses";
-import { hexToRgb } from "../lib/domainColor";
 import { logger } from "../lib/logger";
-import { dayNumber, roadtripPhase, spanDays } from "../lib/roadtrip/roadtripView";
-import { phasePillColor } from "../lib/detailPhase";
 import { DETAIL_MAP_BOX_RADIUS, DETAIL_MAP_STICKY_TOP } from "../lib/detailChrome";
 import { useTodayZone } from "../hooks/useTodayZone";
 import { todayIn } from "../shared/time";
@@ -43,6 +34,10 @@ type LegEdit = {
   from: { id: string; title: string };
   to: { id: string; title: string };
 };
+
+/** The shared tab set (spec 2026-10-12 §3): the trip page's five, no Trips tab. */
+type TripTabKey = "overview" | "timeline" | "map" | "gallery" | "logistics";
+const TRIP_TABS: TripTabKey[] = ["overview", "timeline", "map", "gallery", "logistics"];
 
 const STATUS_COLOR: Record<SaveStatus, string> = {
   saved: "var(--ts-good)",
@@ -65,13 +60,32 @@ const STATUS_COLOR: Record<SaveStatus, string> = {
 export default function RoadtripDetailPage(): JSX.Element {
   const { id = "" } = useParams<{ id: string }>();
   const [params, setParams] = useSearchParams();
-  const { t } = useTranslation(["roadtrips", "common"]);
-  const display = useDisplayFormat();
+  // The tab labels live in the `trips` namespace — the same keys the journey
+  // page's bar draws, so the shared tab set cannot spell its words twice.
+  const { t } = useTranslation(["roadtrips", "common", "trips"]);
   const navigate = useNavigate();
   const addToast = useToastStore((s) => s.addToast);
-  const roadtripColor = useDomainColors().colorOf("roadtrip");
   const todayZone = useTodayZone();
   const today = useMemo(() => todayIn(todayZone), [todayZone]);
+
+  /* The open tab lives in the URL, like the journey page's: a link can name
+     one and a browser Back returns to it. An unknown value falls back to the
+     overview rather than rendering nothing. */
+  const tabParam = params.get("tab");
+  const tab: TripTabKey = TRIP_TABS.includes(tabParam as TripTabKey)
+    ? (tabParam as TripTabKey)
+    : "overview";
+  const setTab = (next: TripTabKey): void => {
+    setParams(
+      (prev) => {
+        const nextParams = new URLSearchParams(prev);
+        if (next === "overview") nextParams.delete("tab");
+        else nextParams.set("tab", next);
+        return nextParams;
+      },
+      { replace: true }
+    );
+  };
 
   const arrival = params.get("station");
   const [editorStart] = useState<EditorStart>(
@@ -87,8 +101,6 @@ export default function RoadtripDetailPage(): JSX.Element {
     status: "saved",
     flush: async () => {},
   });
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [costsBlock, setCostsBlock] = useState<number | null>(null);
 
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -98,9 +110,22 @@ export default function RoadtripDetailPage(): JSX.Element {
     };
   }, []);
 
-  // The query parameter has done its job once the editor opened.
+  // The station query parameter has done its job once the editor opened — and
+  // the tab leaves with it, because the editor it opens lives on the overview:
+  // `?tab=map&station=heute` must not leave the editor open on a tab that does
+  // not draw it. Every other parameter survives (the old `setParams({})` wiped
+  // them all, the tab flag included).
   useEffect(() => {
-    if (arrival) setParams({}, { replace: true });
+    if (!arrival) return;
+    setParams(
+      (prev) => {
+        const updated = new URLSearchParams(prev);
+        updated.delete("station");
+        updated.delete("tab");
+        return updated;
+      },
+      { replace: true }
+    );
   }, [arrival, setParams]);
 
   const load = useCallback(async (): Promise<void> => {
@@ -132,40 +157,9 @@ export default function RoadtripDetailPage(): JSX.Element {
     []
   );
 
-  const mapContent = useMemo<TripMapContent>(
-    () => ({
-      // Route corrections shape the line only; they are no station marker.
-      stops: (detail?.stations ?? [])
-        .filter((s) => s.state !== "via")
-        .map((s) => ({
-          title: s.title,
-          lat: s.lat,
-          lon: s.lon,
-          // A night at a stay is drawn in the stay's colour, everything else in
-          // the roadtrip's — the same split the markers make.
-          domain: s.state === "stay" ? "hotel" : "roadtrip",
-        })),
-      emptyKey: "roadtrips:map.empty",
-    }),
-    [detail]
-  );
-  const mapGeometries = useMemo(
-    () =>
-      geometry && detail
-        ? [{ routeId: id, name: detail.roadtrip.name, geometry, rgb: hexToRgb(roadtripColor) }]
-        : [],
-    [geometry, detail, id, roadtripColor]
-  );
+  // The map content, its line and the selection ring live in
+  // `RoadtripMapPanel`, which both the overview's aside and the Map tab draw.
   const selected = detail?.stations.find((s) => s.id === selectedId) ?? null;
-  const highlight = useMemo(
-    () =>
-      stationHighlightLayer(
-        selected && selected.lat !== null && selected.lon !== null
-          ? { lat: selected.lat, lon: selected.lon }
-          : null
-      ),
-    [selected]
-  );
 
   const startTour = async (station: RoadtripStation): Promise<void> => {
     try {
@@ -178,18 +172,6 @@ export default function RoadtripDetailPage(): JSX.Element {
       navigate(`/tours/${tour.id}`);
     } catch {
       addToast("error", t("roadtrips:startTourError"));
-    }
-  };
-
-  const remove = async (deleteExpenses = false): Promise<void> => {
-    try {
-      await toursApi.removeStandalone(id, { deleteExpenses });
-      navigate("/roadtrips");
-    } catch (err) {
-      // Costs with no trip to take them: asked once more, never deleted unasked.
-      const count = sectionExpenseCount(err);
-      if (count !== null) setCostsBlock(count);
-      else addToast("error", t("roadtrips:deleteError"));
     }
   };
 
@@ -257,179 +239,146 @@ export default function RoadtripDetailPage(): JSX.Element {
   }
 
   const r = detail.roadtrip;
-  const phase = roadtripPhase(detail.startDate, detail.endDate, today);
-  const day = dayNumber(detail.startDate, today);
-  const total = spanDays(detail.startDate, detail.endDate);
-  const span =
-    detail.startDate === null
-      ? t("roadtrips:undated")
-      : `${display.date(detail.startDate, { timeZone: "UTC", omitYear: detail.endDate !== null })}${
-          detail.endDate && detail.endDate.slice(0, 10) !== detail.startDate.slice(0, 10)
-            ? ` – ${display.date(detail.endDate, { timeZone: "UTC" })}`
-            : ""
-        }`;
-
-  // Which phases earn a status pill, and its colour, come from the shared rule
-  // the journey page reads too (`lib/detailPhase`): planned and underway show
-  // one, past and undated show none. Only the WORDING is this page's — a
-  // roadtrip counts the day it is on, a journey does not.
-  const pillColor = phasePillColor(phase);
-  const status =
-    phase === "underway" && day !== null && pillColor !== null ? (
-      <Pill color={pillColor}>
-        {total !== null
-          ? t("roadtrips:phase.underway", { day, total })
-          : t("roadtrips:phase.underwayOpen", { day })}
-      </Pill>
-    ) : phase === "planned" && pillColor !== null ? (
-      <Pill color={pillColor}>{t("roadtrips:phase.planned")}</Pill>
-    ) : undefined;
-
-  const actions = editing ? (
-    <div className="flex flex-wrap items-center" style={{ gap: 12 }}>
-      <span
-        role="status"
-        className="flex items-center"
-        style={{ gap: 6, fontSize: 13, color: STATUS_COLOR[save.status] }}
-      >
-        {save.status === "saved" && <Icon name="check" size={14} />}
-        {t(`roadtrips:editor.status.${save.status}`)}
-        {save.status === "error" && (
-          <button type="button" className="underline" onClick={() => void save.flush()}>
-            {t("roadtrips:editor.status.retry")}
-          </button>
-        )}
-      </span>
-      <Button variant="primary" onClick={() => void finishEditing()}>
-        {t("roadtrips:detail.done")}
-      </Button>
-    </div>
-  ) : (
-    <div className="flex flex-wrap" style={{ gap: 8 }}>
-      {/* The outline link both detail pages draw in the head (`ui/ActionLink`),
-          pointing at this page's second object: the recorded route. The journey
-          page's points at its trip instead — the SAME furniture, a different
-          destination. */}
-      <ActionLink to={`/tours/${id}`}>{t("roadtrips:editLegs")}</ActionLink>
-      <Button
-        variant="primary"
-        size="toolbar"
-        icon={<Icon name="pencil" size={16} />}
-        onClick={() => setEditing(true)}
-      >
-        {t("roadtrips:detail.edit")}
-      </Button>
-    </div>
-  );
 
   return (
     <AppShell width="table">
-      <DetailHeader
-        backTo="/roadtrips"
-        backLabel={t("roadtrips:pageTitle")}
-        domain="roadtrip"
-        icon={<Icon name="caravan" size={24} />}
-        title={r.name}
-        status={status}
-        subtitle={
-          <span>
-            {[
-              r.vehicle ? t(`roadtrips:vehicle.${r.vehicle}`) : null,
-              r.vehicleName ? `„${r.vehicleName}“` : null,
-              span,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-            {detail.trip && (
-              <>
-                {" · "}
-                <Link to={`/trips/${detail.trip.id}`}>
-                  {t("roadtrips:inTrip", { name: detail.trip.name })}
-                </Link>
-              </>
-            )}
-          </span>
+      {/* The editor draws no tabs: its Done button is the way back, and a
+          half-saved station must not be left behind a tab switch. */}
+      <EntityPage
+        level="trip"
+        detail={detail}
+        today={today}
+        header={<EntityHeader level="trip" id={id} name={r.name} countries={detail.countries} />}
+        tabBar={
+          !editing ? (
+            <EntityTabBar
+              tabs={TRIP_TABS}
+              tab={tab}
+              onChange={setTab}
+              label={(key) => t(`trips:detail.tabs.${key}`)}
+            />
+          ) : undefined
         }
-        actions={actions}
-      />
-
-      <RoadtripFigures detail={detail} today={today} />
-
-      {/* A roadtrip stored by rail, from before rail was a domain (rail beta). */}
-      <RoadtripRailConversion routeId={id} vehicle={r.vehicle} onConverted={() => void load()} />
-
-      <div
-        className="grid items-start lg:grid-cols-[minmax(0,1fr)_minmax(340px,440px)]"
-        style={{ gap: "var(--ts-space-xl)", marginTop: "var(--ts-space-xl)" }}
       >
-        <section className="order-2 flex min-w-0 flex-col lg:order-1" style={{ gap: 8 }}>
-          <h2 className="t-card-title">{t("roadtrips:stations.title")}</h2>
-          {editing ? (
-            <StationEditor
-              routeId={id}
-              stations={detail.stations.filter((s) => s.lat !== null)}
-              legs={detail.legs}
-              tripId={detail.trip?.id ?? null}
-              start={editorStart}
-              today={today}
-              onSaved={() => void load()}
-              onStatus={onStatus}
-              onEditLeg={(leg, from, to) => setLegEdit({ leg, from, to })}
-            />
-          ) : (
-            <StationTimeline
-              stations={detail.stations}
-              legs={detail.legs}
-              tours={detail.tours}
-              startDate={detail.startDate}
-              today={today}
-              selectedId={selectedId}
-              onSelect={(s) => setSelectedId((cur) => (cur === s.id ? null : s.id))}
-              onStartTour={(s) => void startTour(s)}
-            />
-          )}
-        </section>
-
-        {/* The sticky map panel both detail pages draw, from the two numbers
-            they share (`lib/detailChrome`) — the journey page's `<aside>` is
-            this one with a different map in it. */}
-        <aside
-          className="order-1 flex flex-col lg:sticky lg:order-2"
-          style={{ gap: 8, top: DETAIL_MAP_STICKY_TOP }}
-        >
-          <div
-            className="overflow-hidden"
-            style={{
-              borderRadius: DETAIL_MAP_BOX_RADIUS,
-              border: "1px solid var(--ts-border)",
-              height: "min(640px, calc(100vh - 96px))",
-              minHeight: 380,
-            }}
-          >
-            <TripMap trip={mapContent} tourGeometries={mapGeometries} extraLayers={highlight} />
+        {!editing && tab === "timeline" && (
+          <div style={{ marginTop: "var(--ts-space-xl)" }}>
+            {/* The day-by-day breakdown: the same material as the overview's
+                chain, with each day's stay dates, notes, places and nights. */}
+            <RoadtripTimelineTab detail={detail} />
           </div>
-          {!editing && <span className="t-caption">{t("roadtrips:detail.mapHint")}</span>}
-        </aside>
-      </div>
+        )}
 
-      <section className="flex flex-col" style={{ gap: 14, marginTop: "var(--ts-space-xxl)" }}>
-        <h2 className="t-card-title">{t("roadtrips:detail.toursTitle")}</h2>
-        <RoadtripTourCards tours={detail.tours} stations={detail.stations} />
-      </section>
+        {!editing && tab === "map" && (
+          <div style={{ marginTop: "var(--ts-space-xl)" }}>
+            {/* The full-screen map of the trip: its route and its stations,
+                the same panel the overview carries in its aside. */}
+            <RoadtripMapPanel detail={detail} geometry={geometry} />
+          </div>
+        )}
 
-      <RoadtripCostsSection
-        roadtripId={id}
-        stations={detail.stations}
-        expenses={detail.expenses}
-        costs={detail.costs}
-        onChanged={() => void load()}
-      />
+        {(editing || tab === "overview") && (
+          <>
+            {/* The editor's way out: the autosave status and the Done button
+                that rode the head's action slot until the template (spec §2.1:
+                the head is the name, the flags and ONE Edit link). */}
+            <div className="flex flex-wrap items-center" style={{ gap: 12 }}>
+              <span
+                role="status"
+                className="flex items-center"
+                style={{ gap: 6, fontSize: 13, color: STATUS_COLOR[save.status] }}
+              >
+                {save.status === "saved" && <Icon name="check" size={14} />}
+                {t(`roadtrips:editor.status.${save.status}`)}
+                {save.status === "error" && (
+                  <button type="button" className="underline" onClick={() => void save.flush()}>
+                    {t("roadtrips:editor.status.retry")}
+                  </button>
+                )}
+              </span>
+              <Button variant="primary" onClick={() => void finishEditing()}>
+                {t("roadtrips:detail.done")}
+              </Button>
+            </div>
 
-      <footer className="mt-8 pt-4 text-sm" style={{ borderTop: "1px solid var(--ts-border)" }}>
-        <button type="button" className="underline" onClick={() => setConfirmDelete(true)}>
-          {t("roadtrips:delete")}
-        </button>
-      </footer>
+            {/* A roadtrip stored by rail, from before rail was a domain (rail beta). */}
+            <RoadtripRailConversion
+              routeId={id}
+              vehicle={r.vehicle}
+              onConverted={() => void load()}
+            />
+
+            <div
+              className="grid items-start lg:grid-cols-[minmax(0,1fr)_minmax(340px,440px)]"
+              style={{ gap: "var(--ts-space-xl)", marginTop: "var(--ts-space-xl)" }}
+            >
+              <section className="order-2 flex min-w-0 flex-col lg:order-1" style={{ gap: 8 }}>
+                <h2 className="t-card-title">{t("roadtrips:stations.title")}</h2>
+                {editing ? (
+                  <StationEditor
+                    routeId={id}
+                    stations={detail.stations.filter((s) => s.lat !== null)}
+                    legs={detail.legs}
+                    tripId={detail.trip?.id ?? null}
+                    start={editorStart}
+                    today={today}
+                    onSaved={() => void load()}
+                    onStatus={onStatus}
+                    onEditLeg={(leg, from, to) => setLegEdit({ leg, from, to })}
+                  />
+                ) : (
+                  <StationTimeline
+                    stations={detail.stations}
+                    legs={detail.legs}
+                    tours={detail.tours}
+                    startDate={detail.startDate}
+                    today={today}
+                    selectedId={selectedId}
+                    onSelect={(s) => setSelectedId((cur) => (cur === s.id ? null : s.id))}
+                    onStartTour={(s) => void startTour(s)}
+                  />
+                )}
+              </section>
+
+              {/* The sticky map panel both detail pages draw, from the two numbers
+                  they share (`lib/detailChrome`) — the journey page's `<aside>` is
+                  this one with a different map in it. */}
+              <aside
+                className="order-1 flex flex-col lg:sticky lg:order-2"
+                style={{ gap: 8, top: DETAIL_MAP_STICKY_TOP }}
+              >
+                <div
+                  className="overflow-hidden"
+                  style={{
+                    borderRadius: DETAIL_MAP_BOX_RADIUS,
+                    border: "1px solid var(--ts-border)",
+                    height: "min(640px, calc(100vh - 96px))",
+                    minHeight: 380,
+                  }}
+                >
+                  <RoadtripMapPanel detail={detail} geometry={geometry} selected={selected} />
+                </div>
+                {!editing && <span className="t-caption">{t("roadtrips:detail.mapHint")}</span>}
+              </aside>
+            </div>
+
+            <section
+              className="flex flex-col"
+              style={{ gap: 14, marginTop: "var(--ts-space-xxl)" }}
+            >
+              <h2 className="t-card-title">{t("roadtrips:detail.toursTitle")}</h2>
+              <RoadtripTourCards tours={detail.tours} stations={detail.stations} />
+            </section>
+
+            <RoadtripCostsSection
+              roadtripId={id}
+              stations={detail.stations}
+              expenses={detail.expenses}
+              costs={detail.costs}
+              onChanged={() => void load()}
+            />
+          </>
+        )}
+      </EntityPage>
 
       {legEdit && (
         <LegDialog
@@ -444,36 +393,6 @@ export default function RoadtripDetailPage(): JSX.Element {
             setLegEdit(null);
             void load();
           }}
-        />
-      )}
-
-      {costsBlock !== null && (
-        <ConfirmModal
-          isOpen
-          onClose={() => setCostsBlock(null)}
-          onConfirm={() => {
-            setCostsBlock(null);
-            void remove(true);
-          }}
-          title={t("roadtrips:deleteWithCosts.title")}
-          message={t("roadtrips:deleteWithCosts.message", { name: r.name, count: costsBlock })}
-          confirmText={t("roadtrips:deleteWithCosts.confirm")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
-        />
-      )}
-
-      {confirmDelete && (
-        <ConfirmModal
-          isOpen
-          onClose={() => setConfirmDelete(false)}
-          onConfirm={() => {
-            setConfirmDelete(false);
-            void remove();
-          }}
-          title={t("roadtrips:deleteConfirm.title")}
-          message={t("roadtrips:deleteConfirm.message", { name: r.name })}
-          confirmText={t("roadtrips:deleteConfirm.confirm")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
         />
       )}
     </AppShell>
