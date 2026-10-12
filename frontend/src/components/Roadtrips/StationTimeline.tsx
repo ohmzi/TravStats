@@ -303,7 +303,8 @@ export default function StationTimeline({
   );
 }
 
-function LegLabel({
+/** Exported for the Timeline tab, which heads each day with the same leg rows. */
+export function LegLabel({
   leg,
   km,
   duration,
