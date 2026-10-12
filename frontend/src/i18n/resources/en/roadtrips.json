@@ -268,6 +268,7 @@
     "noRouting": "Without a routing provider, new legs show as straight lines.",
     "toursTitle": "Day tours on this roadtrip",
     "toursEmpty": "No day tour yet. Start one at a station.",
+    "noAlbum": "This trip is not filed on a journey yet, so it has no album.",
     "tourAt": "at station {{station}}",
     "noElevation": "The recording has no elevation.",
     "noMoving": "The recording has no timestamps.",

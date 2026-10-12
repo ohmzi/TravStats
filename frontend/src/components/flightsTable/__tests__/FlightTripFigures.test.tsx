@@ -3,9 +3,6 @@ import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 import FlightTripFigures from "../FlightTripFigures";
-import TripHead from "../../Trips/TripHead";
-import { germanT } from "../../../__tests__/helpers/germanT";
-import type { useTranslation } from "../../../hooks/useTranslation";
 import type { Trip } from "../../../types";
 
 // The real German engine, so a forgotten interpolation shows up as the raw key
@@ -112,10 +109,11 @@ describe("FlightTripFigures journey days", () => {
     expect(cellOf(dl, "Tage").getAttribute("title")).toBe("Kein datierter Flug für diese Reise.");
   });
 
-  it("agrees with the trip page meta's own day count for the same dates", () => {
-    // 12 → 22 June is eleven days, counted inclusively on both surfaces: the
-    // band folds the journey's span (+ its arrival day), the head its dates
-    // (+ 1). A drift between the two would show the same trip as two lengths.
+  it("counts the full span in days for the same dates the journey head's dates name", () => {
+    // 12 → 22 June is eleven days, counted inclusively on both ends: the band
+    // folds the journey's span (+ its arrival day), so a drift between the
+    // dates a reader sees and the figure would show the same trip as two
+    // lengths.
     const t = trip({
       status: "completed",
       countries: [],
@@ -137,18 +135,6 @@ describe("FlightTripFigures journey days", () => {
         }),
       ],
     });
-    render(
-      <MemoryRouter>
-        <TripHead
-          trip={t}
-          locale="de"
-          t={germanT as unknown as ReturnType<typeof useTranslation>["t"]}
-          onEdit={() => {}}
-          onDelete={() => {}}
-        />
-      </MemoryRouter>
-    );
-    expect(document.body.textContent).toContain("11 Tage");
     expect(valueOf(bandGrid(t), "Tage")).toBe("11");
   });
 });

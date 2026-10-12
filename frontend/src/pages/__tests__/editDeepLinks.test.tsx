@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import type { Cruise, Flight } from "../../types";
+import type { Cruise, Flight, Trip } from "../../types";
 
 /**
  * The inbox's time flags link to an EDITOR, not a page (ADR 0002, plan Phase
@@ -10,10 +10,15 @@ import type { Cruise, Flight } from "../../types";
  * has loaded, and the parameter is gone afterwards — a reload or a Back must
  * not open the editor a second time. The editors themselves are stubbed; each
  * has its own suite.
+ *
+ * The journey's `?edit=1` is the third receiver: its form is a PAGE since the
+ * shared-template design (spec 2026-10-12 §4), so the flag hands the reader
+ * over to `/trips/:id/edit` rather than opening a modal on the detail page.
  */
 
 const getFlight = vi.fn();
 const getCruise = vi.fn();
+const getTrip = vi.fn();
 
 vi.mock("../../lib/api", () => ({
   flightsApi: {
@@ -22,11 +27,18 @@ vi.mock("../../lib/api", () => ({
     update: vi.fn(),
     delete: vi.fn(),
   },
-  tripsApi: { getAll: vi.fn().mockResolvedValue([]) },
+  tripsApi: {
+    getAll: vi.fn().mockResolvedValue([]),
+    getById: (...a: unknown[]) => getTrip(...a),
+  },
   cruiseApi: { get: (...a: unknown[]) => getCruise(...a), remove: vi.fn() },
 }));
 vi.mock("../../lib/api/documents", () => ({
   documentsApi: { listForEntry: vi.fn().mockResolvedValue([]) },
+}));
+vi.mock("../../lib/api/places", () => ({ listPlaces: vi.fn().mockResolvedValue([]) }));
+vi.mock("../../lib/api/tours", () => ({
+  toursApi: { list: vi.fn().mockResolvedValue([]), create: vi.fn(), remove: vi.fn() },
 }));
 vi.mock("../../components/documents/DocumentsSection", () => ({ default: () => null }));
 vi.mock("../../components/NavigationBar", () => ({ default: () => <div /> }));
@@ -43,15 +55,34 @@ vi.mock("../../components/Cruise/CruiseEditModal", () => ({
 vi.mock("../../components/Cruise/CruiseRouteMap", () => ({
   CruiseRouteMap: () => <div data-testid="map-stub" />,
 }));
+vi.mock("../../hooks/useEnabledDomains", () => ({
+  useEnabledDomains: () => ({ enabled: ["flight", "cruise", "lodging"], isEnabled: () => true }),
+}));
+vi.mock("../../hooks/useHasLlm", () => ({ useHasLlm: () => true }));
+// The journey overview draws its map and its trips chain; both have their own
+// suites, and here they would only mount a canvas jsdom has no WebGL for and
+// fetch the roadtrips list (forgejo#110).
+vi.mock("../../components/Trips/TripMapWithTours", () => ({
+  default: () => <div data-testid="map" />,
+}));
+vi.mock("../../components/Roadtrips/useTripRoadtrips", () => ({
+  useTripRoadtrips: () => ({ rows: [], settled: true }),
+}));
 vi.mock("../../hooks/useTranslation", () => ({
   useTranslation: () => ({ t: (k: string) => k, i18n: { language: "de" } }),
 }));
 
 import FlightDetailPage from "../FlightDetailPage";
 import CruiseDetailPage from "../CruiseDetailPage";
+import TripDetailPage from "../TripDetailPage";
 
 function LocationProbe(): JSX.Element {
   return <div data-testid="search">{useLocation().search}</div>;
+}
+
+/** The pathname probe, for the hand-offs that leave the page they arrived on. */
+function Where(): JSX.Element {
+  return <div data-testid="where">{useLocation().pathname}</div>;
 }
 
 function renderAt(path: string, entry: string, page: JSX.Element) {
@@ -115,10 +146,58 @@ const CRUISE = {
   updatedAt: "2024-01-01T00:00:00.000Z",
 } as unknown as Cruise;
 
+const TRIP = {
+  id: "trip-1",
+  userId: "u1",
+  name: "Tabprobe",
+  description: null,
+  color: null,
+  createdAt: "2031-05-01T00:00:00.000Z",
+  updatedAt: "2031-05-01T00:00:00.000Z",
+  startDate: "2031-05-13T00:00:00.000Z",
+  endDate: "2031-05-15T00:00:00.000Z",
+  status: "completed",
+  category: null,
+  tags: [],
+  companions: [],
+  notes: null,
+  summary: null,
+  originLabel: null,
+  destinationLabel: null,
+  coverImageUrl: null,
+  icon: null,
+  countries: [],
+  flights: [],
+  cruises: [],
+  stops: [],
+  journalEntries: [],
+  photos: [],
+  lodgingStays: [],
+  bookings: [],
+} as unknown as Trip;
+
 describe("?edit=1 opens the record's editor", () => {
   beforeEach(() => {
     getFlight.mockReset();
     getCruise.mockReset();
+    getTrip.mockReset();
+  });
+
+  it("hands the journey's flag to its edit page — the form's home since the template", async () => {
+    getTrip.mockResolvedValue(TRIP);
+    render(
+      <MemoryRouter initialEntries={["/trips/trip-1?edit=1"]}>
+        <Routes>
+          <Route path="/trips/:id" element={<TripDetailPage />} />
+        </Routes>
+        {/* Outside the route: the hand-off leaves `/trips/:id`. */}
+        <Where />
+      </MemoryRouter>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("where")).toHaveTextContent("/trips/trip-1/edit")
+    );
   });
 
   it("opens the flight editor once the flight has loaded, then drops the parameter", async () => {

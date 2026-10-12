@@ -268,6 +268,7 @@
     "noRouting": "Ohne Routing-Anbieter erscheinen neue Etappen als gerade Linien.",
     "toursTitle": "Tagestouren auf diesem Roadtrip",
     "toursEmpty": "Noch keine Tagestour. Starte eine an einer Station.",
+    "noAlbum": "Dieser Trip ist noch keiner Reise zugeordnet und hat daher noch kein Album.",
     "tourAt": "an Station {{station}}",
     "noElevation": "Die Aufzeichnung hat keine Höhendaten.",
     "noMoving": "Die Aufzeichnung hat keine Zeitstempel.",

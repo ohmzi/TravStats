@@ -43,7 +43,13 @@ export function useEditDeepLink(
 
   useEffect(() => {
     if (!ready || value === null) return;
-    openRef.current(value);
+    // The parameter is cleared BEFORE the editor opens: it has done its job,
+    // and a reload or a Back must not open the editor a second time. The order
+    // matters for an editor that is a PAGE rather than a modal — the journey's
+    // `?edit=1` hands off to `/trips/:id/edit` (design 2026-10-12 §4): this
+    // navigation is a search-only change, resolved by the router against the
+    // location of THIS render, so running it after the hand-off would pull the
+    // reader back to the page they were handed off from.
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -52,5 +58,6 @@ export function useEditDeepLink(
       },
       { replace: true }
     );
+    openRef.current(value);
   }, [ready, value, param, setSearchParams]);
 }

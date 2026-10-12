@@ -27,11 +27,9 @@ import { useTranslation } from "../hooks/useTranslation";
 import { useConfirmDialog } from "../hooks/useConfirmDialog";
 import { DetailRow, OpenFullLink } from "../components/Trips/TimelineDetailParts";
 import type { Booking, Trip, TripJournalEntry, TripStop } from "../types";
-import TripDeleteConfirm from "../components/Trips/TripDeleteConfirm";
 import AppShell from "../components/ui/AppShell";
-import TripModal from "../components/Trips/TripModal";
-import TripHead from "../components/Trips/TripHead";
 import TripOverview from "../components/Trips/TripOverview";
+import JourneyTripsTab from "../components/Trips/JourneyTripsTab";
 import JournalEntryModal from "../components/Trips/JournalEntryModal";
 import TimelineActions from "../components/Trips/TimelineActions";
 import JournalViewModal from "../components/Trips/JournalViewModal";
@@ -39,8 +37,10 @@ import StopModal from "../components/Trips/StopModal";
 import BookingEditModal from "../components/Trips/BookingEditModal";
 import TripMapWithTours from "../components/Trips/TripMapWithTours";
 import TripGallery from "../components/Trips/TripGallery";
-import TourSectionList from "../components/Trips/TourSectionList";
-import { useToursVisible } from "../hooks/useToursVisible";
+import EntityPage from "../components/Entity/EntityPage";
+import EntityHeader from "../components/Entity/EntityHeader";
+import EntityTabBar from "../components/ui/EntityTabBar";
+import { useTripRoadtrips } from "../components/Roadtrips/useTripRoadtrips";
 import { PanelHeader, Placeholder } from "../components/Trips/TripDetailPanels";
 import { RowActionButton } from "../components/table/RowActionButton";
 import { formatTimelineDate } from "../lib/tripTimeline";
@@ -53,11 +53,12 @@ import { PLACE_CATEGORY_ICONS } from "../shared/placeCategories";
 import { placeSubtitle } from "../lib/placeNames";
 import type { Place, PlaceVisit } from "../types/place";
 
-type TabKey = "overview" | "timeline" | "map" | "gallery" | "logistics" | "tours";
-const TABS: TabKey[] = ["overview", "timeline", "map", "gallery", "logistics", "tours"];
+type TabKey = "overview" | "timeline" | "map" | "gallery" | "logistics" | "trips";
+const TABS: TabKey[] = ["overview", "timeline", "map", "gallery", "logistics", "trips"];
 
 /**
- * Trip detail page with five tabs (Phase-1 iteration 2).
+ * Trip detail page with its tabs (Phase-1 iteration 2; the shared set of the
+ * journey and the trip since the template design, 2026-10-12).
  *
  * - **Overview**: hero context (notes preview, latest items, side panels for
  *   companions / tags / countries).
@@ -84,10 +85,20 @@ export default function TripDetailPage(): JSX.Element {
   /* The open tab lives in the URL, not in component state alone: a link back
      from the tour editor (`/trips/:id?tab=tours`) has to land on the tab the
      user left, and a browser Back has to as well. An unknown value falls back
-     to the overview rather than rendering nothing. */
+     to the overview rather than rendering nothing; `tours` was this tab's URL
+     before the Tours→Trips rename (spec 2026-10-12 §7) and stays an accepted
+     alias, so links written before the sweep still land on Trips. */
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabParam = searchParams.get("tab");
-  const tab: TabKey = TABS.includes(tabParam as TabKey) ? (tabParam as TabKey) : "overview";
+  // The Trips tab is one domain's worth of cards; `isEnabled` already folds
+  // in the roadtrips beta key — the very gate the Tours tab carried — so a
+  // reader without the domain is offered no tab that could only link to
+  // pages their guard refuses.
+  const { isEnabled } = useEnabledDomains();
+  const visibleTabs = TABS.filter((key) => key !== "trips" || isEnabled("roadtrip"));
+  const requested = searchParams.get("tab") === "tours" ? "trips" : searchParams.get("tab");
+  const tab: TabKey = visibleTabs.includes(requested as TabKey)
+    ? (requested as TabKey)
+    : "overview";
   const setTab = (next: TabKey): void => {
     setSearchParams(
       (prev) => {
@@ -99,12 +110,13 @@ export default function TripDetailPage(): JSX.Element {
       { replace: true }
     );
   };
-  const [editing, setEditing] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // The shell's figures band sums the journey's trips (design §2: the Km cell
+  // is the sum of the trips' driven km).
+  const { rows: roadtrips } = useTripRoadtrips(id ?? "", isEnabled("roadtrip"));
 
   // Domain-gating: a disabled domain's segments are stripped from the trip copy
   // every tab reads; a banner below the tab bar says they are hidden, not lost.
-  const { isEnabled } = useEnabledDomains();
   const cruiseEnabled = isEnabled("cruise");
   const lodgingEnabled = isEnabled("lodging");
   // Rail and rentals ask their own hooks: the beta switch AND the domain.
@@ -154,19 +166,7 @@ export default function TripDetailPage(): JSX.Element {
     void load();
   }, [id]);
   // `?edit=1` — the inbox asking for the trip's own days (timeFlagLinks.ts).
-  useEditDeepLink(EDIT_PARAM.edit, trip !== null, () => setEditing(true));
-
-  const handleDelete = async (): Promise<void> => {
-    if (!trip) return;
-    try {
-      await tripsApi.delete(trip.id);
-      addToast("success", t("trips:toasts.deleted"));
-      navigate("/trips");
-    } catch {
-      addToast("error", t("trips:toasts.deleteError"));
-      setConfirmDelete(false);
-    }
-  };
+  useEditDeepLink(EDIT_PARAM.edit, trip !== null, () => navigate(`/trips/${id}/edit`));
 
   if (loading || !trip) {
     return (
@@ -182,144 +182,84 @@ export default function TripDetailPage(): JSX.Element {
 
   return (
     <AppShell width="list">
-      <TripHead
-        trip={shownTrip}
-        locale={i18n.language}
-        t={t}
-        onEdit={() => setEditing(true)}
-        onDelete={() => setConfirmDelete(true)}
-      />
-
-      <TabBar tab={tab} onChange={setTab} t={t} />
-
-      <div className="py-6">
-        {hiddenCruiseCount > 0 && (
-          <div
-            className="mb-4 rounded-lg px-4 py-2.5 text-xs"
-            style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--color-border)",
-              color: "var(--text-muted)",
-            }}
-          >
-            ⚓ {t("trips:detail.hiddenCruises", { count: hiddenCruiseCount })}
-          </div>
-        )}
-        {hiddenLodgingCount > 0 && (
-          <div
-            className="mb-4 rounded-lg px-4 py-2.5 text-xs"
-            style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--color-border)",
-              color: "var(--text-muted)",
-            }}
-          >
-            🏨 {t("trips:detail.hiddenLodging", { count: hiddenLodgingCount })}
-          </div>
-        )}
-        {tab === "overview" && (
-          <TripOverview
-            trip={shownTrip}
-            t={t}
-            language={i18n.language}
-            onChanged={() => void load()}
+      <EntityPage
+        level="journey"
+        trip={trip}
+        roadtrips={roadtrips}
+        header={
+          <EntityHeader level="journey" id={trip.id} name={trip.name} countries={trip.countries} />
+        }
+        tabBar={
+          <EntityTabBar
+            tabs={visibleTabs}
+            tab={tab}
+            onChange={setTab}
+            label={(key) => t(`trips:detail.tabs.${key}`)}
           />
-        )}
-        {tab === "timeline" && (
-          <TimelineTab
-            trip={shownTrip}
-            onChanged={() => void load()}
-            t={t}
-            language={i18n.language}
-          />
-        )}
-        {tab === "map" && <TripMapWithTours trip={shownTrip} />}
-        {tab === "gallery" && (
-          <TripGallery
-            tripId={shownTrip.id}
-            photos={shownTrip.photos ?? []}
-            immichAlbums={shownTrip.immichAlbums ?? []}
-            onChange={() => void load()}
-          />
-        )}
-        {tab === "logistics" && (
-          <LogisticsTab
-            trip={shownTrip}
-            t={t}
-            language={i18n.language}
-            onChanged={() => void load()}
-          />
-        )}
-        {tab === "tours" && <TourSectionList tripId={shownTrip.id} />}
-      </div>
-
-      {editing && (
-        <TripModal
-          trip={trip}
-          onClose={() => setEditing(false)}
-          onSaved={() => {
-            setEditing(false);
-            void load();
-          }}
-        />
-      )}
-
-      {/* Extracted (components/Trips/TripDeleteConfirm.tsx) because the
-          sentence now needs the document COUNT, and this file is frozen at its
-          current length by the size ratchet. */}
-      <TripDeleteConfirm
-        isOpen={confirmDelete}
-        tripId={trip.id}
-        tripName={trip.name}
-        onClose={() => setConfirmDelete(false)}
-        onConfirm={() => void handleDelete()}
-      />
+        }
+      >
+        <div className="py-6">
+          {hiddenCruiseCount > 0 && (
+            <div
+              className="mb-4 rounded-lg px-4 py-2.5 text-xs"
+              style={{
+                background: "var(--bg-surface)",
+                border: "1px solid var(--color-border)",
+                color: "var(--text-muted)",
+              }}
+            >
+              ⚓ {t("trips:detail.hiddenCruises", { count: hiddenCruiseCount })}
+            </div>
+          )}
+          {hiddenLodgingCount > 0 && (
+            <div
+              className="mb-4 rounded-lg px-4 py-2.5 text-xs"
+              style={{
+                background: "var(--bg-surface)",
+                border: "1px solid var(--color-border)",
+                color: "var(--text-muted)",
+              }}
+            >
+              🏨 {t("trips:detail.hiddenLodging", { count: hiddenLodgingCount })}
+            </div>
+          )}
+          {tab === "overview" && (
+            <TripOverview
+              trip={shownTrip}
+              t={t}
+              language={i18n.language}
+              onChanged={() => void load()}
+            />
+          )}
+          {tab === "timeline" && (
+            <TimelineTab
+              trip={shownTrip}
+              onChanged={() => void load()}
+              t={t}
+              language={i18n.language}
+            />
+          )}
+          {tab === "map" && <TripMapWithTours trip={shownTrip} />}
+          {tab === "gallery" && (
+            <TripGallery
+              tripId={shownTrip.id}
+              photos={shownTrip.photos ?? []}
+              immichAlbums={shownTrip.immichAlbums ?? []}
+              onChange={() => void load()}
+            />
+          )}
+          {tab === "logistics" && (
+            <LogisticsTab
+              trip={shownTrip}
+              t={t}
+              language={i18n.language}
+              onChanged={() => void load()}
+            />
+          )}
+          {tab === "trips" && <JourneyTripsTab tripId={shownTrip.id} />}
+        </div>
+      </EntityPage>
     </AppShell>
-  );
-}
-
-interface TabBarProps {
-  tab: TabKey;
-  onChange: (tab: TabKey) => void;
-  t: ReturnType<typeof useTranslation>["t"];
-}
-
-/** Exported for its own test: the "tours" tab kept a hard-coded "Beta" pill after its gate
- *  came off (auditor 3, 2026-09-19); a badge no registry entry backs, nothing can take away. */
-export function TabBar({ tab, onChange, t }: TabBarProps): JSX.Element {
-  // "tours" is behind the roadtrips beta key again since 2026-09-24 (owner).
-  const toursVisible = useToursVisible();
-  const visibleTabs = TABS.filter((key) => key !== "tours" || toursVisible);
-
-  // Round 4: text tabs with the accent underline, like the logbook's. The
-  // emoji in front of each label were the last ones in a tab bar.
-  return (
-    <div
-      role="tablist"
-      className="flex overflow-x-auto overflow-y-hidden scrollbar-none"
-      style={{ borderBottom: "1px solid var(--ts-border)" }}
-    >
-      {visibleTabs.map((key) => {
-        const isActive = tab === key;
-        return (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            onClick={() => onChange(key)}
-            className="flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-3 text-sm"
-            style={{
-              fontWeight: isActive ? 700 : 500,
-              color: isActive ? "var(--ts-text-bright)" : "var(--ts-muted)",
-              boxShadow: `inset 0 -2px 0 ${isActive ? "var(--ts-accent)" : "transparent"}`,
-            }}
-          >
-            {t(`trips:detail.tabs.${key}`)}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 

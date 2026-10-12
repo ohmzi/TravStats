@@ -17,10 +17,6 @@ vi.mock("../../store/toastStore", () => ({
   useToastStore: (selector: (s: { addToast: (...a: unknown[]) => void }) => unknown) =>
     selector({ addToast: toasts.addToast }),
 }));
-vi.mock("../../hooks/useToursVisible", () => ({
-  useToursVisible: () => true,
-  useToursAccess: () => "allowed",
-}));
 vi.mock("../../hooks/useHasLlm", () => ({ useHasLlm: () => true }));
 vi.mock("../../components/documents/DocumentsSection", () => ({ default: () => null }));
 vi.mock("../../lib/api", () => ({
@@ -58,9 +54,6 @@ vi.mock("../../components/Trips/JournalEntryModal", () => ({
   default: ({ entry }: { entry: { id: string } | null }) => (
     <div data-testid="journal-editor">{entry?.id ?? "new"}</div>
   ),
-}));
-vi.mock("../../components/Trips/TripModal", () => ({
-  default: () => <div data-testid="trip-editor" />,
 }));
 
 import TripDetailPage from "../TripDetailPage";
@@ -168,14 +161,9 @@ describe("the trip page opens a stop's editor from a link", () => {
   });
 });
 
-describe("the trip page opens its own and a journal entry's editor from a link", () => {
+describe("the trip page opens a journal entry's editor from a link", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it("?edit=1 opens the trip editor", async () => {
-    await renderAt("/trips/trip-1?edit=1");
-    expect(await screen.findByTestId("trip-editor")).toBeInTheDocument();
   });
 
   it("?editJournal opens exactly that entry's editor", async () => {

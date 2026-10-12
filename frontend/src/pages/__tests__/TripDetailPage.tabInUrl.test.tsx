@@ -8,18 +8,11 @@ import type { Trip } from "../../types";
  * Alex, 2026-09-20: "Der Zurück-Button im Tour Editor führt zurück zur Reise
  * Startseite anstatt zur Tourenliste." The tab was component state alone, so
  * no link could name one — the editor's back link could only ever land on the
- * overview. The open tab lives in the URL now, which is what lets
- * `/trips/:id?tab=tours` mean the tour list.
+ * overview. The open tab lives in the URL now; `?tab=tours` was the tab's URL
+ * before the Tours→Trips rename (spec 2026-10-12 §7) and lands on Trips as an
+ * alias, which is what an editor link written before the sweep relies on.
  */
 const getByIdMock = vi.fn();
-
-const mockToursVisible = vi.hoisted(() => vi.fn(() => true));
-// Tours sit behind the roadtrips beta key since 2026-09-24; this suite is
-// about what the component does once they are visible.
-vi.mock("../../hooks/useToursVisible", () => ({
-  useToursVisible: () => mockToursVisible(),
-  useToursAccess: () => (mockToursVisible() ? "allowed" : "denied"),
-}));
 
 vi.mock("../../hooks/useHasLlm", () => ({ useHasLlm: () => true }));
 vi.mock("../../components/documents/DocumentsSection", () => ({ default: () => null }));
@@ -29,6 +22,11 @@ vi.mock("../../lib/api", () => ({
 vi.mock("../../lib/api/places", () => ({ listPlaces: vi.fn().mockResolvedValue([]) }));
 vi.mock("../../lib/api/tours", () => ({
   toursApi: { list: vi.fn().mockResolvedValue([]), create: vi.fn(), remove: vi.fn() },
+}));
+// The Trips tab asks the roadtrips list; the setup fails any test that lets a
+// request escape (forgejo#110).
+vi.mock("../../lib/api/roadtrips", () => ({
+  roadtripsApi: { list: vi.fn().mockResolvedValue([]) },
 }));
 vi.mock("../../hooks/useEnabledDomains", () => ({
   useEnabledDomains: () => ({ enabled: ["flight", "cruise", "lodging"], isEnabled: () => true }),
@@ -115,21 +113,21 @@ describe("the trip page's open tab", () => {
     vi.clearAllMocks();
   });
 
-  it("opens the tab the URL names, so a link back from the tour editor lands there", async () => {
+  it("lands on Trips from the pre-rename `?tab=tours` alias, so an old editor link still works", async () => {
     await renderAt("/trips/trip-1?tab=tours");
 
-    expect(screen.getByRole("tab", { name: "trips:detail.tabs.tours" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "trips:detail.tabs.trips" })).toHaveAttribute(
       "aria-selected",
       "true"
     );
   });
 
-  it("writes the chosen tab into the URL", async () => {
+  it("writes the chosen tab into the URL under its current name", async () => {
     await renderAt("/trips/trip-1");
 
-    await userEvent.click(screen.getByRole("tab", { name: "trips:detail.tabs.tours" }));
+    await userEvent.click(screen.getByRole("tab", { name: "trips:detail.tabs.trips" }));
 
-    await waitFor(() => expect(screen.getByTestId("search").textContent).toBe("?tab=tours"));
+    await waitFor(() => expect(screen.getByTestId("search").textContent).toBe("?tab=trips"));
   });
 
   it("falls back to the overview when the URL names a tab that does not exist", async () => {

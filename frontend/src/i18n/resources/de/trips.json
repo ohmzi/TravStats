@@ -151,8 +151,9 @@
       "map": "Karte",
       "gallery": "Galerie",
       "logistics": "Logistik",
-      "tours": "Touren"
+      "trips": "Trips"
     },
+    "tripsEmpty": "Noch kein Trip in dieser Reise.",
     "tabPlaceholder": {
       "gallery": "Galerie kommt in der nächsten Iteration — sobald Foto-Upload und Speicher-Backend stehen.",
       "map": "Eine reisespezifische Karte folgt in der nächsten Iteration."

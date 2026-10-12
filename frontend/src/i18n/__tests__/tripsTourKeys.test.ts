@@ -26,6 +26,9 @@ import { DAWARICH_FAILURE_KINDS } from "../../types/dawarich";
  * feature and was written in the same task, so it gets the same coverage
  * here instead of a second near-duplicate test file.
  *
+ * The tab reads "Trips" since the shared-template rename (spec 2026-10-12 §7):
+ * the key moved with the copy, and `?tab=tours` stays an accepted URL alias.
+ *
  * Fix round 1 of Task 8: the "every leaf that exists is non-empty" and
  * "the two locales' key sets match" checks above both pass trivially when a
  * key is missing from BOTH locales — and the keys most likely to go missing
@@ -61,12 +64,15 @@ function flatten(obj: unknown, prefix = ""): string[] {
 }
 
 describe("trips tour-section copy", () => {
-  it.each(["de", "en"] as const)("%s: detail.tabs.tours is present and non-empty", (locale) => {
+  it.each(["de", "en"] as const)("%s: detail.tabs.trips is present and non-empty", (locale) => {
     const tabs = (LOCALES[locale] as { detail?: { tabs?: Record<string, unknown> } }).detail?.tabs;
     expect(tabs, `${locale}/trips.json has no detail.tabs section`).toBeDefined();
-    const value = tabs?.tours;
-    expect(typeof value, `${locale}/trips.json is missing detail.tabs.tours`).toBe("string");
+    const value = tabs?.trips;
+    expect(typeof value, `${locale}/trips.json is missing detail.tabs.trips`).toBe("string");
     expect((value as string).trim().length).toBeGreaterThan(0);
+    const empty = (LOCALES[locale] as { detail?: { tripsEmpty?: unknown } }).detail?.tripsEmpty;
+    expect(typeof empty, `${locale}/trips.json is missing detail.tripsEmpty`).toBe("string");
+    expect((empty as string).trim().length).toBeGreaterThan(0);
   });
 
   it.each(["de", "en"] as const)(
@@ -97,8 +103,8 @@ describe("trips tour-section copy", () => {
     const enTabKeys = Object.keys(
       (enTrips as { detail: { tabs: Record<string, unknown> } }).detail.tabs
     );
-    expect(deTabKeys).toContain("tours");
-    expect(enTabKeys).toContain("tours");
+    expect(deTabKeys).toContain("trips");
+    expect(enTabKeys).toContain("trips");
     expect([...deTabKeys].sort()).toEqual([...enTabKeys].sort());
 
     const deTourKeys = flatten((deTrips as { tours: Record<string, unknown> }).tours).sort();
