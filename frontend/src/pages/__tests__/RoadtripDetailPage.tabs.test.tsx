@@ -21,6 +21,24 @@ vi.mock("../../components/Roadtrips/RoadtripMapPanel", () => ({
 vi.mock("../../components/Roadtrips/RoadtripTimelineTab", () => ({
   default: () => <div data-testid="day-timeline" />,
 }));
+// The Gallery and Logistics arms fetch (the album's assets, the costs), so
+// they are stubbed as their siblings are. They also COUNT their renders: an
+// ungated arm paints once behind the editor even though the station arrival
+// clears the tab in an effect, because that effect runs after the first
+// render — an assertion on the DOM alone would settle past the flash.
+const armRenders = vi.hoisted(() => ({ gallery: vi.fn(), logistics: vi.fn() }));
+vi.mock("../../components/Roadtrips/RoadtripGallery", () => ({
+  default: () => {
+    armRenders.gallery();
+    return <div data-testid="gallery" />;
+  },
+}));
+vi.mock("../../components/Roadtrips/RoadtripLogisticsTab", () => ({
+  default: () => {
+    armRenders.logistics();
+    return <div data-testid="logistics" />;
+  },
+}));
 vi.mock("../../components/Roadtrips/StationEditor", () => ({
   default: ({ start }: { start: string }) => <div data-testid="editor">{start}</div>,
 }));
@@ -185,14 +203,22 @@ describe("the trip page's tab set", () => {
     expect(screen.getByTestId("editor")).toBeInTheDocument();
   });
 
-  it("draws no tab strip while the editor is open, and the overview under it", async () => {
-    renderAt("/roadtrips/rt?station=neu");
-    await screen.findByTestId("editor");
+  it.each(["gallery", "logistics"] as const)(
+    "draws no tab strip while the editor is open, and no %s arm",
+    async (arm) => {
+      renderAt(`/roadtrips/rt?station=neu&tab=${arm}`);
+      await screen.findByTestId("editor");
 
-    // The ruled condition (`editing || tab === "overview"`): the editor is
-    // never left behind a tab switch, and the strip is not offered while it
-    // is up.
-    expect(screen.queryByRole("tablist")).toBeNull();
-    expect(screen.getByText("roadtrips:stations.title")).toBeInTheDocument();
-  });
+      // The ruled condition (`editing || tab === "overview"`): the editor is
+      // never left behind a tab switch, and the strip is not offered while it
+      // is up. Every arm is gated on `editing` as the timeline and map arms
+      // are — the tab the arrival came over is cleared in an effect, which is
+      // one render too late to keep an ungated arm from painting behind the
+      // editor, so the render count is the pin, not just the DOM.
+      expect(screen.queryByRole("tablist")).toBeNull();
+      expect(screen.getByText("roadtrips:stations.title")).toBeInTheDocument();
+      expect(screen.queryByTestId(arm)).toBeNull();
+      expect(arm === "gallery" ? armRenders.gallery : armRenders.logistics).not.toHaveBeenCalled();
+    }
+  );
 });

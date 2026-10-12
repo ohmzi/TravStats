@@ -262,30 +262,29 @@ export default function RoadtripDetailPage(): JSX.Element {
           ) : undefined
         }
       >
-        {!editing && tab === "timeline" && (
-          <div style={{ marginTop: "var(--ts-space-xl)" }}>
-            {/* The day-by-day breakdown: the same material as the overview's
-                chain, with each day's stay dates, notes, places and nights. */}
-            <RoadtripTimelineTab detail={detail} />
-          </div>
-        )}
+        {/* The day-by-day breakdown: the same material as the overview's
+            chain, with each day's stay dates, notes, places and nights. No
+            wrapper of its own: `EntityPage`'s body already carries the gap,
+            and a second `marginTop` here started this arm lower than the
+            Gallery/Logistics ones — a visible jump between tabs of one page. */}
+        {!editing && tab === "timeline" && <RoadtripTimelineTab detail={detail} />}
 
-        {!editing && tab === "map" && (
-          <div style={{ marginTop: "var(--ts-space-xl)" }}>
-            {/* The full-screen map of the trip: its route and its stations,
-                the same panel the overview carries in its aside. */}
-            <RoadtripMapPanel detail={detail} geometry={geometry} />
-          </div>
-        )}
+        {/* The full-screen map of the trip: its route and its stations, the
+            same panel the overview carries in its aside. */}
+        {!editing && tab === "map" && <RoadtripMapPanel detail={detail} geometry={geometry} />}
 
-        {tab === "gallery" &&
+        {/* Every arm is gated on `editing` as the two above: the tab a station
+            arrival came over is cleared in an effect, one render after the tab
+            was read, so an ungated arm would paint behind the editor. */}
+        {!editing &&
+          tab === "gallery" &&
           (detail.trip ? (
             <RoadtripGallery detail={detail} onChanged={() => void load()} />
           ) : (
             <Placeholder text={t("roadtrips:detail.noAlbum")} />
           ))}
 
-        {tab === "logistics" && (
+        {!editing && tab === "logistics" && (
           <RoadtripLogisticsTab detail={detail} onChanged={() => void load()} />
         )}
 
