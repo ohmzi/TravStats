@@ -197,7 +197,7 @@
       "lodging": "Unterkünfte",
       "poi": "Orte",
       "tour": "Touren",
-      "roadtrip": "Roadtrips",
+      "roadtrip": "Trips",
       "rail": "Bahn",
       "rental": "Mietwagen"
     },
@@ -210,7 +210,7 @@
     "poi": "Ort",
     "lodging": "Unterkunft",
     "tour": "Tour",
-    "roadtrip": "Roadtrip",
+    "roadtrip": "Trip",
     "rail": "Zugfahrt",
     "rental": "Mietwagen"
   },
@@ -222,7 +222,7 @@
       "cruise": "Kreuzfahrt hinzufügen",
       "lodging": "Unterkunft anlegen",
       "poi": "Ort anlegen",
-      "roadtrip": "Roadtrip hinzufügen",
+      "roadtrip": "Trip hinzufügen",
       "rail": "Zugfahrt hinzufügen"
     }
   },

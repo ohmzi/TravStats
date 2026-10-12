@@ -50,7 +50,7 @@
       "unlocked": "Unlocked",
       "open": "Open"
     },
-    "domainRoadtrip": "Roadtrips"
+    "domainRoadtrip": "Trips"
   },
   "progress": {
     "label": "Progress",
@@ -1201,31 +1201,31 @@
     },
     "ROADTRIP_FIRST": {
       "name": "On the road",
-      "description": "Went on your first roadtrip"
+      "description": "Went on your first trip"
     },
     "ROADTRIP_5": {
       "name": "Repeat offender",
-      "description": "Went on five roadtrips"
+      "description": "Went on five trips"
     },
     "ROADTRIP_KM_1000": {
       "name": "A thousand kilometres of road",
-      "description": "Covered 1,000 km on roadtrips"
+      "description": "Covered 1,000 km on trips"
     },
     "ROADTRIP_KM_10000": {
       "name": "Mile muncher",
-      "description": "Covered 10,000 km on roadtrips"
+      "description": "Covered 10,000 km on trips"
     },
     "ROADTRIP_LONG_3000": {
       "name": "The long haul",
-      "description": "A single roadtrip of more than 3,000 km"
+      "description": "A single trip of more than 3,000 km"
     },
     "ROADTRIP_FREE_NIGHTS_10": {
       "name": "Wild camper",
-      "description": "Spent ten nights on roadtrips without accommodation"
+      "description": "Spent ten nights on trips without accommodation"
     },
     "ROADTRIP_COUNTRIES_3": {
       "name": "Border hopper",
-      "description": "Three countries on a single roadtrip"
+      "description": "Three countries on a single trip"
     },
     "RAIL_FIRST": {
       "name": "All aboard",

@@ -98,7 +98,7 @@
     "suggestionsFailed": "Vorschläge aus deinen bisherigen Fahrten konnten nicht geladen werden — das Formular funktioniert trotzdem."
   },
   "tracedLine": "entlang der Strecke, Transitous",
-  "roadtripLine": "entlang der Roadtrip-Route",
+  "roadtripLine": "entlang der Trip-Route",
   "station": {
     "searchPlaceholder": "Bahnhof suchen, z. B. Frankfurt Hbf",
     "searching": "Sucht …",
@@ -154,7 +154,7 @@
     "loading": "Lädt …",
     "loadError": "Die Fahrt konnte nicht geladen werden.",
     "notFound": "Diese Fahrt gibt es nicht (mehr).",
-    "convertedFromRoadtrip": "Aus einem Roadtrip übernommen.",
+    "convertedFromRoadtrip": "Aus einem Trip übernommen.",
     "convertedPlaceholder": "Die Abfahrt war ein Platzhalter (12:00 Uhr Ortszeit) und die Ankunft ist unbekannt — bitte nach dem Ticket korrigieren.",
     "back": "Zurück zum Bahn-Logbuch",
     "distance": "Entfernung",
@@ -172,7 +172,7 @@
     "ticket": "Fahrkarte",
     "route": "Strecke",
     "lineTraced": "Linie: Streckenverlauf dieses Zuges, von Transitous übernommen.",
-    "lineRoadtrip": "Linie: aus dem Roadtrip übernommen — geplant, nicht aus dem Fahrplan.",
+    "lineRoadtrip": "Linie: aus dem Trip übernommen — geplant, nicht aus dem Fahrplan.",
     "lineStraight": "Linie: Luftlinie zwischen den Bahnhöfen — nicht der Weg des Zuges.",
     "lineRouted": "Linie: über das Gleisnetz berechnet (OpenRailRouting, OpenStreetMap) — der wahrscheinliche Weg, nicht aus dem Fahrplan.",
     "lineRoutedDemo": "Linie: über das Gleisnetz berechnet (BRouter, OpenStreetMap) — der wahrscheinliche Weg, nicht aus dem Fahrplan."
@@ -212,7 +212,7 @@
     "journeysDesc": "abgeschlossene Fahrten, eine je Zug",
     "kmAll": "Bahn-Kilometer",
     "kmTraced": "{{km}} km entlang der Strecke",
-    "kmRoadtrip": "{{km}} km entlang von Roadtrip-Routen",
+    "kmRoadtrip": "{{km}} km entlang von Trip-Routen",
     "kmTicket": "{{km}} km laut Ticket",
     "kmStraight": "{{km}} km Luftlinie (die echte Strecke ist länger)",
     "kmUnmeasured_one": "{{count}} Fahrt ohne Entfernung",
@@ -234,7 +234,7 @@
     "delayOver": "mehr als {{minutes}} min",
     "longest": "Längste Fahrt",
     "sourceTraced": "entlang der Strecke",
-    "sourceRoadtrip": "entlang der Roadtrip-Route",
+    "sourceRoadtrip": "entlang der Trip-Route",
     "sourceTicket": "laut Ticket",
     "sourceStraight": "Luftlinie",
     "byYear": "Fahrten pro Jahr",
@@ -256,7 +256,7 @@
   },
   "roadtripConversion": {
     "title": "Als Bahnfahrten übernehmen",
-    "offer": "Dieser Roadtrip ist mit „Bahn“ als Fahrzeug angelegt — aus der Zeit, bevor Zugfahrten ein eigener Bereich wurden. Du kannst ihn ins Bahn-Fahrtenbuch übernehmen: eine Zugfahrt je Abschnitt zwischen zwei Stationen.",
+    "offer": "Dieser Trip ist mit „Bahn“ als Fahrzeug angelegt — aus der Zeit, bevor Zugfahrten ein eigener Bereich wurden. Du kannst ihn ins Bahn-Fahrtenbuch übernehmen: eine Zugfahrt je Abschnitt zwischen zwei Stationen.",
     "action": "Als Bahnfahrt übernehmen",
     "loading": "Vorschau wird geladen …",
     "loadError": "Die Vorschau ließ sich nicht laden.",
@@ -271,14 +271,14 @@
       "stopMissing": "Station fehlt",
       "notRail": "nicht per Bahn"
     },
-    "removeSection": "Roadtrip danach löschen",
+    "removeSection": "Trip danach löschen",
     "removeSectionHint": "Nur möglich, wenn jeder Abschnitt übernommen werden kann.",
-    "removeSectionCostsHint": "Nicht möglich: Der Roadtrip hat erfasste Kosten und gehört zu keiner Reise, die sie übernehmen könnte.",
+    "removeSectionCostsHint": "Nicht möglich: Der Trip hat erfasste Kosten und gehört zu keiner Reise, die sie übernehmen könnte.",
     "confirm": "Übernehmen",
     "done_one": "{{count}} Zugfahrt übernommen.",
     "done_other": "{{count}} Zugfahrten übernommen.",
     "nothingNew": "Alle Fahrten waren schon übernommen.",
-    "removed": "Der Roadtrip wurde gelöscht.",
+    "removed": "Der Trip wurde gelöscht.",
     "error": "Die Übernahme ist fehlgeschlagen."
   },
   "geometryNotice": {

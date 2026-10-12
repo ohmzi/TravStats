@@ -50,7 +50,7 @@
       "unlocked": "Erreicht",
       "open": "Offen"
     },
-    "domainRoadtrip": "Roadtrips"
+    "domainRoadtrip": "Trips"
   },
   "progress": {
     "label": "Fortschritt",
@@ -1201,31 +1201,31 @@
     },
     "ROADTRIP_FIRST": {
       "name": "Auf Achse",
-      "description": "Den ersten Roadtrip unternommen"
+      "description": "Den ersten Trip unternommen"
     },
     "ROADTRIP_5": {
       "name": "Wiederholungstäter",
-      "description": "Fünf Roadtrips unternommen"
+      "description": "Fünf Trips unternommen"
     },
     "ROADTRIP_KM_1000": {
       "name": "Tausend Kilometer Landstraße",
-      "description": "1.000 km auf Roadtrips zurückgelegt"
+      "description": "1.000 km auf Trips zurückgelegt"
     },
     "ROADTRIP_KM_10000": {
       "name": "Kilometerfresser",
-      "description": "10.000 km auf Roadtrips zurückgelegt"
+      "description": "10.000 km auf Trips zurückgelegt"
     },
     "ROADTRIP_LONG_3000": {
       "name": "Die große Fahrt",
-      "description": "Ein einzelner Roadtrip über 3.000 km"
+      "description": "Ein einzelner Trip über 3.000 km"
     },
     "ROADTRIP_FREE_NIGHTS_10": {
       "name": "Freistehend",
-      "description": "Zehn Nächte auf Roadtrips ohne Unterkunft verbracht"
+      "description": "Zehn Nächte auf Trips ohne Unterkunft verbracht"
     },
     "ROADTRIP_COUNTRIES_3": {
       "name": "Grenzgänger",
-      "description": "Drei Länder auf einem einzigen Roadtrip"
+      "description": "Drei Länder auf einem einzigen Trip"
     },
     "RAIL_FIRST": {
       "name": "Einsteigen, bitte",

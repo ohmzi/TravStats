@@ -67,7 +67,7 @@ describe("the Gesamt experiences tile breakdown (forgejo#160)", () => {
     ["cruise", "1 Kreuzfahrt", "3 Kreuzfahrten", "1 cruise", "3 cruises"],
     ["lodging", "1 Unterkunft", "3 Unterkünfte", "1 stay", "3 stays"],
     ["poi", "1 Ort", "3 Orte", "1 place", "3 places"],
-    ["roadtrip", "1 Roadtrip", "3 Roadtrips", "1 roadtrip", "3 roadtrips"],
+    ["roadtrip", "1 Trip", "3 Trips", "1 trip", "3 trips"],
     ["rail", "1 Zugfahrt", "3 Zugfahrten", "1 train journey", "3 train journeys"],
     ["rental", "1 Mietwagen", "3 Mietwagen", "1 rental car", "3 rental cars"],
   ] as const)("%s", (domain, deOne, deMany, enOne, enMany) => {

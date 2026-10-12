@@ -149,7 +149,7 @@
       "geocoderUnavailable": "Die Adresssuche antwortet gerade nicht. Die Miete wurde nicht gespeichert – versuche es gleich noch einmal.",
       "returnBeforePickup": "Die Rückgabe liegt vor der Abholung.",
       "odometerReversed": "Der Kilometerstand bei Rückgabe darf nicht unter dem bei Abholung liegen.",
-      "roadtripNotFound": "Dieser Roadtrip wurde nicht gefunden.",
+      "roadtripNotFound": "Dieser Trip wurde nicht gefunden.",
       "invalid": "Eine Angabe wurde nicht angenommen. Bitte prüfe das Formular.",
       "nonexistentTime": "Diese Uhrzeit gibt es an der Station nicht (Zeitumstellung).",
       "unknownBooking": "Zu dieser Buchungsnummer gibt es keine Miete."
@@ -173,7 +173,7 @@
     "return": "Rückgabe {{station}}",
     "actualPickup": "Tatsächlich abgeholt",
     "actualReturn": "Tatsächlich zurückgegeben",
-    "oneWayNote": "Einwegmiete · die gefahrene Strecke kennt nur ein Roadtrip.",
+    "oneWayNote": "Einwegmiete · die gefahrene Strecke kennt nur ein Trip.",
     "vehicle": "Fahrzeug",
     "vehicleBooked": "Gebucht",
     "vehicleExample": "Beispiel",
@@ -192,8 +192,8 @@
     "priceFinal": "Endbetrag",
     "deposit": "Kaution",
     "depositNever": "zählt nie als Kosten und wird nicht gespeichert",
-    "roadtrip": "Roadtrip",
-    "roadtripUnnamed": "Roadtrip ohne Namen",
+    "roadtrip": "Trip",
+    "roadtripUnnamed": "Trip ohne Namen",
     "companions": "Mitfahrer",
     "provenance": "Herkunft",
     "source": "Quelle",
@@ -204,7 +204,7 @@
     "map": "Karte",
     "mapSame": "Rückgabe am selben Ort: ein Punkt.",
     "mapOneWay": "Einwegmiete: Die gestrichelte Linie verbindet Abholung und Rückgabe – sie ist nicht die gefahrene Strecke.",
-    "mapRoadtrip": "Die gefahrene Strecke zeigt der verknüpfte Roadtrip.",
+    "mapRoadtrip": "Die gefahrene Strecke zeigt der verknüpfte Trip.",
     "cancellationFee": "Stornogebühr"
   },
   "import": {
@@ -247,10 +247,10 @@
   "suggest": {
     "trip": "Passt zur Reise „{{name}}“.",
     "linkTrip": "Mit der Reise verknüpfen",
-    "roadtrip": "Passt zum Roadtrip „{{name}}“. Soll die Miete dessen Fahrzeug sein?",
+    "roadtrip": "Passt zum Trip „{{name}}“. Soll die Miete dessen Fahrzeug sein?",
     "linkRoadtrip": "Als Fahrzeug übernehmen",
     "notThis": "Nicht verknüpfen",
-    "stationOffer": "Verknüpft. Abholung „{{first}}“ und Rückgabe „{{last}}“ kannst du im Roadtrip als Start- und Endstation übernehmen.",
+    "stationOffer": "Verknüpft. Abholung „{{first}}“ und Rückgabe „{{last}}“ kannst du im Trip als Start- und Endstation übernehmen.",
     "failed": "Die Vorschläge konnten nicht geladen oder übernommen werden."
   },
   "stats": {

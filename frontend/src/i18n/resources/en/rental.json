@@ -149,7 +149,7 @@
       "geocoderUnavailable": "The address search is not answering. The rental was not saved – try again in a moment.",
       "returnBeforePickup": "The return is before the pickup.",
       "odometerReversed": "The odometer at return cannot be below the one at pick-up.",
-      "roadtripNotFound": "This roadtrip was not found.",
+      "roadtripNotFound": "This trip was not found.",
       "invalid": "A value was not accepted. Please check the form.",
       "nonexistentTime": "This time does not exist at the station (clock change).",
       "unknownBooking": "There is no rental with this booking number."
@@ -173,7 +173,7 @@
     "return": "Return {{station}}",
     "actualPickup": "Actually picked up",
     "actualReturn": "Actually returned",
-    "oneWayNote": "One-way rental · only a roadtrip knows the route driven.",
+    "oneWayNote": "One-way rental · only a trip knows the route driven.",
     "vehicle": "Car",
     "vehicleBooked": "Booked",
     "vehicleExample": "Example",
@@ -192,8 +192,8 @@
     "priceFinal": "Final amount",
     "deposit": "Deposit",
     "depositNever": "never counts as a cost and is not stored",
-    "roadtrip": "Roadtrip",
-    "roadtripUnnamed": "Unnamed roadtrip",
+    "roadtrip": "Trip",
+    "roadtripUnnamed": "Unnamed trip",
     "companions": "Fellow travellers",
     "provenance": "Provenance",
     "source": "Source",
@@ -204,7 +204,7 @@
     "map": "Map",
     "mapSame": "Returned where picked up: one point.",
     "mapOneWay": "One-way rental: the dashed line joins pickup and return – it is not the route driven.",
-    "mapRoadtrip": "The linked roadtrip shows the route driven.",
+    "mapRoadtrip": "The linked trip shows the route driven.",
     "cancellationFee": "Cancellation fee"
   },
   "import": {
@@ -247,10 +247,10 @@
   "suggest": {
     "trip": "Fits the trip “{{name}}”.",
     "linkTrip": "Link to the trip",
-    "roadtrip": "Fits the roadtrip “{{name}}”. Was this rental its car?",
+    "roadtrip": "Fits the trip “{{name}}”. Was this rental its car?",
     "linkRoadtrip": "Use as its car",
     "notThis": "Do not link",
-    "stationOffer": "Linked. You can take pickup “{{first}}” and return “{{last}}” as the roadtrip's first and last station.",
+    "stationOffer": "Linked. You can take pickup “{{first}}” and return “{{last}}” as the trip's first and last station.",
     "failed": "The suggestions could not be loaded or applied."
   },
   "stats": {

@@ -22,7 +22,7 @@
     },
     "scopesMissing": "Deinem Immich-API-Schlüssel fehlen Berechtigungen, die der Scan braucht:",
     "unverified": "TravStats konnte die Berechtigungen deines Schlüssels nicht prüfen. Der Scan zeigt es.",
-    "roadtripsOff": "Roadtrips sind ausgeschaltet, deshalb enthält der Entwurf keine Kilometer und Nächte. Bietet deine Instanz sie an, schalte sie unter Einstellungen › Bereiche ein.",
+    "roadtripsOff": "Trips sind ausgeschaltet, deshalb enthält der Entwurf keine Kilometer und Nächte. Bietet deine Instanz sie an, schalte sie unter Einstellungen › Bereiche ein.",
     "coverLater": "Ein Titelbild kannst du nach dem Speichern hinzufügen.",
     "needDates": "Lege Start- und Enddatum fest, um Fotos zu scannen.",
     "tooLong": "Fotos lassen sich für höchstens 62 Tage auf einmal scannen. Kürze den Zeitraum.",
@@ -46,7 +46,7 @@
     "state": "Übernachtung",
     "dates": "Zeitraum",
     "notes": "Notizen",
-    "open": "Roadtrip öffnen"
+    "open": "Trip öffnen"
   },
   "errors": {
     "commit": {
@@ -57,8 +57,8 @@
       "failed": "Die Reise konnte nicht angelegt werden, es wurde nichts gespeichert. Versuch es erneut.",
       "inProgress": "Für diesen Entwurf läuft bereits ein Speichervorgang.",
       "nightPlanInvalid": "Die Nächte passen nicht zusammen. Prüfe die Nacht-Felder und versuch es erneut.",
-      "roadtripsHidden": "Roadtrips sind ausgeschaltet. Speichere die Gebiete als Zeitleisten-Stopps oder schalte Roadtrips in den Einstellungen ein.",
-      "stationsInvalid": "Ein Roadtrip braucht mindestens zwei gültige Stopps. Prüfe die Gebiete und versuch es erneut.",
+      "roadtripsHidden": "Trips sind ausgeschaltet. Speichere die Gebiete als Zeitleisten-Stopps oder schalte Trips in den Einstellungen ein.",
+      "stationsInvalid": "Ein Trip braucht mindestens zwei gültige Stopps. Prüfe die Gebiete und versuch es erneut.",
       "tooManyAreas": "Diese Daten ergeben mehr Gebiete, als eine Reise aufnehmen kann. Scanne einen kürzeren Zeitraum und versuch es erneut.",
       "tooManyFlights": "Es sind mehr Flüge ausgewählt, als ein Speichern zuordnen kann. Wähle einige ab und versuch es erneut.",
       "tooManyJourneys": "Es sind mehr Foto-Vorschläge ausgewählt, als ein Speichern markieren kann. Wähle einige ab und versuch es erneut.",
@@ -119,7 +119,7 @@
     "pendingPhotoJourneys_one": "{{count}} Foto-Vorschlag deckt diese Daten ab.",
     "pendingPhotoJourneys_other": "{{count}} Foto-Vorschläge decken diese Daten ab.",
     "possibleUnrecordedFlight": "Zwischen {{from}} und {{to}} bist du weit und schnell gereist, aber es ist kein Flug eingetragen (die nächsten Flughäfen sind {{fromAirport}} und {{toAirport}}).",
-    "roadtripsHidden": "Roadtrips sind ausgeschaltet, deshalb werden Gebiete als Zeitleisten-Stopps gespeichert. Bietet deine Instanz sie an, schalte sie unter Einstellungen › Bereiche ein.",
+    "roadtripsHidden": "Trips sind ausgeschaltet, deshalb werden Gebiete als Zeitleisten-Stopps gespeichert. Bietet deine Instanz sie an, schalte sie unter Einstellungen › Bereiche ein.",
     "suspiciouslyLong": "Diese Reise dauert über 60 Tage. Prüfe ihre Daten; ein Tippfehler im Jahr würde diese Reise verschlucken.",
     "truncated": "Deine Bibliothek hat mehr Fotos, als ein Scan liest, die späteren fehlen. Scanne einen kürzeren Zeitraum.",
     "truncatedFlights_one": "In diesem Zeitraum liegt ein Flug mehr, als ein Speichern zuordnen kann; die frühesten sind aufgelistet.",
@@ -160,7 +160,7 @@
         "skip": "Nicht speichern",
         "stops": "Zeitleisten-Stopps"
       },
-      "name": "Name des Roadtrips",
+      "name": "Name des Trips",
       "skipped": "Dieses Gebiet wird nicht gespeichert.",
       "summary": "{{stations}} Stopps · {{nights}} Nächte",
       "synced": "Schon abgeglichen",
@@ -307,7 +307,7 @@
     "problems": {
       "blankTripName": "Gib der Reise einen Namen.",
       "nightPlanInvalid": "Die Nächte passen nicht zusammen.",
-      "roadtripTooShort": "{{name}} braucht mindestens zwei Stopps, um ein Roadtrip zu sein. Ergänze Stopps oder speichere es als Zeitleisten-Stopps."
+      "roadtripTooShort": "{{name}} braucht mindestens zwei Stopps, um ein Trip zu sein. Ergänze Stopps oder speichere es als Zeitleisten-Stopps."
     },
     "reset": "Meine Änderungen verwerfen",
     "saving": "Speichere…",

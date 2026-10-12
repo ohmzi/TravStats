@@ -22,7 +22,7 @@
     },
     "scopesMissing": "Your Immich API key lacks permissions the scan needs:",
     "unverified": "TravStats could not verify your key's permissions. The scan will find out.",
-    "roadtripsOff": "Roadtrips are off, so the draft has no kilometres or nights. If your instance offers them, turn them on under Settings › Modules.",
+    "roadtripsOff": "Trips are off, so the draft has no kilometres or nights. If your instance offers them, turn them on under Settings › Modules.",
     "coverLater": "Add a cover after saving.",
     "needDates": "Set a start and an end date to scan photos.",
     "tooLong": "Photos can be scanned for up to 62 days at a time. Shorten the dates.",
@@ -46,7 +46,7 @@
     "state": "Night",
     "dates": "Dates",
     "notes": "Notes",
-    "open": "Open roadtrip"
+    "open": "Open trip"
   },
   "errors": {
     "commit": {
@@ -57,8 +57,8 @@
       "failed": "The trip could not be created and nothing was saved. Try again.",
       "inProgress": "A save is already running for this draft.",
       "nightPlanInvalid": "The nights do not add up. Check the night fields and try again.",
-      "roadtripsHidden": "Roadtrips are switched off. Save the areas as timeline stops, or turn roadtrips on in Settings.",
-      "stationsInvalid": "A roadtrip needs at least two valid stops. Check the areas and try again.",
+      "roadtripsHidden": "Trips are switched off. Save the areas as timeline stops, or turn trips on in Settings.",
+      "stationsInvalid": "A trip needs at least two valid stops. Check the areas and try again.",
       "tooManyAreas": "These dates hold more areas than one trip can take. Scan a shorter window, then try again.",
       "tooManyFlights": "More flights are ticked than one save can assign. Untick some, then try again.",
       "tooManyJourneys": "More photo suggestions are ticked than one save can mark. Untick some, then try again.",
@@ -119,7 +119,7 @@
     "pendingPhotoJourneys_one": "{{count}} photo suggestion covers these dates.",
     "pendingPhotoJourneys_other": "{{count}} photo suggestions cover these dates.",
     "possibleUnrecordedFlight": "Between {{from}} and {{to}} you moved far and fast, but no flight is logged ({{fromAirport}} and {{toAirport}} are the nearest airports).",
-    "roadtripsHidden": "Roadtrips are switched off, so areas are saved as timeline stops. If your instance offers them, turn them on under Settings › Modules.",
+    "roadtripsHidden": "Trips are switched off, so areas are saved as timeline stops. If your instance offers them, turn them on under Settings › Modules.",
     "suspiciouslyLong": "That trip lasts over 60 days. Check its dates; a typo in the year would swallow this one.",
     "truncated": "Your library has more photos than one scan reads, so the later ones are missing. Scan a shorter window.",
     "truncatedFlights_one": "These dates hold one more flight than one save can assign; the earliest are listed.",
@@ -160,7 +160,7 @@
         "skip": "Don't save",
         "stops": "Timeline stops"
       },
-      "name": "Roadtrip name",
+      "name": "Trip name",
       "skipped": "This area is not saved.",
       "summary": "{{stations}} stops · {{nights}} nights",
       "synced": "Already synced",
@@ -307,7 +307,7 @@
     "problems": {
       "blankTripName": "Give the trip a name.",
       "nightPlanInvalid": "The nights do not add up.",
-      "roadtripTooShort": "{{name}} needs at least two stops to be a roadtrip. Add stops, or save it as timeline stops."
+      "roadtripTooShort": "{{name}} needs at least two stops to be a trip. Add stops, or save it as timeline stops."
     },
     "reset": "Discard my edits",
     "saving": "Saving…",

@@ -35,14 +35,14 @@ describe("TripDeleteConfirm — rail journeys", () => {
 
   it("says rail journeys are kept when rail is shown", async () => {
     expect((await renderDialog()).textContent).toContain(
-      "Flüge, Kreuzfahrten, Bahnfahrten, Unterkünfte und Roadtrips bleiben erhalten"
+      "Flüge, Kreuzfahrten, Bahnfahrten, Unterkünfte und Trips bleiben erhalten"
     );
   });
 
   it("does not mention rail where the domain is hidden", async () => {
     railVisible.value = false;
     const text = (await renderDialog()).textContent ?? "";
-    expect(text).toContain("Flüge, Kreuzfahrten, Unterkünfte und Roadtrips bleiben erhalten");
+    expect(text).toContain("Flüge, Kreuzfahrten, Unterkünfte und Trips bleiben erhalten");
     expect(text).not.toContain("Bahn");
   });
 });

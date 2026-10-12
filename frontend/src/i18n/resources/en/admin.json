@@ -151,8 +151,8 @@
             "what": "The Devices settings entry and its QR code, the only way to bind the phone app to this account."
           },
           "roadtrips": {
-            "name": "Roadtrips and tours",
-            "what": "The “Roadtrips” domain (multi-day trips with stations at your stays) and all tours: the tours page and editor, the tour tab on the dashboard and on a trip, the tours on the overview map, and the routing provider and Strava cards."
+            "name": "Trips and tours",
+            "what": "The “Trips” domain (multi-day trips with stations at your stays) and all tours: the tours page and editor, the tour tab on the dashboard and on a trip, the tours on the overview map, and the routing provider and Strava cards."
           },
           "lodgingEnrichment": {
             "name": "Complete lodgings from OpenStreetMap",
@@ -164,7 +164,7 @@
           },
           "railDomain": {
             "name": "Rail",
-            "what": "The Rail area: a logbook for train journeys with a station catalogue, train lookup, map, statistics and Excel import and export. A roadtrip with “Rail” as its vehicle can be taken over as train rides."
+            "what": "The Rail area: a logbook for train journeys with a station catalogue, train lookup, map, statistics and Excel import and export. A trip with “Rail” as its vehicle can be taken over as train rides."
           },
           "cruiseTracks": {
             "name": "Recorded tracks on cruises",

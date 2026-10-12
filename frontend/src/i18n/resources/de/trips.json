@@ -15,8 +15,8 @@
   "editTrip": "Reise bearbeiten",
   "deleteTrip": "Reise löschen",
   "removeFromTrip": "Aus Reise entfernen",
-  "deleteTripConfirm": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. Flüge, Kreuzfahrten, Unterkünfte und Roadtrips bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren.",
-  "deleteTripConfirmWithRail": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. Flüge, Kreuzfahrten, Bahnfahrten, Unterkünfte und Roadtrips bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren.",
+  "deleteTripConfirm": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. Flüge, Kreuzfahrten, Unterkünfte und Trips bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren.",
+  "deleteTripConfirmWithRail": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. Flüge, Kreuzfahrten, Bahnfahrten, Unterkünfte und Trips bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren.",
   "showOnMap": "Auf Karte",
   "flightCount_one": "{{count}} Flug",
   "flightCount_other": "{{count}} Flüge",
@@ -306,7 +306,7 @@
       "notFound": "Der Eintrag oder die Reise existiert nicht mehr. Lade die Seite neu.",
       "demo": "Das Demo-Konto darf nichts ändern.",
       "readOnly": "Dieser Zugang darf nur lesen, nicht ändern.",
-      "roadtripPhotos": "An den Stationen dieses Roadtrips hängen Fotos seiner bisherigen Reise. Deshalb lässt er sich von hier aus nicht verschieben.",
+      "roadtripPhotos": "An den Stationen dieses Trips hängen Fotos seiner bisherigen Reise. Deshalb lässt er sich von hier aus nicht verschieben.",
       "conflict": "Dieser Eintrag lässt sich nicht in eine andere Reise verschieben.",
       "invalid": "Der Server hat die Anfrage abgelehnt. Öffne den Eintrag in seinem Fahrtenbuch und prüfe seine Angaben.",
       "rateLimited": "Zu viele Anfragen. Warte einen Moment und versuche es erneut.",
@@ -559,7 +559,7 @@
       "saveErrorGone": "Diese Tour gibt es nicht mehr.",
       "via": "Streckenkorrektur",
       "viaHint": "Nur für die Linienführung — braucht keinen Namen und zählt nicht als Punkt.",
-      "saveErrorViaNight": "Ein Punkt mit Übernachtung kann keine Streckenkorrektur sein — ändere ihn auf der Roadtrip-Seite."
+      "saveErrorViaNight": "Ein Punkt mit Übernachtung kann keine Streckenkorrektur sein — ändere ihn auf der Trip-Seite."
     },
     "day": {
       "date": "Datum der Tour",
@@ -579,13 +579,10 @@
   },
   "head": {
     "days_one": "{{count}} Tag",
-    "days_other": "{{count}} Tage",
-    "countries_one": "{{count}} Land",
-    "countries_other": "{{count}} Länder"
+    "days_other": "{{count}} Tage"
   },
   "overview": {
-    "noTrips": "Noch keine Trips. Eine Reise hält ihre Trips — die Bearbeiten-Seite gleicht sie mit Immich ab.",
-    "daysAway": "Tage unterwegs"
+    "noTrips": "Noch keine Trips. Eine Reise hält ihre Trips — die Bearbeiten-Seite gleicht sie mit Immich ab."
   },
   "card": {
     "days_one": "Tag",

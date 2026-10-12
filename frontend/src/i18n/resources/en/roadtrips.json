@@ -1,16 +1,16 @@
 {
-  "pageTitle": "Roadtrips",
-  "newRoadtrip": "New roadtrip",
+  "pageTitle": "Trips",
+  "newRoadtrip": "New trip",
   "namePlaceholder": "Name, e.g. Norway by motorhome",
   "vehicleLabel": "Vehicle",
   "vehicleNone": "Leave the vehicle open",
   "create": "Create",
-  "createError": "The roadtrip could not be created.",
-  "loadError": "The roadtrips could not be loaded.",
-  "detailLoadError": "This roadtrip could not be loaded.",
-  "empty": "No roadtrip yet. A roadtrip is several days on the move: stations where you spend the night, and the road between them.",
+  "createError": "The trip could not be created.",
+  "loadError": "The trips could not be loaded.",
+  "detailLoadError": "This trip could not be loaded.",
+  "empty": "No trip yet. A trip is several days on the move: stations where you spend the night, and the road between them.",
   "undated": "undated",
-  "inTrip": "Part of the trip “{{name}}”",
+  "inTrip": "Part of the journey “{{name}}”",
   "nightsCount_one": "{{count}} night",
   "nightsCount_other": "{{count}} nights",
   "stationCount_one": "{{count}} station",
@@ -18,16 +18,16 @@
   "tourCount_one": "{{count}} day tour",
   "tourCount_other": "{{count}} day tours",
   "nightsSoft": "* At least one overnight stop has no known length — the figure is a lower bound.",
-  "backToList": "← All roadtrips",
-  "backToRoadtrip": "Back to the roadtrip",
+  "backToList": "← All trips",
+  "backToRoadtrip": "Back to the trip",
   "editLegs": "Edit route & recordings",
   "legStraight": "straight line",
   "startTour": "+ Day tour",
   "startTourError": "The day tour could not be created.",
-  "delete": "Delete roadtrip",
-  "deleteError": "The roadtrip could not be deleted.",
+  "delete": "Delete trip",
+  "deleteError": "The trip could not be deleted.",
   "deleteConfirm": {
-    "title": "Delete roadtrip?",
+    "title": "Delete trip?",
     "message": "“{{name}}” is deleted with its stations, legs and recordings. Linked accommodation and stays are kept, and its day tours stay as tours without a station.",
     "confirm": "Delete"
   },
@@ -138,17 +138,17 @@
     "profileLabel": "Elevation profile from {{low}} to {{high}} metres"
   },
   "dashboard": {
-    "listTitle": "Roadtrips",
-    "listEmpty": "No roadtrips yet.",
-    "emptyTitle": "No roadtrip on the map yet",
-    "emptyBody": "Create a roadtrip with its stations — its route then appears here.",
-    "emptyCta": "Create roadtrip",
+    "listTitle": "Trips",
+    "listEmpty": "No trips yet.",
+    "emptyTitle": "No trip on the map yet",
+    "emptyBody": "Create a trip with its stations — its route then appears here.",
+    "emptyCta": "Create trip",
     "stationsLoadError": "The stations could not be loaded — the map shows the routes only."
   },
   "stats": {
-    "count": "Roadtrips",
-    "countHint_one": "one roadtrip on the road",
-    "countHint_other": "{{count}} roadtrips on the road",
+    "count": "Trips",
+    "countHint_one": "one trip on the road",
+    "countHint_other": "{{count}} trips on the road",
     "distance": "Distance",
     "drivenHint": "{{km}} km of it driven (ferries excluded)",
     "nights": "Nights",
@@ -156,11 +156,11 @@
     "nightsSoft": "At least one overnight stop has no known length.",
     "countries": "Countries",
     "recordsLabel": "Records",
-    "longestByKm": "Longest roadtrips",
+    "longestByKm": "Longest trips",
     "longestByNights": "Most nights",
     "vehicles": "Vehicles",
-    "empty": "No roadtrip in this period.",
-    "loadFailed": "The roadtrips could not be loaded."
+    "empty": "No trip in this period.",
+    "loadFailed": "The trips could not be loaded."
   },
   "strava": {
     "title": "Strava",
@@ -205,37 +205,37 @@
     "underwayOpen": "On the road · day {{day}}"
   },
   "list": {
-    "search": "Name, trip or country",
+    "search": "Name, journey or country",
     "allVehicles": "All vehicles",
     "sectionUnderway": "On the road now",
     "sectionPlanned": "Planned",
     "sectionUndated": "Undated",
-    "noMatch": "No roadtrip matches this search.",
+    "noMatch": "No trip matches this search.",
     "today": "Today: {{station}}",
     "todayStay": "Today: {{station}}, {{stay}}",
     "next": "Next up: {{station}}",
     "enterTonight": "Record tonight",
-    "open": "Open roadtrip",
-    "openDetails": "Open roadtrip details",
-    "lastRoadtrip": "Last road trip",
+    "open": "Open trip",
+    "openDetails": "Open trip details",
+    "lastRoadtrip": "Last trip",
     "figKm": "km",
     "figNights_one": "night",
     "figNights_other": "nights",
     "figStations_one": "station",
     "figStations_other": "stations",
-    "figRoadtrips_one": "roadtrip",
-    "figRoadtrips_other": "roadtrips",
+    "figRoadtrips_one": "trip",
+    "figRoadtrips_other": "trips",
     "figDrives_one": "drive",
     "figDrives_other": "drives",
     "kmUnknown": "No leg yet — that takes two stations.",
     "nightsApprox": "At least one station has no departure date.",
-    "emptyTitle": "No roadtrip yet",
-    "emptyCta": "Create your first roadtrip",
-    "count_one": "{{count}} roadtrip",
-    "count_other": "{{count}} roadtrips"
+    "emptyTitle": "No trip yet",
+    "emptyCta": "Create your first trip",
+    "count_one": "{{count}} trip",
+    "count_other": "{{count}} trips"
   },
   "newDialog": {
-    "title": "New roadtrip",
+    "title": "New trip",
     "intro": "Only the name is required. Everything else can wait.",
     "name": "Name",
     "vehicle": "Travelling in?",
@@ -243,9 +243,9 @@
     "vehicleName": "Vehicle's own name",
     "odometer": "Odometer at the start",
     "optional": "optional",
-    "trip": "Part of a trip?",
-    "tripHint": "It then shows on that trip too.",
-    "noTrip": "No trip",
+    "trip": "Part of a journey?",
+    "tripHint": "It then shows on that journey too.",
+    "noTrip": "No journey",
     "submit": "Create and add the first station"
   },
   "detail": {
@@ -266,7 +266,7 @@
     "odometerOpen": "still open",
     "mapHint": "Click a station to mark it on the map.",
     "noRouting": "Without a routing provider, new legs show as straight lines.",
-    "toursTitle": "Day tours on this roadtrip",
+    "toursTitle": "Day tours on this trip",
     "toursEmpty": "No day tour yet. Start one at a station.",
     "noAlbum": "This trip is not filed on a journey yet, so it has no album.",
     "tourAt": "at station {{station}}",
@@ -396,12 +396,12 @@
     "downloadOne": "As GPX",
     "downloadFailed": "The recording could not be downloaded.",
     "exportTitle": "Recordings as GPX",
-    "exportDescription": "Every recording of your tours and roadtrips as its own GPX file, together in one ZIP. Other programs read the track; when you read it back in, TravStats also restores distance, climb and moving time as they were measured.",
+    "exportDescription": "Every recording of your tours and trips as its own GPX file, together in one ZIP. Other programs read the track; when you read it back in, TravStats also restores distance, climb and moving time as they were measured.",
     "exportButton": "Download ZIP",
     "exportRunning": "Packing …",
     "exportFailed": "The ZIP could not be created.",
     "importTitle": "Read GPX or ZIP",
-    "importDescription": "GPX, TCX or FIT files, or a ZIP of them. A file from TravStats returns to its tour (or creates it); any other file becomes a day tour of its own. A recording that is already there is not added twice. Roadtrips come from the spreadsheet – read that first.",
+    "importDescription": "GPX, TCX or FIT files, or a ZIP of them. A file from TravStats returns to its tour (or creates it); any other file becomes a day tour of its own. A recording that is already there is not added twice. Trips come from the spreadsheet – read that first.",
     "choose": "Choose files",
     "checking": "Checking …",
     "preview": "Preview – nothing saved yet:",
@@ -415,7 +415,7 @@
     "errors": {
       "unreadable": "not a readable GPX, TCX or FIT file",
       "noTimestamps": "no timestamps – cannot be placed",
-      "roadtripNotFound": "belongs to the roadtrip “{{name}}”, which is missing here – read the spreadsheet first",
+      "roadtripNotFound": "belongs to the trip “{{name}}”, which is missing here – read the spreadsheet first",
       "ambiguousTour": "several tours are called “{{name}}” – not unique"
     },
     "more": "… and {{count}} more",
@@ -424,7 +424,7 @@
     "tooLarge": "The ZIP is too large (at most 500 files, 200 MB unpacked, 15 MB per recording)."
   },
   "map": {
-    "empty": "This roadtrip has no stations with coordinates yet — add the first station."
+    "empty": "This trip has no stations with coordinates yet — add the first station."
   },
   "place": {
     "heading": "Which place?",
@@ -444,7 +444,7 @@
     "empty": "No costs recorded yet — ferry, toll, pitch or fuel.",
     "total": "Total",
     "perCurrencyHint": "Per currency, not converted.",
-    "wholeTrip": "Whole roadtrip",
+    "wholeTrip": "Whole trip",
     "leg": "{{from}} → {{to}}",
     "removedStation": "Deleted station",
     "kind": {
@@ -465,22 +465,22 @@
       "date": "Date",
       "dateHint": "Leave empty if the day is not known.",
       "station": "Station",
-      "stationNone": "None — applies to the whole roadtrip",
+      "stationNone": "None — applies to the whole trip",
       "keepLeg": "Leg {{from}} → {{to}} (kept)",
       "note": "Note",
       "save": "Save",
       "delete": "Delete this cost",
       "error": {
         "invalid": "The entry was refused — please check amount, currency, date and station.",
-        "gone": "The roadtrip, the station or the entry no longer exists. Please reload the page.",
+        "gone": "The trip, the station or the entry no longer exists. Please reload the page.",
         "unreachable": "The server cannot be reached right now. Nothing was saved — please try again."
       }
     }
   },
   "deleteWithCosts": {
     "title": "Delete with its costs?",
-    "message_one": "“{{name}}” has {{count}} recorded cost and belongs to no trip that could take it over. Deleting removes it too.",
-    "message_other": "“{{name}}” has {{count}} recorded costs and belongs to no trip that could take them over. Deleting removes them too.",
+    "message_one": "“{{name}}” has {{count}} recorded cost and belongs to no journey that could take it over. Deleting removes it too.",
+    "message_other": "“{{name}}” has {{count}} recorded costs and belongs to no journey that could take them over. Deleting removes them too.",
     "confirm": "Delete with costs"
   }
 }

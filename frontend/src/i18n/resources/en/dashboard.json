@@ -197,7 +197,7 @@
       "lodging": "Lodging",
       "poi": "Places",
       "tour": "Tours",
-      "roadtrip": "Roadtrips",
+      "roadtrip": "Trips",
       "rail": "Rail",
       "rental": "Rental cars"
     },
@@ -210,7 +210,7 @@
     "poi": "Place",
     "lodging": "Stay",
     "tour": "Tour",
-    "roadtrip": "Roadtrip",
+    "roadtrip": "Trip",
     "rail": "Train journey",
     "rental": "Rental car"
   },
@@ -222,7 +222,7 @@
       "cruise": "Add cruise",
       "lodging": "Add stay",
       "poi": "Add place",
-      "roadtrip": "Add roadtrip",
+      "roadtrip": "Add trip",
       "rail": "Add train journey"
     }
   },

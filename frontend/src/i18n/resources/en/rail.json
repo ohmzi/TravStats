@@ -98,7 +98,7 @@
     "suggestionsFailed": "Suggestions from your earlier rides could not be loaded — the form works all the same."
   },
   "tracedLine": "along the line, Transitous",
-  "roadtripLine": "along the roadtrip route",
+  "roadtripLine": "along the trip route",
   "station": {
     "searchPlaceholder": "Search a station, e.g. Frankfurt Hbf",
     "searching": "Searching …",
@@ -154,7 +154,7 @@
     "loading": "Loading …",
     "loadError": "The journey could not be loaded.",
     "notFound": "This journey does not exist (any more).",
-    "convertedFromRoadtrip": "Converted from a roadtrip.",
+    "convertedFromRoadtrip": "Converted from a trip.",
     "convertedPlaceholder": "The departure was a placeholder (12:00 on the station's clock) and the arrival is unknown — please correct both from the ticket.",
     "back": "Back to the rail logbook",
     "distance": "Distance",
@@ -172,7 +172,7 @@
     "ticket": "Ticket",
     "route": "Route",
     "lineTraced": "Line: this train's route, taken from Transitous.",
-    "lineRoadtrip": "Line: brought over from the roadtrip — as planned, not from a timetable.",
+    "lineRoadtrip": "Line: brought over from the trip — as planned, not from a timetable.",
     "lineStraight": "Line: straight line between the stations — not the train's path.",
     "lineRouted": "Line: routed over the rail network (OpenRailRouting, OpenStreetMap) — the likely path, not from a timetable.",
     "lineRoutedDemo": "Line: routed over the rail network (BRouter, OpenStreetMap) — the likely path, not from a timetable."
@@ -212,7 +212,7 @@
     "journeysDesc": "completed rides, one per train",
     "kmAll": "Rail kilometres",
     "kmTraced": "{{km}} km along the track",
-    "kmRoadtrip": "{{km}} km along roadtrip routes",
+    "kmRoadtrip": "{{km}} km along trip routes",
     "kmTicket": "{{km}} km from the ticket",
     "kmStraight": "{{km}} km straight line (the real track is longer)",
     "kmUnmeasured_one": "{{count}} ride without a distance",
@@ -234,7 +234,7 @@
     "delayOver": "more than {{minutes}} min",
     "longest": "Longest ride",
     "sourceTraced": "along the track",
-    "sourceRoadtrip": "along the roadtrip route",
+    "sourceRoadtrip": "along the trip route",
     "sourceTicket": "from the ticket",
     "sourceStraight": "straight line",
     "byYear": "Rides per year",
@@ -256,7 +256,7 @@
   },
   "roadtripConversion": {
     "title": "Take over as train rides",
-    "offer": "This roadtrip has “Rail” as its vehicle — from before train journeys became an area of their own. You can take it over into the rail logbook: one train ride per section between two stations.",
+    "offer": "This trip has “Rail” as its vehicle — from before train journeys became an area of their own. You can take it over into the rail logbook: one train ride per section between two stations.",
     "action": "Take over as train ride",
     "loading": "Loading the preview …",
     "loadError": "The preview could not be loaded.",
@@ -271,14 +271,14 @@
       "stopMissing": "station missing",
       "notRail": "not by rail"
     },
-    "removeSection": "Delete the roadtrip afterwards",
+    "removeSection": "Delete the trip afterwards",
     "removeSectionHint": "Only possible when every section can be taken over.",
-    "removeSectionCostsHint": "Not possible: the roadtrip has recorded costs and belongs to no trip that could take them over.",
+    "removeSectionCostsHint": "Not possible: the trip has recorded costs and belongs to no journey that could take them over.",
     "confirm": "Take over",
     "done_one": "{{count}} train ride taken over.",
     "done_other": "{{count}} train rides taken over.",
     "nothingNew": "Every ride had already been taken over.",
-    "removed": "The roadtrip was deleted.",
+    "removed": "The trip was deleted.",
     "error": "Taking it over failed."
   },
   "geometryNotice": {
