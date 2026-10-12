@@ -162,12 +162,12 @@
   "statsTitle": "Stats",
   "unknownDate": "Unknown date",
   "trips": {
-    "noTrips": "No trips yet",
-    "label": "Trips",
+    "noTrips": "No journeys yet",
+    "label": "Journeys",
     "selectLabel": "Select journey",
     "flights_one": "flight",
     "flights_other": "flights",
-    "unnamed": "Unnamed Trip"
+    "unnamed": "Unnamed journey"
   },
   "tours": {
     "loading": "Loading tours …",
