@@ -86,12 +86,55 @@ function markDuplicates(photos: readonly PhotoPoint[]): void {
   }
 }
 
+/** A photo's own location — the only kind a later photo may borrow. */
+interface OwnLocation {
+  lat: number;
+  lon: number;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+}
+
+/**
+ * The owner's ruling (2026-10-12), verbatim: "whenever resyncing with immich
+ * when there is new picture with new geo location data, for the days pictures
+ * don't have location on them, connect them to location of day before". A
+ * photo without GPS of its own therefore takes — from the most recent located
+ * photo before it in the window — the coordinates and, where its own are
+ * null, the names, and joins the movement instead of counting as unlocated.
+ * Synthetic example: a 4 May fix in Northvale, a GPS-less "Lumen D40" shot on
+ * 5 May — the shot takes Northvale's location and names and clusters there
+ * with the fix. Only an own fix is a source, so a carried photo never passes
+ * a borrowed location on and never overwrites a located photo, and a photo
+ * before the window's first located one stays unlocated. Runs after
+ * `markDuplicates`, so a duplicate group's keeper stays the copy with the
+ * real fix.
+ */
+function carryLocations(photos: readonly PhotoPoint[]): void {
+  let donor: OwnLocation | null = null;
+  for (const p of photos) {
+    if (p.lat !== null && p.lon !== null && hasGps(p.lat, p.lon)) {
+      donor = { lat: p.lat, lon: p.lon, city: p.city, state: p.state, country: p.country };
+      continue;
+    }
+    if (donor === null) continue;
+    p.lat = donor.lat;
+    p.lon = donor.lon;
+    p.city = p.city ?? donor.city;
+    p.state = p.state ?? donor.state;
+    p.country = p.country ?? donor.country;
+    p.flags.located = true;
+    p.flags.locationCarried = true;
+  }
+}
+
 /**
  * Splits one fetch into the trip's photos and their context (§C.2). Assets
  * are excluded in this order: a partner's asset, then a hidden Live Photo
  * half, then the photo's own day. An asset with no owner id cannot be shown
  * to be the caller's, so it counts as a partner's: the album must never take
- * someone else's photo. Nothing it is given is changed.
+ * someone else's photo. The window's GPS-less photos then take the location
+ * before them (`carryLocations`). Nothing it is given is changed.
  */
 export function cleanAssets(
   photos: readonly PhotoPoint[],
@@ -104,6 +147,7 @@ export function cleanAssets(
     inFlight: 0,
     atSea: 0,
     unlocated: 0,
+    locationCarried: 0,
     dayGuessed: 0,
   };
   const inside: PhotoPoint[] = [];
@@ -117,15 +161,22 @@ export function cleanAssets(
       excluded.hiddenLivePart += 1;
       continue;
     }
-    const flags = { ...p.flags, located: hasGps(p.lat, p.lon), duplicate: false };
+    const flags = {
+      ...p.flags,
+      located: hasGps(p.lat, p.lon),
+      locationCarried: false,
+      duplicate: false,
+    };
     (inWindow(p.day, opts.window) ? inside : context).push({ ...p, flags });
   }
   inside.sort(byTime);
   context.sort(byTime);
   markDuplicates(inside);
   markDuplicates(context);
+  carryLocations(inside);
   for (const p of inside) {
     if (!p.flags.located) excluded.unlocated += 1;
+    if (p.flags.locationCarried) excluded.locationCarried += 1;
     if (p.flags.dayGuessed) excluded.dayGuessed += 1;
   }
   return { photos: inside, context, albumAssetIds: inside.map((p) => p.id), excluded };

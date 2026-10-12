@@ -299,6 +299,7 @@ export const draftSchema = registry.register(
           inFlight: z.number().int(),
           atSea: z.number().int(),
           unlocated: z.number().int(),
+          locationCarried: z.number().int(),
           dayGuessed: z.number().int(),
         }),
         truncated: z.boolean(),

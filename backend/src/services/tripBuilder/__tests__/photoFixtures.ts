@@ -37,6 +37,7 @@ export const NO_FLAGS: PhotoFlags = {
   dayGuessed: false,
   exifZoneOverridden: false,
   located: false,
+  locationCarried: false,
   duplicate: false,
   misdated: null,
   atSea: false,

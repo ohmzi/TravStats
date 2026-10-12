@@ -198,6 +198,7 @@ export function draft(
         inFlight: 0,
         atSea: 0,
         unlocated: 4,
+        locationCarried: 0,
         dayGuessed: 0,
       },
       truncated: false,

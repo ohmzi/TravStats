@@ -56,8 +56,14 @@ export interface PhotoFlags {
   dayGuessed: boolean;
   /** EXIF named a zone the GPS disagreed with; GPS won, and it is counted (§J). */
   exifZoneOverridden: boolean;
-  /** GPS present and not 0,0 (GPS_ZERO_EPSILON). */
+  /** A location to use: its own GPS (not 0,0, GPS_ZERO_EPSILON), or one carried forward. */
   located: boolean;
+  /**
+   * The location was carried: no GPS of its own, so it took the most recent
+   * located photo's before it, names included where its own were null
+   * (owner ruling 2026-10-12, clean.ts `carryLocations`).
+   */
+  locationCarried: boolean;
   /** Not the movement representative of its `duplicateId` (the first by tMs is). */
   duplicate: boolean;
   misdated: MisdatedReason | null;
@@ -106,19 +112,25 @@ export interface ExcludedCounts {
   misdated: number;
   inFlight: number;
   atSea: number;
+  /** In-window photos with no location at all: no fix of their own, no located photo before them. */
   unlocated: number;
+  /** In-window photos that took the most recent located photo's location (2026-10-12). */
+  locationCarried: number;
   /** In-window photos whose zone was borrowed. */
   dayGuessed: number;
 }
 
 export interface CleanResult {
-  /** Own, not hidden, S ≤ day ≤ E, by tMs; `located` and `duplicate` flags set. */
+  /** Own, not hidden, S ≤ day ≤ E, by tMs; `located`, `locationCarried` and `duplicate` flags set. */
   photos: PhotoPoint[];
   /** Own, not hidden, fetched but outside [S, E]: straggler neighbours, `movementOutsideDates`. */
   context: PhotoPoint[];
   /** The id of every photo in `photos`, IMAGE and VIDEO alike. SERVER-ONLY. */
   albumAssetIds: string[];
-  /** `partner`, `hiddenLivePart`, `unlocated`, `dayGuessed` counted; the rest 0 until marked. */
+  /**
+   * `partner`, `hiddenLivePart`, `unlocated`, `locationCarried` and `dayGuessed`
+   * counted; the rest 0 until marked.
+   */
   excluded: ExcludedCounts;
 }
 

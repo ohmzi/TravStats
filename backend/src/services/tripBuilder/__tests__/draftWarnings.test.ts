@@ -20,6 +20,7 @@ const STATS: DraftStats = {
     inFlight: 0,
     atSea: 0,
     unlocated: 0,
+    locationCarried: 0,
     dayGuessed: 0,
   },
   truncated: false,

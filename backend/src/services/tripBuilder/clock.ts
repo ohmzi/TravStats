@@ -306,6 +306,7 @@ function toPhoto(read: AssetRead, clocked: Clocked): PhotoPoint {
       dayGuessed: BORROWED.has(clocked.source),
       exifZoneOverridden: clocked.source === "gps" && exifDisagrees(read, clocked),
       located: false,
+      locationCarried: false,
       duplicate: false,
       misdated: null,
       atSea: false,

@@ -1040,3 +1040,7 @@ Minor items from all three reviews were folded into the sections above. These in
 - backend/src/routes/trips.ts
 - frontend/src/components/Trips/TripModal.tsx
 - backend/src/shared/tour/roadtrip.ts (with its frontend mirror, the model for the new `builderNightPlan.ts`)
+
+## Ruling 2026-10-12: a photo without GPS takes the location before it
+
+"Whenever resyncing with immich when there is new picture with new geo location data, for the days pictures don't have location on them, connect them to location of day before" (owner, 2026-10-12). So a scan's photo with no GPS of its own takes — from the most recent located photo before it in the window — the coordinates and, where its own are null, the city/state/country names, and joins the movement instead of counting as unlocated: one pass over the sorted window (`clean.ts` `carryLocations`, after duplicate marking). Only an own fix is a source, so a carried photo never passes a borrowed location on and never overwrites a located photo; a photo before the window's first located photo stays unlocated exactly as before. The statistics keep both facts: `excluded.unlocated` narrows to photos with no location at all, and the §F shape gains `excluded.locationCarried` (the review page lists both). Synthetic example: a 4 May fix in Northvale, a GPS-less "Lumen D40" shot on 5 May — the shot takes Northvale's location and names and clusters there with the fix.

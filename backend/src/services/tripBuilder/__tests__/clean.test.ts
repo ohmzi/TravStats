@@ -91,15 +91,16 @@ describe("cleanAssets", () => {
     expect(ids(result.photos)).toEqual(["east", "west"]);
   });
 
-  it("keeps a photo with no GPS or with 0,0 in the album, but not as located", () => {
+  it("keeps a photo with no GPS or with 0,0 in the album, unlocated until a fix precedes it", () => {
     const result = clean([
-      makePhoto({ id: "fix", local: "2031-05-03 12:00" }),
-      makePhoto({ id: "none", lat: null, lon: null, local: "2031-05-03 12:01" }),
-      makePhoto({ id: "zero", lat: 0, lon: 0, local: "2031-05-03 12:02" }),
+      makePhoto({ id: "none", lat: null, lon: null, local: "2031-05-03 11:59" }),
+      makePhoto({ id: "zero", lat: 0, lon: 0, local: "2031-05-03 12:00" }),
+      makePhoto({ id: "fix", local: "2031-05-03 12:01" }),
     ]);
-    expect(result.albumAssetIds).toEqual(["fix", "none", "zero"]);
-    expect(result.photos.map((p) => p.flags.located)).toEqual([true, false, false]);
+    expect(result.albumAssetIds).toEqual(["none", "zero", "fix"]);
+    expect(result.photos.map((p) => p.flags.located)).toEqual([false, false, true]);
     expect(result.excluded.unlocated).toBe(2);
+    expect(result.excluded.locationCarried).toBe(0);
   });
 
   it("keeps one movement photo per duplicate group, a located copy first", () => {
@@ -165,6 +166,7 @@ describe("cleanAssets", () => {
       inFlight: 0,
       atSea: 0,
       unlocated: 0,
+      locationCarried: 0,
       dayGuessed: 0,
     });
   });
