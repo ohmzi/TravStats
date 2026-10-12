@@ -94,7 +94,13 @@ export interface StoredStopover extends DerivedStopover {
 export interface StopoverPlan {
   /** The draft stopover's key, `<inFlightId>#<outFlightId>`. */
   key: string;
-  /** The trip's name: `StoredStopover.title`, the roadtrip's and its album's one string. */
+  /**
+   * The trip's name: `StoredStopover.title`, or — when the review renamed the
+   * journey before committing — the title the same naming pass
+   * (`roadtripAreaNames`) mints for the stopover under the target name
+   * (`commitPlan.ts` `renamedStopoverTitles`, review finding N1). The
+   * roadtrip's and its album's one string either way.
+   */
   name: string;
   /** The stopover day (`YYYY-MM-DD`, trip zone). */
   day: Day;

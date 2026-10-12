@@ -66,6 +66,11 @@ const body = (over: Partial<CommitBody> = {}): CommitBody => ({ ...fixtureBody([
 const toggled = (roadtrip: boolean, album: boolean): Partial<CommitBody> => ({
   stopovers: [{ key: STOPOVER_KEY, roadtrip, album }],
 });
+/** The review renamed the journey: the body's target carries the new name, the area the page's mirror mints for it. */
+const renamed = (name: string, areaName = `${name} · Northvale`): Partial<CommitBody> => ({
+  target: { kind: "new", trip: { name } },
+  areas: fixtureBody([]).areas.map((area) => ({ ...area, name: areaName })),
+});
 const refusal = async (promise: Promise<unknown>) => {
   try {
     await promise;
@@ -115,6 +120,44 @@ describe("prepareCommit and the stopovers", () => {
       name: plan.stopovers?.[0].name,
       assetIds: ["photo-s1", "photo-s2", "photo-s3"],
     });
+    expect(plan.stopovers?.[0].album?.name).toBe("Northvale loop · Eastport");
+  });
+
+  it("re-mints the row and its album from the name the review committed under", async () => {
+    // The scan named the stopover after the journey it saw ("Northvale loop");
+    // the review renamed the journey, and the area followed it. The stopover row
+    // and its album must follow too, through the same naming pass (finding N1).
+    const plan = await prepareCommit(
+      USER,
+      draft(),
+      body({ ...renamed("Westshire circuit"), ...toggled(true, true) })
+    );
+    expect(plan.stopovers?.[0].name).toBe("Westshire circuit · Eastport");
+    expect(plan.stopovers?.[0].album?.name).toBe("Westshire circuit · Eastport");
+  });
+
+  it("keeps a re-minted stopover off a name the commit is already writing", async () => {
+    // The user named the area by hand — on the very name the stopover's own city
+    // would mint — so the pass's clash handling must move the stopover aside.
+    const plan = await prepareCommit(
+      USER,
+      draft(),
+      body({
+        ...renamed("Westshire circuit", "Westshire circuit · Eastport"),
+        ...toggled(true, true),
+      })
+    );
+    expect(plan.stopovers?.[0].name).toBe("Westshire circuit · Eastport (4 May)");
+    expect(plan.stopovers?.[0].album?.name).toBe("Westshire circuit · Eastport (4 May)");
+  });
+
+  it("keeps the scan-time title when the committed name did not change", async () => {
+    // The area commits as timeline stops, so a re-mint over the written trips
+    // alone would collapse the stopover to the bare journey name. The name did
+    // not change, so the stored title stands (today's behaviour, unchanged).
+    const stops = [{ ...fixtureBody([]).areas[0], as: "stops" as const }];
+    const plan = await prepareCommit(USER, draft(), body({ areas: stops, ...toggled(true, true) }));
+    expect(plan.stopovers?.[0].name).toBe("Northvale loop · Eastport");
     expect(plan.stopovers?.[0].album?.name).toBe("Northvale loop · Eastport");
   });
 

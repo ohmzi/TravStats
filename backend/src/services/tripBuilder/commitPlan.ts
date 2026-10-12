@@ -22,6 +22,7 @@ import {
   NIGHT_UNKNOWN,
   deriveStationRows,
   nightsOf,
+  roadtripAreaNames,
   rowLegModes,
   validateNightPlan,
   type NightPlanArea,
@@ -281,12 +282,15 @@ function stopPlans(area: CommitArea): StopPlan[] {
  * derived rows go through `deriveStationRows` with NO nights — a stopover is
  * hours, its stations never enter the night plan — and then the same
  * `stationsSchema` the areas use. The album carries the stored draft's own
- * photo ids; the request never names an asset.
+ * photo ids; the request never names an asset. `name` is the row's and its
+ * album's one string, minted by `renamedStopoverTitles` when the review
+ * renamed the journey and the stored title otherwise.
  */
 function stopoverPlan(
   stopover: StoredStopover,
   toggled: CommitBody["stopovers"][number],
-  index: number
+  index: number,
+  name: string
 ): StopoverPlan {
   const rows = deriveStationRows(
     stopover.stations.map((s) => ({
@@ -322,7 +326,7 @@ function stopoverPlan(
   }
   return {
     key: stopover.key,
-    name: stopover.title,
+    name,
     day: stopover.day,
     stations: parsed.data.stations,
     // The scan's legs, in station-row order — the same conversion the areas use:
@@ -332,8 +336,52 @@ function stopoverPlan(
       stopover.legs.map((leg) => leg.mode),
       rows
     ),
-    album: toggled.album ? { name: stopover.title, assetIds: [...stopover.photoIds] } : null,
+    album: toggled.album ? { name, assetIds: [...stopover.photoIds] } : null,
   };
+}
+
+/**
+ * The titles the toggled stopovers write when the review renamed the journey
+ * between the scan and the commit (review finding N1). The stored title was
+ * the scan's one naming pass under the scan's name, and the review sends only
+ * switches — so the pass is asked again (`roadtripAreaNames`, the same rule
+ * the area names and the scan use), over the trips the commit is writing: the
+ * roadtrip-kind areas and the toggled stopovers, in travel order, with the
+ * names the commit is writing for the areas as its clash pool — a name the
+ * user typed (or one the review minted) is a name a stopover must not land on.
+ * Null when the name did not change: the stored title already is the pass's
+ * answer, and nothing moves.
+ */
+function renamedStopoverTitles(
+  draft: StoredDraft,
+  body: CommitBody,
+  known: ReadonlyMap<string, DraftArea>,
+  target: CommitTargetPlan
+): Map<string, string> | null {
+  // The trip's name at commit, exactly as the write reads it (`commit.ts`).
+  const targetName = target.kind === "new" ? target.trip.name : target.tripName;
+  if (targetName === draft.input.name) return null;
+  const writing = body.areas.filter((area) => area.as === "roadtrip");
+  const toggled = body.stopovers.filter((stopover) => stopover.roadtrip);
+  const offered = new Map(draft.stopovers.map((stopover) => [stopover.key, stopover] as const));
+  const inputs = [
+    ...writing.flatMap((area) => {
+      const draftArea = known.get(area.key);
+      return draftArea === undefined
+        ? []
+        : [{ key: area.key, mainCity: draftArea.mainCity, startDay: draftArea.startDay }];
+    }),
+    ...toggled.flatMap((stopover) => {
+      const stored = offered.get(stopover.key);
+      return stored === undefined
+        ? []
+        : [{ key: stored.key, mainCity: stored.city, startDay: stored.day }];
+    }),
+  ].sort((a, b) => (a.startDay < b.startDay ? -1 : a.startDay > b.startDay ? 1 : 0));
+  const names = roadtripAreaNames(inputs, targetName, new Set(writing.map((area) => area.name)));
+  return new Map(
+    toggled.flatMap(({ key }) => (names[key] === undefined ? [] : [[key, names[key]] as const]))
+  );
 }
 
 /**
@@ -341,15 +389,23 @@ function stopoverPlan(
  * nothing: the review sends only toggled-on candidates (spec §5.1), and a
  * skipped switch is not a write.
  */
-function stopoverPlans(draft: StoredDraft, body: CommitBody): StopoverPlan[] {
+function stopoverPlans(
+  draft: StoredDraft,
+  body: CommitBody,
+  known: ReadonlyMap<string, DraftArea>,
+  target: CommitTargetPlan
+): StopoverPlan[] {
   const offered = new Map(draft.stopovers.map((stopover) => [stopover.key, stopover] as const));
+  const renamed = renamedStopoverTitles(draft, body, known, target);
   const plans: StopoverPlan[] = [];
   body.stopovers.forEach((toggled, index) => {
     if (!toggled.roadtrip) return;
     const stopover = offered.get(toggled.key);
     // `assertOffered` has refused a key the draft did not name; this is its plan-side twin.
     if (stopover === undefined) throw mismatch("stopovers");
-    plans.push(stopoverPlan(stopover, toggled, index));
+    plans.push(
+      stopoverPlan(stopover, toggled, index, renamed?.get(stopover.key) ?? stopover.title)
+    );
   });
   return plans;
 }
@@ -395,7 +451,7 @@ export async function prepareCommit(
       return album === undefined ? planned : { ...planned, album };
     });
   const stops = body.areas.filter((a) => a.as === "stops").flatMap(stopPlans);
-  const stopovers = stopoverPlans(draft, body);
+  const stopovers = stopoverPlans(draft, body, known, target);
   const unknownNights = nightsOf(body.window).filter((night) => {
     const answer = body.nights[night];
     return answer === undefined || answer === NIGHT_UNKNOWN;
