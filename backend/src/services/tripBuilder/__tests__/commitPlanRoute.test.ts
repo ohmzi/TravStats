@@ -2,20 +2,43 @@
  * The route-scoped commit (owner request 2026-10-12): a trip-side re-sync writes
  * the one roadtrip and its album alone. Pinned here: the plan's shape (nothing
  * of the journey moves), the cross-row guard, the staleness semantics the
- * journey-wide flow has, and a write that leaves the other roadtrip, the track
- * rows and every journey field byte-identical.
+ * journey-wide flow has, and a whole-job run that leaves every journey field,
+ * the other roadtrip and its stations and legs, the track rows and the album
+ * links byte-identical — the journey's DERIVED status alone excepted, the one
+ * field phase C's `recomputeTripStatus` may write (finding NEW-2).
  */
 jest.mock("../../domainVisibility", () => ({ loadVisibleDomains: jest.fn() }));
+// Phase D's album write is mocked like `commit.job.test.ts` does: the pin runs
+// the whole job (phase B, the recompute of phase C, the album step's call) but
+// the album service's own DB writes are its own suites' business.
+jest.mock("../albumWrite", () => ({
+  ...jest.requireActual("../albumWrite"),
+  preflightAlbum: jest.fn(),
+  writeTripAlbum: jest.fn(),
+}));
+jest.mock("../albumResync", () => ({
+  ...jest.requireActual("../albumResync"),
+  resyncTripAlbum: jest.fn(),
+}));
+jest.mock("../../tour/routing/resolveProvider", () => ({
+  resolveRouteProvider: jest.fn(),
+  describeRoutingAvailability: jest.fn(),
+}));
 
 import { prisma } from "../../../db";
 import type { CommitBody } from "../../../schemas/tripBuilder";
+import { setClockForTests } from "../../../shared/time/clock";
 import { loadVisibleDomains } from "../../domainVisibility";
-import { writeCommit } from "../commit";
+import { resolveRouteProvider } from "../../tour/routing/resolveProvider";
+import { resyncTripAlbum } from "../albumResync";
+import { preflightAlbum, writeTripAlbum } from "../albumWrite";
+import { runCommitJob, writeCommit } from "../commit";
 import { prepareCommit } from "../commitPlan";
 import { annotateDraftForExisting } from "../existingDraft";
 import { loadExistingState } from "../existingState";
 import type { StoredDraft } from "../types";
 import {
+  addRoutedLeg,
   addStation,
   createExistingFixture,
   dropFixtureUser,
@@ -25,6 +48,10 @@ import {
 import { area, derivedStations, draft } from "./existingDraftFixture";
 
 const mockDomains = loadVisibleDomains as jest.Mock;
+const mockPreflight = preflightAlbum as jest.Mock;
+const mockWriteAlbum = writeTripAlbum as jest.Mock;
+const mockResync = resyncTripAlbum as jest.Mock;
+const mockProvider = resolveRouteProvider as jest.Mock;
 
 // Synthetic fixtures only (public repository): invented places, shifted years.
 const USER = "m7k-route-scope";
@@ -57,22 +84,50 @@ describe("a route-scoped commit", () => {
       },
     });
     otherRouteId = other.id;
-    await addStation(otherRouteId, 0, {
+    const bay = await addStation(otherRouteId, 0, {
       title: "Selby Bay",
       at: BAY,
       startDay: "2031-05-15",
       endDay: "2031-05-17",
     });
-    await addStation(otherRouteId, 1, {
+    const dunes = await addStation(otherRouteId, 1, {
       title: "Selby Bay Dunes",
       at: { lat: -44.15, lon: 170.05 },
       startDay: "2031-05-17",
       endDay: "2031-05-18",
     });
+    // Its own routed leg: the pin proves another trip's legs stay put too.
+    await addRoutedLeg(otherRouteId, bay, dunes, 12.3);
   });
   afterAll(async () => {
     await dropFixtureUser(USER);
   });
+
+  /** A throwaway roadtrip of the journey, one station, added and removed around one call. */
+  async function withDecoyRoute<T>(
+    name: string,
+    station: { title: string; at: { lat: number; lon: number }; startDay: string; endDay: string },
+    run: (decoy: { routeId: string; stationId: string }) => Promise<T>
+  ): Promise<T> {
+    const route = await prisma.tripRoute.create({
+      data: {
+        userId: fx.userId,
+        tripId: fx.tripId,
+        name,
+        mode: "road",
+        kind: "roadtrip",
+        vehicle: "car",
+        orderIdx: 2,
+      },
+    });
+    try {
+      const stationId = await addStation(route.id, 0, station);
+      return await run({ routeId: route.id, stationId });
+    } finally {
+      await prisma.tripStop.deleteMany({ where: { routeId: route.id } });
+      await prisma.tripRoute.delete({ where: { id: route.id } });
+    }
+  }
 
   /** The stored draft a trip-side scan would leave: one area, annotated against the target route. */
   async function scopedDraft(listedFlights: readonly string[] = []): Promise<StoredDraft> {
@@ -175,7 +230,24 @@ describe("a route-scoped commit", () => {
   }
 
   beforeEach(() => {
+    jest.clearAllMocks();
     mockDomains.mockResolvedValue(["roadtrip"]);
+    // The whole job's Immich ends: the preflight says yes, the scoped album
+    // re-sync is the mock (its own write is `commit.job.test.ts`'s pin), and
+    // routing answers "no provider", so the pin touches no network and no
+    // album row.
+    mockPreflight.mockResolvedValue({ ok: true, client: {}, immichUserId: "immich-user-1" });
+    mockResync.mockResolvedValue({
+      status: "linked",
+      immichAlbumId: "album-1",
+      albumName: "Northvale loop",
+      reused: true,
+      added: 0,
+      alreadyIn: 0,
+      refused: 0,
+      removed: 0,
+    });
+    mockProvider.mockResolvedValue(null);
   });
 
   const planFor = async (over: Partial<CommitBody> = {}) =>
@@ -234,33 +306,62 @@ describe("a route-scoped commit", () => {
   });
 
   it("refuses when the scanned stops also stand on another stored roadtrip (never writes across rows)", async () => {
-    const camp = await prisma.tripRoute.create({
-      data: {
-        userId: fx.userId,
-        tripId: fx.tripId,
-        name: "Southbridge camp",
-        mode: "road",
-        kind: "roadtrip",
-        vehicle: "car",
-        orderIdx: 2,
-      },
-    });
-    await addStation(camp.id, 0, {
-      title: "Southbridge",
-      at: CAMP,
-      startDay: "2031-05-05",
-      endDay: "2031-05-06",
-    });
-    try {
-      await expect(planFor()).rejects.toMatchObject({
-        statusCode: 409,
-        code: "ROUTE_SCOPE_CONFLICT",
-      });
-    } finally {
-      // The other tests of this file share the fixture: the camp row goes.
-      await prisma.tripStop.deleteMany({ where: { routeId: camp.id } });
-      await prisma.tripRoute.delete({ where: { id: camp.id } });
-    }
+    await withDecoyRoute(
+      "Southbridge camp",
+      { title: "Southbridge", at: CAMP, startDay: "2031-05-05", endDay: "2031-05-06" },
+      async () => {
+        await expect(planFor()).rejects.toMatchObject({
+          statusCode: 409,
+          code: "ROUTE_SCOPE_CONFLICT",
+        });
+      }
+    );
+  });
+
+  it("syncs when another trip of the journey repeats a city's title on other dates", async () => {
+    // The owner's journeys split into trips that repeat hub cities (finding
+    // NEW-1): a "Northvale" stand on a June trip of the same journey is the
+    // same place on other days, not a write across rows. The trip syncs and
+    // only its own row changes; the other trip's row and station are
+    // byte-identical.
+    await withDecoyRoute(
+      "Northvale again",
+      { title: "Northvale", at: FX.northvale, startDay: "2031-06-01", endDay: "2031-06-02" },
+      async (decoy) => {
+        const plan = await planFor();
+        expect(plan.existing?.roadtrips.map((w) => w.roadtripId)).toEqual([fx.roadtripId]);
+        const before = {
+          row: await prisma.tripRoute.findUniqueOrThrow({ where: { id: decoy.routeId } }),
+          station: await prisma.tripStop.findUniqueOrThrow({ where: { id: decoy.stationId } }),
+        };
+
+        const written = await writeCommit(plan);
+
+        expect(written.roadtrips).toHaveLength(1);
+        expect(written.roadtrips[0]).toMatchObject({ id: fx.roadtripId, stations: 5 });
+        expect(await prisma.tripRoute.findUniqueOrThrow({ where: { id: decoy.routeId } })).toEqual(
+          before.row
+        );
+        expect(await prisma.tripStop.findUniqueOrThrow({ where: { id: decoy.stationId } })).toEqual(
+          before.station
+        );
+      }
+    );
+  });
+
+  it("refuses when the other trip's station only touches the scanned days at one day", async () => {
+    // The boundary of `daysOverlap`: a stored span ENDING on the derived
+    // span's first day shares that day, so it still stands on this write.
+    await withDecoyRoute(
+      "Northvale touch",
+      { title: "Northvale", at: FX.northvale, startDay: "2031-05-01", endDay: "2031-05-02" },
+      async () => {
+        await expect(planFor()).rejects.toMatchObject({
+          statusCode: 409,
+          code: "ROUTE_SCOPE_CONFLICT",
+        });
+      }
+    );
   });
 
   it("refuses a route renamed since the scan, like the journey-wide flow", async () => {
@@ -282,8 +383,9 @@ describe("a route-scoped commit", () => {
     }
   });
 
-  it("writes that roadtrip alone: the other row and every journey field stay byte-identical", async () => {
-    const plan = await planFor();
+  it("runs the whole commit: the journey's derived status is the one field that moves", async () => {
+    const draftForPlan = await scopedDraft();
+    const plan = await prepareCommit(fx.userId, draftForPlan, body());
     const before = {
       trip: await prisma.trip.findUniqueOrThrow({ where: { id: fx.tripId } }),
       otherRoute: await prisma.tripRoute.findUniqueOrThrow({ where: { id: otherRouteId } }),
@@ -291,26 +393,57 @@ describe("a route-scoped commit", () => {
         where: { routeId: otherRouteId },
         orderBy: { routeOrderIdx: "asc" },
       }),
+      otherLegs: await prisma.tripRouteLeg.findMany({
+        where: { routeId: otherRouteId },
+        orderBy: { id: "asc" },
+      }),
       timelineStops: await prisma.tripStop.findMany({
         where: { tripId: fx.tripId, routeId: null },
         orderBy: { orderIdx: "asc" },
       }),
+      flight: await prisma.flight.findUniqueOrThrow({ where: { id: fx.flightId } }),
       albums: await prisma.tripImmichAlbum.findMany({ where: { tripId: fx.tripId } }),
     };
 
-    const written = await writeCommit(plan);
+    // Mid-trip, so phase C's `recomputeTripStatus` really writes: the trip's
+    // held days derive `in_progress` where the stored row says `planned`.
+    setClockForTests("2031-05-05T00:00:00Z");
+    const written = await runCommitJob(draftForPlan, plan).finally(() => setClockForTests(null));
 
+    if (written.status !== "committed") throw new Error("the commit did not write");
     // The target roadtrip DID update (Southbridge is new; its diff says so).
     expect(written.roadtrips).toHaveLength(1);
     expect(written.roadtrips[0]).toMatchObject({ id: fx.roadtripId, stations: 5 });
     expect(written.roadtrips[0].diff).toMatchObject({ added: 1, kept: 1 });
-    expect(written.stopsDiff).toBeUndefined();
+    expect(written.stops).toBeUndefined();
+    // Phase D ran for the scoped target — the trip's own album, by name,
+    // add-only — through the mock, so the whole job really is the path here,
+    // and no new album was written.
+    expect(mockResync).toHaveBeenCalledWith(
+      expect.objectContaining({ tripId: fx.tripId, named: true, removeOutside: false })
+    );
+    expect(mockWriteAlbum).not.toHaveBeenCalled();
 
     const strip = <T extends Record<string, unknown>>(row: T): Record<string, unknown> =>
       Object.fromEntries(Object.entries(row).sort(([a], [b]) => a.localeCompare(b)));
 
+    // The ONE documented exception (finding NEW-2): phase C's recompute writes
+    // the journey's DERIVED status when the trip's held days derive another one
+    // — here `planned` → `in_progress` (the clock is pinned mid-trip) — and the
+    // `updatedAt` of that same row write moves with it. The derived status is a
+    // reflection of the trip's own rows, not a journey edit. Every other field
+    // of the journey row — name, colour, dates, zones, countries, the summary
+    // trio, tags, companions, notes, description, category — is byte-identical,
+    // as are the other roadtrip (row, stations, legs), the track rows, the
+    // flight and the album links.
     const tripRow = await prisma.trip.findUniqueOrThrow({ where: { id: fx.tripId } });
-    expect(strip(tripRow)).toEqual(strip(before.trip));
+    const { status, updatedAt, ...tripRest } = tripRow;
+    const { status: beforeStatus, updatedAt: beforeUpdatedAt, ...beforeTripRest } = before.trip;
+    expect(strip(tripRest)).toEqual(strip(beforeTripRest));
+    expect(beforeStatus).toBe("planned");
+    expect(status).toBe("in_progress");
+    expect(updatedAt).not.toEqual(beforeUpdatedAt);
+
     const otherRoute = await prisma.tripRoute.findUniqueOrThrow({ where: { id: otherRouteId } });
     expect(strip(otherRoute)).toEqual(strip(before.otherRoute));
     const otherStations = await prisma.tripStop.findMany({
@@ -318,11 +451,19 @@ describe("a route-scoped commit", () => {
       orderBy: { routeOrderIdx: "asc" },
     });
     expect(otherStations.map(strip)).toEqual(before.otherStations.map(strip));
+    const otherLegs = await prisma.tripRouteLeg.findMany({
+      where: { routeId: otherRouteId },
+      orderBy: { id: "asc" },
+    });
+    expect(otherLegs.map(strip)).toEqual(before.otherLegs.map(strip));
     const timelineStops = await prisma.tripStop.findMany({
       where: { tripId: fx.tripId, routeId: null },
       orderBy: { orderIdx: "asc" },
     });
     expect(timelineStops.map(strip)).toEqual(before.timelineStops.map(strip));
+    expect(strip(await prisma.flight.findUniqueOrThrow({ where: { id: fx.flightId } }))).toEqual(
+      strip(before.flight)
+    );
     const albums = await prisma.tripImmichAlbum.findMany({ where: { tripId: fx.tripId } });
     expect(albums.map(strip)).toEqual(before.albums.map(strip));
   });

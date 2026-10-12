@@ -43,12 +43,14 @@ import type {
   StoredExisting,
 } from "./existingTypes";
 import {
+  daysOverlap,
   groundSpan,
   interleaveKept,
   matchStatus,
   reconcileStations,
   stopAsStation,
   type DerivedStation,
+  type ReconciledStation,
 } from "./reconcile";
 import type { CommitPlan, DraftArea, StoredDraft, StopPlan } from "./types";
 
@@ -435,6 +437,13 @@ function buildStopWrites(
  * The refusal a route-scoped commit owes when the scanned stations would stand
  * on ANOTHER stored roadtrip of the journey as well: the materials are the
  * journey's, not this trip's, and writing them here would cross rows.
+ *
+ * "Stand on as well" is the reconciliation's DAYS OVERLAP, not any match: the
+ * match also pairs equal titles on other dates (`reconcileStations`), and the
+ * owner's journeys repeat hub cities across trips (a "Muscat" stood on two
+ * trips), where the other trip's station is that trip's own stay. A title-only
+ * match in another date range is exactly that and never refuses; a pair whose
+ * days touch, one day included, is this write's too and does.
  */
 function assertNoCrossRowWrite(
   window: { startDay: string; endDay: string },
@@ -452,10 +461,21 @@ function assertNoCrossRowWrite(
     endDate: station.lastDay,
     slept: false,
   }));
+  // `reconcileStations` answers one entry per input station, in order, and the
+  // match carries only the stored side: the derived days come from the input.
+  const crossesRows = (rec: ReconciledStation, index: number): boolean => {
+    const source = derived[index];
+    return (
+      rec.existing !== undefined &&
+      daysOverlap(source.startDate, source.endDate, rec.existing.startDate, rec.existing.endDate)
+    );
+  };
   for (const other of state.roadtrips) {
     if (other.id === routeId) continue;
+    // The window still shapes the reconciliation's notSeen list; the matches
+    // this guard reads never consult it.
     const rec = reconcileStations(derived, other.stations, window);
-    if (rec.derived.some((d) => d.existing !== undefined)) {
+    if (rec.derived.some(crossesRows)) {
       throw new AppError(
         "The scanned stops belong to another trip of the journey as well; nothing was saved",
         409,

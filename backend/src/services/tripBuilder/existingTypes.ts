@@ -246,7 +246,8 @@ export interface ExistingCommitPlan {
   /**
    * A route-scoped re-sync (owner request 2026-10-12): only the roadtrip writes.
    * The journey's own fields, its other roadtrips and its timeline stops stay
-   * byte-identical, so neither the stop guard nor a stop write runs.
+   * byte-identical — bar the derived `status` phase C recomputes from the
+   * trip's rows — so neither the stop guard nor a stop write runs.
    */
   scoped?: boolean;
   /**

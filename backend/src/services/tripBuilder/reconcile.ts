@@ -93,7 +93,12 @@ function sameTitle(a: string, b: string): boolean {
   return left !== "" && left === b.trim().toLowerCase();
 }
 
-function daysOverlap(
+/**
+ * Do the two spans share a day? Spans touching at one day count as sharing it,
+ * and a span dated at only one end is read as the day it names; a span with no
+ * day at all never overlaps.
+ */
+export function daysOverlap(
   aStart: Day | null,
   aEnd: Day | null,
   bStart: Day | null,

@@ -55,9 +55,10 @@ async function writeTrip(
   if (plan.target.kind !== "existing")
     throw new Error("A new-trip commit was prepared without a trip");
   const { tripId, applyWindow, countries } = plan.target;
-  // A route-scoped commit writes the roadtrip alone: the journey row is not
-  // touched, so its fields (and its `updatedAt`) stay byte-identical (owner
-  // request 2026-10-12).
+  // A route-scoped commit writes the roadtrip alone: this phase leaves the
+  // journey row untouched, its `updatedAt` included (owner request 2026-10-12).
+  // Phase C's recompute of the journey's derived status is the one place a
+  // scoped run reflects the trip back onto the journey.
   if (plan.target.routeId !== undefined) return tripId;
   const stored = await tx.trip.findFirstOrThrow({
     where: { id: tripId, userId: plan.userId },
