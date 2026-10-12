@@ -42,6 +42,24 @@ export function apiErrorMessage(err: unknown): string | null {
 }
 
 /**
+ * The prose an `AppError` body carries in `error` (the CURRENT middleware
+ * convention, `middleware/errorHandler.ts`'s final `res.json`), or `null`
+ * when the body has none.
+ *
+ * Distinct from `apiErrorMessage` above, which reads the OLDER `message`
+ * field: on today's bodies it finds nothing, and a caller that needs the
+ * server's own sentence (the tour editor's leg handlers do) would silently
+ * fall back to its generic copy. Distinct from `apiErrorCode` too, which
+ * reads the same field under the yet older convention where it held a
+ * SCREAMING_SNAKE code; this one is for callers that already know their
+ * endpoint answers with prose.
+ */
+export function apiErrorProse(err: unknown): string | null {
+  const data = (err as { response?: { data?: { error?: unknown } } } | undefined)?.response?.data;
+  return typeof data?.error === "string" ? data.error : null;
+}
+
+/**
  * The `code` field — the backend's closed `ApiErrorCode` union, sent beside
  * the prose in `error`.
  *

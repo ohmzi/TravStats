@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { apiErrorProse } from "../lib/apiError";
 import { saveErrorMessage } from "../lib/saveErrorMessage";
 import { TRACK_ERROR_KEYS } from "../lib/trackErrorKeys";
 
@@ -22,6 +23,7 @@ import TourTrackList from "../components/Trips/TourTrackList";
 import { useTranslation } from "../hooks/useTranslation";
 import { useTourTracks } from "../hooks/useTourTracks";
 import { useTourTrackCoverage } from "../hooks/useTourTrackCoverage";
+import { useTourLegActions } from "../hooks/useTourLegActions";
 import { tripsApi } from "../lib/api";
 import { toursApi, type TourPointInput } from "../lib/api/tours";
 import { trackArchiveApi } from "../lib/api/trackArchive";
@@ -49,27 +51,6 @@ interface StopWithRoute extends TripStop {
 
 function formatKm(value: number): string {
   return value.toLocaleString("de-DE", { maximumFractionDigits: 0 });
-}
-
-/** Pull the backend's plain-text `{ error: "..." }` body out of a failed request. */
-function apiErrorMessage(error: unknown): string | null {
-  if (typeof error !== "object" || error === null) return null;
-  const response = (error as { response?: { data?: { error?: unknown } } }).response;
-  const message = response?.data?.error;
-  return typeof message === "string" ? message : null;
-}
-
-/**
- * The HTTP status of a failed request, if this is an axios-shaped error.
- * Used to tell the routing endpoint's deliberate 409 ("instance not
- * equipped to route at all") apart from every other failure — a network
- * drop, a 404 for a leg that no longer exists, a 500. Only the 409 gets its
- * own message; everything else falls back to the generic routing error.
- */
-function apiErrorStatus(error: unknown): number | null {
-  if (typeof error !== "object" || error === null) return null;
-  const status = (error as { response?: { status?: unknown } }).response?.status;
-  return typeof status === "number" ? status : null;
 }
 
 /**
@@ -114,7 +95,6 @@ export default function TripRouteEditorPage(): JSX.Element {
   // guessed `true`) so a slow/failed load never briefly offers a control
   // that would just 409.
   const [routingAvailable, setRoutingAvailable] = useState(false);
-  const [routingAllInProgress, setRoutingAllInProgress] = useState(false);
   const [loading, setLoading] = useState(true);
   // `null` = loaded fine so far; a value distinguishes "record is gone"
   // (404) from "could not ask" (anything else) — same two-valued
@@ -355,22 +335,7 @@ export default function TripRouteEditorPage(): JSX.Element {
           // concurrent claim (409) can only be found out by asking — both
           // must read as an actual message, never a switch that silently
           // flips back with no explanation.
-          addToast("error", apiErrorMessage(err) ?? t("trips:tours.assignError"));
-        }
-      })();
-    },
-    [id, routeId, load, addToast, t]
-  );
-
-  const handleSetLegSource = useCallback(
-    (leg: TourLeg, source: "straight" | "drawn"): void => {
-      if (!routeId) return;
-      void (async (): Promise<void> => {
-        try {
-          await toursApi.setLeg(id, routeId, leg.fromStopId, leg.toStopId, { source });
-          await load();
-        } catch (err) {
-          addToast("error", apiErrorMessage(err) ?? t("trips:tours.legError"));
+          addToast("error", apiErrorProse(err) ?? t("trips:tours.assignError"));
         }
       })();
     },
@@ -378,135 +343,21 @@ export default function TripRouteEditorPage(): JSX.Element {
   );
 
   /**
-   * Routes ONE leg through the configured provider. The 409 "no provider
-   * configured" answer gets its OWN message — a generic
-   * "could not be changed" toast would read as a validation failure, but
-   * this is the instance not being equipped to answer at all, which
-   * `TourLegList` already prevents by disabling the option in the common
-   * case; this still guards the request directly (a second tab could have
-   * unconfigured routing between load and click). A 200 with a low-confidence
-   * fallback is not an error — `load()` picks up the honest result (source
-   * reverts to "straight") and a distinct info toast says so, rather than
-   * silently looking like nothing happened.
-   *
-   * These leg handlers need a section, not a trip: a standalone tour or
-   * roadtrip has no trip id, and until 2026-09-26 an `!id` guard made its
-   * "route" buttons return before sending anything.
+   * Every leg action of this page — source, single-leg routing, the batch,
+   * clearing, track adoption and the mode correction (owner request
+   * 2026-10-12) — lives in `useTourLegActions`, split out the same way
+   * `useTourTracks` already split out the recordings, to keep this page
+   * under its file-size ceiling. Its two in-flight flags come back with
+   * them: `routingAllInProgress` for the batch button, and the id of the leg
+   * whose mode write is in flight, so only THAT row's control waits.
    */
-  const handleRouteLeg = useCallback(
-    (leg: TourLeg): void => {
-      if (!routeId) return;
-      void (async (): Promise<void> => {
-        try {
-          const { fallbackReason } = await toursApi.routeLeg(
-            id,
-            routeId,
-            leg.fromStopId,
-            leg.toStopId
-          );
-          await load();
-          if (fallbackReason !== null) {
-            addToast(
-              "info",
-              `${t("trips:tours.routing.fallback")} ${t(`trips:tours.routing.reason.${fallbackReason}`)}`
-            );
-          }
-        } catch (err) {
-          if (apiErrorStatus(err) === 409) {
-            addToast("error", t("trips:tours.routing.notConfigured"));
-          } else {
-            addToast("error", apiErrorMessage(err) ?? t("trips:tours.routing.error"));
-          }
-        }
-      })();
-    },
-    [id, routeId, load, addToast, t]
-  );
-
-  /**
-   * Routes every routable leg of the section in one call. Never 409s (see
-   * `toursApi.routeAll`'s own doc comment), so the only failure path here
-   * is a genuine request error (network, 500). On success, `load()` is
-   * re-run rather than applying `result.legs` directly — routing can change
-   * `route.distanceKm`/`drivenKm` (the header) and the drawn line
-   * (`geometry`, fetched separately for the map), so only a full reload
-   * keeps every part of the page honest. The counts are then reported
-   * verbatim — never a blanket "done!" toast, which would hide a batch
-   * that quietly routed zero legs because no provider is configured.
-   */
-  const handleRouteAll = useCallback((): void => {
-    if (!routeId) return;
-    setRoutingAllInProgress(true);
-    void (async (): Promise<void> => {
-      try {
-        const result = await toursApi.routeAll(id, routeId);
-        await load();
-        if (!mountedRef.current) return;
-        addToast(
-          "info",
-          result.fallbackCount > 0
-            ? t("trips:tours.routing.resultFallback", {
-                routed: result.routedCount,
-                fallback: result.fallbackCount,
-                skipped: result.skippedCount,
-                reason: result.fallbackReason
-                  ? t(`trips:tours.routing.reason.${result.fallbackReason}`)
-                  : "",
-              })
-            : t("trips:tours.routing.result", {
-                routed: result.routedCount,
-                skipped: result.skippedCount,
-              })
-        );
-      } catch (err) {
-        addToast("error", apiErrorMessage(err) ?? t("trips:tours.routing.allError"));
-      } finally {
-        if (mountedRef.current) setRoutingAllInProgress(false);
-      }
-    })();
-  }, [id, routeId, load, addToast, t]);
-
-  const handleClearLeg = useCallback(
-    (leg: TourLeg): void => {
-      if (!routeId) return;
-      void (async (): Promise<void> => {
-        try {
-          await toursApi.clearLeg(id, routeId, leg.fromStopId, leg.toStopId);
-          await load();
-        } catch (err) {
-          addToast("error", apiErrorMessage(err) ?? t("trips:tours.legError"));
-        }
-      })();
-    },
-    [id, routeId, load, addToast, t]
-  );
-
-  /**
-   * Adopts a track's geometry onto a leg (phase 3b, task 8). Only ever
-   * invoked by `TourLegList` for a leg whose "track" option is enabled —
-   * gated client-side by `trackCoverageByLegId` — but the server re-checks
-   * coverage itself and answers 409 with an exact reason if it disagrees
-   * (a race: the track could have been deleted between render and click).
-   * `apiErrorMessage` already surfaces that 409's own prose, so no special
-   * status handling is needed here, unlike `handleRouteLeg`'s 409 case.
-   */
-  const handleAdoptTrack = useCallback(
-    (leg: TourLeg, trackId: string): void => {
-      if (!routeId) return;
-      void (async (): Promise<void> => {
-        try {
-          await toursApi.setLeg(id, routeId, leg.fromStopId, leg.toStopId, {
-            source: "track",
-            trackId,
-          });
-          await load();
-        } catch (err) {
-          addToast("error", apiErrorMessage(err) ?? t("trips:tours.legError"));
-        }
-      })();
-    },
-    [id, routeId, load, addToast, t]
-  );
+  const legActions = useTourLegActions({
+    tripId: id,
+    routeId,
+    load,
+    mountedRef,
+    trackCoverageByLegId,
+  });
 
   const handleUploadTrack = useCallback(
     (file: File): void => {
@@ -533,7 +384,7 @@ export default function TripRouteEditorPage(): JSX.Element {
         try {
           await deleteTrack(track.id);
         } catch (err) {
-          addToast("error", apiErrorMessage(err) ?? t("trips:tours.tracks.deleteError"));
+          addToast("error", apiErrorProse(err) ?? t("trips:tours.tracks.deleteError"));
         }
       })();
     },
@@ -548,7 +399,7 @@ export default function TripRouteEditorPage(): JSX.Element {
           const file = await trackArchiveApi.downloadTrack(id, routeId, track.id);
           downloadBlob(file.blob, file.filename);
         } catch (err) {
-          addToast("error", apiErrorMessage(err) ?? t("roadtrips:trackArchive.downloadFailed"));
+          addToast("error", apiErrorProse(err) ?? t("roadtrips:trackArchive.downloadFailed"));
         }
       })();
     },
@@ -728,14 +579,16 @@ export default function TripRouteEditorPage(): JSX.Element {
             legs={legs}
             stopTitleById={stopTitleById}
             routingAvailable={routingAvailable}
-            onSetSource={handleSetLegSource}
-            onRoute={handleRouteLeg}
+            onSetSource={legActions.setSource}
+            onRoute={legActions.route}
             trackCoverageByLegId={trackCoverageByLegId}
             tracksKnown={coverageKnown && tracksKnown}
-            onAdoptTrack={handleAdoptTrack}
-            onClear={handleClearLeg}
-            onRouteAll={handleRouteAll}
-            routingAllInProgress={routingAllInProgress}
+            onAdoptTrack={legActions.adoptTrack}
+            onClear={legActions.clear}
+            onRouteAll={legActions.routeAll}
+            routingAllInProgress={legActions.routingAllInProgress}
+            onSetMode={legActions.setMode}
+            modeChangeInFlightLegId={legActions.modeChangeInFlightLegId}
           />
         </section>
 

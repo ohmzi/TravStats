@@ -1,5 +1,11 @@
 import { useTranslation } from "../../hooks/useTranslation";
-import { isRoutableLegMode, type LegSource, type TourLeg } from "../../types/tour";
+import {
+  LEG_MODES,
+  isRoutableLegMode,
+  type LegMode,
+  type LegSource,
+  type TourLeg,
+} from "../../types/tour";
 
 /**
  * The sources the MANUAL override endpoint accepts (see `MANUAL_LEG_SOURCES`
@@ -63,6 +69,31 @@ interface Props {
   /** Disables the "route the whole section" button while a batch request
    *  is in flight, and swaps its label to a busy state. */
   routingAllInProgress?: boolean;
+  /** Corrects the leg's MODE, leaving its source and geometry alone (owner
+   *  request 2026-10-12 — an inferred ferry that was in fact a road leg).
+   *  The editor builds the source-preserving write; this component only
+   *  reports the choice. */
+  onSetMode: (leg: TourLeg, mode: LegMode) => void;
+  /** Id of the leg whose mode write is in flight, if any — that row's mode
+   *  control is disabled until the answer lands, the same busy convention
+   *  `routingAllInProgress` already follows for the batch button. */
+  modeChangeInFlightLegId?: string | null;
+}
+
+/**
+ * The mode options this leg's `<select>` offers: every `SELECTABLE_LEG_MODES`
+ * entry, plus the leg's OWN `rail` when the leg is a rail leg — shown as its
+ * current value but disabled, because rail is never hand-selectable (a rail
+ * leg belongs to the rail domain; see `SELECTABLE_LEG_MODES`). A rail leg
+ * may still be corrected AWAY from rail, which is exactly the inference fix
+ * this control exists for; what it must not offer is a rail leg being
+ * hand-minted here.
+ */
+function buildModeOptions(leg: TourLeg): Array<{ mode: LegMode; disabled: boolean }> {
+  return LEG_MODES.filter((mode) => mode !== "rail" || leg.mode === "rail").map((mode) => ({
+    mode,
+    disabled: mode === "rail",
+  }));
 }
 
 function formatKm(value: number): string {
@@ -130,6 +161,8 @@ export default function TourLegList({
   onClear,
   onRouteAll,
   routingAllInProgress = false,
+  onSetMode,
+  modeChangeInFlightLegId = null,
 }: Props): JSX.Element {
   const { t } = useTranslation();
 
@@ -168,9 +201,22 @@ export default function TourLegList({
                 {stopTitleById.get(leg.fromStopId) ?? "?"} →{" "}
                 {stopTitleById.get(leg.toStopId) ?? "?"}
               </span>
-              <span className="rounded-sm bg-(--bg-surface) px-1.5 py-0.5 text-xs">
-                {t(`trips:tours.mode.${leg.mode}`)}
-              </span>
+              {/* Where the mode badge used to sit, now the correction (owner
+                  request 2026-10-12): it reads as a badge, but a wrong
+                  inference ("not ferry, a roadtrip") is one change away. */}
+              <select
+                value={leg.mode}
+                disabled={modeChangeInFlightLegId === leg.id}
+                onChange={(e) => onSetMode(leg, e.target.value as LegMode)}
+                aria-label={t("trips:tours.modeLabel")}
+                className="rounded-sm border border-(--color-border) bg-(--bg-surface) px-1.5 py-0.5 text-xs disabled:opacity-40"
+              >
+                {buildModeOptions(leg).map((option) => (
+                  <option key={option.mode} value={option.mode} disabled={option.disabled}>
+                    {t(`trips:tours.mode.${option.mode}`)}
+                  </option>
+                ))}
+              </select>
               <span className="text-(--text-muted)">{formatKm(leg.distanceKm)} km</span>
               <select
                 value={leg.source}

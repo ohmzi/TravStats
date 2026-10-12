@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 
 import TourLegList from "../TourLegList";
-import type { TourLeg } from "../../../types/tour";
+import type { LegMode, TourLeg } from "../../../types/tour";
 
 vi.mock("../../../hooks/useTranslation", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -41,6 +41,8 @@ interface RenderOverrides {
   onClear?: (leg: TourLeg) => void;
   onRouteAll?: () => void;
   routingAllInProgress?: boolean;
+  onSetMode?: (leg: TourLeg, mode: LegMode) => void;
+  modeChangeInFlightLegId?: string | null;
 }
 
 function renderList(legs: TourLeg[], overrides: RenderOverrides = {}) {
@@ -56,10 +58,30 @@ function renderList(legs: TourLeg[], overrides: RenderOverrides = {}) {
     onAdoptTrack: vi.fn(),
     onClear: vi.fn(),
     onRouteAll: vi.fn(),
+    onSetMode: vi.fn(),
+    modeChangeInFlightLegId: null,
     ...overrides,
   };
   render(<TourLegList legs={legs} stopTitleById={STOP_TITLES} {...props} />);
   return props;
+}
+
+/**
+ * A row now carries TWO selects. The mode control (owner request
+ * 2026-10-12) is the one named by the reused `trips:tours.modeLabel`; the
+ * source select has no label of its own — it predates that control — so it
+ * is the unlabelled one these tests have always pinned.
+ */
+function modeSelect(): HTMLElement {
+  return screen.getByRole("combobox", { name: "trips:tours.modeLabel" });
+}
+
+function sourceSelect(): HTMLElement {
+  const select = screen
+    .getAllByRole("combobox")
+    .find((el) => el.getAttribute("aria-label") === null);
+  if (!select) throw new Error("source select not found");
+  return select;
 }
 
 describe("TourLegList", () => {
@@ -67,7 +89,7 @@ describe("TourLegList", () => {
     const leg = makeLeg({ waypoints: null, mode: "road" });
     renderList([leg], { routingAvailable: false });
 
-    const select = screen.getByRole("combobox");
+    const select = sourceSelect();
     const options = within(select).getAllByRole("option");
     expect(options.map((o) => o.getAttribute("value"))).toEqual(["straight", "routed", "track"]);
     expect(options.find((o) => o.getAttribute("value") === "routed")).toBeDisabled();
@@ -91,7 +113,7 @@ describe("TourLegList", () => {
     });
     renderList([leg], { routingAvailable: false });
 
-    const select = screen.getByRole("combobox");
+    const select = sourceSelect();
     const options = within(select).getAllByRole("option");
     expect(options.map((o) => o.getAttribute("value")).sort()).toEqual([
       "drawn",
@@ -113,7 +135,7 @@ describe("TourLegList", () => {
     const leg = makeLeg({ waypoints: [[8.0, 58.15]], mode: "road" });
     renderList([leg], { routingAvailable: false });
 
-    const select = screen.getByRole("combobox");
+    const select = sourceSelect();
     const options = within(select).getAllByRole("option");
     expect(options.map((o) => o.getAttribute("value"))).toEqual(["straight", "routed", "track"]);
     expect(select).toBeDisabled();
@@ -123,7 +145,7 @@ describe("TourLegList", () => {
     const leg = makeLeg({ waypoints: null, mode: "road" });
     renderList([leg], { routingAvailable: true });
 
-    const select = screen.getByRole("combobox");
+    const select = sourceSelect();
     const options = within(select).getAllByRole("option");
     expect(options.find((o) => o.getAttribute("value") === "routed")).not.toBeDisabled();
     // "straight" + "routed" are both functional now.
@@ -135,7 +157,7 @@ describe("TourLegList", () => {
     const ferryLeg = makeLeg({ mode: "ferry", waypoints: null });
     renderList([ferryLeg], { routingAvailable: true });
 
-    const select = screen.getByRole("combobox");
+    const select = sourceSelect();
     const options = within(select).getAllByRole("option");
     expect(options.map((o) => o.getAttribute("value"))).toEqual(["straight", "track"]);
     expect(screen.queryByText("trips:tours.routing.unavailableReason")).not.toBeInTheDocument();
@@ -147,7 +169,7 @@ describe("TourLegList", () => {
     const coverage = new Map([["leg-covered", "track-1"]]);
     renderList([leg], { routingAvailable: false, trackCoverageByLegId: coverage });
 
-    const select = screen.getByRole("combobox");
+    const select = sourceSelect();
     const options = within(select).getAllByRole("option");
     expect(options.find((o) => o.getAttribute("value") === "track")).not.toBeDisabled();
     expect(screen.queryByText("trips:tours.tracks.noCoverageReason")).not.toBeInTheDocument();
@@ -166,7 +188,7 @@ describe("TourLegList", () => {
     });
     const props = renderList([leg], { routingAvailable: true });
 
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "drawn" } });
+    fireEvent.change(sourceSelect(), { target: { value: "drawn" } });
     expect(props.onSetSource).toHaveBeenCalledWith(leg, "drawn");
     expect(props.onRoute).not.toHaveBeenCalled();
     expect(props.onAdoptTrack).not.toHaveBeenCalled();
@@ -176,7 +198,7 @@ describe("TourLegList", () => {
     const leg = makeLeg({ source: "straight", mode: "road", waypoints: null });
     const props = renderList([leg], { routingAvailable: true });
 
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "routed" } });
+    fireEvent.change(sourceSelect(), { target: { value: "routed" } });
     expect(props.onRoute).toHaveBeenCalledWith(leg);
     expect(props.onSetSource).not.toHaveBeenCalled();
     expect(props.onAdoptTrack).not.toHaveBeenCalled();
@@ -187,7 +209,7 @@ describe("TourLegList", () => {
     const coverage = new Map([["leg-covered", "track-42"]]);
     const props = renderList([leg], { routingAvailable: true, trackCoverageByLegId: coverage });
 
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "track" } });
+    fireEvent.change(sourceSelect(), { target: { value: "track" } });
     expect(props.onAdoptTrack).toHaveBeenCalledWith(leg, "track-42");
     expect(props.onSetSource).not.toHaveBeenCalled();
     expect(props.onRoute).not.toHaveBeenCalled();
@@ -207,6 +229,7 @@ describe("TourLegList", () => {
         onAdoptTrack={vi.fn()}
         onClear={vi.fn()}
         onRouteAll={vi.fn()}
+        onSetMode={vi.fn()}
       />
     );
     expect(screen.getByRole("button", { name: "trips:tours.clearLeg" })).toBeDisabled();
@@ -230,6 +253,7 @@ describe("TourLegList", () => {
         onAdoptTrack={vi.fn()}
         onClear={vi.fn()}
         onRouteAll={vi.fn()}
+        onSetMode={vi.fn()}
       />
     );
     expect(screen.getByRole("button", { name: "trips:tours.clearLeg" })).not.toBeDisabled();
@@ -324,5 +348,78 @@ describe("TourLegList", () => {
     renderList([leg], { tracksKnown: true, trackCoverageByLegId: NO_TRACK_COVERAGE });
 
     expect(screen.queryByText("trips:tours.tracks.noCoverageReason")).not.toBeInTheDocument();
+  });
+
+  // Owner request 2026-10-12: a leg the inference got wrong ("it's not ferry
+  // it was roadtrip or vice versa") must be correctable right in the row.
+  describe("the mode control", () => {
+    it("shows the leg's current mode and offers every selectable mode", () => {
+      const leg = makeLeg({ mode: "ferry" });
+      renderList([leg]);
+
+      const select = modeSelect();
+      expect(select).toHaveValue("ferry");
+      const options = within(select).getAllByRole("option");
+      expect(options.map((o) => o.getAttribute("value"))).toEqual([
+        "road",
+        "ferry",
+        "foot",
+        "bike",
+      ]);
+      // Every offered mode is a real choice — unlike the source select,
+      // nothing here can only fail.
+      for (const option of options) expect(option).not.toBeDisabled();
+    });
+
+    it("calls onSetMode with the leg and the chosen mode", () => {
+      const leg = makeLeg({ mode: "ferry" });
+      const props = renderList([leg]);
+
+      fireEvent.change(modeSelect(), { target: { value: "road" } });
+
+      expect(props.onSetMode).toHaveBeenCalledWith(leg, "road");
+      expect(props.onSetSource).not.toHaveBeenCalled();
+    });
+
+    // `SELECTABLE_LEG_MODES` excludes rail (a rail leg belongs to the rail
+    // domain, never a hand pick), but a rail leg STILL shows its own mode as
+    // the current value, and may be corrected away from rail — that is the
+    // very fix this control exists for.
+    it("shows rail as a rail leg's current value without offering it as a choice", () => {
+      const leg = makeLeg({ mode: "rail" });
+      renderList([leg]);
+
+      const select = modeSelect();
+      expect(select).toHaveValue("rail");
+      const options = within(select).getAllByRole("option");
+      expect(options.map((o) => o.getAttribute("value"))).toEqual([
+        "road",
+        "ferry",
+        "rail",
+        "foot",
+        "bike",
+      ]);
+      expect(options.find((o) => o.getAttribute("value") === "rail")).toBeDisabled();
+      expect(select).not.toBeDisabled();
+    });
+
+    it("disables the mode control of the leg whose write is in flight", () => {
+      const leg = makeLeg({ id: "leg-1" });
+      renderList([leg], { modeChangeInFlightLegId: "leg-1" });
+
+      expect(modeSelect()).toBeDisabled();
+    });
+
+    it("leaves other rows' mode controls usable while one leg's write is in flight", () => {
+      const legs = [
+        makeLeg({ id: "leg-1" }),
+        makeLeg({ id: "leg-2", fromStopId: "b", toStopId: "c" }),
+      ];
+      renderList(legs, { modeChangeInFlightLegId: "leg-1" });
+
+      const selects = screen.getAllByRole("combobox", { name: "trips:tours.modeLabel" });
+      expect(selects[0]).toBeDisabled();
+      expect(selects[1]).not.toBeDisabled();
+    });
   });
 });
