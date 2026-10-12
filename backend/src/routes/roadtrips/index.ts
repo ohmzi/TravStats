@@ -246,6 +246,12 @@ router.get(
         // station, per station-to-station leg and in total — per currency.
         expenses,
         costs: roadtripCosts(stations, expenses),
+        // The roadtrip's own AI summary (spec 2026-10-12 §6): the columns the
+        // regenerate route writes, read straight off the row. The page shows
+        // them below its map, with Regenerate.
+        summary: route.summary,
+        summarySource: route.summarySource,
+        summaryGeneratedAt: route.summaryGeneratedAt,
       });
     } catch (error) {
       next(error);

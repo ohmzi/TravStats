@@ -1841,6 +1841,14 @@ model TripRoute {
   color    String?
   notes    String?
 
+  /// The roadtrip's AI summary (spec 2026-10-12 §6), the journey's columns one
+  /// level down: what it says, who wrote it and when the model did.
+  summary            String?
+  /// "llm" (POST /roadtrips/:id/summarize). NULL = no model text is stored.
+  summarySource      String?   @map("summary_source")
+  /// When the model wrote the current summary; NULL unless `summarySource` is "llm".
+  summaryGeneratedAt DateTime? @map("summary_generated_at")
+
   /// Odometer at section start and end. Deliberately NOT reconciled with
   /// the sum of the legs: the difference is the finding.
   startOdometerKm Int? @map("start_odometer_km")
