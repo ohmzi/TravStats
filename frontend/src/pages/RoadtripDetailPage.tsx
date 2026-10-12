@@ -13,10 +13,8 @@ import LegDialog from "../components/Roadtrips/LegDialog";
 import RoadtripGallery from "../components/Roadtrips/RoadtripGallery";
 import RoadtripMapPanel from "../components/Roadtrips/RoadtripMapPanel";
 import RoadtripTimelineTab from "../components/Roadtrips/RoadtripTimelineTab";
-import RoadtripTourCards from "../components/Roadtrips/RoadtripTourCards";
-import RoadtripCostsSection from "../components/Roadtrips/RoadtripCostsSection";
+import RoadtripLogisticsTab from "../components/Roadtrips/RoadtripLogisticsTab";
 import { Placeholder } from "../components/Trips/TripDetailPanels";
-import { RoadtripRailConversion } from "../components/rail/RoadtripRailConversion";
 import StationEditor, { type EditorStart } from "../components/Roadtrips/StationEditor";
 import StationTimeline from "../components/Roadtrips/StationTimeline";
 import type { SaveStatus } from "../components/Roadtrips/useStationAutosave";
@@ -51,8 +49,9 @@ const STATUS_COLOR: Record<SaveStatus, string> = {
 
 /**
  * One roadtrip (design 2026-09-25, board 2): the head and its figures, the
- * stations by day beside a map that follows the selection, then the day
- * tours and the costs (forgejo#140). Editing happens on the same page — the stations turn into the
+ * stations by day beside a map that follows the selection; the day tours and
+ * the costs (forgejo#140) moved to the Logistics tab (template spec §3).
+ * Editing happens on the same page — the stations turn into the
  * editor, the map stays — and saves as it goes.
  *
  * `?station=neu` opens the editor with a new station (from "Neuer
@@ -285,6 +284,10 @@ export default function RoadtripDetailPage(): JSX.Element {
             <Placeholder text={t("roadtrips:detail.noAlbum")} />
           ))}
 
+        {tab === "logistics" && (
+          <RoadtripLogisticsTab detail={detail} onChanged={() => void load()} />
+        )}
+
         {(editing || tab === "overview") && (
           <>
             {/* The editor's way out: the autosave status and the Done button
@@ -308,13 +311,6 @@ export default function RoadtripDetailPage(): JSX.Element {
                 {t("roadtrips:detail.done")}
               </Button>
             </div>
-
-            {/* A roadtrip stored by rail, from before rail was a domain (rail beta). */}
-            <RoadtripRailConversion
-              routeId={id}
-              vehicle={r.vehicle}
-              onConverted={() => void load()}
-            />
 
             <div
               className="grid items-start lg:grid-cols-[minmax(0,1fr)_minmax(340px,440px)]"
@@ -369,22 +365,6 @@ export default function RoadtripDetailPage(): JSX.Element {
                 {!editing && <span className="t-caption">{t("roadtrips:detail.mapHint")}</span>}
               </aside>
             </div>
-
-            <section
-              className="flex flex-col"
-              style={{ gap: 14, marginTop: "var(--ts-space-xxl)" }}
-            >
-              <h2 className="t-card-title">{t("roadtrips:detail.toursTitle")}</h2>
-              <RoadtripTourCards tours={detail.tours} stations={detail.stations} />
-            </section>
-
-            <RoadtripCostsSection
-              roadtripId={id}
-              stations={detail.stations}
-              expenses={detail.expenses}
-              costs={detail.costs}
-              onChanged={() => void load()}
-            />
           </>
         )}
       </EntityPage>

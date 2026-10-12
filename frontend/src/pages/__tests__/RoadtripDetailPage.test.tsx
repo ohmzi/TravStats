@@ -19,6 +19,14 @@ vi.mock("../../components/Roadtrips/RoadtripGallery", () => ({
     <div data-testid="roadtrip-gallery">{detail.roadtrip.name}</div>
   ),
 }));
+// The logistics tab's sections each carry their own suite; here the tab is a
+// stub, so the page suite owns only that the tab is reachable and that the
+// sections left the overview.
+vi.mock("../../components/Roadtrips/RoadtripLogisticsTab", () => ({
+  default: ({ detail }: { detail: RoadtripDetail }) => (
+    <div data-testid="roadtrip-logistics">{detail.roadtrip.name}</div>
+  ),
+}));
 vi.mock("../../lib/api/roadtrips", () => ({ roadtripsApi: { get: vi.fn() } }));
 vi.mock("../../lib/api/tours", () => ({
   toursApi: {
@@ -115,5 +123,17 @@ describe("RoadtripDetailPage", () => {
     renderAt("/roadtrips/rt?tab=gallery");
     expect(await screen.findByText("roadtrips:detail.noAlbum")).toBeInTheDocument();
     expect(screen.queryByTestId("roadtrip-gallery")).not.toBeInTheDocument();
+  });
+
+  it("opens the trip's logistics through ?tab=logistics", async () => {
+    renderAt("/roadtrips/rt?tab=logistics");
+    expect(await screen.findByTestId("roadtrip-logistics")).toHaveTextContent("Fjorde 2026");
+  });
+
+  it("keeps the day tours and the costs off the overview — the Logistics tab owns them now", async () => {
+    renderAt("/roadtrips/rt");
+    await screen.findByText("Fjorde 2026");
+    expect(screen.queryByText("roadtrips:detail.toursTitle")).not.toBeInTheDocument();
+    expect(screen.queryByText("roadtrips:costs.title")).not.toBeInTheDocument();
   });
 });
