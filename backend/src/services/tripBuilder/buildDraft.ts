@@ -387,15 +387,20 @@ export async function buildDraftWith(
     night.kept.map((plan) => [plan.key, mainCityOf(plan.stations, night.nights)] as const)
   );
   // A multi-day same-airport stay is its own album (spec 2026-10-11 pitstops
-  // §2): the election reads the night plan, so this runs after the nights.
-  const pitstops = pitstopAreas({
+  // §2): the election reads the night plan, so this runs after the nights. Its
+  // city comes from the shared airport — the stopover pass's own catalogue
+  // fetch, not a second one — and every name below reads that city (owner
+  // ruling 2026-10-12: a pitstop is named after its airport).
+  const pitstopPass = pitstopAreas({
     areas: night.kept,
     nights: night.nights,
     anchors: collected.anchors,
     photosById: movement.photosById,
     mainCities,
+    airports: stopoverPass.airports,
     tripName: input.name,
   });
+  const pitstops = pitstopPass.pitstops;
   // The kind each area opens as. A pitstop opens as Roadtrip with its own album
   // (spec §3): the review seed reads this `defaultAs`, the commit sends its
   // `as`, and the re-sync reconciles the area as a roadtrip on the same value —
@@ -415,13 +420,19 @@ export async function buildDraftWith(
     )
   );
   // A pitstop rides the roadtrip naming like any other roadtrip's area, so the
-  // review seed equals what `withSuggestedNames` recomputes after an edit.
+  // review seed equals what `withSuggestedNames` recomputes after an edit. The
+  // city it is named over is the pitstop's own — the same string its album
+  // carries (`pitstopPass.cities`) — never the photo-majority main city, so
+  // the row and the album can never disagree (owner ruling 2026-10-12). Every
+  // other area keeps the main city its own naming gave it.
+  const cityOf = (key: string): string | null =>
+    pitstopPass.cities.get(key) ?? mainCities.get(key) ?? null;
   const names = roadtripAreaNames(
     night.kept
       .filter((plan) => kinds.get(plan.key) === "roadtrip")
       .map((plan) => ({
         key: plan.key,
-        mainCity: mainCities.get(plan.key) ?? null,
+        mainCity: cityOf(plan.key),
         startDay: plan.area.startDay,
       })),
     input.name,
@@ -432,7 +443,7 @@ export async function buildDraftWith(
       withPreviews(plan, previews.previewIdx),
       kinds.get(plan.key) ?? "stops",
       names[plan.key] ?? input.name,
-      mainCities.get(plan.key) ?? null
+      cityOf(plan.key)
     );
     const pitstop = pitstops.get(plan.key);
     return pitstop === undefined ? area : { ...area, pitstop };

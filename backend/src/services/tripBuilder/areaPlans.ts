@@ -200,6 +200,13 @@ export interface StopoverPass {
   plans: StopoverPlan[];
   /** The branch-(b) areas that leave the draft's areas (spec §2, amended). */
   reclassifiedAreaKeys: Set<string>;
+  /**
+   * The airport rows both branches read (`deps.airports`, one fetch). The
+   * pitstop pass names its own albums from the same rows — a pitstop is named
+   * after its shared airport (owner ruling 2026-10-12) — so the scan holds no
+   * second copy of the same catalogue read.
+   */
+  airports: ReadonlyMap<string, AirportData>;
 }
 
 /**
@@ -303,7 +310,7 @@ export async function stopoversPhase(
     reclassifiedAreaKeys.add(plan.key);
     plans.push({ stopover, previewPhotoIds: plan.previewPhotoIds });
   }
-  return { plans, reclassifiedAreaKeys };
+  return { plans, reclassifiedAreaKeys, airports };
 }
 
 /** Snaps stations onto the road, probes each leg and decides road or ferry. */

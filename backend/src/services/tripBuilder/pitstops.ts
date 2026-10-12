@@ -7,12 +7,16 @@
  * on different local days and is not the trip's principal destination — the
  * area with the most nights, ties going to the most photo-days and then to the
  * earliest first day. The album is named `<City> <Year> Road Trip (<Trip
- * Name>)` from the area's own roadtrip main city, the parenthetical dropped
- * when it and the trip share a name.
+ * Name>)` from the shared airport's city — a pitstop is named after its
+ * airport, not the area's photo-majority city (owner ruling 2026-10-12) — the
+ * parenthetical dropped when it and the trip share a name.
  *
- * Pure: the areas, the night plan, the flights and the photos come in as
- * values. `buildDraftWith` runs it once, after the nights are known.
+ * Pure: the areas, the night plan, the flights, the airport rows and the
+ * photos come in as values. `buildDraftWith` runs it once, after the nights
+ * are known.
  */
+import { airportCityName, airportDisplayName } from "../../utils/airportDisplay";
+import type { AirportData } from "../airportLookup";
 import { sharesAirport } from "./flightAnchors";
 import type { AreaPlan, Day, FlightAnchor, NightEntry, PhotoPoint } from "./types";
 
@@ -104,7 +108,41 @@ export interface PitstopAreasInput {
   photosById: ReadonlyMap<string, PhotoPoint>;
   /** Area key → the main city of the roadtrip name it would get (`mainCityOf`); null without one. */
   mainCities: ReadonlyMap<string, string | null>;
+  /**
+   * The catalogue rows the scan's stopover pass fetched, by IATA: a pitstop's
+   * shared airport names it (owner ruling 2026-10-12), and the same rows serve
+   * every pitstop here — the pass takes them as they came.
+   */
+  airports: ReadonlyMap<string, AirportData>;
   tripName: string;
+}
+
+/**
+ * The city a pitstop is named after, its album and its roadtrip row alike
+ * (owner ruling 2026-10-12): a pitstop is named after the airport its two
+ * bounding flights share, not the area's photo-majority city. The served city
+ * comes first, and a slash list ("Northvale/Seeb", a catalogue row naming the
+ * cities the airport serves) counts as its first name; then the airport's own
+ * display name; then `fallback` — the area's main city, the rule this ruling
+ * replaced — else null.
+ */
+export function pitstopCity(airport: AirportData | null, fallback: string | null): string | null {
+  const served = airportCityName(airport)?.split("/")[0].trim();
+  if (served) return served;
+  return airportDisplayName(airport) ?? fallback;
+}
+
+/** What the pitstop pass found, over the draft's kept areas. */
+export interface PitstopPass {
+  /** The DTO piece of every qualifying area (spec §2), keyed by the area key. */
+  pitstops: Map<string, DraftPitstop>;
+  /**
+   * The city each pitstop's roadtrip row takes after the `·`, keyed the same
+   * way — exactly the city its album carries, so the row and the album can
+   * never disagree (owner ruling 2026-10-12). Every other area keeps the main
+   * city its own naming already gave it.
+   */
+  cities: Map<string, string | null>;
 }
 
 /**
@@ -112,12 +150,15 @@ export interface PitstopAreasInput {
  * area lies strictly between two adjacent flights — one landing before it,
  * one leaving after (branch (b)'s own edge test) — that share an airport and
  * fall on different local days, and it is not the principal destination. An
- * area that does not qualify is simply absent from the answer.
+ * area that does not qualify is simply absent from the answer. Each pitstop's
+ * city — the shared airport's (`arriving.arrIata`, per `sharesAirport`) — is
+ * handed out beside its DTO piece, so the roadtrip row is named from it too.
  */
-export function pitstopAreas(input: PitstopAreasInput): Map<string, DraftPitstop> {
+export function pitstopAreas(input: PitstopAreasInput): PitstopPass {
   const destination = principalDestination(input.areas, input.nights, input.photosById);
   const anchorsById = new Map(input.anchors.map((anchor) => [anchor.id, anchor] as const));
-  const found = new Map<string, DraftPitstop>();
+  const pitstops = new Map<string, DraftPitstop>();
+  const cities = new Map<string, string | null>();
   for (const plan of input.areas) {
     if (plan === destination) continue;
     const arriving =
@@ -127,27 +168,27 @@ export function pitstopAreas(input: PitstopAreasInput): Map<string, DraftPitstop
     if (arriving === undefined || departing === undefined) continue;
     if (!sharesAirport(arriving, departing)) continue;
     if (arriving.arrDay === departing.depDay) continue;
-    found.set(plan.key, {
-      albumName: pitstopAlbumName(
-        input.mainCities.get(plan.key) ?? null,
-        plan.area.startDay,
-        input.tripName
-      ),
+    const iata = arriving.arrIata;
+    const airport = iata === null ? null : (input.airports.get(iata.toUpperCase()) ?? null);
+    const city = pitstopCity(airport, input.mainCities.get(plan.key) ?? null);
+    pitstops.set(plan.key, {
+      albumName: pitstopAlbumName(city, plan.area.startDay, input.tripName),
     });
+    cities.set(plan.key, city);
   }
-  return found;
+  return { pitstops, cities };
 }
 
 /**
- * `<City> <Year> Road Trip (<Trip Name>)` (spec §6): City is the area's own
- * main city — the string its roadtrip name would follow the `·` with, the
+ * `<City> <Year> Road Trip (<Trip Name>)` (spec §6): City is the pitstop's own
+ * city (`pitstopCity` — the shared airport's, else the area's main city), the
  * trip's own name when it has none — and the parenthetical is dropped when
  * the two are the same string. Year is the area's first day's year.
  */
-export function pitstopAlbumName(mainCity: string | null, startDay: Day, tripName: string): string {
-  const city = mainCity ?? tripName;
-  const base = `${city} ${startDay.slice(0, 4)} Road Trip`;
-  return city === tripName ? base : `${base} (${tripName})`;
+export function pitstopAlbumName(city: string | null, startDay: Day, tripName: string): string {
+  const named = city ?? tripName;
+  const base = `${named} ${startDay.slice(0, 4)} Road Trip`;
+  return named === tripName ? base : `${base} (${tripName})`;
 }
 
 /** A pitstop area's own album as the commit reads it (spec 2026-10-11 pitstops §4). SERVER-ONLY. */

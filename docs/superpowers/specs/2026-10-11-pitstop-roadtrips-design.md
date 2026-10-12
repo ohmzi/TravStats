@@ -66,6 +66,8 @@ Both the kind and the album tick are ordinary review edits: recorded in the `Dra
 
 The album's description keeps the exact `TravStats trip ·` prefix so the marker rules (and any future removal default) hold, exactly like the other two album classes.
 
+**Ruling (2026-10-12).** City is the city the **airport** serves, not the area's photo-majority `mainCity`: the owner, asked whether a stay whose photos sat in one town should be named for that town or for the airport both bounding flights used, answered the airport's city. The shared airport's served city therefore comes first, and a catalogue city that lists two (a "Northvale/Seeb" row — the airport serves Northvale) counts as its first name; then the airport's own display name, where no city can be trusted; then the area's main city, the rule this replaces. The roadtrip row takes the same city — the string its name follows the `·` with is the album's City — so the two can never disagree.
+
 ## 7. Out of scope (v1)
 
 - Albums for timeline stops (an album requires a roadtrip); removal of pitstop albums; rebuilding a pitstop's tour; renaming the pitstop album in the review (the name is computed — an editable name is a follow-up if wanted).

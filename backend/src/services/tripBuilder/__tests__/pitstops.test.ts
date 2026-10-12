@@ -1,4 +1,11 @@
-import { pitstopAlbumName, pitstopAreas, principalDestination, storedPitstops } from "../pitstops";
+import {
+  pitstopAlbumName,
+  pitstopAreas,
+  pitstopCity,
+  principalDestination,
+  storedPitstops,
+} from "../pitstops";
+import type { AirportData } from "../../airportLookup";
 import type { Day, NightEntry } from "../types";
 import { area, flight, photo, preciseFlight, station, type AreaFixture } from "./nightsFixtures";
 import { NORTHVALE, PORT_CARROW } from "./placeFixtures";
@@ -6,8 +13,10 @@ import { NORTHVALE, PORT_CARROW } from "./placeFixtures";
 /**
  * The pitstop rules (spec 2026-10-11 pitstops §2, §6): a stay between two
  * same-airport flights on different days is its own roadtrip with its own
- * album, unless it is the trip's principal destination. Synthetic fixtures
- * only (public repository).
+ * album, unless it is the trip's principal destination. The album — and the
+ * roadtrip row beside it — is named after the shared airport's city, not the
+ * photos' own majority city (owner ruling 2026-10-12). Synthetic fixtures only
+ * (public repository).
  */
 
 const night = (assign: string): NightEntry => ({
@@ -72,25 +81,70 @@ const MAIN_CITIES = new Map([
   [DESTINATION.plan.key, "Southhollow"],
 ]);
 
+/** A catalogue row; only the name is required by the real type. */
+const airport = (over: Partial<AirportData> & Pick<AirportData, "name">): AirportData => ({
+  lat: NORTHVALE.lat,
+  lon: NORTHVALE.lon,
+  ...over,
+});
+
+/**
+ * ZNV, the airport both of the stay's flights use: it serves Northvale, while
+ * the stay's photos sit in Dunholme — the two cities the ruling picks between.
+ */
+const AIRPORTS = new Map<string, AirportData>([
+  ["ZNV", airport({ name: "Northvale International Airport", municipalityName: "Northvale" })],
+]);
+
 const photosById = (): Map<string, (typeof STAY.photos)[number]> =>
   new Map([...STAY.photos, ...DESTINATION.photos].map((p) => [p.id, p] as const));
 
-const find = (over: { anchors?: readonly ReturnType<typeof preciseFlight>[] } = {}) =>
+const find = (
+  over: {
+    anchors?: readonly ReturnType<typeof preciseFlight>[];
+    airports?: ReadonlyMap<string, AirportData>;
+  } = {}
+) =>
   pitstopAreas({
     areas: [STAY.plan, DESTINATION.plan],
     nights: NIGHTS,
     anchors: over.anchors ?? [F1, F2, F3],
     photosById: photosById(),
     mainCities: MAIN_CITIES,
+    airports: over.airports ?? AIRPORTS,
     tripName: "Southern loop",
   });
 
 describe("pitstopAreas", () => {
   it("offers the stay its own album, and leaves the destination's area to the trip's own", () => {
     const found = find();
-    expect([...found.keys()]).toEqual(["2031-05-02#1"]);
-    expect(found.get("2031-05-02#1")).toEqual({
+    expect([...found.pitstops.keys()]).toEqual(["2031-05-02#1"]);
+    expect(found.pitstops.get("2031-05-02#1")).toEqual({
+      albumName: "Northvale 2031 Road Trip (Southern loop)",
+    });
+    // The city the roadtrip row must take after the `·` is the album's own
+    // (owner ruling 2026-10-12): the scan hands it out beside the DTO piece.
+    expect(found.cities.get("2031-05-02#1")).toBe("Northvale");
+  });
+
+  it("falls back to the area's own main city when the airport cannot name one", () => {
+    const found = find({ airports: new Map() });
+    expect(found.pitstops.get("2031-05-02#1")).toEqual({
       albumName: "Dunholme 2031 Road Trip (Southern loop)",
+    });
+    expect(found.cities.get("2031-05-02#1")).toBe("Dunholme");
+  });
+
+  it("drops the parenthetical when the airport's city is the trip's own name", () => {
+    const named = new Map<string, AirportData>([
+      [
+        "ZNV",
+        airport({ name: "Northvale International Airport", municipalityName: "Southern loop" }),
+      ],
+    ]);
+    const found = find({ airports: named });
+    expect(found.pitstops.get("2031-05-02#1")).toEqual({
+      albumName: "Southern loop 2031 Road Trip",
     });
   });
 
@@ -99,7 +153,7 @@ describe("pitstopAreas", () => {
       depIata: "ZNV",
       arrIata: "ZKA",
     });
-    expect([...find({ anchors: [F1, sameDay, F3] }).keys()]).toEqual([]);
+    expect([...find({ anchors: [F1, sameDay, F3] }).pitstops.keys()]).toEqual([]);
   });
 
   it("offers nothing when the two flights do not share an airport", () => {
@@ -107,15 +161,15 @@ describe("pitstopAreas", () => {
       depIata: "ZKM",
       arrIata: "ZKA",
     });
-    expect([...find({ anchors: [F1, away, F3] }).keys()]).toEqual([]);
+    expect([...find({ anchors: [F1, away, F3] }).pitstops.keys()]).toEqual([]);
   });
 
   it("reads a pair without times at the day level: two days qualify, one day does not", () => {
     const dayIn = flight("f1", { depIata: "ZKE", arrIata: "ZNV", arrDay: "2031-05-02" });
     const dayOut = flight("f2", { depIata: "ZNV", arrIata: "ZKA", depDay: "2031-05-04" });
-    expect([...find({ anchors: [dayIn, dayOut] }).keys()]).toEqual(["2031-05-02#1"]);
+    expect([...find({ anchors: [dayIn, dayOut] }).pitstops.keys()]).toEqual(["2031-05-02#1"]);
     const sameDayOut = flight("f2", { depIata: "ZNV", arrIata: "ZKA", depDay: "2031-05-02" });
-    expect([...find({ anchors: [dayIn, sameDayOut] }).keys()]).toEqual([]);
+    expect([...find({ anchors: [dayIn, sameDayOut] }).pitstops.keys()]).toEqual([]);
   });
 
   it("leaves the trip's first and last areas alone — no two flights bound them", () => {
@@ -143,9 +197,44 @@ describe("pitstopAreas", () => {
       anchors: [F1, F2, F3],
       photosById: photosById(),
       mainCities: MAIN_CITIES,
+      airports: AIRPORTS,
       tripName: "Southern loop",
     });
-    expect([...found.keys()]).toEqual(["2031-05-02#1"]);
+    expect([...found.pitstops.keys()]).toEqual(["2031-05-02#1"]);
+  });
+});
+
+describe("pitstopCity", () => {
+  it("takes the served city, and a slash list as its first name", () => {
+    const row = airport({
+      name: "Northvale International Airport",
+      municipalityName: "Northvale/Seeb",
+    });
+    expect(pitstopCity(row, "Dunholme")).toBe("Northvale");
+  });
+
+  it("takes a plain city as it stands, from either catalogue field", () => {
+    const served = airport({ name: "Dunmere International Airport", municipalityName: "Dunmere" });
+    expect(pitstopCity(served, "Southhollow")).toBe("Dunmere");
+    const plain = airport({ name: "Port Carrow Airport", city: "Port Carrow" });
+    expect(pitstopCity(plain, "Dunholme")).toBe("Port Carrow");
+  });
+
+  it("falls back to the display name when the municipality is the runway's own town", () => {
+    // A province-code row the airport's own name does not repeat is the town
+    // the runway sits in (`airportCityName`), so the airport names the pitstop.
+    const row = airport({ name: "Carrow International Airport", city: "Dunmere (WS)" });
+    expect(pitstopCity(row, "Dunholme")).toBe("Carrow");
+  });
+
+  it("falls back to the area's main city without an airport row", () => {
+    expect(pitstopCity(null, "Dunholme")).toBe("Dunholme");
+    expect(pitstopCity(null, null)).toBeNull();
+  });
+
+  it("names a row with no city at all by the airport's display name", () => {
+    const row = airport({ name: "Kelmore Airport", city: null });
+    expect(pitstopCity(row, "Dunholme")).toBe("Kelmore");
   });
 });
 
@@ -258,14 +347,15 @@ describe("storedPitstops", () => {
       anchors: [F1, F2, F3],
       photosById: photosById(),
       mainCities: MAIN_CITIES,
+      airports: AIRPORTS,
       tripName: "Southern loop",
-    });
+    }).pitstops;
 
   it("keeps each pitstop's own photo set, under its key, name and day", () => {
     expect(storedPitstops([STAY.plan, DESTINATION.plan], found())).toEqual([
       {
         key: "2031-05-02#1",
-        albumName: "Dunholme 2031 Road Trip (Southern loop)",
+        albumName: "Northvale 2031 Road Trip (Southern loop)",
         day: "2031-05-02",
         assetIds: ["s1", "s2"],
       },

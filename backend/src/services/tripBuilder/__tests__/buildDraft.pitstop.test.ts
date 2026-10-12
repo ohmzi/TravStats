@@ -158,7 +158,7 @@ const RE_SYNC_STATE: ExistingTripState = {
     {
       linkId: "l-dunholme",
       immichAlbumId: "al-dunholme",
-      albumName: "Dunholme 2031 Road Trip (Southern loop)",
+      albumName: "Northvale 2031 Road Trip (Southern loop)",
       assetCount: 7,
       ownedByUser: true,
       travstatsMarker: true,
@@ -174,9 +174,11 @@ describe("buildDraftWith: a multi-day same-airport stay", () => {
       INPUT,
       () => undefined
     );
-    expect(dto.areas.map((area) => area.mainCity)).toEqual(["Dunholme", "Southhollow"]);
+    // The pitstop's city is its shared airport's (owner ruling 2026-10-12):
+    // Northvale, not the photos' own Dunholme.
+    expect(dto.areas.map((area) => area.mainCity)).toEqual(["Northvale", "Southhollow"]);
     const [stay, destination] = dto.areas;
-    expect(stay.pitstop).toEqual({ albumName: "Dunholme 2031 Road Trip (Southern loop)" });
+    expect(stay.pitstop).toEqual({ albumName: "Northvale 2031 Road Trip (Southern loop)" });
     // The destination keeps the trip's own album; its own flight pair qualifies
     // for nothing because it is not a pitstop's business (spec §2).
     expect(destination.pitstop).toBeUndefined();
@@ -187,8 +189,26 @@ describe("buildDraftWith: a multi-day same-airport stay", () => {
     // The pitstop is named over the same roadtrip-naming list as every other
     // roadtrip area, so the review seed equals what `withSuggestedNames`
     // recomputes after an edit — not the bare trip name.
-    expect(stay.suggestedName).toBe("Southern loop · Dunholme");
+    expect(stay.suggestedName).toBe("Southern loop · Northvale");
     expect(destination.suggestedName).toBe("Southern loop · Southhollow");
+  });
+
+  it("names the pitstop's roadtrip row and its album from the shared airport — one city", async () => {
+    // The owner-visible rule (ruling 2026-10-12): the row's city after the `·`
+    // and the album's City are the same string. `suggestedName` is what the
+    // review seeds the committed row from, and `mainCity` is what it re-derives
+    // names from after an edit, so both carry the airport's city — the row can
+    // never drift from the album.
+    const { dto } = await buildDraftWith(
+      deps(FLIGHT_OUT, [...AT_DUNHOLME, ...AT_SOUTHHOLLOW, ...AT_DUNMERE]),
+      USER,
+      INPUT,
+      () => undefined
+    );
+    const [stay] = dto.areas;
+    expect(stay.mainCity).toBe("Northvale");
+    expect(stay.suggestedName).toBe("Southern loop · Northvale");
+    expect(stay.pitstop?.albumName).toBe("Northvale 2031 Road Trip (Southern loop)");
   });
 
   it("marks nothing when the two flights fall on one local day", async () => {
@@ -218,7 +238,7 @@ describe("buildDraftWith: a multi-day same-airport stay", () => {
     expect(dto.warnings.map((w) => w.code)).toContain("roadtripsHidden");
     // The pitstop is still offered — its album switch is what the warning
     // explains away — but it opens as the ordinary kind, not as a roadtrip.
-    expect(dto.areas[0].pitstop).toEqual({ albumName: "Dunholme 2031 Road Trip (Southern loop)" });
+    expect(dto.areas[0].pitstop).toEqual({ albumName: "Northvale 2031 Road Trip (Southern loop)" });
     expect(dto.areas[0].defaultAs).toBe("stops");
   });
 
@@ -374,6 +394,6 @@ describe("buildDraftWith: a re-sync whose stay is still a timeline stop", () => 
     expect(stay.stations.some((s) => s.existingId === "stop-dunholme")).toBe(true);
     expect(dto.notSeenStops).toEqual([]);
     // The pitstop's own album is still the offer (spec §3).
-    expect(dto.areas[0].pitstop).toEqual({ albumName: "Dunholme 2031 Road Trip (Southern loop)" });
+    expect(dto.areas[0].pitstop).toEqual({ albumName: "Northvale 2031 Road Trip (Southern loop)" });
   });
 });
