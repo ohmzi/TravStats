@@ -80,6 +80,11 @@ vi.mock("../hooks/usePlacesVisible", () => ({
 vi.mock("../hooks/useHasLlm", () => ({ useHasLlm: () => true }));
 // The trip overview lists its roadtrips from their own endpoint; not this suite's subject.
 vi.mock("../components/Roadtrips/useTripRoadtrips", () => ({ useTripRoadtrips: () => [] }));
+// The same overview draws its map now; it has its own suite, and here it would
+// only mount a canvas jsdom has no WebGL for.
+vi.mock("../components/Trips/TripMapWithTours", () => ({
+  default: () => <div data-testid="map" />,
+}));
 vi.mock("../hooks/useEnabledDomains", () => ({
   useEnabledDomains: () => ({ isEnabled: () => true }),
 }));

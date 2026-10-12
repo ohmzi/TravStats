@@ -56,6 +56,14 @@ vi.mock("../../components/NavigationBar", () => ({
   default: () => <div data-testid="nav-stub" />,
 }));
 
+// The journey overview draws its map and its trips chain; both have their own
+// suites, and here they would only mount a canvas jsdom has no WebGL for and
+// fetch the roadtrips list (forgejo#110).
+vi.mock("../../components/Trips/TripMapWithTours", () => ({
+  default: () => <div data-testid="map" />,
+}));
+vi.mock("../../components/Roadtrips/useTripRoadtrips", () => ({ useTripRoadtrips: () => [] }));
+
 import TripDetailPage from "../TripDetailPage";
 
 function makeTrip(overrides: Partial<Trip> = {}): Trip {

@@ -37,6 +37,15 @@ vi.mock("../../hooks/useTranslation", () => ({
   useTranslation: () => ({ t: (k: string) => k, i18n: { language: "de" } }),
 }));
 vi.mock("../../components/NavigationBar", () => ({ default: () => <div /> }));
+
+// The journey overview draws its map and its trips chain; both have their own
+// suites, and here they would only mount a canvas jsdom has no WebGL for and
+// fetch the roadtrips list (forgejo#110).
+vi.mock("../../components/Trips/TripMapWithTours", () => ({
+  default: () => <div data-testid="map" />,
+}));
+vi.mock("../../components/Roadtrips/useTripRoadtrips", () => ({ useTripRoadtrips: () => [] }));
+
 vi.mock("../../components/Trips/StopModal", () => ({
   default: ({ stop }: { stop: { id: string } | null }) => (
     <div data-testid="stop-editor">{stop?.id ?? "new"}</div>

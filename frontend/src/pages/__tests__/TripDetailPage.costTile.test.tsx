@@ -9,7 +9,12 @@ import type { Trip } from "../../types";
  * ${Math.round(total)}` ("EUR 40206") while the trip CARD for the same trip
  * wrote "40.206 €" through `formatCurrency`. Mirrors
  * `components/Trips/__tests__/TripCard.costTile.test.tsx`, which pins the
- * card; this pins the page to the same formatter.
+ * card.
+ *
+ * The page half splits with the shared template (spec 2026-10-12 §2): the
+ * journey's cell set has no cost, so the tile is gone and the first pin now
+ * says so; the page's remaining money surface — the Logistics bookings table
+ * — keeps the `formatCurrency` pin below.
  */
 const getByIdMock = vi.fn();
 
@@ -53,6 +58,12 @@ vi.mock("../../components/NavigationBar", () => ({
 
 // The overview's roadtrip list has its own endpoint and its own test.
 vi.mock("../../components/Roadtrips/useTripRoadtrips", () => ({ useTripRoadtrips: () => [] }));
+
+// The journey overview draws its map; it has its own suite, and here it would
+// only mount a canvas jsdom has no WebGL for.
+vi.mock("../../components/Trips/TripMapWithTours", () => ({
+  default: () => <div data-testid="map" />,
+}));
 
 import TripDetailPage from "../TripDetailPage";
 
@@ -108,16 +119,18 @@ const priced = makeTrip({
   ] as unknown as Trip["bookings"],
 });
 
-describe("TripDetailPage cost tile", () => {
+describe("TripDetailPage cost tiles", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("writes the total-cost tile as '40.206 €' in German, never 'EUR 40206'", async () => {
+  it("draws no total-cost tile on the overview — the shared cell set has no cost", async () => {
     await renderTripDetail(priced);
 
-    expect(screen.getByText(/40\.206\s€/)).toBeInTheDocument();
-    expect(screen.queryByText(/EUR 40206/)).not.toBeInTheDocument();
+    // The tile's own formatter ("40.206 €") must not appear anywhere on the
+    // overview, and neither may the raw string the old tile wrote.
+    expect(screen.queryByText(/40\.206\s€/)).toBeNull();
+    expect(screen.queryByText(/EUR 40206/)).toBeNull();
   });
 
   it("writes the bookings table through the same formatter, and never invents EUR", async () => {

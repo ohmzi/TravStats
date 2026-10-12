@@ -583,6 +583,7 @@
     "countries_other": "{{count}} Länder"
   },
   "overview": {
+    "noTrips": "Noch keine Trips. Eine Reise hält ihre Trips — die Bearbeiten-Seite gleicht sie mit Immich ab.",
     "daysAway": "Tage unterwegs"
   },
   "card": {

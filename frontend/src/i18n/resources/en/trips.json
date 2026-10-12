@@ -583,6 +583,7 @@
     "countries_other": "{{count}} countries"
   },
   "overview": {
+    "noTrips": "No trips yet. A journey holds its trips — the journey's edit page re-syncs them from Immich.",
     "daysAway": "Days away"
   },
   "card": {
