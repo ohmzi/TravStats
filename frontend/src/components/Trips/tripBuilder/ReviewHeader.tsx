@@ -42,6 +42,9 @@ export default function ReviewHeader({
   const { t } = useTranslation(["tripBuilder"]);
   const fmt = useDisplayFormat();
   const { startDay, endDay } = draft.window;
+  // A trip-scoped re-sync (owner request 2026-10-12): the name shown is the
+  // trip's own, and the journey's countries are not this commit's to change.
+  const scoped = draft.target.kind === "existing" && draft.target.routeId !== undefined;
 
   return (
     <div className="flex flex-col" style={{ gap: "var(--ts-space-lg)" }}>
@@ -56,7 +59,13 @@ export default function ReviewHeader({
         </Field>
       ) : (
         <div className="flex flex-col" style={{ gap: 2 }}>
-          <span className="t-caption">{t("tripBuilder:review.header.existingTrip")}</span>
+          <span className="t-caption">
+            {t(
+              scoped
+                ? "tripBuilder:review.header.existingRoute"
+                : "tripBuilder:review.header.existingTrip"
+            )}
+          </span>
           <strong style={{ fontSize: 18, color: "var(--ts-text-bright)" }}>{tripName}</strong>
         </div>
       )}
@@ -73,7 +82,9 @@ export default function ReviewHeader({
         )}
       </div>
 
-      <CountryChips countries={countries} onChange={onCountries} />
+      {/* A trip-scoped commit never writes the journey's countries, so the
+          chips are not shown for one (they still read for every other scope). */}
+      {!scoped && <CountryChips countries={countries} onChange={onCountries} />}
 
       {carried !== null && (
         <p role="status" className="t-caption">

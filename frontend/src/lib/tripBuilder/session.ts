@@ -52,7 +52,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 function isScanTarget(value: unknown): value is ScanTarget {
   if (!isRecord(value)) return false;
-  return value.kind === "new" || (value.kind === "existing" && typeof value.tripId === "string");
+  return (
+    value.kind === "new" ||
+    (value.kind === "existing" &&
+      typeof value.tripId === "string" &&
+      (value.routeId === undefined || typeof value.routeId === "string"))
+  );
 }
 
 /** The request `scan` was started with, kept so a scan that failed early can be run again. */

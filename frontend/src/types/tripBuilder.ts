@@ -83,7 +83,12 @@ export interface AlbumSyncPreview {
 }
 
 export type PreviewSize = "thumbnail" | "preview";
-export type ScanTarget = { kind: "new" } | { kind: "existing"; tripId: string };
+/**
+ * What a scan is for. `routeId` (owner request 2026-10-12) scopes an `existing`
+ * scan to one roadtrip of the journey — what the trip edit page's Re-sync
+ * sends; the journey edit page's own Re-sync names no route.
+ */
+export type ScanTarget = { kind: "new" } | { kind: "existing"; tripId: string; routeId?: string };
 
 // ─── The draft (GET /trip-builder/drafts/:id) ────────────────────────────────
 
@@ -343,7 +348,10 @@ export interface TripBuilderDraft {
   expiresAt: string;
   window: { startDay: Day; endDay: Day; checkedFrom: Day; checkedTo: Day };
   options: { inspect: boolean; createAlbum: boolean };
-  target: { kind: "new" } | { kind: "existing"; tripId: string; tripName: string };
+  /** A route-scoped draft also names the trip it updates (owner request 2026-10-12). */
+  target:
+    | { kind: "new" }
+    | { kind: "existing"; tripId: string; tripName: string; routeId?: string; routeName?: string };
   tripName: string;
   countries: string[];
   originLabel: string | null;
@@ -420,7 +428,14 @@ export interface CommitArea {
 
 export type CommitTarget =
   | { kind: "new"; trip: CreateTripInput }
-  | { kind: "existing"; tripId: string; applyWindow: boolean; countries?: string[] };
+  | {
+      kind: "existing";
+      tripId: string;
+      /** The route the draft scanned (owner request 2026-10-12); absent: the journey-wide re-sync. */
+      routeId?: string;
+      applyWindow: boolean;
+      countries?: string[];
+    };
 
 export interface CommitBody {
   /** One per review session (`useRef` + sessionStorage); a retry re-sends the same key. */

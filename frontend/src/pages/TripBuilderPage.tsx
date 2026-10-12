@@ -315,6 +315,9 @@ function ReviewScreen({
   const emptyWindow = draft.stats.assets === 0;
   const ticked = draft.flights.filter((f) => !f.locked && state.flightTicks[f.id]).length;
   const roadtripsHidden = draft.warnings.some((w) => w.code === "roadtripsHidden");
+  // A trip-scoped re-sync (owner request 2026-10-12): its own copy throughout,
+  // and no flight decisions — the commit writes the trip and its album alone.
+  const scoped = draft.target.kind === "existing" && draft.target.routeId !== undefined;
   const { startDay, endDay } = draft.window;
 
   // Why Create/Update is off, said at the button: the reasons block sits in
@@ -336,9 +339,11 @@ function ReviewScreen({
     >
       {running
         ? t("tripBuilder:review.saving")
-        : draft.target.kind === "existing"
-          ? t("tripBuilder:existing.header.update")
-          : t("tripBuilder:review.createTrip")}
+        : scoped
+          ? t("tripBuilder:existing.header.updateRoute")
+          : draft.target.kind === "existing"
+            ? t("tripBuilder:existing.header.update")
+            : t("tripBuilder:review.createTrip")}
     </Button>
   );
 
@@ -372,11 +377,16 @@ function ReviewScreen({
           ))}
         </ReviewSection>
       )}
-      <ReviewFlightRows
-        flights={draft.flights}
-        ticks={state.flightTicks}
-        onTick={(flightId, ticked) => edit({ type: "setFlightTick", flightId, ticked })}
-      />
+      {/* A trip-scoped commit assigns no flights (it writes the trip alone), so
+          the review offers no flight decisions; the window's flights still
+          show in the day groups as context. */}
+      {!scoped && (
+        <ReviewFlightRows
+          flights={draft.flights}
+          ticks={state.flightTicks}
+          onTick={(flightId, ticked) => edit({ type: "setFlightTick", flightId, ticked })}
+        />
+      )}
       <ReviewStopovers
         stopovers={draft.stopovers ?? []}
         flights={draft.flights}
@@ -409,9 +419,11 @@ function ReviewScreen({
     <div className="flex flex-col" style={{ gap: "var(--ts-space-xl)" }}>
       <PageHeader
         title={
-          draft.target.kind === "existing"
-            ? t("tripBuilder:review.titleExisting")
-            : t("tripBuilder:review.titleNew")
+          scoped
+            ? t("tripBuilder:review.titleExistingRoute")
+            : draft.target.kind === "existing"
+              ? t("tripBuilder:review.titleExisting")
+              : t("tripBuilder:review.titleNew")
         }
         meta={t("tripBuilder:review.meta", {
           from: fmt.localDate(startDay),
@@ -514,7 +526,8 @@ function ReviewScreen({
               <Button disabled={running} onClick={openDates}>
                 {t("tripBuilder:review.empty.changeDates")}
               </Button>
-              {ticked > 0 && (
+              {/* A trip-scoped run writes no flights, so it offers no flights-only submit. */}
+              {ticked > 0 && !scoped && (
                 <Button
                   variant="primary"
                   size="toolbar"

@@ -60,6 +60,7 @@ const TripRouteEditorPage = lazy(() => import("./pages/TripRouteEditorPage"));
 const ToursPage = lazy(() => import("./pages/ToursPage"));
 const RoadtripsPage = lazy(() => import("./pages/RoadtripsPage"));
 const RoadtripDetailPage = lazy(() => import("./pages/RoadtripDetailPage"));
+const RoadtripResyncPage = lazy(() => import("./pages/RoadtripResyncPage"));
 const StravaCallbackPage = lazy(() => import("./pages/StravaCallbackPage"));
 const AchievementsPage = lazy(() => import("./pages/AchievementsPage"));
 const AdvancedStatsPage = lazy(() => import("./pages/AdvancedStatsPage"));
@@ -598,6 +599,21 @@ function AppContent() {
                   isAuthenticated ? (
                     <DomainRouteGuard domain="roadtrip">
                       <TripRouteEditorPage />
+                    </DomainRouteGuard>
+                  ) : (
+                    <Navigate to="/login" />
+                  )
+                }
+              />
+              {/* The TRIP's own Re-sync (owner request 2026-10-12): scans that
+                  roadtrip's dates and updates only it. The journey's
+                  `/trips/:id/resync` stays the journey-wide one. */}
+              <Route
+                path="/roadtrips/:routeId/resync"
+                element={
+                  isAuthenticated ? (
+                    <DomainRouteGuard domain="roadtrip">
+                      <RoadtripResyncPage />
                     </DomainRouteGuard>
                   ) : (
                     <Navigate to="/login" />

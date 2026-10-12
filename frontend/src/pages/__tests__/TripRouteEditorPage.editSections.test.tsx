@@ -124,8 +124,10 @@ describe("TripRouteEditorPage — the trip's edit page sections", () => {
   it("carries the Re-sync from Immich section for a trip filed on a journey", async () => {
     renderAt("/trips/:id/route/:routeId", "/trips/j1/route/r1");
 
+    // The trip's own Re-sync (owner request 2026-10-12): it scans and updates
+    // THIS trip, so it lands on the trip's own resync page, not the journey's.
     const link = await screen.findByRole("link", { name: "tripBuilder:resync.action" });
-    expect(link).toHaveAttribute("href", "/trips/j1/resync");
+    expect(link).toHaveAttribute("href", "/roadtrips/r1/resync");
   });
 
   it("offers no re-sync on a detached trip — there is no journey to scan", async () => {
@@ -146,8 +148,10 @@ describe("TripRouteEditorPage — the trip's edit page sections", () => {
     });
     renderAt("/roadtrips/:routeId/edit", "/roadtrips/r1/edit");
 
+    // The trip's own Re-sync (owner request 2026-10-12): it scans and updates
+    // THIS trip, so it lands on the trip's own resync page, not the journey's.
     const link = await screen.findByRole("link", { name: "tripBuilder:resync.action" });
-    expect(link).toHaveAttribute("href", "/trips/j1/resync");
+    expect(link).toHaveAttribute("href", "/roadtrips/r1/resync");
   });
 
   it("leaves a day tour's editor without either section", async () => {

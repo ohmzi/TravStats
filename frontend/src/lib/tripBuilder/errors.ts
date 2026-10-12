@@ -39,6 +39,9 @@ const COMMIT_KEYS: Readonly<Record<string, string>> = {
   COMMIT_IN_PROGRESS: "tripBuilder:errors.commit.inProgress",
   ROADTRIPS_HIDDEN: "tripBuilder:errors.commit.roadtripsHidden",
   TRIP_CHANGED: "tripBuilder:errors.commit.tripChanged",
+  // A trip-scoped re-sync refused because the scanned stops also stand on
+  // another trip of the journey (owner request 2026-10-12).
+  ROUTE_SCOPE_CONFLICT: "tripBuilder:errors.commit.routeScopeConflict",
   COMMIT_FAILED: "tripBuilder:errors.commit.failed",
 };
 

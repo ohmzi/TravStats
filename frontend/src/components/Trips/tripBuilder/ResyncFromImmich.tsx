@@ -10,8 +10,19 @@ import ActionLink from "../../ui/ActionLink";
  * and the roadtrip band's journey cell both take their size from that one
  * component, so no copy of the recipe can drift again (owner, 2026-10-11:
  * "all these should be same size").
+ *
+ * A `routeId` makes it the TRIP's own Re-sync (owner request 2026-10-12): the
+ * journey-wide entry names only the journey; the trip edit page's names the
+ * roadtrip, whose page scans and updates that trip alone.
  */
-export default function ResyncFromImmich({ tripId }: { tripId: string }): JSX.Element {
+export default function ResyncFromImmich({
+  tripId,
+  routeId,
+}: {
+  tripId: string;
+  routeId?: string;
+}): JSX.Element {
   const { t } = useTranslation(["tripBuilder"]);
-  return <ActionLink to={`/trips/${tripId}/resync`}>{t("tripBuilder:resync.action")}</ActionLink>;
+  const to = routeId === undefined ? `/trips/${tripId}/resync` : `/roadtrips/${routeId}/resync`;
+  return <ActionLink to={to}>{t("tripBuilder:resync.action")}</ActionLink>;
 }

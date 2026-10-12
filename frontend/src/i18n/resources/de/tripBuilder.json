@@ -51,6 +51,7 @@
   "errors": {
     "commit": {
       "tripChanged": "Die Reise hat sich seit dem Scan geändert. Scanne noch einmal; deine Änderungen bleiben erhalten.",
+      "routeScopeConflict": "Diese Stopps gehören auch zu einem anderen Trip der Reise, es wurde nichts gespeichert. Gleiche diesen Trip ab oder korrigiere zuerst die Daten.",
       "alreadyCommitted": "Diese Reise wurde schon angelegt.",
       "draftExpired": "Dieser Entwurf ist abgelaufen. Scanne erneut, deine Änderungen bleiben erhalten.",
       "draftMismatch": "Der Entwurf passt nicht mehr zu dem, was gesendet wurde. Lade die Seite neu und versuch es erneut.",
@@ -89,6 +90,7 @@
   },
   "edit": {
     "resyncHint": "Scannt die gespeicherten Daten der Reise erneut und aktualisiert sie an Ort und Stelle.",
+    "resyncTripHint": "Scannt die gespeicherten Daten dieses Trips erneut und aktualisiert ihn an Ort und Stelle. Die übrigen Trips der Reise bleiben unverändert.",
     "deleteHeading": "Löschen",
     "deleteJourneyHint": "Die Reise selbst wird gelöscht. Die Trips werden gelöst und bleiben erhalten, das Immich-Album wird nicht angefasst.",
     "deleteTripHint": "Dieser Trip wird mit seinen Stationen, Etappen und Aufzeichnungen gelöscht. Verknüpfte Unterkünfte und seine Tagestouren bleiben erhalten."
@@ -261,6 +263,7 @@
       "addCountryPlaceholder": "z. B. NZ",
       "carried": "{{kept}} von {{total}} deiner Änderungen übernommen.",
       "changeDates": "Daten ändern…",
+      "existingRoute": "Dieser Trip wird aktualisiert",
       "existingTrip": "Diese Reise wird aktualisiert",
       "name": "Name der Reise",
       "removeCountry": "{{code}} entfernen",
@@ -378,6 +381,7 @@
       "updated": "Reise aktualisiert"
     },
     "titleExisting": "Aktualisiere deine Reise",
+    "titleExistingRoute": "Aktualisiere deinen Trip",
     "titleNew": "Prüfe deine Reise",
     "unknown": "Ergebnis unbekannt. Schau in deinen Reisen nach, ob sie angelegt wurde.",
     "unknownAction": "Meine Reisen öffnen",
@@ -422,7 +426,8 @@
       "needsScope": "Braucht die Berechtigung {{scope}} für deinen Immich-Schlüssel."
     },
     "header": {
-      "update": "Reise aktualisieren"
+      "update": "Reise aktualisieren",
+      "updateRoute": "Trip aktualisieren"
     },
     "success": {
       "roadtrip": "{{name}}: {{updated}} aktualisiert, {{unchanged}} unverändert, {{added}} neu, {{removed}} entfernt, {{kept}} behalten",
@@ -440,9 +445,18 @@
     "datesChanged": "Daten geändert — Fotos neu abgleichen?",
     "starting": "Foto-Scan wird gestartet …",
     "back": "Zurück zur Reise",
+    "backTrip": "Zurück zum Trip",
     "noDates": {
       "title": "Diese Reise hat noch keine Daten",
       "description": "Lege ein Start- und ein Enddatum fest und gleiche dann ihre Fotos ab."
+    },
+    "tripNoDates": {
+      "title": "Dieser Trip hat noch keine Daten",
+      "description": "Gib seinen Stationen Daten und gleiche dann seine Fotos ab."
+    },
+    "tripTooLong": {
+      "title": "Dieser Trip ist für einen Scan zu lang",
+      "description": "Ein Scan deckt höchstens 62 Tage ab. Kürze die Stationen des Trips und versuch es erneut."
     },
     "notConfigured": {
       "title": "Verbinde zuerst Immich",

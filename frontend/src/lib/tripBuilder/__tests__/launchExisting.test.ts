@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { tripBuilderApi } from "../../api/tripBuilder";
-import { scanWindowOf, startExistingScan } from "../launchExisting";
+import { scanWindowOf, startExistingScan, startRouteScan } from "../launchExisting";
 import { jobKey } from "../session";
 
 vi.mock("../../api/tripBuilder", () => ({ tripBuilderApi: { scan: vi.fn() } }));
@@ -89,6 +89,56 @@ describe("startExistingScan", () => {
   it("leaves nothing filed when the scan is refused", async () => {
     vi.mocked(tripBuilderApi.scan).mockRejectedValue(new Error("refused"));
     await expect(startExistingScan(TRIP, { createAlbum: true })).rejects.toThrow("refused");
+    expect(sessionStorage.length).toBe(0);
+  });
+});
+
+describe("startRouteScan (owner request 2026-10-12)", () => {
+  const JOURNEY = { id: TRIP.id, name: TRIP.name };
+  const ROUTE = {
+    id: "b4c1d2e3-f4a5-4b6c-8d7e-9f0a1b2c3d4e",
+    name: "Northvale loop",
+    startDate: "2031-05-02T00:00:00.000Z",
+    endDate: "2031-05-04T00:00:00.000Z",
+  };
+  const SCAN = {
+    name: "Northvale loop",
+    startDay: "2031-05-02",
+    endDay: "2031-05-04",
+    inspect: true,
+    createAlbum: true,
+    target: { kind: "existing", tripId: TRIP.id, routeId: ROUTE.id },
+  };
+
+  it("scans the trip's own dates and names both the journey and the route", async () => {
+    vi.mocked(tripBuilderApi.scan).mockResolvedValue({ jobId: JOB });
+    await expect(
+      startRouteScan({ journey: JOURNEY, route: ROUTE }, { createAlbum: true })
+    ).resolves.toEqual({ jobId: JOB });
+    expect(tripBuilderApi.scan).toHaveBeenCalledWith(SCAN);
+    expect(JSON.parse(sessionStorage.getItem(jobKey(JOB)) ?? "null")).toEqual({
+      form: { name: "Northvale loop", startDate: "2031-05-02", endDate: "2031-05-04" },
+      target: { kind: "existing", tripId: TRIP.id, routeId: ROUTE.id },
+      returnTo: `/roadtrips/${ROUTE.id}`,
+      scan: SCAN,
+    });
+  });
+
+  it("asks for the album only when told to", async () => {
+    vi.mocked(tripBuilderApi.scan).mockResolvedValue({ jobId: JOB });
+    await startRouteScan({ journey: JOURNEY, route: ROUTE }, { createAlbum: false });
+    expect(tripBuilderApi.scan).toHaveBeenCalledWith({ ...SCAN, createAlbum: false });
+  });
+
+  it.each([
+    ["no dates", { startDate: null }],
+    ["a window of 63 days", { endDate: "2031-07-05T00:00:00.000Z" }],
+    ["an end before the start", { endDate: "2031-05-01T00:00:00.000Z" }],
+  ])("does not ask the server about %s", async (_name, over) => {
+    await expect(
+      startRouteScan({ journey: JOURNEY, route: { ...ROUTE, ...over } }, { createAlbum: true })
+    ).rejects.toThrow(RangeError);
+    expect(tripBuilderApi.scan).not.toHaveBeenCalled();
     expect(sessionStorage.length).toBe(0);
   });
 });

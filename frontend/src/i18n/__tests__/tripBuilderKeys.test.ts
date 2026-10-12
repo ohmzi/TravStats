@@ -19,6 +19,8 @@ const FOLDERS = ["components/Trips/tripBuilder", "lib/tripBuilder"];
 const FILES = [
   "pages/TripBuilderPage.tsx",
   "pages/TripResyncPage.tsx",
+  // The trip-side Re-sync page (owner request 2026-10-12), the journey page's twin.
+  "pages/RoadtripResyncPage.tsx",
   // The two edit pages ask the tripBuilder namespace for their Re-sync and
   // Delete sections (spec 2026-10-12 §4).
   "pages/TripEditPage.tsx",

@@ -21,7 +21,12 @@ export function scanBodyFor(draft: TripBuilderDraft, name: string): ScanBody {
     createAlbum: draft.options.createAlbum,
     target:
       draft.target.kind === "existing"
-        ? { kind: "existing", tripId: draft.target.tripId }
+        ? {
+            kind: "existing",
+            tripId: draft.target.tripId,
+            // A re-scan of a trip-scoped draft stays scoped to that trip.
+            ...(draft.target.routeId === undefined ? {} : { routeId: draft.target.routeId }),
+          }
         : { kind: "new" },
   };
 }

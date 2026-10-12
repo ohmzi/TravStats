@@ -15,6 +15,16 @@ describe("ResyncFromImmich", () => {
     expect(link).toHaveAttribute("href", "/trips/t1/resync");
   });
 
+  it("links to the TRIP's re-sync when a route is named (owner request 2026-10-12)", () => {
+    render(
+      <MemoryRouter>
+        <ResyncFromImmich tripId="j1" routeId="r1" />
+      </MemoryRouter>
+    );
+    const link = screen.getByRole("link", { name: "tripBuilder:resync.action" });
+    expect(link).toHaveAttribute("href", "/roadtrips/r1/resync");
+  });
+
   it("draws the same secondary metrics as the buttons beside it", () => {
     render(
       <MemoryRouter>

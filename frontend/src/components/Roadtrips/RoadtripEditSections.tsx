@@ -59,8 +59,11 @@ export default function RoadtripEditSections({
       {journeyId !== null && (
         <section>
           <h2 className="text-lg font-semibold mb-3">{t("tripBuilder:resync.action")}</h2>
-          <p className="text-sm text-(--text-muted) mb-3">{t("tripBuilder:edit.resyncHint")}</p>
-          <ResyncFromImmich tripId={journeyId} />
+          <p className="text-sm text-(--text-muted) mb-3">{t("tripBuilder:edit.resyncTripHint")}</p>
+          {/* The trip's own Re-sync (owner request 2026-10-12): this scans and
+              updates THIS trip, not the journey — the journey edit page's
+              section is the journey-wide one. */}
+          <ResyncFromImmich tripId={journeyId} routeId={route.id} />
         </section>
       )}
 

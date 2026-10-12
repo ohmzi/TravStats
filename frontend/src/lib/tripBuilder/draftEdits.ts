@@ -282,6 +282,17 @@ function commitTarget(
     const moved =
       (form.startDate !== undefined && form.startDate !== draft.window.startDay) ||
       (form.endDate !== undefined && form.endDate !== draft.window.endDay);
+    // A route-scoped commit names its route (owner request 2026-10-12); the
+    // server ignores the window and country fields for it, so neither is sent.
+    if (draft.target.routeId !== undefined) {
+      return {
+        kind: "existing",
+        tripId: draft.target.tripId,
+        routeId: draft.target.routeId,
+        applyWindow: false,
+        countries: undefined,
+      };
+    }
     return {
       kind: "existing",
       tripId: draft.target.tripId,
@@ -313,13 +324,18 @@ export function buildCommitBody(
   commitKey: string
 ): CommitBody {
   const fallbackName = state.tripName.trim() || draft.tripName;
+  // A route-scoped commit writes the trip and its album alone: no flight moves
+  // onto or off the journey (owner request 2026-10-12).
+  const scoped = draft.target.kind === "existing" && draft.target.routeId !== undefined;
   const body: CommitBody = {
     commitKey,
     window: { startDay: draft.window.startDay, endDay: draft.window.endDay },
     target: commitTarget(draft, state, form),
-    flightIds: draft.flights
-      .filter((flight) => !flight.locked && state.flightTicks[flight.id] === true)
-      .map((flight) => flight.id),
+    flightIds: scoped
+      ? []
+      : draft.flights
+          .filter((flight) => !flight.locked && state.flightTicks[flight.id] === true)
+          .map((flight) => flight.id),
     nights: effectiveNights(state),
     areas: state.areas.map((area) => commitArea(area, fallbackName)),
     stopovers: (draft.stopovers ?? [])
@@ -329,9 +345,11 @@ export function buildCommitBody(
         album: state.stopoverTicks[stopover.key]?.album === true,
       }))
       .filter((entry) => entry.roadtrip),
-    photoJourneyIds: draft.photoJourneys
-      .filter((journey) => state.photoJourneyTicks[journey.id] === true)
-      .map((journey) => journey.id),
+    photoJourneyIds: scoped
+      ? []
+      : draft.photoJourneys
+          .filter((journey) => state.photoJourneyTicks[journey.id] === true)
+          .map((journey) => journey.id),
     album: {
       create: state.album?.create === true,
       name: (state.album?.name ?? "").trim() || fallbackName,

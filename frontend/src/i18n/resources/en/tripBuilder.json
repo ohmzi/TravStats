@@ -51,6 +51,7 @@
   "errors": {
     "commit": {
       "tripChanged": "This journey changed since the scan. Scan again — your edits are kept.",
+      "routeScopeConflict": "These stops also belong to another trip of the journey, so nothing was saved. Sync that trip, or fix the dates first.",
       "alreadyCommitted": "This journey was already created.",
       "draftExpired": "This draft has expired. Scan again; your edits are kept.",
       "draftMismatch": "The draft no longer matches what was sent. Reload the page and try again.",
@@ -89,6 +90,7 @@
   },
   "edit": {
     "resyncHint": "Scans the journey's saved dates again and updates it in place.",
+    "resyncTripHint": "Scans this trip's saved dates again and updates that trip in place. The journey's other trips stay as they are.",
     "deleteHeading": "Delete",
     "deleteJourneyHint": "The journey itself goes. Its trips are detached and kept, and the Immich album is not touched.",
     "deleteTripHint": "This trip goes with its stations, legs and recordings. Linked accommodation and its day tours are kept."
@@ -261,6 +263,7 @@
       "addCountryPlaceholder": "e.g. NZ",
       "carried": "Kept {{kept}} of {{total}} of your edits.",
       "changeDates": "Change dates…",
+      "existingRoute": "Updating this trip",
       "existingTrip": "Updating this journey",
       "name": "Journey name",
       "removeCountry": "Remove {{code}}",
@@ -378,6 +381,7 @@
       "updated": "Journey updated"
     },
     "titleExisting": "Update your journey",
+    "titleExistingRoute": "Update your trip",
     "titleNew": "Review your journey",
     "unknown": "Outcome unknown. Check your journeys to see whether it was created.",
     "unknownAction": "Open my journeys",
@@ -422,7 +426,8 @@
       "needsScope": "Needs the {{scope}} permission on your Immich key."
     },
     "header": {
-      "update": "Update journey"
+      "update": "Update journey",
+      "updateRoute": "Update trip"
     },
     "success": {
       "roadtrip": "{{name}}: {{updated}} updated, {{unchanged}} unchanged, {{added}} added, {{removed}} removed, {{kept}} kept",
@@ -440,9 +445,18 @@
     "datesChanged": "Dates changed — re-sync photos?",
     "starting": "Starting the photo scan…",
     "back": "Back to the journey",
+    "backTrip": "Back to the trip",
     "noDates": {
       "title": "This journey has no dates yet",
       "description": "Set a start and an end date, then re-sync its photos."
+    },
+    "tripNoDates": {
+      "title": "This trip has no dates yet",
+      "description": "Give its stops dates, then re-sync its photos."
+    },
+    "tripTooLong": {
+      "title": "This trip is too long for one scan",
+      "description": "A scan covers at most 62 days. Shorten the trip's stops, then try again."
     },
     "notConfigured": {
       "title": "Connect Immich first",

@@ -226,6 +226,32 @@ describe("buildCommitBody for an existing trip", () => {
     });
   });
 
+  it("names the route and writes neither the dates nor the countries for a trip-scoped draft", () => {
+    const scoped = reviewDraft({
+      target: {
+        kind: "existing",
+        tripId: "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c",
+        tripName: "Northvale loop",
+        routeId: "b4c1d2e3-f4a5-4b6c-8d7e-9f0a1b2c3d4e",
+        routeName: "Northvale loop",
+      },
+    });
+    const body = bodyAfter([], scoped, {
+      name: "Northvale loop",
+      startDate: "2031-05-03",
+      endDate: "2031-05-06",
+    });
+    expect(body.target).toEqual({
+      kind: "existing",
+      tripId: "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c",
+      routeId: "b4c1d2e3-f4a5-4b6c-8d7e-9f0a1b2c3d4e",
+      applyWindow: false,
+    });
+    // The trip-scoped commit writes the trip alone: no flight moves.
+    expect(body.flightIds).toEqual([]);
+    expect(body.photoJourneyIds).toEqual([]);
+  });
+
   it("keeps the stopover switches through the re-sync fields", () => {
     const existingStopover = stopoverDraft({ target: existing.target });
     const body = bodyAfter(

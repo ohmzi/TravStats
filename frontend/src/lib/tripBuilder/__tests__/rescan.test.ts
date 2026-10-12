@@ -47,6 +47,26 @@ describe("scanBodyFor", () => {
       target: { kind: "existing", tripId: "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c" },
     });
   });
+
+  it("keeps a trip-scoped draft scoped to its route (owner request 2026-10-12)", () => {
+    const scoped = reviewDraft({
+      target: {
+        kind: "existing",
+        tripId: "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c",
+        tripName: "Northvale loop",
+        routeId: "b4c1d2e3-f4a5-4b6c-8d7e-9f0a1b2c3d4e",
+        routeName: "Northvale loop",
+      },
+    });
+    expect(scanBodyFor(scoped, "Northvale loop")).toMatchObject({
+      name: "Northvale loop",
+      target: {
+        kind: "existing",
+        tripId: "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c",
+        routeId: "b4c1d2e3-f4a5-4b6c-8d7e-9f0a1b2c3d4e",
+      },
+    });
+  });
 });
 
 describe("startRescan", () => {
