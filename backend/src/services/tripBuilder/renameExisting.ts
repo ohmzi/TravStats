@@ -21,10 +21,12 @@
  *   display name.
  *
  * The city chain for a stored row, in the brief's order: the pitstop rule
- * first (the row lies strictly between two ADJACENT same-airport flights on
- * different local days), else the row's own name — the segment after the last
- * separator, else the leading city of one of the two legacy minted shapes —
- * else no city and the row is skipped.
+ * first (the row lies between two same-airport flights on different local
+ * days — the arriving flight's day on or before the row's start, the departing
+ * flight's on or after its end, the tightest such pair winning), else the
+ * row's own name — the segment after the last separator, else the leading city
+ * of one of the two legacy minted shapes — else no city and the row is
+ * skipped.
  *
  * Pure: rows, flights and airports come in as values. The script
  * (`scripts/renameTripNames.ts`) reads them and applies the answers; the
@@ -32,6 +34,7 @@
  * (`frontend/src/lib/roadtrip/roadtripAlbum.ts`), which no backend module can
  * import, arm for arm.
  */
+import { daysBetween } from "../../shared/time/localDate";
 import { roadtripAreaNames } from "../../shared/tour/builderNightPlan";
 import type { AirportData } from "../airportLookup";
 import { SECTION_NAME_SEPARATOR } from "../trip/renameTripSections";
@@ -82,29 +85,52 @@ export function cityFromRowName(name: string): { city: string; source: CitySourc
   return null;
 }
 
+/** Two flights a row's stay lies between: one landing at/before it, one leaving at/after it. */
+interface Bracket {
+  arriving: FlightAnchor;
+  departing: FlightAnchor;
+}
+
 /**
- * The two ADJACENT flights of `flights` a pitstop row lies strictly between,
- * or null. The scan's own matcher (`pitstopAreas`, `pitstops.ts`): the landing
- * flight and the departing flight immediately after it in departure order,
- * `sharesAirport`, on different local days (the same day is a layover). This
- * side of it is the stored row's: its whole span must fall strictly inside the
- * gap — after the arrival day, before the departure day — because a row only
- * has days to go on where the scan had photo instants.
+ * The tighter of two brackets: the fewest days between the two flights — the
+ * nearest arrival before/at the start beside the nearest departure after/at
+ * the end, for a stay between consecutive flights. On equal spans the later
+ * arrival, then the earlier departure.
  */
-export function pitstopFlights(
-  flights: readonly FlightAnchor[],
-  span: RowSpan
-): { arriving: FlightAnchor; departing: FlightAnchor } | null {
-  for (let i = 0; i + 1 < flights.length; i++) {
-    const arriving = flights[i];
-    const departing = flights[i + 1];
-    if (!sharesAirport(arriving, departing)) continue;
-    if (arriving.arrDay === departing.depDay) continue;
-    if (arriving.arrDay < span.startDay && span.endDay < departing.depDay) {
-      return { arriving, departing };
+function isTighter(candidate: Bracket, best: Bracket): boolean {
+  const candidateDays = daysBetween(candidate.arriving.arrDay, candidate.departing.depDay);
+  const bestDays = daysBetween(best.arriving.arrDay, best.departing.depDay);
+  if (candidateDays !== bestDays) return candidateDays < bestDays;
+  if (candidate.arriving.arrDay !== best.arriving.arrDay) {
+    return candidate.arriving.arrDay > best.arriving.arrDay;
+  }
+  return candidate.departing.depDay < best.departing.depDay;
+}
+
+/**
+ * The two flights of `flights` a pitstop row's stay lies between, or null. The
+ * scan's own matcher (`pitstopAreas`, `pitstops.ts`) pairs the flight that
+ * landed the area with the one that left it: `sharesAirport`, on different
+ * local days (the same day is a layover). A stored row only has days to go on
+ * where the scan had photo instants — and its days are the stay's own, opening
+ * with the landing and closing with the take-off — so the bracket is
+ * inclusive: the arriving flight's day on or before the row's start, the
+ * departing flight's on or after its end. The tightest such pair wins when
+ * several bracket the row.
+ */
+export function pitstopFlights(flights: readonly FlightAnchor[], span: RowSpan): Bracket | null {
+  let best: Bracket | null = null;
+  for (const arriving of flights) {
+    if (arriving.arrDay > span.startDay) continue;
+    for (const departing of flights) {
+      if (departing.depDay < span.endDay) continue;
+      if (arriving.arrDay === departing.depDay) continue;
+      if (!sharesAirport(arriving, departing)) continue;
+      const bracket = { arriving, departing };
+      if (best === null || isTighter(bracket, best)) best = bracket;
     }
   }
-  return null;
+  return best;
 }
 
 /**

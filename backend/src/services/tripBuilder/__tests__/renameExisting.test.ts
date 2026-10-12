@@ -1,9 +1,10 @@
 /**
  * The rules the rename script rides on, with synthetic fixtures only
  * (invented journeys, invented cities, years 2031+): the legacy-shape city
- * parse, the "row sits strictly between two adjacent same-airport flights"
- * matcher, the imported pitstop city chain, the album linkage the trip page
- * resolves, and the plan the scan's own naming pass gives a journey's rows.
+ * parse, the inclusive "two same-airport flights bracket the row" matcher
+ * (the tightest such pair winning), the imported pitstop city chain, the
+ * album linkage the trip page resolves, and the plan the scan's own naming
+ * pass gives a journey's rows.
  */
 import { describe, expect, it } from "@jest/globals";
 
@@ -139,23 +140,39 @@ describe("pitstopFlights", () => {
     expect(pitstopFlights([ARRIVES_PCR, leavesNvl], PCR_ROW)).toBeNull();
   });
 
-  it("does not match a pair on the same local day — that is a layover", () => {
-    const sameDay = flight({
+  it("matches a row sharing its boundary days with the flights — the live shape", () => {
+    // The stay arrives with the landing and leaves with the take-off: the
+    // station opens on the arrival day and closes on the departure day, so
+    // the bracket is inclusive both ways.
+    expect(
+      pitstopFlights([ARRIVES_PCR, LEAVES_PCR], { startDay: "2031-05-02", endDay: "2031-05-09" })
+    ).toEqual({ arriving: ARRIVES_PCR, departing: LEAVES_PCR });
+    // One shared boundary at a time, too.
+    expect(
+      pitstopFlights([ARRIVES_PCR, LEAVES_PCR], { startDay: "2031-05-02", endDay: "2031-05-06" })
+    ).toEqual({ arriving: ARRIVES_PCR, departing: LEAVES_PCR });
+    expect(
+      pitstopFlights([ARRIVES_PCR, LEAVES_PCR], { startDay: "2031-05-04", endDay: "2031-05-09" })
+    ).toEqual({ arriving: ARRIVES_PCR, departing: LEAVES_PCR });
+  });
+
+  it("does not match a same-day pair — that is a layover", () => {
+    const arrives = flight({
+      id: "f1",
+      depIata: "NVL",
+      arrIata: "PCR",
+      depDay: "2031-05-04",
+      arrDay: "2031-05-04",
+    });
+    const departs = flight({
       id: "f2",
       depIata: "PCR",
       arrIata: "KEL",
-      depDay: "2031-05-02",
-      arrDay: "2031-05-02",
+      depDay: "2031-05-04",
+      arrDay: "2031-05-04",
     });
-    expect(pitstopFlights([ARRIVES_PCR, sameDay], PCR_ROW)).toBeNull();
-  });
-
-  it("does not match a row touching a flanking flight's own day", () => {
     expect(
-      pitstopFlights([ARRIVES_PCR, LEAVES_PCR], { startDay: "2031-05-02", endDay: "2031-05-06" })
-    ).toBeNull();
-    expect(
-      pitstopFlights([ARRIVES_PCR, LEAVES_PCR], { startDay: "2031-05-04", endDay: "2031-05-09" })
+      pitstopFlights([arrives, departs], { startDay: "2031-05-04", endDay: "2031-05-04" })
     ).toBeNull();
   });
 
@@ -164,7 +181,7 @@ describe("pitstopFlights", () => {
     expect(pitstopFlights([ARRIVES_PCR], PCR_ROW)).toBeNull();
   });
 
-  it("matches only the pair whose own gap holds the row", () => {
+  it("picks the tightest bracket when several pairs sit around the row", () => {
     const leavesNvl = flight({
       id: "f3",
       depIata: "NVL",
@@ -172,20 +189,61 @@ describe("pitstopFlights", () => {
       depDay: "2031-05-12",
       arrDay: "2031-05-12",
     });
-    const returnsPcr = flight({
+    const turnsNvl = flight({
       id: "f4",
+      depIata: "NVL",
+      arrIata: "NVL",
+      depDay: "2031-05-14",
+      arrDay: "2031-05-14",
+    });
+    const returnsPcr = flight({
+      id: "f5",
       depIata: "PCR",
       arrIata: "NVL",
       depDay: "2031-05-16",
       arrDay: "2031-05-16",
     });
-    // Only the later gap (f3's arrival → f4's departure) holds the row.
+    // (ARRIVES_PCR, returnsPcr) brackets the row too (14 days); the later
+    // arrival's own, narrower gap (4 days) is the tightest, even with the
+    // NVL turn between them.
     expect(
-      pitstopFlights([ARRIVES_PCR, LEAVES_PCR, leavesNvl, returnsPcr], {
+      pitstopFlights([ARRIVES_PCR, LEAVES_PCR, leavesNvl, turnsNvl, returnsPcr], {
         startDay: "2031-05-13",
         endDay: "2031-05-15",
       })
     ).toEqual({ arriving: leavesNvl, departing: returnsPcr });
+  });
+
+  it("picks the nearest arrival and the nearest departure when several bracket", () => {
+    const lateArrival = flight({
+      id: "f6",
+      depIata: "NVL",
+      arrIata: "PCR",
+      depDay: "2031-05-24",
+      arrDay: "2031-05-25",
+    });
+    const midLeave = flight({
+      id: "f7",
+      depIata: "PCR",
+      arrIata: "KEL",
+      depDay: "2031-05-29",
+      arrDay: "2031-05-29",
+    });
+    const farLeave = flight({
+      id: "f8",
+      depIata: "PCR",
+      arrIata: "KEL",
+      depDay: "2031-05-30",
+      arrDay: "2031-05-30",
+    });
+    // Four brackets (27/4 days from each arrival and 28/5 from each
+    // departure): the late arrival beside the mid departure is the tightest.
+    expect(
+      pitstopFlights([ARRIVES_PCR, lateArrival, midLeave, farLeave], {
+        startDay: "2031-05-26",
+        endDay: "2031-05-29",
+      })
+    ).toEqual({ arriving: lateArrival, departing: midLeave });
   });
 });
 
@@ -221,6 +279,39 @@ describe("rowCityOf", () => {
         airports: new Map(),
       })
     ).toEqual({ city: "Oakville", source: "legacy" });
+  });
+
+  it("names an inclusively bracketed row after the shared airport's served city", () => {
+    const arrives = flight({
+      id: "f1",
+      depIata: "NVL",
+      arrIata: "PCR",
+      depDay: "2031-05-04",
+      arrDay: "2031-05-04",
+    });
+    const departs = flight({
+      id: "f2",
+      depIata: "PCR",
+      arrIata: "KEL",
+      depDay: "2031-05-06",
+      arrDay: "2031-05-06",
+    });
+    // The row's own segment says Westmere; the flights' shared airport says
+    // Port Carrow, and the pitstop rule wins.
+    expect(
+      rowCityOf({
+        name: "Karachi 2031 · Westmere",
+        span: { startDay: "2031-05-04", endDay: "2031-05-06" },
+        flights: [arrives, departs],
+        airports: new Map([["PCR", PCR_AIRPORT]]),
+      })
+    ).toEqual({ city: "Port Carrow", source: "pitstop" });
+  });
+
+  it("falls back to the row's own name when the journey has no flights", () => {
+    expect(
+      rowCityOf({ name: "Karachi 2031 · Elmwood", span: PCR_ROW, flights: [], airports: new Map() })
+    ).toEqual({ city: "Elmwood", source: "separator" });
   });
 
   it("answers no city for a name of neither shape", () => {
