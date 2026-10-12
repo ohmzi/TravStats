@@ -214,6 +214,20 @@ describe("a journey reads its trips' own rows (design 2026-10-12 §5)", () => {
   it("lists every trip on the Trips tab, each a link to its page", async () => {
     await renderAt("/trips/trip-1?tab=trips");
 
+    // The pin is tab-SPECIFIC: the Overview draws the same chain, so the two
+    // link assertions below would still pass if the Trips tab stopped
+    // opening (a bad key, a fallback to the overview) and the page rendered
+    // the chain the `?tab=trips` URL asked it not to. Assert the tab itself
+    // is the selected one before reading its rows.
+    expect(screen.getByRole("tab", { name: "trips:detail.tabs.trips" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    expect(screen.getByRole("tab", { name: "trips:detail.tabs.overview" })).toHaveAttribute(
+      "aria-selected",
+      "false"
+    );
+
     const first = (await screen.findByText("Dunholme loop")).closest("a");
     expect(first).toHaveAttribute("href", "/roadtrips/r1");
     const second = screen.getByText("Southhollow run").closest("a");
