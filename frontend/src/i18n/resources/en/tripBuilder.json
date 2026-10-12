@@ -87,6 +87,12 @@
     "reversed": "The trip ends before it starts.",
     "tooLong": "A scan covers at most 62 days."
   },
+  "edit": {
+    "resyncHint": "Scans the journey's saved dates again and updates it in place.",
+    "deleteHeading": "Delete",
+    "deleteJourneyHint": "The journey itself goes. Its trips are detached and kept, and the Immich album is not touched.",
+    "deleteTripHint": "This trip goes with its stations, legs and recordings. Linked accommodation and its day tours are kept."
+  },
   "progress": {
     "fetch": "Fetching photos",
     "clean": "Cleaning up",

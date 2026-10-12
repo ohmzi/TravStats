@@ -54,6 +54,7 @@ const LodgingChainDetailPage = lazy(() => import("./pages/LodgingChainDetailPage
 const TripsPage = lazy(() => import("./pages/TripsPage"));
 const TripDetailPage = lazy(() => import("./pages/TripDetailPage"));
 const TripResyncPage = lazy(() => import("./pages/TripResyncPage"));
+const TripEditPage = lazy(() => import("./pages/TripEditPage"));
 const TripBuilderPage = lazy(() => import("./pages/TripBuilderPage"));
 const TripRouteEditorPage = lazy(() => import("./pages/TripRouteEditorPage"));
 const ToursPage = lazy(() => import("./pages/ToursPage"));
@@ -528,6 +529,12 @@ function AppContent() {
               <Route
                 path="/trips/:id/resync"
                 element={isAuthenticated ? <TripResyncPage /> : <Navigate to="/login" />}
+              />
+              {/* The journey's edit page (spec 2026-10-12 §4): the modal's
+                  fields as page content, plus Re-sync from Immich and Delete. */}
+              <Route
+                path="/trips/:id/edit"
+                element={isAuthenticated ? <TripEditPage /> : <Navigate to="/login" />}
               />
               {/* Tours, across every trip and none. A tour may belong to no
                   trip at all since 2026-09-21, and then this list is the only

@@ -87,6 +87,12 @@
     "reversed": "Die Reise endet, bevor sie beginnt.",
     "tooLong": "Ein Scan deckt höchstens 62 Tage ab."
   },
+  "edit": {
+    "resyncHint": "Scannt die gespeicherten Daten der Reise erneut und aktualisiert sie an Ort und Stelle.",
+    "deleteHeading": "Löschen",
+    "deleteJourneyHint": "Die Reise selbst wird gelöscht. Die Trips werden gelöst und bleiben erhalten, das Immich-Album wird nicht angefasst.",
+    "deleteTripHint": "Dieser Trip wird mit seinen Stationen, Etappen und Aufzeichnungen gelöscht. Verknüpfte Unterkünfte und seine Tagestouren bleiben erhalten."
+  },
   "progress": {
     "fetch": "Fotos laden",
     "clean": "Aufräumen",
