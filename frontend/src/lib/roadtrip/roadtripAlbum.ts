@@ -21,23 +21,21 @@ function escapeRegExp(text: string): string {
 /**
  * The album a roadtrip's band points at (owner-reported, 2026-10-12): every
  * roadtrip of a journey showed the journey's first linked album instead of the
- * roadtrip's own — synthetically, "Southbridge 2031 Road Trip (Eastport loop)"
- * showing "Eastport loop".
+ * roadtrip's own. The naming ruling (owner, 2026-10-12) settled the pairing
+ * with ONE rule — a trip and its album share one name, the string the scan's
+ * one naming pass mints (`roadtripAreaNames`): "<Journey name> · <City>", or
+ * the journey's own name when the journey holds exactly one trip — so an album
+ * named exactly like the roadtrip IS the roadtrip's own, clash suffixes
+ * included.
  *
- * The albums hang off the TRIP, so the stored names are the only tie back to
- * the section, and two naming pairs carry one:
- * - the stopover pair shares ONE name (spec 2026-10-11 stopover §1): the
- *   roadtrip and its album are both `<City> <Year> Road Trip`, so an album
- *   named exactly like the roadtrip is the roadtrip's own — the trip-named
- *   roadtrip resolves the journey's own album the same way;
- * - the pitstop writer names the roadtrip `<Trip Name> · <City>` (spec
- *   2026-10-09 §C.11; the album rule is the pitstop spec 2026-10-11 §6) and its album `<City> <Year> Road Trip
- *   (<Trip Name>)` (§6), so the roadtrip name's remainder after the trip's own
- *   name is the city to look for.
- * Both are matched as literal text, and any four-digit year matches, so a stay
- * whose pictures the writer dated across a year boundary still resolves. The
- * pitstop parenthetical is required: an album without it is a stopover's,
- * another section's, or a plain one, and none of those is THIS roadtrip's.
+ * LEGACY (stored rows only): rows minted before that ruling still carry their
+ * old pairs, and no re-sync renames the albums a journey already links — a
+ * stopover's roadtrip and album shared "<City> <Year> Road Trip" (which the
+ * exact-name arm above still matches), and a pitstop's roadtrip was
+ * "<Trip Name> · <City>" against album "<City> <Year> Road Trip (<Trip
+ * Name>)" (the regex below, kept for exactly those stored rows). The legacy
+ * pair is matched as literal text, and any four-digit year matches, so a stay
+ * whose pictures the writer dated across a year boundary still resolves.
  *
  * A name that matches no pair is a section named by hand; it keeps today's
  * answer, the journey's first album. A journey with no linked albums has no
@@ -50,9 +48,12 @@ export function albumForRoadtrip(
   const albums = journey.immichAlbums ?? [];
   const fallback = albums[0] ?? null;
 
+  // The one rule: the album's name is the trip's name (owner ruling 2026-10-12).
   const sameName = albums.find((album) => album.albumName === roadtripName);
   if (sameName !== undefined) return sameName;
 
+  // LEGACY: a stored pitstop row's "<Trip Name> · <City>" against its album
+  // "<City> <Year> Road Trip (<Trip Name>)"; new rows take the arm above.
   const prefix = `${journey.name}${SECTION_NAME_SEPARATOR}`;
   if (!roadtripName.startsWith(prefix)) return fallback;
 

@@ -172,7 +172,7 @@ export interface StoredPitstopStatus {
 
 /** A pitstop area's own album, server-named (spec 2026-10-11 pitstops §2, §6), with what a re-sync holds of it (spec §5). */
 export interface DraftPitstop {
-  /** `<City> <Year> Road Trip (<Trip Name>)`; the parenthetical is dropped when the city is the trip's own name. */
+  /** The area's roadtrip row name, verbatim: the album is named exactly like its trip (owner ruling 2026-10-12). */
   albumName: string;
   /** Re-sync only: set ⇔ the trip links the user's own album of exactly `albumName` — the album the commit re-syncs. */
   stored?: StoredPitstopStatus;
@@ -207,7 +207,7 @@ export interface DraftStopover {
   /** `${inFlightId}#${outFlightId}` — stable across scans, outside the area-key namespace. */
   key: string;
   city: string;
-  /** "<City> <Year> Road Trip": the one name of the roadtrip and its album. */
+  /** The trip's name — "<Journey> · <City>", or the journey's name for a one-trip journey (owner ruling 2026-10-12). */
   title: string;
   /** The stopover day (YYYY-MM-DD, on the place's own clock). */
   day: Day;
@@ -488,7 +488,7 @@ export interface CommitResult {
 export interface PitstopAlbumOutcome {
   /** The stopover key `<inFlightId>#<outFlightId>`, or the pitstop area key `<startDay>#<n>`. */
   key: string;
-  /** The album's name, `<City> <Year> Road Trip[ (<Trip Name>)]`; the line and its retry are addressed by `key`. */
+  /** The album's name — its trip's own name; the line and its retry are addressed by `key`. */
   name: string;
   album: AlbumOutcome;
 }

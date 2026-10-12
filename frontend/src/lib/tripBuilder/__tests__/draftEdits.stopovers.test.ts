@@ -7,7 +7,7 @@ import {
   reapplyEdits,
   type DraftEdit,
 } from "../draftEdits";
-import { COMMIT_KEY, FLIGHT_OUT, STOPOVER, stopoverDraft } from "./reviewFixtures";
+import { COMMIT_KEY, AREAS, FLIGHT_OUT, STOPOVER, stopoverDraft } from "./reviewFixtures";
 
 const draft = stopoverDraft();
 const start = initialReviewState(draft);
@@ -78,6 +78,20 @@ describe("setStopoverTick", () => {
     expect(state.edits).toEqual([
       { type: "setStopoverTick", key: STOPOVER.key, roadtrip: false, album: false },
     ]);
+  });
+});
+
+describe("setTripName with a stopover offered", () => {
+  it("counts the stopover with the areas, so an area keeps its journey-and-city name", () => {
+    // The scan's one naming pass counts both kinds when it decides the
+    // single-trip case (owner ruling 2026-10-12), so the review's recompute
+    // must too: with one roadtrip area and one stopover offered, the area is
+    // one of TWO trips and its name keeps its "<Journey> · <City>" form after
+    // a rename — it must not collapse to the bare journey name.
+    const oneArea = stopoverDraft({ areas: [AREAS[0]] });
+    const state = initialReviewState(oneArea);
+    const renamed = applyEdit(oneArea, state, { type: "setTripName", name: "Autumn loop" });
+    expect(renamed.areas.map((area) => area.name)).toEqual(["Autumn loop · Northvale"]);
   });
 });
 

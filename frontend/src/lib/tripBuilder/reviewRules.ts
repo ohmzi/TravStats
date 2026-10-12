@@ -50,12 +50,16 @@ export function syncArea(area: ReviewArea): ReviewArea {
 }
 
 /**
- * Area names that follow the trip name and the number of roadtrips, for every
- * area the user has not named themselves. A matched roadtrip is not named this
- * way: the scan sent the stored name as its `suggestedName`, and that name is
- * the roadtrip's until the user edits the field. The names the scan gave are
- * kept for everything else (an area that is not a roadtrip has no name of its
- * own).
+ * Area names that follow the trip name and the number of trips, for every
+ * area the user has not named themselves. The count and the clash pool span
+ * the roadtrip areas AND the stopover candidates, in travel order — the
+ * scan's one naming pass counts both kinds alike (owner ruling 2026-10-12),
+ * so an offered stopover keeps a lone area from collapsing to the journey's
+ * bare name here exactly as it did at the scan. A matched roadtrip is not
+ * named this way: the scan sent the stored name as its `suggestedName`, and
+ * that name is the roadtrip's until the user edits the field. The names the
+ * scan gave are kept for everything else (an area that is not a roadtrip has
+ * no name of its own).
  */
 export function withSuggestedNames(draft: TripBuilderDraft, state: ReviewState): ReviewState {
   const tripName = state.tripName.trim();
@@ -65,8 +69,8 @@ export function withSuggestedNames(draft: TripBuilderDraft, state: ReviewState):
       .filter((candidate) => candidate.roadtripId !== undefined)
       .map((candidate) => candidate.key)
   );
-  const names = roadtripAreaNames(
-    state.areas
+  const inputs = [
+    ...state.areas
       .filter((area) => area.as === "roadtrip")
       .map((area) => {
         const offered = draft.areas.find((candidate) => candidate.key === area.key);
@@ -76,9 +80,13 @@ export function withSuggestedNames(draft: TripBuilderDraft, state: ReviewState):
           startDay: offered?.startDay ?? draft.window.startDay,
         };
       }),
-    tripName,
-    new Set()
-  );
+    ...(draft.stopovers ?? []).map((stopover) => ({
+      key: stopover.key,
+      mainCity: stopover.city,
+      startDay: stopover.day,
+    })),
+  ].sort((a, b) => (a.startDay < b.startDay ? -1 : a.startDay > b.startDay ? 1 : 0));
+  const names = roadtripAreaNames(inputs, tripName, new Set());
   return {
     ...state,
     areas: state.areas.map((area) =>

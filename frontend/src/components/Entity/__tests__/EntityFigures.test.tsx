@@ -288,7 +288,8 @@ describe("the trip's figures row (design §2)", () => {
           name: "Eastport loop",
           immichAlbums: [
             album("l1", "Eastport loop", 12),
-            album("l2", "Southbridge 2031 Road Trip (Eastport loop)", 47),
+            // The trip and its album share the one name (owner ruling 2026-10-12).
+            album("l2", "Eastport loop · Southbridge", 47),
           ],
         },
       })
@@ -300,9 +301,10 @@ describe("the trip's figures row (design §2)", () => {
     // The trip's Gallery tab resolves the same album (albumForRoadtrip), so
     // the cell points at the TRIP's gallery — a link to the journey's would
     // show a different album than the cell just named.
-    expect(
-      screen.getByRole("link", { name: "Southbridge 2031 Road Trip (Eastport loop)" })
-    ).toHaveAttribute("href", "/roadtrips/rt-1?tab=gallery");
+    expect(screen.getByRole("link", { name: "Eastport loop · Southbridge" })).toHaveAttribute(
+      "href",
+      "/roadtrips/rt-1?tab=gallery"
+    );
     expect(screen.getByText("47 Fotos")).toBeInTheDocument();
   });
 

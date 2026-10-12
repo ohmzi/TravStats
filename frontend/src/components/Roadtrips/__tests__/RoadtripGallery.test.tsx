@@ -69,8 +69,8 @@ describe("RoadtripGallery", () => {
           name: TRIP,
           immichAlbums: [
             album(TRIP), // the journey's own album, first linked
-            album(`${CITY} 2031 Road Trip (${TRIP})`), // the pitstop's — THIS trip's
-            album("Kelmore 2031 Road Trip"), // another stay's
+            album(ROADTRIP), // THIS trip's — it and the album share the one name
+            album(`${CITY} 2031 Road Trip (${TRIP})`), // a legacy-shaped stay's, left alone
           ],
         })}
         onChanged={vi.fn()}
@@ -78,7 +78,7 @@ describe("RoadtripGallery", () => {
     );
 
     const sections = screen.getAllByTestId("immich-album-section");
-    expect(sections.map((el) => el.textContent)).toEqual([`t1|${CITY} 2031 Road Trip (${TRIP})`]);
+    expect(sections.map((el) => el.textContent)).toEqual([`t1|${ROADTRIP}`]);
   });
 
   it("keeps the documented fallback: a trip with no own album shows the journey's first", () => {
