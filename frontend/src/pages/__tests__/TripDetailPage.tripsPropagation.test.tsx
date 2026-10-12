@@ -193,12 +193,15 @@ describe("a journey reads its trips' own rows (design 2026-10-12 §5)", () => {
     vi.clearAllMocks();
   });
 
-  it("shows each trip in the chain with its span, km and stations, and sums the km", async () => {
+  it("shows each trip in the chain with its days, km and stations, and sums the km", async () => {
     await renderAt("/trips/trip-1");
 
     const dunholme = (await screen.findByText("Dunholme loop")).closest("a");
     expect(dunholme).toHaveAttribute("href", "/roadtrips/r1");
-    expect(dunholme?.textContent).toContain("02.05. – 08.05.2031");
+    // The node heads with the trip's DAYS now (owner ruling 2026-10-12), the
+    // figures band's own fold and copy — no date span.
+    expect(dunholme?.textContent).toContain("common:summary.cardDays");
+    expect(dunholme?.textContent).not.toContain("02.05. – 08.05.2031");
     expect(dunholme?.textContent).toContain("137 km");
     expect(dunholme?.textContent).toContain("roadtrips:stationCount:4");
 
@@ -251,7 +254,7 @@ describe("a journey reads its trips' own rows (design 2026-10-12 §5)", () => {
     });
 
     const carrow = (await screen.findByText("Carrow loop")).closest("a");
-    expect(carrow?.textContent).toContain("02.06. – 08.06.2031");
+    expect(carrow?.textContent).toContain("common:summary.cardDays");
     expect(carrow?.textContent).toContain("489 km");
     expect(carrow?.textContent).toContain("roadtrips:stationCount:9");
     expect(screen.queryByText("Dunholme loop")).not.toBeInTheDocument();

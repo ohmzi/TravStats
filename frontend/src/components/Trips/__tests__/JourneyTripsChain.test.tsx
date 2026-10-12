@@ -70,12 +70,12 @@ function renderChain(): ReturnType<typeof render> {
 }
 
 describe("JourneyTripsChain", () => {
-  it("draws one node per trip, each linking to its page with span, km and stations", () => {
+  it("draws one node per trip: its city, its days, its km and its stations", () => {
     vi.mocked(useTripRoadtrips).mockReturnValue({
       rows: [
         summary({
           id: "r1",
-          name: "Coast run",
+          name: "Southern loop · Coast run",
           startDate: "2031-05-02T00:00:00.000Z",
           endDate: "2031-05-08T00:00:00.000Z",
           drivenKm: 1370.4,
@@ -87,17 +87,45 @@ describe("JourneyTripsChain", () => {
     });
     renderChain();
 
+    // The title is the trip's CITY (owner ruling 2026-10-12, looking at this
+    // chain): the segment after the last " · " of "<Journey> · <City>".
     const coast = screen.getByText("Coast run").closest("a");
     expect(coast).toHaveAttribute("href", "/roadtrips/r1");
-    // The span comes from `useRoadtripSpan`, the card's own rule.
-    expect(coast?.textContent).toContain("02.05. – 08.05.2031");
+    // Days first, the figures band's own fold and copy (`roadtripDays` +
+    // `common:summary.cardDays`), then the km and the station count as before.
+    expect(coast?.textContent).toContain("7 common:summary.cardDays:7");
     expect(coast?.textContent).toContain("1.370 km");
     expect(coast?.textContent).toContain("roadtrips:stationCount:10");
 
+    // A name the builder did not mint as "<Journey> · <City>" — here the
+    // journey's own name, the one-trip case — shows whole.
     const mountain = screen.getByText("Mountain run").closest("a");
     expect(mountain).toHaveAttribute("href", "/roadtrips/r2");
-    // An undated trip says so, exactly as its card does.
-    expect(mountain?.textContent).toContain("roadtrips:undated");
+    expect(mountain?.textContent).toContain("common:summary.cardDays");
+  });
+
+  it("counts the days the way the figures band does, ≈ and all", () => {
+    // An end date is missing: no span to count, so the fold falls back to the
+    // stored nights + 1 and keeps the "≈" while those nights are only a lower
+    // bound — the trip band's own Days cell, mirrored.
+    vi.mocked(useTripRoadtrips).mockReturnValue({
+      rows: [
+        summary({
+          id: "r1",
+          name: "Coast run",
+          startDate: "2031-05-02T00:00:00.000Z",
+          endDate: null,
+          nights: 2,
+          nightsKnown: false,
+        }),
+      ],
+      settled: true,
+    });
+    renderChain();
+
+    const node = screen.getByText("Coast run").closest("a");
+    expect(node?.textContent).toContain("≈ 3 common:summary.cardDays:3");
+    expect(node?.querySelector("[title]")).toHaveAttribute("title", "roadtrips:list.nightsApprox");
   });
 
   it("dashes an unmeasured trip's km, as its card does — never a zero", () => {

@@ -6,6 +6,7 @@ import {
   isSavable,
   nextMorning,
   nextStation,
+  roadtripCityOf,
   roadtripDays,
   roadtripPhase,
   sketchPath,
@@ -266,5 +267,24 @@ describe("daysAhead", () => {
       const ahead = daysAhead(at("2026-10-10"), at("2026-10-12"), today);
       expect(ahead === null || ahead <= 3).toBe(true);
     }
+  });
+});
+
+/**
+ * The owner's ruling (2026-10-12): the journey Overview's TRIPS chain shows
+ * "just the city name of the trip" — the segment after the last " · " of the
+ * builder-minted "<Journey name> · <City>" name; a name the builder did not
+ * mint that way (the journey's own name for a one-trip journey, a name given
+ * by hand) has no city segment and shows whole.
+ */
+describe("roadtripCityOf", () => {
+  it("reads the segment after the last separator", () => {
+    expect(roadtripCityOf("Southern loop · Northvale")).toBe("Northvale");
+    expect(roadtripCityOf("Southern loop · Northvale · Westmere")).toBe("Westmere");
+  });
+
+  it("shows a name without a separator whole — the one-trip journey's own name too", () => {
+    expect(roadtripCityOf("Southern loop")).toBe("Southern loop");
+    expect(roadtripCityOf("Return leg")).toBe("Return leg");
   });
 });

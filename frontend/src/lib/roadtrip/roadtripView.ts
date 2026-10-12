@@ -27,6 +27,27 @@ export function dayKey(iso: string | null | undefined): string | null {
   return iso ? iso.slice(0, 10) : null;
 }
 
+/**
+ * What the photo trip builder puts between a journey's name and a trip's city
+ * (spec 2026-10-09 §C.11) — the backend's `SECTION_NAME_SEPARATOR` and the
+ * same pair `roadtripAlbum.ts` matches.
+ */
+const SECTION_NAME_SEPARATOR = " · ";
+
+/**
+ * The city a trip's name carries, for the journey Overview's chain node
+ * (owner ruling 2026-10-12, verbatim): "the trip breakdown on journey
+ * overview page should be just the city name of the trip". Every trip the
+ * builder mints is named "<Journey name> · <City>" (`roadtripAreaNames`), so
+ * the city is the segment after the LAST separator; a name the builder did
+ * not mint that way — the journey's own name for a one-trip journey, or a
+ * name given by hand — has no city segment and shows whole.
+ */
+export function roadtripCityOf(name: string): string {
+  const at = name.lastIndexOf(SECTION_NAME_SEPARATOR);
+  return at === -1 ? name : name.slice(at + SECTION_NAME_SEPARATOR.length);
+}
+
 function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(b) - Date.parse(a)) / DAY_MS);
 }
