@@ -83,13 +83,18 @@ registry.registerPath({
     "Starts a read-only scan job and answers 202 at once. The job result is `{draftId}`; " +
     "read the draft with `GET /trip-builder/drafts/{id}`. Nothing is written to TravStats " +
     "or Immich. The window is at most 62 days and at least one of `inspect` and " +
-    "`createAlbum` must be on. Shares the import rate limit.",
+    "`createAlbum` must be on. Shares the import rate limit. A target with a `routeId` " +
+    "scopes the scan (and the commit that follows) to that one roadtrip of the journey " +
+    "(owner 2026-10-12), which is what the trip edit page's Re-sync sends.",
   tags: tag,
   request: { body: { content: { "application/json": { schema: scanBodySchema } } } },
   responses: {
     202: { description: "The scan job", content: { "application/json": { schema: jobStarted } } },
     400: { description: "Invalid input", content: errorContent },
-    404: { description: "The target trip is not the caller's", content: errorContent },
+    404: {
+      description: "The target trip — or the named roadtrip of it — is not the caller's",
+      content: errorContent,
+    },
     409: { description: '`{error: "notConfigured"}`: no Immich connection', content: errorContent },
     429: { description: "Too many scans", content: errorContent },
   },
@@ -281,7 +286,19 @@ export const draftSchema = registry.register(
       options: z.object({ inspect: z.boolean(), createAlbum: z.boolean() }),
       target: z.union([
         z.object({ kind: z.literal("new") }),
-        z.object({ kind: z.literal("existing"), tripId: z.string().uuid(), tripName: z.string() }),
+        z.object({
+          kind: z.literal("existing"),
+          tripId: z.string().uuid(),
+          tripName: z.string(),
+          routeId: z
+            .string()
+            .uuid()
+            .optional()
+            .describe(
+              "Route-scoped re-sync (owner 2026-10-12): the one roadtrip this draft updates"
+            ),
+          routeName: z.string().optional().describe("That roadtrip's stored name"),
+        }),
       ]),
       tripName: z.string(),
       countries: z.array(z.string()),

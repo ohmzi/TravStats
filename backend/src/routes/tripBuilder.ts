@@ -35,6 +35,7 @@ import logger from "../utils/logger";
 import { getImmichConnection } from "../services/immich/immichResolver";
 import { getJob, startJob } from "../services/jobs/jobRegistry";
 import { buildTripDraft, progressReporter } from "../services/tripBuilder/buildDraft";
+import { resolveTripRoute } from "../services/tripBuilder/builderQueries";
 import { builderCapabilities } from "../services/tripBuilder/capabilities";
 import { retryTripAlbum } from "../services/tripBuilder/albumWrite";
 import { retryPitstopAlbum } from "../services/tripBuilder/stopoverAlbum";
@@ -84,7 +85,15 @@ router.post(
         res.status(409).json({ error: "notConfigured" });
         return;
       }
-      if (body.target.kind === "existing") await resolveTrip(userId, body.target.tripId);
+      if (body.target.kind === "existing") {
+        await resolveTrip(userId, body.target.tripId);
+        // A route-scoped scan (owner request 2026-10-12) names the roadtrip it
+        // updates; a route that is not this journey's — or not the caller's —
+        // is a 404, exactly like the trip itself.
+        if (body.target.routeId !== undefined) {
+          await resolveTripRoute(userId, body.target.tripId, body.target.routeId);
+        }
+      }
 
       const job = startJob("tripBuilder.scan", userId, async (reportProgress) => {
         const draft = await buildTripDraft(userId, body, progressReporter(reportProgress));

@@ -82,7 +82,18 @@ function windowIssue(startDay: string, endDay: string): string | null {
 
 export const scanTargetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("new") }).strict(),
-  z.object({ kind: z.literal("existing"), tripId: uuid }).strict(),
+  z
+    .object({
+      kind: z.literal("existing"),
+      tripId: uuid,
+      /**
+       * One roadtrip of the journey (owner request 2026-10-12): the trip edit
+       * page's Re-sync scopes the scan and the commit to it. Absent: the
+       * journey-wide re-sync, as before.
+       */
+      routeId: uuid.optional(),
+    })
+    .strict(),
 ]);
 
 /** `POST /trip-builder/scan`. */
@@ -155,6 +166,8 @@ export const commitTargetSchema = z.discriminatedUnion("kind", [
     .object({
       kind: z.literal("existing"),
       tripId: uuid,
+      /** A route-scoped commit (owner request 2026-10-12): it must be the route the draft scanned. */
+      routeId: uuid.optional(),
       applyWindow: z.boolean(),
       countries: countryCodes.optional(),
     })

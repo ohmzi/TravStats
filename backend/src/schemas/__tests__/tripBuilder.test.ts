@@ -8,6 +8,7 @@ import {
 
 // Synthetic fixtures only (public repository): invented places, shifted years.
 const TRIP_ID = "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c";
+const ROUTE_ID = "b4c1d2e3-f4a5-4b6c-8d7e-9f0a1b2c3d4e";
 const COMMIT_KEY = "6a0b7c1d-2e3f-4a5b-8c6d-7e8f9a0b1c2d";
 const FLIGHT_ID = "9d8c7b6a-5f4e-4d3c-b2a1-0f9e8d7c6b5a";
 const NORTHVALE = "-901|3374|2031-05-02";
@@ -81,6 +82,23 @@ describe("scanBodySchema", () => {
   it("accepts an existing trip as the target", () => {
     const target = { kind: "existing", tripId: TRIP_ID };
     expect(scanBodySchema.safeParse({ ...scan, target }).success).toBe(true);
+  });
+
+  it("accepts a route-scoped existing target (owner request 2026-10-12)", () => {
+    const target = { kind: "existing", tripId: TRIP_ID, routeId: ROUTE_ID };
+    expect(scanBodySchema.safeParse({ ...scan, target }).success).toBe(true);
+  });
+
+  it("refuses a route id that is not a uuid, and a route on a new-trip target", () => {
+    expect(
+      scanBodySchema.safeParse({
+        ...scan,
+        target: { kind: "existing", tripId: TRIP_ID, routeId: "r1" },
+      }).success
+    ).toBe(false);
+    expect(
+      scanBodySchema.safeParse({ ...scan, target: { kind: "new", routeId: ROUTE_ID } }).success
+    ).toBe(false);
   });
 
   it("accepts a window of exactly 62 days", () => {
@@ -184,6 +202,19 @@ describe("commitBodySchema", () => {
     expect(issuePaths(commitBodySchema.safeParse(commit({ target: lower })))).toEqual([
       "target.countries.0",
     ]);
+  });
+
+  it("takes a route-scoped existing target, refusing a route id that is not a uuid", () => {
+    const target = {
+      kind: "existing",
+      tripId: TRIP_ID,
+      routeId: ROUTE_ID,
+      applyWindow: false,
+      countries: ["NZ"],
+    };
+    expect(commitBodySchema.safeParse(commit({ target })).success).toBe(true);
+    const junk = { ...target, routeId: "the-trip" };
+    expect(commitBodySchema.safeParse(commit({ target: junk })).success).toBe(false);
   });
 
   it("takes a pitstop area's album, refusing it beside a kind that is not a roadtrip", () => {

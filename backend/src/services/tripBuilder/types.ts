@@ -92,7 +92,14 @@ export type FerryEvidence = "router" | "seaPhotos" | "chip";
 
 // ─── Request (validated by schemas/tripBuilder.ts) ───────────────────────────
 
-export type ScanTarget = { kind: "new" } | { kind: "existing"; tripId: string };
+/**
+ * What a scan is for. `routeId` (owner request 2026-10-12) scopes an `existing`
+ * scan to ONE roadtrip of the journey: the trip edit page's Re-sync sends the
+ * trip's own window and the route it updates, and the scan/commit then touch
+ * nothing else of the journey (`routeScope.ts`). A caller that names no route
+ * gets the journey-wide re-sync, exactly as before.
+ */
+export type ScanTarget = { kind: "new" } | { kind: "existing"; tripId: string; routeId?: string };
 
 /** What a scan was asked for: `POST /trip-builder/scan` after validation. */
 export interface ScanInput {
@@ -532,7 +539,10 @@ export interface TripBuilderDraft {
   expiresAt: string;
   window: { startDay: Day; endDay: Day; checkedFrom: Day; checkedTo: Day };
   options: { inspect: boolean; createAlbum: boolean };
-  target: { kind: "new" } | { kind: "existing"; tripId: string; tripName: string };
+  /** A route-scoped draft also names the trip it updates (owner request 2026-10-12). */
+  target:
+    | { kind: "new" }
+    | { kind: "existing"; tripId: string; tripName: string; routeId?: string; routeName?: string };
   tripName: string;
   countries: string[];
   originLabel: string | null;
@@ -721,6 +731,8 @@ export type CommitTargetPlan =
       kind: "existing";
       tripId: string;
       tripName: string;
+      /** Set on a route-scoped commit: only this roadtrip is written; the journey row is not. */
+      routeId?: string;
       applyWindow: boolean;
       countries: string[];
     };

@@ -16,6 +16,7 @@
  * the commit to leave its roadtrip untouched (add-only v1, spec 2026-10-11 §6).
  */
 import { deriveStationRows, type NightPlanStation } from "../../shared/tour/builderNightPlan";
+import { AppError } from "../../middleware/errorHandler";
 import logger from "../../utils/logger";
 import { pickLinkedAlbum, previewAlbumSync, type AlbumResyncClient } from "./albumResync";
 import {
@@ -37,6 +38,7 @@ import {
   type ReconciledStation,
   type StopArea,
 } from "./reconcile";
+import type { RouteScope } from "./routeScope";
 import { claimKey, stationKeyOf } from "./stations";
 import type {
   Day,
@@ -195,6 +197,88 @@ function annotatePitstop(
   return { ...pitstop, stored: { albumAssetCount: linked.assetCount, photoCount: count } };
 }
 
+/**
+ * The route-scoped annotation (owner request 2026-10-12): a trip-side Re-sync
+ * updates exactly one stored roadtrip.
+ *
+ * Every area of the trip's own window IS that roadtrip (the scan merged them;
+ * `routeScope.ts`), so the association is forced rather than derived — the
+ * owner's corrected photo locations must never fail a name/proximity match and
+ * turn the update into a second row. Each area keeps the stored roadtrip's own
+ * name (the row is never re-minted), carries the stored stations' statuses the
+ * journey-wide re-sync shows, and its notSeen list. Nothing else of the journey
+ * is offered: no timeline stops, no stopovers, no own album.
+ */
+function annotateDraftForRoute(
+  dto: TripBuilderDraft,
+  state: ExistingTripState,
+  scope: RouteScope
+): { dto: TripBuilderDraft; existing: StoredExisting } {
+  const target = state.roadtrips.find((route) => route.id === scope.routeId);
+  if (target === undefined) throw new AppError("Trip not found", 404);
+  const assigns: Record<string, string> = Object.fromEntries(
+    Object.entries(dto.nights).map(([day, entry]) => [day, entry.assign] as const)
+  );
+  const taken = new Set<string>(
+    dto.areas.flatMap((a) => [
+      ...a.stations.map((s) => s.key),
+      ...(a.home.start.station ? [a.home.start.station.key] : []),
+      ...(a.home.end.station ? [a.home.end.station.key] : []),
+    ])
+  );
+  const matchedIds = new Set<string>();
+  const notSeenIds = new Set<string>();
+  const areas = dto.areas.map((area): DraftArea => {
+    const derived = derivedStationsOf(area, assigns);
+    const reconciled = reconcileStations(derived, target.stations, {
+      startDay: dto.window.startDay,
+      endDay: dto.window.endDay,
+    });
+    for (const rec of reconciled.derived) {
+      if (rec.existing) matchedIds.add(rec.existing.id);
+    }
+    for (const n of reconciled.notSeen) notSeenIds.add(n.stored.id);
+    return {
+      ...area,
+      // The area IS that stored roadtrip: show its own name, never a re-minted
+      // one, so the review's Name field holds what the commit keeps.
+      suggestedName: target.name,
+      roadtripId: target.id,
+      stations: area.stations.map((s, i) => annotate(s, reconciled.derived[i])),
+      legs: annotateLegs(area, reconciled.derived, target),
+      notSeen: reconciled.notSeen.map((n) => notSeenStation(n, taken, area.startDay)),
+    };
+  });
+  return {
+    dto: {
+      ...dto,
+      areas,
+      flights: dto.flights.map((f) =>
+        state.flightIds.includes(f.id) ? { ...f, locked: true, defaultAssign: true } : f
+      ),
+    },
+    existing: {
+      tripId: state.tripId,
+      roadtrips: new Map([
+        [
+          target.id,
+          {
+            areaKey: areas[0]?.key ?? "",
+            name: target.name,
+            matchedIds,
+            notSeenIds,
+          },
+        ],
+      ]),
+      stopovers: new Map(),
+      // The trip's timeline stops belong to the journey, not to the roadtrip:
+      // a trip-scoped run has no business rewriting them.
+      stops: { matchedIds: new Set(), notSeenIds: new Set() },
+      album: null,
+    },
+  };
+}
+
 export function annotateDraftForExisting(
   dto: TripBuilderDraft,
   state: ExistingTripState,
@@ -204,8 +288,11 @@ export function annotateDraftForExisting(
    * may carry; the review's "now" beside the synced count is this number, not
    * the stations' sum (final review, finding Q3-1).
    */
-  pitstopCounts: ReadonlyMap<string, number>
+  pitstopCounts: ReadonlyMap<string, number>,
+  /** A route-scoped re-sync's target (owner request 2026-10-12); null: the journey-wide flow. */
+  scope: RouteScope | null = null
 ): { dto: TripBuilderDraft; existing: StoredExisting } {
+  if (scope !== null) return annotateDraftForRoute(dto, state, scope);
   const assigns: Record<string, string> = Object.fromEntries(
     Object.entries(dto.nights).map(([day, entry]) => [day, entry.assign] as const)
   );
@@ -400,10 +487,12 @@ export async function applyExistingTarget(
   album: AlbumScanFacts,
   dto: TripBuilderDraft,
   /** The pitstop areas' own member counts, as `annotateDraftForExisting` reads them. */
-  pitstopCounts: ReadonlyMap<string, number>
+  pitstopCounts: ReadonlyMap<string, number>,
+  /** A route-scoped re-sync's target (owner request 2026-10-12); null: the journey-wide flow. */
+  scope: RouteScope | null = null
 ): Promise<{ dto: TripBuilderDraft; existing?: StoredExisting }> {
   if (!existing) return { dto };
-  const annotated = annotateDraftForExisting(dto, existing.state, pitstopCounts);
+  const annotated = annotateDraftForExisting(dto, existing.state, pitstopCounts, scope);
   const draftAlbum = annotated.dto.album;
   if (!draftAlbum || draftAlbum.allowed === false) return annotated;
   try {
@@ -413,6 +502,9 @@ export async function applyExistingTarget(
       links: existing.state.albums,
       tripName: existing.state.tripName,
       albumName: draftAlbum.name,
+      // A route-scoped run updates the trip's OWN album, matched by its stored
+      // name, and only ever adds to it (owner request 2026-10-12).
+      ...(scope === null ? {} : { named: true, addOnly: true }),
       ...album,
     });
     return {

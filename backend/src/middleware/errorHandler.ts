@@ -283,6 +283,12 @@ export type ApiErrorCode =
   | "STOPOVER_EXPIRED"
   /** A pitstop-album retry names an album no held committed draft resolves (409): its picture ids exist only there, so the caller must scan again. */
   | "PITSTOP_EXPIRED"
+  /**
+   * A route-scoped re-sync's scanned stops also belong to another stored
+   * roadtrip of the journey (owner request 2026-10-12): nothing was written,
+   * because the write would cross rows.
+   */
+  | "ROUTE_SCOPE_CONFLICT"
   /** Phase B rolled back; nothing was written (the job's error). */
   | "COMMIT_FAILED";
 

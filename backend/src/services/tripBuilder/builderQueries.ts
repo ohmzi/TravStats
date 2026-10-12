@@ -59,6 +59,25 @@ export async function loadTargetTrip(
   };
 }
 
+/**
+ * One roadtrip of the caller's journey, or 404 — the same answer a foreign
+ * trip gets, so nothing outside can tell a route that belongs to another
+ * account from one that does not exist. A route-scoped scan names its route in
+ * the target (owner request 2026-10-12).
+ */
+export async function resolveTripRoute(
+  userId: string,
+  tripId: string,
+  routeId: string
+): Promise<{ id: string; name: string }> {
+  const route = await prisma.tripRoute.findFirst({
+    where: { id: routeId, tripId, userId, kind: "roadtrip" },
+    select: { id: true, name: true },
+  });
+  if (!route) throw new AppError("Trip not found", 404);
+  return route;
+}
+
 /** The caller's trips whose days overlap the window, `excludeTripId` left out. */
 export async function overlappingTripsOf(
   userId: string,

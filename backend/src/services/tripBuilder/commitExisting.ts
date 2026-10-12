@@ -221,7 +221,7 @@ export async function writeExistingTarget(
   plan: ExistingCommitPlan,
   /** The timeline stops `writeStops` in `writeCommit` created for this commit. */
   addedStopIds: readonly string[]
-): Promise<{ roadtrips: PhaseBRoadtrip[]; stopsDiff: RoadtripDiff }> {
+): Promise<{ roadtrips: PhaseBRoadtrip[]; stopsDiff?: RoadtripDiff }> {
   await guardMatchedStopovers(tx, plan);
   const roadtrips: PhaseBRoadtrip[] = [];
   const releasedStopIds: string[] = [];
@@ -230,6 +230,10 @@ export async function writeExistingTarget(
     roadtrips.push(written.roadtrip);
     releasedStopIds.push(...written.releasedStopIds);
   }
+  // A route-scoped re-sync has no stop writes at all: the journey's timeline
+  // stops are not its business, so neither the candidates guard nor an update
+  // runs — and the success panel shows no stops line.
+  if (plan.scoped === true) return { roadtrips };
   await writeStops(tx, plan, addedStopIds, releasedStopIds);
   return { roadtrips, stopsDiff: plan.stopsDiff };
 }

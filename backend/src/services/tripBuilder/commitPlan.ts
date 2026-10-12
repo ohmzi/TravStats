@@ -66,7 +66,11 @@ function assertTarget(draft: StoredDraft, body: CommitBody): void {
   const same =
     scanned.kind === body.target.kind &&
     (scanned.kind === "new" ||
-      (body.target.kind === "existing" && body.target.tripId === scanned.tripId));
+      (body.target.kind === "existing" &&
+        body.target.tripId === scanned.tripId &&
+        // The route scope travels with the target: a body that drops it (or
+        // names another route) is not this draft's commit.
+        body.target.routeId === scanned.routeId));
   if (!same) throw mismatch("target");
 }
 
@@ -142,6 +146,18 @@ async function resolveTarget(
     where: { id },
     select: { countries: true },
   });
+  // A route-scoped commit writes the roadtrip alone: the journey's own fields —
+  // its dates and its countries — stay byte-identical (owner request 2026-10-12).
+  if (body.target.routeId !== undefined) {
+    return {
+      kind: "existing",
+      tripId: id,
+      tripName: name,
+      routeId: body.target.routeId,
+      applyWindow: false,
+      countries: stored.countries,
+    };
+  }
   const wanted = body.target.countries ?? draft.dto.countries;
   return {
     kind: "existing",

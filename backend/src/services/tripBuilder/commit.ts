@@ -55,6 +55,10 @@ async function writeTrip(
   if (plan.target.kind !== "existing")
     throw new Error("A new-trip commit was prepared without a trip");
   const { tripId, applyWindow, countries } = plan.target;
+  // A route-scoped commit writes the roadtrip alone: the journey row is not
+  // touched, so its fields (and its `updatedAt`) stay byte-identical (owner
+  // request 2026-10-12).
+  if (plan.target.routeId !== undefined) return tripId;
   const stored = await tx.trip.findFirstOrThrow({
     where: { id: tripId, userId: plan.userId },
     select: { startDate: true, endDate: true, startDay: true, endDay: true },
@@ -562,9 +566,14 @@ export async function runCommitJob(draft: StoredDraft, plan: CommitPlan): Promis
               ...albumInput,
               tripName: plan.target.tripName,
               window: plan.window,
+              // A route-scoped run updates the trip's own album, matched by its
+              // stored name, and only ever ADDS the window's photos: the album
+              // never loses members here (owner request 2026-10-12).
+              ...(plan.target.routeId === undefined ? {} : { named: true }),
               outsideIds: draft.existing.album?.outsideIds ?? [],
               scanAlbumId: draft.existing.album?.immichAlbumId ?? null,
-              removeOutside: plan.existing?.album.removeOutside === true,
+              removeOutside:
+                plan.target.routeId === undefined && plan.existing?.album.removeOutside === true,
             })
           : await writeTripAlbum(albumInput);
     } catch (error) {

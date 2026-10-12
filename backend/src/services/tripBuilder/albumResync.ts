@@ -143,6 +143,17 @@ export interface AlbumPreviewInput {
   links: readonly ExistingAlbumLink[];
   tripName: string;
   albumName: string;
+  /**
+   * A second, independently named album (a stopover's own, or a trip-scoped
+   * re-sync's): only a linked album carrying exactly `albumName` is updated.
+   */
+  named?: boolean;
+  /**
+   * Add-only (a trip-scoped re-sync, owner request 2026-10-12): nothing is
+   * judged removable and the review shows no removal switch, because the commit
+   * never removes members of the trip's own album.
+   */
+  addOnly?: boolean;
   /** Every in-window own photo and video: `CleanResult.albumAssetIds`. */
   windowAssetIds: readonly string[];
   /** Own, not hidden photos outside [S, E] within the fetch range: `CleanResult.context`. */
@@ -168,6 +179,21 @@ export async function previewAlbumSync(input: AlbumPreviewInput): Promise<AlbumP
           id,
           fileCreatedAt,
         }));
+  const plan = planAlbumSync({ windowAssetIds: input.windowAssetIds, members });
+  if (input.addOnly === true) {
+    // Add-only: no member is removable, so the review offers no removal switch
+    // and the commit's outsideIds stay empty.
+    return {
+      immichAlbumId: target.kind === "create" ? null : target.immichAlbumId,
+      outside: [],
+      sync: {
+        target: target.kind,
+        toAdd: plan.toAdd.length,
+        alreadyIn: plan.alreadyIn,
+        removable: { count: 0, defaultOn: false, allowed: false },
+      },
+    };
+  }
   const outside = outsideMemberIds({
     members,
     windowIds: new Set(input.windowAssetIds),
@@ -175,7 +201,6 @@ export async function previewAlbumSync(input: AlbumPreviewInput): Promise<AlbumP
     fetchFrom: input.fetchFrom,
     fetchTo: input.fetchTo,
   });
-  const plan = planAlbumSync({ windowAssetIds: input.windowAssetIds, members });
   const capability = await albumRemovalCapability(input.client);
   const allowed = capability.allowed === true;
   return {

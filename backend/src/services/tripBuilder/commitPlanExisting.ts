@@ -42,7 +42,14 @@ import type {
   RoadtripDiff,
   StoredExisting,
 } from "./existingTypes";
-import { groundSpan, interleaveKept, matchStatus, stopAsStation } from "./reconcile";
+import {
+  groundSpan,
+  interleaveKept,
+  matchStatus,
+  reconcileStations,
+  stopAsStation,
+  type DerivedStation,
+} from "./reconcile";
 import type { CommitPlan, DraftArea, StoredDraft, StopPlan } from "./types";
 
 const mismatch = (field: "areas" | "stations"): AppError =>
@@ -425,6 +432,101 @@ function buildStopWrites(
 }
 
 /**
+ * The refusal a route-scoped commit owes when the scanned stations would stand
+ * on ANOTHER stored roadtrip of the journey as well: the materials are the
+ * journey's, not this trip's, and writing them here would cross rows.
+ */
+function assertNoCrossRowWrite(
+  window: { startDay: string; endDay: string },
+  draftArea: DraftArea,
+  state: ExistingTripState,
+  routeId: string
+): void {
+  const derived: DerivedStation[] = draftArea.stations.map((station) => ({
+    key: station.key,
+    title: station.title,
+    titleSource: station.titleSource,
+    lat: station.lat,
+    lon: station.lon,
+    startDate: station.firstDay,
+    endDate: station.lastDay,
+    slept: false,
+  }));
+  for (const other of state.roadtrips) {
+    if (other.id === routeId) continue;
+    const rec = reconcileStations(derived, other.stations, window);
+    if (rec.derived.some((d) => d.existing !== undefined)) {
+      throw new AppError(
+        "The scanned stops belong to another trip of the journey as well; nothing was saved",
+        409,
+        "ROUTE_SCOPE_CONFLICT"
+      );
+    }
+  }
+}
+
+/**
+ * The commit plan for a route-scoped re-sync (owner request 2026-10-12): the
+ * one roadtrip the draft was scoped to, and nothing else of the journey.
+ *
+ * The trip's own stations are written by `buildRoadtripWrite` exactly as the
+ * journey-wide flow writes a matched roadtrip — same staleness guards, same
+ * diff, same leg machinery — but the plan carries no stop updates, no matched
+ * stopovers, no findings and no stop writes, and only flights already on the
+ * journey (whose re-assignment is a no-op) survive the body. The album step
+ * (`commit.ts`) updates the trip's own album, add-only.
+ */
+function scopedRoutePlan(
+  draft: StoredDraft,
+  body: CommitBody,
+  plan: CommitPlan,
+  state: ExistingTripState,
+  offered: StoredExisting
+): CommitPlan {
+  const routeId = plan.target.kind === "existing" ? plan.target.routeId : undefined;
+  if (routeId === undefined) throw mismatch("areas");
+  const writes: ExistingRoadtripWrite[] = [];
+  for (const area of body.areas) {
+    if (area.as !== "roadtrip") continue;
+    if (area.roadtripId !== routeId) throw mismatch("areas");
+    const draftArea = draft.dto.areas.find((a) => a.key === area.key);
+    if (draftArea === undefined) throw mismatch("areas");
+    assertNoCrossRowWrite(
+      { startDay: draft.dto.window.startDay, endDay: draft.dto.window.endDay },
+      draftArea,
+      state,
+      routeId
+    );
+    writes.push(buildRoadtripWrite(area, routeId, draft, body, state, offered));
+  }
+  const existing: ExistingCommitPlan = {
+    tripId: offered.tripId,
+    scoped: true,
+    // The journey's timeline stops are not this commit's business: nothing is
+    // re-checked, nothing is written.
+    offeredStopIds: [],
+    roadtrips: writes,
+    stopovers: [],
+    stopUpdates: [],
+    stopRemoveIds: [],
+    stopsDiff: { updated: 0, unchanged: 0, added: 0, removed: 0, kept: 0 },
+    album: { removeOutside: false },
+  };
+  return {
+    ...plan,
+    // Only flights already on the journey survive (assigning them is a no-op);
+    // a flight on another trip or on none would change the journey, which a
+    // trip-scoped run never does.
+    flightIds: plan.flightIds.filter((id) => state.flightIds.includes(id)),
+    photoJourneyIds: [],
+    roadtrips: [],
+    stops: [],
+    stopovers: [],
+    existing,
+  };
+}
+
+/**
  * The commit plan for an existing trip: the base plan with the in-place updates
  * split out into `existing`. A `new` target comes back untouched.
  */
@@ -443,6 +545,10 @@ export async function extendPlanForExisting(
   for (const area of body.areas) {
     const draftArea = draft.dto.areas.find((a) => a.key === area.key);
     if (draftArea?.roadtripId !== area.roadtripId) throw mismatch("areas");
+  }
+
+  if (plan.target.routeId !== undefined) {
+    return scopedRoutePlan(draft, body, plan, state, offered);
   }
 
   const writes: ExistingRoadtripWrite[] = [];

@@ -33,11 +33,13 @@ import {
   nightsPhase,
   roadsPhase,
   stopoversPhase,
+  type StopoverPass,
 } from "./areaPlans";
 import { assembleWarnings, movementOutsideDates, type UnrecordedFlight } from "./draftWarnings";
 import { applyExistingTarget, type ExistingDeps } from "./existingDraft";
 import { indexPreviews } from "./stations";
-import { namedPitstops, pitstopAreas, storedPitstops } from "./pitstops";
+import { namedPitstops, pitstopAreas, storedPitstops, type PitstopPass } from "./pitstops";
+import { mergeAreaPlans, routeScopeOf } from "./routeScope";
 import type { RoadAccess } from "./probe";
 import {
   DRAFT_IDLE_TTL_MS,
@@ -324,6 +326,15 @@ export async function buildDraftWith(
   report: BuildReport
 ): Promise<StoredDraft> {
   const targetTripId = input.target.kind === "existing" ? input.target.tripId : null;
+  // A trip-side Re-sync (owner request 2026-10-12): the scan is scoped to ONE
+  // roadtrip of the journey. Its window is the trip's own dates (the caller
+  // sends them), everything the window holds is that trip's, and none of the
+  // journey-level machinery below may re-mint the row it updates.
+  const scope = routeScopeOf(input);
+  const scopedRoute =
+    scope === null
+      ? null
+      : (deps.existing?.state.roadtrips.find((route) => route.id === scope.routeId) ?? null);
 
   report("fetch");
   const collected = await collectWindow(deps, {
@@ -358,20 +369,33 @@ export async function buildDraftWith(
   const roaded = await roadsPhase(deps, movement, built);
   // Every layover that passed the outing test gets its tour, and a flights-bounded
   // area whose own photos did leaves the areas for a stopover (spec §2 branch (b)).
-  const stopoverPass = await stopoversPhase(deps, collected, split, movement, roaded.plans, taken);
+  // A route-scoped scan offers none: a stopover writes a NEW roadtrip into the
+  // journey, which is exactly what a trip-scoped run must never do.
+  const stopoverPass: StopoverPass =
+    scope !== null
+      ? { plans: [], reclassifiedAreaKeys: new Set(), airports: new Map() }
+      : await stopoversPhase(deps, collected, split, movement, roaded.plans, taken);
   const stopoverPlans = stopoverPass.plans;
   report("nights");
   // The nights are attributed against the capped plans, so no night can name a
   // station of an area the draft no longer shows (finding B4-1).
-  const planCap = capFirst(
-    roaded.plans.filter((plan) => !stopoverPass.reclassifiedAreaKeys.has(plan.key)),
-    MAX_AREAS
-  );
+  const planCap =
+    scope !== null
+      ? { kept: roaded.plans, dropped: 0 }
+      : capFirst(
+          roaded.plans.filter((plan) => !stopoverPass.reclassifiedAreaKeys.has(plan.key)),
+          MAX_AREAS
+        );
   const night = nightsPhase(collected, movement, planCap.kept);
+  // A route-scoped scan's window is the trip's own: every area in it is that
+  // trip's, so they become the ONE area the target roadtrip updates, its
+  // stations in travel order.
+  const keptPlans =
+    scope === null || night.kept.length === 0 ? night.kept : [mergeAreaPlans(night.kept)];
 
   // The stopover stations' thumbnails join the same numbered space as the area stations'.
   const previews = indexPreviews([
-    ...night.kept,
+    ...keptPlans,
     ...stopoverPlans.map((plan) => ({
       stations: plan.stopover.stations,
       previewPhotoIds: plan.previewPhotoIds,
@@ -385,21 +409,25 @@ export async function buildDraftWith(
     })),
   }));
   const mainCities = new Map(
-    night.kept.map((plan) => [plan.key, mainCityOf(plan.stations, night.nights)] as const)
+    keptPlans.map((plan) => [plan.key, mainCityOf(plan.stations, night.nights)] as const)
   );
   // A multi-day same-airport stay is its own album (spec 2026-10-11 pitstops
   // §2): the election reads the night plan, so this runs after the nights. Its
   // city comes from the shared airport — the stopover pass's own catalogue
   // fetch, not a second one — and every name below reads that city (owner
-  // ruling 2026-10-12: a pitstop is named after its airport).
-  const pitstopPass = pitstopAreas({
-    areas: night.kept,
-    nights: night.nights,
-    anchors: collected.anchors,
-    photosById: movement.photosById,
-    mainCities,
-    airports: stopoverPass.airports,
-  });
+  // ruling 2026-10-12: a pitstop is named after its airport). A route-scoped
+  // scan elects none: the trip keeps its own album, never a second one.
+  const pitstopPass: PitstopPass =
+    scope !== null
+      ? { keys: new Set(), cities: new Map() }
+      : pitstopAreas({
+          areas: keptPlans,
+          nights: night.nights,
+          anchors: collected.anchors,
+          photosById: movement.photosById,
+          mainCities,
+          airports: stopoverPass.airports,
+        });
   // The kind each area opens as. A pitstop opens as Roadtrip with its own album
   // (spec §3): the review seed reads this `defaultAs`, the commit sends its
   // `as`, and the re-sync reconciles the area as a roadtrip on the same value —
@@ -408,13 +436,17 @@ export async function buildDraftWith(
   // the commit refuses a roadtrip for it, and the `roadtripsHidden` warning
   // below is what disables the review's switches.
   const kinds = new Map(
-    night.kept.map(
+    keptPlans.map(
       (plan) =>
         [
           plan.key,
-          pitstopPass.keys.has(plan.key) && deps.roadtripsVisible
+          // A route-scoped area IS the stored roadtrip: its kind is that row's,
+          // never a fresh election's ("its kind is not re-minted").
+          scope !== null
             ? "roadtrip"
-            : decideAreaKind(plan, deps.roadtripsVisible),
+            : pitstopPass.keys.has(plan.key) && deps.roadtripsVisible
+              ? "roadtrip"
+              : decideAreaKind(plan, deps.roadtripsVisible),
         ] as const
     )
   );
@@ -434,7 +466,7 @@ export async function buildDraftWith(
   // named below (the area rows, the stopover rows, the pitstop albums) reads
   // this one result: no second string is ever minted.
   const nameInputs = [
-    ...night.kept
+    ...keptPlans
       .filter((plan) => kinds.get(plan.key) === "roadtrip")
       .map((plan) => ({
         key: plan.key,
@@ -457,7 +489,7 @@ export async function buildDraftWith(
     title: names[stopover.key] ?? input.name,
   }));
   const pitstops = namedPitstops(pitstopPass.keys, names, input.name);
-  const areas = night.kept.map((plan) => {
+  const areas = keptPlans.map((plan) => {
     const area = toDraftArea(
       withPreviews(plan, previews.previewIdx),
       kinds.get(plan.key) ?? "stops",
@@ -504,7 +536,11 @@ export async function buildDraftWith(
     truncated: collected.truncated,
   };
   const album = await draftAlbumOf(deps, input, photos);
-  const journeyCap = capFirst(await deps.pendingPhotoJourneys(window), MAX_PHOTO_JOURNEYS);
+  // A route-scoped run resolves no photo findings: it writes the trip alone.
+  const journeyCap =
+    scope !== null
+      ? { kept: [] as DraftPhotoJourney[], dropped: 0 }
+      : capFirst(await deps.pendingPhotoJourneys(window), MAX_PHOTO_JOURNEYS);
   const photoJourneys = journeyCap.kept;
   const first = areas[0]?.stations[0];
   const last = areas[areas.length - 1]?.stations.slice(-1)[0];
@@ -519,11 +555,13 @@ export async function buildDraftWith(
     },
     unrecordedFlights: await unrecordedFlightsOf(deps, movement.gaps),
     roads: { available: deps.roads.available, canProbe: deps.roads.canProbe },
-    hasLegs: night.kept.some((plan) => plan.legs.length > 0),
+    hasLegs: keptPlans.some((plan) => plan.legs.length > 0),
     noRoadData: roaded.noRoadData,
     roadtripsHidden:
       !deps.roadtripsVisible &&
-      (night.kept.some((plan) => decideAreaKind(plan, true) === "roadtrip") ||
+      // A route-scoped area IS a roadtrip the account cannot make.
+      (scope !== null ||
+        keptPlans.some((plan) => decideAreaKind(plan, true) === "roadtrip") ||
         // An offered stopover is a roadtrip the account cannot make too (finding
         // S3-1a): the review disables its switch from this warning, so a scan whose
         // areas are all single-city stops (or absent) must carry it as well.
@@ -570,7 +608,14 @@ export async function buildDraftWith(
     options: { inspect: input.inspect, createAlbum: input.createAlbum },
     target:
       deps.targetTrip && input.target.kind === "existing"
-        ? { kind: "existing", tripId: deps.targetTrip.id, tripName: deps.targetTrip.name }
+        ? {
+            kind: "existing",
+            tripId: deps.targetTrip.id,
+            tripName: deps.targetTrip.name,
+            ...(scope === null
+              ? {}
+              : { routeId: scope.routeId, routeName: scopedRoute?.name ?? input.name }),
+          }
         : { kind: "new" },
     tripName: input.name,
     countries,
@@ -578,7 +623,7 @@ export async function buildDraftWith(
     destinationLabel: labels.destinationLabel,
     stats,
     flights: listed.map((anchor) => toDraftFlight(anchor, targetTripId, layovers.get(anchor.id))),
-    days: input.inspect ? toDraftDays(window, photos, areas, listed, night.kept) : [],
+    days: input.inspect ? toDraftDays(window, photos, areas, listed, keptPlans) : [],
     nights: night.nights,
     areas,
     stopovers: namedStopovers.map((stopover) => ({
@@ -602,7 +647,7 @@ export async function buildDraftWith(
   // re-sync annotation so the review's "now" count is the same list's length —
   // the movement and at-sea photos, not the stations' sum (final review,
   // finding Q3-1).
-  const storedPitstopRecords = storedPitstops(night.kept, pitstops);
+  const storedPitstopRecords = storedPitstops(keptPlans, pitstops);
   const applied = await applyExistingTarget(
     deps.existing,
     {
@@ -612,7 +657,8 @@ export async function buildDraftWith(
       fetchTo: collected.window.fetchTo,
     },
     dto,
-    new Map(storedPitstopRecords.map((pitstop) => [pitstop.key, pitstop.assetIds.length] as const))
+    new Map(storedPitstopRecords.map((pitstop) => [pitstop.key, pitstop.assetIds.length] as const)),
+    scope
   );
 
   return {

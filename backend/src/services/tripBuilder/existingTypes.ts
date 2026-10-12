@@ -244,6 +244,12 @@ export interface ExistingStopoverWrite {
 export interface ExistingCommitPlan {
   tripId: string;
   /**
+   * A route-scoped re-sync (owner request 2026-10-12): only the roadtrip writes.
+   * The journey's own fields, its other roadtrips and its timeline stops stay
+   * byte-identical, so neither the stop guard nor a stop write runs.
+   */
+  scoped?: boolean;
+  /**
    * The timeline stop ids the draft offered (the candidates `loadExistingState`
    * read). The write re-reads them inside its transaction and refuses
    * (TRIP_CHANGED) if the set moved: a stop added, moved into a roadtrip or
