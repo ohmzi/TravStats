@@ -32,7 +32,9 @@
  * (`scripts/renameTripNames.ts`) reads them and applies the answers; the
  * album linkage below mirrors the trip page's resolver
  * (`frontend/src/lib/roadtrip/roadtripAlbum.ts`), which no backend module can
- * import, arm for arm.
+ * import, arm for arm, and `albumRenameOf` is the write that pairing owes: an
+ * album of the row's own takes the row's final name whenever its stored one
+ * differs.
  */
 import { daysBetween } from "../../shared/time/localDate";
 import { roadtripAreaNames } from "../../shared/tour/builderNightPlan";
@@ -209,6 +211,21 @@ export function rowAlbumOf(
   const legacy = legacyPitstopAlbum(journeyName, albums, rowName);
   if (legacy !== null) return { kind: "own", via: "legacy", album: legacy };
   return fallback === null ? { kind: "none" } : { kind: "journey", album: fallback };
+}
+
+/**
+ * The name the row's own album owes, or null when no album write is owed. The
+ * target is ALWAYS the row's final name — a per-trip album is named exactly
+ * like its trip (owner ruling 2026-10-12) — so an album of the row's own
+ * (`rowAlbumOf`) that still carries another name is renamed even when the row
+ * itself already wears the convention: the legacy-minted pairs stored rows
+ * still carry. Anything else writes nothing: the journey's fallback album is
+ * not the row's own and is never renamed, and a skipped row was left alone.
+ */
+export function albumRenameOf(plan: RowPlan, target: AlbumTarget): string | null {
+  if (plan.skipped !== null) return null;
+  if (target.kind !== "own") return null;
+  return target.album.albumName === plan.newName ? null : plan.newName;
 }
 
 /** One stored roadtrip row with the city already re-derived for it. */

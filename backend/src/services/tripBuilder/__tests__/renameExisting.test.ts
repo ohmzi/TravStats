@@ -3,7 +3,8 @@
  * (invented journeys, invented cities, years 2031+): the legacy-shape city
  * parse, the inclusive "two same-airport flights bracket the row" matcher
  * (the tightest such pair winning), the imported pitstop city chain, the
- * album linkage the trip page resolves, and the plan the scan's own naming
+ * album linkage the trip page resolves, the album-name rule that renames an
+ * already-conventional row's legacy album, and the plan the scan's own naming
  * pass gives a journey's rows.
  */
 import { describe, expect, it } from "@jest/globals";
@@ -12,13 +13,16 @@ import type { AirportData } from "../../airportLookup";
 import { pitstopCity } from "../pitstops";
 import type { FlightAnchor } from "../types";
 import {
+  albumRenameOf,
   cityFromRowName,
   pitstopFlights,
   planJourneyRename,
   rowAlbumOf,
   rowCityOf,
+  SKIP_NO_DATES,
   type LinkedAlbumRef,
   type RenameRowInput,
+  type RowPlan,
 } from "../renameExisting";
 import { makeAnchor } from "./photoFixtures";
 
@@ -365,6 +369,62 @@ describe("rowAlbumOf", () => {
 
   it("answers none for a journey that links no album", () => {
     expect(rowAlbumOf(JOURNEY, [], "Summer loop")).toEqual({ kind: "none" });
+  });
+});
+
+/** A row plan as the script holds it, for the album-name rule. */
+function rowPlan(over: Partial<RowPlan>): RowPlan {
+  return {
+    rowId: "row-1",
+    oldName: "Karachi 2031 · Port Carrow",
+    newName: "Karachi 2031 · Port Carrow",
+    changed: false,
+    skipped: null,
+    ...over,
+  };
+}
+
+describe("albumRenameOf", () => {
+  const JOURNEY = "Karachi 2031";
+  const MAIN = album("link-main", JOURNEY);
+
+  it("renames an already-conventional row's legacy-minted album", () => {
+    const legacy = album("link-pit", "Port Carrow 2031 Road Trip (Karachi 2031)");
+    const target = rowAlbumOf(JOURNEY, [MAIN, legacy], "Karachi 2031 · Port Carrow");
+    expect(albumRenameOf(rowPlan({}), target)).toBe("Karachi 2031 · Port Carrow");
+  });
+
+  it("renames the album to the row's FINAL name when the row moves too", () => {
+    const legacy = album("link-pit", "Elmwood 2031 Road Trip (Karachi 2031)");
+    const target = rowAlbumOf(JOURNEY, [MAIN, legacy], "Karachi 2031 · Elmwood");
+    const plan = rowPlan({
+      oldName: "Karachi 2031 · Elmwood",
+      newName: "Karachi 2031 · Port Carrow",
+      changed: true,
+    });
+    expect(albumRenameOf(plan, target)).toBe("Karachi 2031 · Port Carrow");
+  });
+
+  it("writes nothing when the album already wears the row's name", () => {
+    const own = album("link-own", "Karachi 2031 · Port Carrow");
+    const target = rowAlbumOf(JOURNEY, [MAIN, own], "Karachi 2031 · Port Carrow");
+    expect(albumRenameOf(rowPlan({}), target)).toBeNull();
+  });
+
+  it("leaves the journey's fallback album alone — no album of the row's own", () => {
+    const target = rowAlbumOf(JOURNEY, [MAIN], "Karachi 2031 · Port Carrow");
+    expect(albumRenameOf(rowPlan({}), target)).toBeNull();
+  });
+
+  it("writes nothing for a journey that links no album at all", () => {
+    const target = rowAlbumOf(JOURNEY, [], "Karachi 2031 · Port Carrow");
+    expect(albumRenameOf(rowPlan({}), target)).toBeNull();
+  });
+
+  it("writes nothing for a skipped row — it is left alone, said so", () => {
+    const legacy = album("link-pit", "Port Carrow 2031 Road Trip (Karachi 2031)");
+    const target = rowAlbumOf(JOURNEY, [MAIN, legacy], "Karachi 2031 · Port Carrow");
+    expect(albumRenameOf(rowPlan({ skipped: SKIP_NO_DATES }), target)).toBeNull();
   });
 });
 

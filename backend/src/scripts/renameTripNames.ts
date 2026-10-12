@@ -24,11 +24,15 @@
  *   docker exec travstats-app node /app/backend/dist/scripts/renameTripNames.js --apply
  *
  * It renames only names: no album is created or deleted, no photo, asset or
- * other link is touched, and a second run reports everything unchanged. A row
- * whose album was never synced (no album of its own) is renamed alone and says
- * so; a row whose name the rules cannot re-derive is skipped with the reason.
- * Errors are caught per row, reported and do not abort the run; the exit code
- * is non-zero when any row failed.
+ * other link is touched, and a second run reports everything unchanged. The
+ * album's target name is ALWAYS the row's final name — a per-trip album is
+ * named exactly like its trip — so an album of the row's own whose stored name
+ * differs is renamed (its link row + the Immich album) even when the row's own
+ * name already wears the convention; a row whose album was never synced (no
+ * album of its own) renames alone and says so; a row whose name the rules
+ * cannot re-derive is skipped with the reason. Errors are caught per row,
+ * reported and do not abort the run; the exit code is non-zero when any row
+ * failed.
  *
  * Only the user's own Immich connection is used (`source === "user"`): the
  * admin-global and ENV keys belong to the operator, and a rename through them
@@ -43,6 +47,7 @@ import { stationTimes } from "../services/roadtrip/timesDto";
 import { loadFlights } from "../services/tripBuilder/loadFlights";
 import { scanWindow } from "../services/tripBuilder/window";
 import {
+  albumRenameOf,
   pitstopFlights,
   planJourneyRename,
   rowAlbumOf,
@@ -80,6 +85,8 @@ interface PlannedRow {
   journey: Journey;
   plan: RowPlan;
   target: AlbumTarget;
+  /** The name the row's own album takes (link row + Immich), or null when no album write is owed. */
+  albumRename: string | null;
   /** The account has its own Immich connection and the album write can run. */
   canWriteAlbum: boolean;
 }
@@ -215,11 +222,12 @@ async function planAll(
     const plans = planJourneyRename(journey.name, days?.startDay ?? null, rows);
     for (const plan of plans) {
       const target = rowAlbumOf(journey.name, journey.immichAlbums, plan.oldName);
+      const albumRename = albumRenameOf(plan, target);
       // The dry run resolves the connection too, so the table only promises
       // the album renames `--apply` will actually make.
       const canWriteAlbum =
-        plan.changed && target.kind === "own" ? (await clientFor(journey.userId)) !== null : true;
-      planned.push({ journey, plan, target, canWriteAlbum });
+        albumRename !== null ? (await clientFor(journey.userId)) !== null : true;
+      planned.push({ journey, plan, target, albumRename, canWriteAlbum });
     }
   }
   return planned;
@@ -227,22 +235,34 @@ async function planAll(
 
 /** The note the row's fate earns, and why — the table's honesty column. */
 function noteOf(planned: PlannedRow): string {
-  const { plan, target, canWriteAlbum } = planned;
+  const { plan, target, albumRename, canWriteAlbum } = planned;
   if (plan.skipped !== null) return `skipped: ${plan.skipped}`;
-  if (!plan.changed) return "unchanged";
-  if (target.kind === "own") {
-    return canWriteAlbum ? "rename" : "rename (row only: no user Immich connection)";
+  if (albumRename !== null) {
+    if (!canWriteAlbum) {
+      return plan.changed
+        ? "rename (row only: no user Immich connection)"
+        : "unchanged name (album rename blocked: no user Immich connection)";
+    }
+    return plan.changed ? "rename" : "album rename (the row already wears its name)";
+  }
+  if (!plan.changed) {
+    return target.kind === "journey"
+      ? `unchanged (no album of its own — the page shows the journey's ${JSON.stringify(
+          target.album.albumName
+        )}, left alone)`
+      : "unchanged";
   }
   if (target.kind === "journey") {
     return `rename (row only: no album of its own — the page shows the journey's ${JSON.stringify(
       target.album.albumName
     )}, left alone)`;
   }
+  if (target.kind === "own") return "rename (row only: its album already carries the name)";
   return "rename (row only: the journey links no album)";
 }
 
 function lineOf(planned: PlannedRow): string[] {
-  const { journey, plan, target } = planned;
+  const { journey, plan, target, albumRename } = planned;
   const own = target.kind === "own" ? target.album : null;
   return [
     journey.name,
@@ -251,7 +271,7 @@ function lineOf(planned: PlannedRow): string[] {
     plan.changed ? plan.newName : DASH,
     own === null ? DASH : own.linkId,
     own === null ? DASH : own.albumName,
-    own !== null && plan.changed ? plan.newName : DASH,
+    albumRename === null ? DASH : albumRename,
     noteOf(planned),
   ];
 }
@@ -269,39 +289,54 @@ function printTable(header: readonly string[], rows: readonly string[][]): void 
 }
 
 /**
- * One row's rename: the Immich album first (the write that can fail on its
- * own), then the two DB rows in one transaction. The album is only written
- * when the row has one of its own; otherwise the row moves alone, as the
- * add-only rule requires.
+ * One row's rename(s): the Immich album first (the write that can fail on its
+ * own), then the DB rows — the route row when the row's own name moves and the
+ * album's link row whenever the album moves, in one transaction when both do.
+ * An album of the row's own may move alone (the row already wears the
+ * convention); a row with no album of its own moves alone, as the add-only
+ * rule requires. `main` calls this only for a row with something to write.
  */
 async function applyRow(
   planned: PlannedRow,
   clientFor: (userId: string) => Promise<ImmichClient | null>
-): Promise<"album+row" | "row"> {
-  const { journey, plan, target } = planned;
-  if (target.kind === "own") {
+): Promise<"album+row" | "row" | "album"> {
+  const { journey, plan, target, albumRename } = planned;
+  const album = target.kind === "own" ? target.album : null;
+  if (album !== null && albumRename !== null) {
     const client = await clientFor(journey.userId);
     if (client !== null) {
-      await client.updateAlbum(target.album.immichAlbumId, {
-        albumName: plan.newName,
-        description: pitstopAlbumDescription(plan.newName),
+      await client.updateAlbum(album.immichAlbumId, {
+        albumName: albumRename,
+        description: pitstopAlbumDescription(albumRename),
       });
-      const [route, link] = await prisma.$transaction([
-        prisma.tripRoute.updateMany({
-          where: { id: plan.rowId, tripId: journey.id },
-          data: { name: plan.newName },
-        }),
-        prisma.tripImmichAlbum.updateMany({
-          where: { id: target.album.linkId, tripId: journey.id },
-          data: { albumName: plan.newName },
-        }),
-      ]);
-      if (route.count !== 1 || link.count !== 1) {
+      if (plan.changed) {
+        const [route, link] = await prisma.$transaction([
+          prisma.tripRoute.updateMany({
+            where: { id: plan.rowId, tripId: journey.id },
+            data: { name: plan.newName },
+          }),
+          prisma.tripImmichAlbum.updateMany({
+            where: { id: album.linkId, tripId: journey.id },
+            data: { albumName: albumRename },
+          }),
+        ]);
+        if (route.count !== 1 || link.count !== 1) {
+          throw new Error(
+            `the row moved under the script (route ${route.count}, link ${link.count}) — the album was renamed, the DB was not`
+          );
+        }
+        return "album+row";
+      }
+      const link = await prisma.tripImmichAlbum.updateMany({
+        where: { id: album.linkId, tripId: journey.id },
+        data: { albumName: albumRename },
+      });
+      if (link.count !== 1) {
         throw new Error(
-          `the row moved under the script (route ${route.count}, link ${link.count}) — the album was renamed, the DB was not`
+          `the link moved under the script (link ${link.count}) — the album was renamed, the DB was not`
         );
       }
-      return "album+row";
+      return "album";
     }
   }
   const route = await prisma.tripRoute.updateMany({
@@ -340,19 +375,25 @@ async function main(): Promise<void> {
     rows
   );
 
+  /** What `--apply` will do to one row: the row's name, its own album, or both. */
+  const willApply = (row: PlannedRow): boolean =>
+    row.plan.changed || (row.albumRename !== null && row.canWriteAlbum);
+
   const skips = new Map<string, number>();
   let renames = 0;
+  let albumOnly = 0;
   let unchanged = 0;
   for (const row of planned) {
     if (row.plan.skipped !== null)
       skips.set(row.plan.skipped, (skips.get(row.plan.skipped) ?? 0) + 1);
     else if (row.plan.changed) renames += 1;
+    else if (willApply(row)) albumOnly += 1;
     else unchanged += 1;
   }
   const skipped = [...skips.values()].reduce((sum, count) => sum + count, 0);
   const reasons = [...skips].map(([reason, count]) => `${count} ${reason}`).join("; ");
   console.log(
-    `summary: rename: ${renames}, unchanged: ${unchanged}, skipped: ${skipped}` +
+    `summary: rename: ${renames}, album-only: ${albumOnly}, unchanged: ${unchanged}, skipped: ${skipped}` +
       (reasons === "" ? "" : ` (${reasons})`)
   );
 
@@ -363,12 +404,14 @@ async function main(): Promise<void> {
 
   let applied = 0;
   let rowOnly = 0;
+  let albumWrites = 0;
   const failures: Array<{ row: PlannedRow; error: string }> = [];
   for (const row of planned) {
-    if (!row.plan.changed) continue;
+    if (!willApply(row)) continue;
     try {
       const outcome = await applyRow(row, clientFor);
       if (outcome === "row") rowOnly += 1;
+      if (outcome === "album") albumWrites += 1;
       applied += 1;
     } catch (error) {
       failures.push({ row, error: messageOf(error) });
@@ -380,7 +423,7 @@ async function main(): Promise<void> {
     );
   }
   console.log(
-    `applied: ${applied} (${rowOnly} row-only), failed: ${failures.length}` +
+    `applied: ${applied} (${rowOnly} row-only, ${albumWrites} album-only), failed: ${failures.length}` +
       (failures.length > 0 ? " — re-run after looking at the failures above" : "")
   );
   if (failures.length > 0) process.exitCode = 1;
