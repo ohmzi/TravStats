@@ -365,6 +365,14 @@
     "disabled": "Die KI-Zusammenfassung ist abgeschaltet – der Admin hat das KI-Modell unter Admin → Parser deaktiviert.",
     "cloudNotConsented": "Der KI-Anbieter liegt außerhalb des Netzwerks, und der Administrator hat dem Senden von Reisedaten dorthin nicht zugestimmt."
   },
+  "figures": {
+    "km": "Gefahrene km",
+    "kmSub_one": "aus einem Trip",
+    "kmSub_other": "Summe aus {{count}} Trips",
+    "trips_one": "Trip",
+    "trips_other": "Trips",
+    "daysApprox": "Ein Datum ist nur ungefähr bekannt"
+  },
   "gallery": {
     "title": "Galerie",
     "uploadButton": "📷 Hochladen",

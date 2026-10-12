@@ -322,7 +322,8 @@
     "journey": "Reise",
     "album": "Album",
     "albumSub_one": "{{count}} Foto",
-    "albumSub_other": "{{count}} Fotos"
+    "albumSub_other": "{{count}} Fotos",
+    "dates": "Zeitraum"
   },
   "continents": {
     "africa": "Afrika",

@@ -365,6 +365,14 @@
     "disabled": "AI summaries are switched off – the admin has turned the AI model off under Admin → Parser.",
     "cloudNotConsented": "The AI provider is outside the network, and the administrator has not agreed to sending trip data there."
   },
+  "figures": {
+    "km": "Km driven",
+    "kmSub_one": "from one trip",
+    "kmSub_other": "summed over {{count}} trips",
+    "trips_one": "Trip",
+    "trips_other": "Trips",
+    "daysApprox": "A date is only known approximately"
+  },
   "gallery": {
     "title": "Gallery",
     "uploadButton": "📷 Upload",
