@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import EntityFigures from "../EntityFigures";
 import { roadtripPhase } from "../../../lib/roadtrip/roadtripView";
+import type { JourneyFlight } from "../../../lib/flights/journeyFigures";
 import type { Trip } from "../../../types";
 import type { LinkedAlbum } from "../../../types/immich";
 import type { RoadtripDetail } from "../../../types/roadtrip";
@@ -39,6 +40,24 @@ function journey(over: Partial<Trip> = {}): Trip {
     immichAlbums: [],
     ...over,
   } as unknown as Trip;
+}
+
+/**
+ * A flight fixture, narrowed to the fields the flights fold reads — an
+ * invented pair of airports, like every other fixture here (public repo).
+ */
+function flight(over: Partial<JourneyFlight> = {}): JourneyFlight {
+  return {
+    depIata: "QQA",
+    arrIata: "QQB",
+    depCity: "Eastport",
+    arrCity: "Northvale",
+    depLat: 52.31,
+    depLon: 4.76,
+    arrLat: 55.68,
+    arrLon: 12.57,
+    ...over,
+  };
 }
 
 /** The roadtrip half, narrowed to the fields the band reads. */
@@ -79,10 +98,14 @@ function trip(over: TripFixture = {}): RoadtripDetail {
   } as unknown as RoadtripDetail;
 }
 
-function renderJourney(t: Trip, roadtrips: readonly { drivenKm: number }[] = []) {
+function renderJourney(
+  t: Trip,
+  roadtrips: readonly { drivenKm: number }[] = [],
+  flights: readonly JourneyFlight[] = []
+) {
   return render(
     <MemoryRouter>
-      <EntityFigures level="journey" trip={t} roadtrips={roadtrips} />
+      <EntityFigures level="journey" trip={t} roadtrips={roadtrips} flights={flights} />
     </MemoryRouter>
   );
 }
@@ -108,6 +131,58 @@ describe("the journey's figures row (design §2)", () => {
     renderJourney(journey());
     expect(screen.getByText("0 km")).toBeInTheDocument();
     expect(screen.queryByText(/Summe aus/)).not.toBeInTheDocument();
+  });
+
+  it("adds the flown km beside the driven km, summed over the journey's flights", () => {
+    renderJourney(
+      journey(),
+      [{ drivenKm: 812 }, { drivenKm: 254 }],
+      [
+        flight({ routeDistance: 3273, routeSource: "live_tracking" }),
+        flight({ routeDistance: 1237, routeSource: "live_tracking" }),
+      ]
+    );
+    expect(screen.getByText("Gefahrene km")).toBeInTheDocument();
+    expect(screen.getByText("1.066 km")).toBeInTheDocument();
+    expect(screen.getByText("Geflogene km")).toBeInTheDocument();
+    // 3.273 + 1.237, measured legs — no marker.
+    expect(screen.getByText("4.510 km")).toBeInTheDocument();
+  });
+
+  it("marks a derived sum with ~ and a leg without a distance with ≈, reasons on hover", () => {
+    renderJourney(
+      journey(),
+      [],
+      [
+        flight({ routeDistance: 2000 }),
+        // The write path's "no coordinate" sentinel: this leg gives nothing.
+        flight({ depLat: 0, depLon: 0, arrLat: 0, arrLon: 0 }),
+      ]
+    );
+    const value = screen.getByText("≈ ~2.000 km");
+    expect(value.closest("[title]")).toHaveAttribute(
+      "title",
+      "Aus der Großkreis-Sehne zwischen den Flughäfen jeder Etappe abgeleitet, nicht aus der geflogenen Strecke — 1 abgeleitet, 0 aufgezeichnet"
+    );
+  });
+
+  it("dashes the flown cell with its reason when no flight gives a distance", () => {
+    renderJourney(journey());
+    const dash = screen.getByText("—");
+    expect(dash.closest("[title]")).toHaveAttribute(
+      "title",
+      "Kein Flug dieser Reise hat eine Distanz"
+    );
+  });
+
+  it("counts the flights as one more trip than the roadtrips alone", () => {
+    renderJourney(journey(), [{ drivenKm: 812 }], [flight({ routeDistance: 2000 })]);
+    expect(screen.getByText("Trips").parentElement?.textContent).toBe("Trips2");
+  });
+
+  it("leaves the Trips cell at the roadtrip count when the journey has no flights", () => {
+    renderJourney(journey(), [{ drivenKm: 812 }], []);
+    expect(screen.getByText("Trip").parentElement?.textContent).toBe("Trip1");
   });
 
   it("heads the journey's own span, both ends counted", () => {

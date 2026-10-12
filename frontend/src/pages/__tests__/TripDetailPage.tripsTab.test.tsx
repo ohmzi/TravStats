@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { Trip } from "../../types";
 import type { RoadtripSummary } from "../../types/roadtrip";
@@ -48,7 +48,7 @@ vi.mock("../../hooks/useTranslation", () => ({
 
 import TripDetailPage from "../TripDetailPage";
 
-function makeTrip(): Trip {
+function makeTrip(over: Partial<Trip> = {}): Trip {
   return {
     id: "trip-1",
     userId: "user-1",
@@ -77,7 +77,25 @@ function makeTrip(): Trip {
     photos: [],
     lodgingStays: [],
     bookings: [],
+    ...over,
   } as unknown as Trip;
+}
+
+/** A flight as the journey's own payload carries it — the fields the fold reads. */
+function flightRow(): Record<string, unknown> {
+  return {
+    id: "f1",
+    depIata: "QQA",
+    arrIata: "QQB",
+    depLat: 52.31,
+    depLon: 4.76,
+    arrLat: 55.68,
+    arrLon: 12.57,
+    departureTime: "2031-09-16T08:00:00.000Z",
+    arrivalTime: "2031-09-16T10:30:00.000Z",
+    routeDistance: 3400,
+    routeSource: "live_tracking",
+  };
 }
 
 function roadtrip(over: Partial<RoadtripSummary>): RoadtripSummary {
@@ -159,6 +177,31 @@ describe("the journey's Trips tab", () => {
       "true"
     );
     expect(screen.queryByRole("tab", { name: "trips:detail.tabs.trips" })).toBeNull();
+    expect(roadtripsListMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the tab for a journey whose only trip is its flights, counted once", async () => {
+    domains.roadtrip = false;
+    getByIdMock.mockResolvedValue(
+      makeTrip({ flights: [flightRow()] as unknown as Trip["flights"] })
+    );
+    renderAt("/trips/trip-1?tab=trips");
+
+    expect(await screen.findByRole("tab", { name: "trips:detail.tabs.trips" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    // The tab body settles with the entry drawn: no roadtrips were asked for.
+    await waitFor(() =>
+      expect(screen.getAllByRole("link").map((a) => a.getAttribute("href"))).toContain(
+        "/flights/journeys/trip-1"
+      )
+    );
+    // The band's Trips cell counts the flight entry the tab draws — nothing
+    // else is listed, so the two surfaces say the same "1".
+    expect(screen.getByText("trips:figures.trips").parentElement?.textContent).toBe(
+      "trips:figures.trips1"
+    );
     expect(roadtripsListMock).not.toHaveBeenCalled();
   });
 });

@@ -368,6 +368,7 @@
   },
   "figures": {
     "km": "Gefahrene km",
+    "kmFlown": "Geflogene km",
     "kmSub_one": "aus einem Trip",
     "kmSub_other": "Summe aus {{count}} Trips",
     "trips_one": "Trip",

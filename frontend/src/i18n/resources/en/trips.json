@@ -368,6 +368,7 @@
   },
   "figures": {
     "km": "Km driven",
+    "kmFlown": "Km flown",
     "kmSub_one": "from one trip",
     "kmSub_other": "summed over {{count}} trips",
     "trips_one": "Trip",

@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
 import JourneyTripsTab from "../JourneyTripsTab";
 import { roadtripsApi } from "../../../lib/api/roadtrips";
+import type { JourneyFlight } from "../../../lib/flights/journeyFigures";
 import type { RoadtripSummary } from "../../../types/roadtrip";
 
 // The cards carry a deck.gl route sketch and jsdom has no ResizeObserver, so
@@ -13,6 +14,16 @@ vi.mock("../../map/CardMap", () => ({ default: () => <div data-testid="card-map"
 vi.mock("../../../lib/api/roadtrips", () => ({ roadtripsApi: { list: vi.fn() } }));
 vi.mock("../../../hooks/useTranslation", () => ({
   useTranslation: () => ({ t: (k: string) => k, i18n: { language: "de" } }),
+}));
+// The tab gates its roadtrip cards on the roadtrips domain (the page can now
+// mount it for a journey whose only trip is its flights), so the suite states
+// the domain like the page's own suite does.
+const domains = vi.hoisted(() => ({ roadtrip: true }));
+vi.mock("../../../hooks/useEnabledDomains", () => ({
+  useEnabledDomains: () => ({
+    enabled: [],
+    isEnabled: (key: string) => (key === "roadtrip" ? domains.roadtrip : true),
+  }),
 }));
 
 function summary(over: Partial<RoadtripSummary>): RoadtripSummary {
@@ -52,10 +63,28 @@ function summary(over: Partial<RoadtripSummary>): RoadtripSummary {
 
 const at = (d: string) => `${d}T00:00:00.000Z`;
 
-function renderTab(tripId = "trip-1"): void {
+/**
+ * A flight as the journey page hands it down — the fields the flights fold
+ * reads (an invented pair of airports, like every fixture here).
+ */
+function flight(over: Partial<JourneyFlight> = {}): JourneyFlight {
+  return {
+    depIata: "QQA",
+    arrIata: "QQB",
+    depLat: 52.31,
+    depLon: 4.76,
+    arrLat: 55.68,
+    arrLon: 12.57,
+    departureTime: "2031-09-16T08:00:00.000Z",
+    arrivalTime: "2031-09-16T10:30:00.000Z",
+    ...over,
+  };
+}
+
+function renderTab(tripId = "trip-1", flights: readonly JourneyFlight[] = []): void {
   render(
     <MemoryRouter>
-      <JourneyTripsTab tripId={tripId} />
+      <JourneyTripsTab tripId={tripId} flights={flights} />
     </MemoryRouter>
   );
 }
@@ -70,6 +99,7 @@ describe("JourneyTripsTab", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-25T12:00:00.000Z")); // an instant, not the host's noon
     vi.mocked(roadtripsApi.list).mockResolvedValue([]);
+    domains.roadtrip = true;
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -113,6 +143,48 @@ describe("JourneyTripsTab", () => {
     renderTab();
 
     expect(await screen.findByText("trips:detail.tripsEmpty")).toBeInTheDocument();
+  });
+
+  it("lists the journey's flights as a trip of its own, first, opening the flights page", async () => {
+    vi.mocked(roadtripsApi.list).mockResolvedValue([
+      summary({ id: "a", tripId: "trip-1", name: "Anreise", startDate: at("2031-09-16") }),
+    ]);
+    renderTab("trip-1", [
+      flight({ routeDistance: 3400, routeSource: "live_tracking" }),
+      flight({ routeDistance: 1200, routeSource: "live_tracking" }),
+    ]);
+
+    const cards = await screen.findAllByRole("link");
+    expect(cards.map((card) => card.getAttribute("href"))).toEqual([
+      "/flights/journeys/trip-1",
+      "/roadtrips/a",
+    ]);
+    const flights = cards[0];
+    // Named as the flights, and carrying the flown sum (3.400 + 1.200), its
+    // own label, and the flight count.
+    expect(flights.textContent).toContain("common:summary.flights");
+    expect(within(flights).getByText("4.600")).toBeInTheDocument();
+    expect(within(flights).getByText("trips:figures.kmFlown")).toBeInTheDocument();
+    expect(within(flights).getByText("2")).toBeInTheDocument();
+  });
+
+  it("adds no flights entry for a journey without flights", async () => {
+    vi.mocked(roadtripsApi.list).mockResolvedValue([
+      summary({ id: "a", tripId: "trip-1", name: "Anreise", startDate: at("2031-09-16") }),
+    ]);
+    renderTab("trip-1");
+
+    const cards = await screen.findAllByRole("link");
+    expect(cards.map((card) => card.getAttribute("href"))).toEqual(["/roadtrips/a"]);
+  });
+
+  it("keeps the flights entry while the roadtrips domain is off — and asks for no roadtrips", async () => {
+    domains.roadtrip = false;
+    renderTab("trip-1", [flight({ routeDistance: 3400, routeSource: "live_tracking" })]);
+
+    const cards = await screen.findAllByRole("link");
+    expect(cards.map((card) => card.getAttribute("href"))).toEqual(["/flights/journeys/trip-1"]);
+    expect(roadtripsApi.list).not.toHaveBeenCalled();
   });
 
   it("keeps a failed load apart from the empty state, and re-asks on retry", async () => {

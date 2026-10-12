@@ -36,7 +36,12 @@ export default function EntityPage(props: EntityPageProps): JSX.Element {
     <div className="flex flex-col">
       {header}
       {props.level === "journey" ? (
-        <EntityFigures level="journey" trip={props.trip} roadtrips={props.roadtrips} />
+        <EntityFigures
+          level="journey"
+          trip={props.trip}
+          roadtrips={props.roadtrips}
+          flights={props.flights}
+        />
       ) : (
         <EntityFigures level="trip" detail={props.detail} today={props.today} />
       )}

@@ -89,12 +89,12 @@ export default function TripDetailPage(): JSX.Element {
      before the Tours→Trips rename (spec 2026-10-12 §7) and stays an accepted
      alias, so links written before the sweep still land on Trips. */
   const [searchParams, setSearchParams] = useSearchParams();
-  // The Trips tab is one domain's worth of cards; `isEnabled` already folds
-  // in the roadtrips beta key — the very gate the Tours tab carried — so a
-  // reader without the domain is offered no tab that could only link to
-  // pages their guard refuses.
+  // The Trips tab lists the journey's roadtrips AND its flights — the flights
+  // ungated, as on every other journey surface, the roadtrips beta-gated.
   const { isEnabled } = useEnabledDomains();
-  const visibleTabs = TABS.filter((key) => key !== "trips" || isEnabled("roadtrip"));
+  const journeyFlights = trip?.flights ?? [];
+  const showTripsTab = isEnabled("roadtrip") || journeyFlights.length > 0;
+  const visibleTabs = TABS.filter((key) => key !== "trips" || showTripsTab);
   const requested = searchParams.get("tab") === "tours" ? "trips" : searchParams.get("tab");
   const tab: TabKey = visibleTabs.includes(requested as TabKey)
     ? (requested as TabKey)
@@ -111,8 +111,7 @@ export default function TripDetailPage(): JSX.Element {
     );
   };
 
-  // The shell's figures band sums the journey's trips (design §2: the Km cell
-  // is the sum of the trips' driven km).
+  // The shell's figures band (design §2) sums the trips' driven km and the flights' distance.
   const { rows: roadtrips } = useTripRoadtrips(id ?? "", isEnabled("roadtrip"));
 
   // Domain-gating: a disabled domain's segments are stripped from the trip copy
@@ -186,6 +185,7 @@ export default function TripDetailPage(): JSX.Element {
         level="journey"
         trip={trip}
         roadtrips={roadtrips}
+        flights={journeyFlights}
         header={
           <EntityHeader level="journey" id={trip.id} name={trip.name} countries={trip.countries} />
         }
@@ -256,7 +256,7 @@ export default function TripDetailPage(): JSX.Element {
               onChanged={() => void load()}
             />
           )}
-          {tab === "trips" && <JourneyTripsTab tripId={shownTrip.id} />}
+          {tab === "trips" && <JourneyTripsTab tripId={shownTrip.id} flights={journeyFlights} />}
         </div>
       </EntityPage>
     </AppShell>

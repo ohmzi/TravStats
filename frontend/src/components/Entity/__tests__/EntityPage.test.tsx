@@ -74,6 +74,7 @@ describe("the shared page shell (design §2)", () => {
           level="journey"
           trip={journey({ startDate: "2031-05-02", endDate: "2031-05-07" })}
           roadtrips={[{ drivenKm: 812 }]}
+          flights={[]}
           header={<h1>Eastport loop</h1>}
           tabBar={<div role="tablist">die Tabs</div>}
         >
@@ -113,7 +114,13 @@ describe("the shared page shell (design §2)", () => {
   it("draws no tab bar region for a level that passes none", () => {
     render(
       <MemoryRouter>
-        <EntityPage level="journey" trip={journey()} roadtrips={[]} header={<h1>Eastport</h1>}>
+        <EntityPage
+          level="journey"
+          trip={journey()}
+          roadtrips={[]}
+          flights={[]}
+          header={<h1>Eastport</h1>}
+        >
           <p>der offene Tab</p>
         </EntityPage>
       </MemoryRouter>

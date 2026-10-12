@@ -6,6 +6,11 @@ import { Icon } from "../ui/Icon";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useDisplayFormat } from "../../lib/displayFormat";
 import { ownDatesDays, roadtripsDrivenKm, type DrivenKms } from "../../lib/entityFigures";
+import {
+  distancePrefix,
+  journeyDistanceKm,
+  type JourneyFlight,
+} from "../../lib/flights/journeyFigures";
 import { tripEnd, tripStart } from "../../lib/entityTimes";
 import { albumForRoadtrip } from "../../lib/roadtrip/roadtripAlbum";
 import {
@@ -27,6 +32,13 @@ interface JourneyFiguresProps {
    * km and the count are all this band reads), so any roadtrip row shape fits.
    */
   roadtrips: readonly DrivenKms[];
+  /**
+   * The journey's flights, as `trip.flights` carries them — narrow on purpose
+   * like `roadtrips`, so the band reads only the fields the flights fold needs
+   * (`JourneyFlight`). The page hands them down from the trip it already
+   * loaded (`tripsApi.getById`), so the band adds no fetch of its own.
+   */
+  flights: readonly JourneyFlight[];
 }
 
 /** The trip's half: the detail DTO the roadtrip page already loads. */
@@ -60,8 +72,10 @@ function datesText(
  * The shared figures table (design 2026-10-12 §2), keyed by level: the same
  * band both pages draw, with the level's own cells.
  *
- * - Journey (design §2): Dates (from–to) · Days · Km (the SUM of its trips'
- *   driven km) · Countries · Trips (count) · Albums (count).
+ * - Journey (design §2, owner 2026-10-12): Dates (from–to) · Days · Km (the
+ *   SUM of its trips' driven km) · Km flown (the SUM of its flights',
+ *   `journeyDistanceKm`) · Countries · Trips (the roadtrips PLUS the flights,
+ *   which are one trip of the journey) · Albums (count).
  * - Trip (design §2): Dates (from–to) · Driven km · Days · Slept in ·
  *   Countries · Journey (link back) · Album — the trip's OWN album when the
  *   journey links it (`albumForRoadtrip`, the pitstop rule), the journey's
@@ -74,7 +88,11 @@ function datesText(
  * undated entity draws no Dates, and with it no Days — while a cell that is an
  * ENTRY POINT (the journey, its album) is always drawn, saying "N/A" when
  * there is nothing to point at, because an absent entry point and a hidden
- * one read the same otherwise.
+ * one read the same otherwise. The Km FLOWN cell follows the flights band's
+ * own choice for "no distance at all" (`FlightTripFigures`): it is drawn, and
+ * a journey with no leg distance reads a dash with its reason on hover — a
+ * hidden cell would read as "no flights" and a zero as "none at all", and
+ * only one of those is true.
  *
  * The trip band's caption keeps its odometer and its no-routing note (the
  * page's own facts, not copy); the "Re-sync from Immich" link that used to
@@ -83,7 +101,7 @@ function datesText(
  */
 export default function EntityFigures(props: EntityFiguresProps): JSX.Element {
   return props.level === "journey" ? (
-    <JourneyFigures trip={props.trip} roadtrips={props.roadtrips} />
+    <JourneyFigures trip={props.trip} roadtrips={props.roadtrips} flights={props.flights} />
   ) : (
     <TripFigures detail={props.detail} today={props.today} />
   );
@@ -91,8 +109,12 @@ export default function EntityFigures(props: EntityFiguresProps): JSX.Element {
 
 /* ─────────── The journey's cells ─────────── */
 
-function JourneyFigures({ trip, roadtrips }: Omit<JourneyFiguresProps, "level">): JSX.Element {
-  const { t, i18n } = useTranslation(["trips", "common"]);
+function JourneyFigures({
+  trip,
+  roadtrips,
+  flights,
+}: Omit<JourneyFiguresProps, "level">): JSX.Element {
+  const { t, i18n } = useTranslation(["trips", "common", "flights"]);
   const display = useDisplayFormat();
   const nf = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 });
 
@@ -105,6 +127,12 @@ function JourneyFigures({ trip, roadtrips }: Omit<JourneyFiguresProps, "level">)
   const countries = [...new Set(trip.countries)];
   const albums = trip.immichAlbums ?? [];
   const km = roadtripsDrivenKm(roadtrips);
+  const flown = journeyDistanceKm(flights);
+  const knownLegs = flown.liveLegs + flown.derivedLegs;
+  // The journeys list compares journeys by their flown + cruise + driven total
+  // (`TripCard.estimateTripDistanceKm` + the journey's route km — untouched);
+  // the band's two Km cells are that total's roadtrip and flight halves.
+  const tripCount = roadtrips.length + (flights.length > 0 ? 1 : 0);
 
   const figures: FigureBandCell[] = [
     ...(start !== null && end !== null
@@ -133,6 +161,24 @@ function JourneyFigures({ trip, roadtrips }: Omit<JourneyFiguresProps, "level">)
       sub: roadtrips.length > 0 ? t("trips:figures.kmSub", { count: roadtrips.length }) : undefined,
     },
     {
+      key: "kmFlown",
+      label: t("trips:figures.kmFlown"),
+      // The flights band's own honesty rule, reused whole (`FlightTripFigures`):
+      // `distancePrefix` marks a derived sum `~` and a sum missing a leg `≈`,
+      // and a journey with no leg distance at all is a dash with its reason —
+      // never a zero, and never a bare sum that would read as measured.
+      value: knownLegs === 0 ? "—" : `${distancePrefix(flown)}${nf.format(flown.km)} km`,
+      title:
+        knownLegs === 0
+          ? t("flights:journeyPage.figDistanceNone")
+          : flown.derivedLegs > 0
+            ? t("flights:journeyPage.figDistanceTitle", {
+                derived: flown.derivedLegs,
+                live: flown.liveLegs,
+              })
+            : t("flights:journeyPage.figDistanceMeasured"),
+    },
+    {
       key: "countries",
       label: t("trips:detail.stats.countries"),
       value: nf.format(countries.length),
@@ -140,8 +186,11 @@ function JourneyFigures({ trip, roadtrips }: Omit<JourneyFiguresProps, "level">)
     },
     {
       key: "trips",
-      label: t("trips:figures.trips", { count: roadtrips.length }),
-      value: nf.format(roadtrips.length),
+      // The flight entry the Trips tab draws is one trip of the journey, so
+      // the count carries it too — a count the tab contradicts is worse than
+      // no count (owner, 2026-10-12: the stats must reflect the flights).
+      label: t("trips:figures.trips", { count: tripCount }),
+      value: nf.format(tripCount),
     },
     {
       key: "albums",
@@ -150,9 +199,11 @@ function JourneyFigures({ trip, roadtrips }: Omit<JourneyFiguresProps, "level">)
     },
   ];
 
-  // Six cells, two / three / six — the band's full-row cadence; an undated
-  // journey's fewer cells close their own row (`FigureBand.spanClasses`).
-  return <FigureBand cells={figures} columns={[2, 3, 6]} />;
+  // Seven cells, two / four / seven — the flights band's own grid, reused so
+  // the journey band's full row closes on itself instead of leaving the album
+  // cell a row of its own; an undated journey's five close their own row
+  // (`FigureBand.spanClasses`).
+  return <FigureBand cells={figures} columns={[2, 4, 7]} />;
 }
 
 /* ─────────── The trip's cells ─────────── */

@@ -26,7 +26,12 @@ export function useRoadtripSpan(): (r: Pick<RoadtripSummary, "startDate" | "endD
   };
 }
 
-function Figure({
+/**
+ * One figure of a card's three-figure row — the roadtrip card's own furniture,
+ * exported so a card that joins the roadtrip cards in a grid (the Trips tab's
+ * flights entry) draws the same row rather than one that merely looks like it.
+ */
+export function Figure({
   value,
   label,
   title,
