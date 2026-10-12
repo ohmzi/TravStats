@@ -588,6 +588,22 @@ function AppContent() {
                   )
                 }
               />
+              {/* The trip's edit page (spec 2026-10-12 §4): the SAME route &
+                  recordings editor, at the trip's own edit path. The
+                  `:routeId` names the section, exactly as `/tours/:routeId`
+                  does, so the page needs no second handler. */}
+              <Route
+                path="/roadtrips/:routeId/edit"
+                element={
+                  isAuthenticated ? (
+                    <DomainRouteGuard domain="roadtrip">
+                      <TripRouteEditorPage />
+                    </DomainRouteGuard>
+                  ) : (
+                    <Navigate to="/login" />
+                  )
+                }
+              />
               {/* The SAME editor as the trip-bound path below: a tour with no
                   trip has no id to put in the URL, and every endpoint it uses
                   answers under both shapes (`sectionPath` in

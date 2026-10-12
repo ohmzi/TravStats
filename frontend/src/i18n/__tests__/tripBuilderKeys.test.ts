@@ -23,6 +23,8 @@ const FILES = [
   // Delete sections (spec 2026-10-12 §4).
   "pages/TripEditPage.tsx",
   "pages/TripRouteEditorPage.tsx",
+  // The trip edit page's two sections, where its tripBuilder keys are asked.
+  "components/Roadtrips/RoadtripEditSections.tsx",
   "hooks/useBuilderSession.ts",
 ];
 

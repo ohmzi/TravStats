@@ -16,6 +16,7 @@ import TourStopAssigner from "../components/Trips/TourStopAssigner";
 import TourPointEditor from "../components/Trips/TourPointEditor";
 import TourDayEditor from "../components/Trips/TourDayEditor";
 import { editsOwnPoints, tourPointsSaveErrorKey } from "../components/Trips/tourPointsSave";
+import RoadtripEditSections from "../components/Roadtrips/RoadtripEditSections";
 import TourLegList from "../components/Trips/TourLegList";
 import TourTrackList from "../components/Trips/TourTrackList";
 import { useTranslation } from "../hooks/useTranslation";
@@ -578,6 +579,13 @@ export default function TripRouteEditorPage(): JSX.Element {
     })();
   }, [pullDawarichTrack, addToast, t]);
 
+  // The journey this trip is filed on, for the Re-sync section (§K.1): the
+  // twin `/trips/:id/route/:routeId` carries it in the path; the standalone
+  // mounts (`/tours/:routeId`, `/roadtrips/:routeId/edit`) read it off the
+  // route's own `tripId`. `null` on a detached trip — there is no journey to
+  // re-sync, and no section.
+  const journeyId = id ?? route?.tripId ?? null;
+
   if (loading) {
     return (
       <AppShell width="list">
@@ -759,6 +767,11 @@ export default function TripRouteEditorPage(): JSX.Element {
             />
           )}
         </section>
+
+        {/* The trip's edit page carries what the trip page's header loses
+            (spec 2026-10-12 §4): the Re-sync from Immich launch and the
+            existing roadtrip delete — see that component. */}
+        <RoadtripEditSections route={route} journeyId={journeyId} />
       </div>
     </AppShell>
   );
