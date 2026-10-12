@@ -71,7 +71,7 @@
       "vehicle": "Vehicle",
       "km": "Kilometres",
       "status": "Status",
-      "trip": "Trip",
+      "trip": "Journey",
       "actions": "Actions"
     },
     "sortBy": "Sort by {{col}}",
@@ -245,8 +245,8 @@
     "cancellationFee": "Cancellation fee: {{amount}} – it is stored as the cost of this cancelled rental."
   },
   "suggest": {
-    "trip": "Fits the trip “{{name}}”.",
-    "linkTrip": "Link to the trip",
+    "trip": "Fits the journey “{{name}}”.",
+    "linkTrip": "Link to the journey",
     "roadtrip": "Fits the trip “{{name}}”. Was this rental its car?",
     "linkRoadtrip": "Use as its car",
     "notThis": "Do not link",

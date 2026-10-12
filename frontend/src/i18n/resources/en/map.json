@@ -33,7 +33,7 @@
     "routes": "Routes",
     "globe": "Globe",
     "heatmap": "Heatmap",
-    "trips": "Trips",
+    "trips": "Journeys",
     "label": "Visualization"
   },
   "timeSlider": {
@@ -280,7 +280,7 @@
       "allTime": "All",
       "reset": "Reset",
       "scrubHint": "Drag to scrub through time",
-      "noData": "No dated trips"
+      "noData": "No dated journeys"
     }
   },
   "infoPill": {

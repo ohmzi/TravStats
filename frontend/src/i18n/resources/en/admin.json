@@ -152,7 +152,7 @@
           },
           "roadtrips": {
             "name": "Trips and tours",
-            "what": "The “Trips” domain (multi-day trips with stations at your stays) and all tours: the tours page and editor, the tour tab on the dashboard and on a trip, the tours on the overview map, and the routing provider and Strava cards."
+            "what": "The “Trips” domain (multi-day trips with stations at your stays) and all tours: the tours page and editor, the tour tab on the dashboard and on a journey, the tours on the overview map, and the routing provider and Strava cards."
           },
           "lodgingEnrichment": {
             "name": "Complete lodgings from OpenStreetMap",
@@ -267,7 +267,7 @@
     },
     "deleteConfirm": {
       "title": "Delete user?",
-      "message": "Permanently delete user \"{{username}}\" and all their data (flights, trips, achievements, settings)?\n\nThis action cannot be undone.",
+      "message": "Permanently delete user \"{{username}}\" and all their data (flights, journeys, achievements, settings)?\n\nThis action cannot be undone.",
       "confirm": "Yes, delete permanently"
     },
     "resetPasswordModal": {
@@ -561,7 +561,7 @@
     "autoHelp": "Auto mode automatically selects the best available parser",
     "llmSwitch": {
       "title": "AI model",
-      "label": "Use the AI model (reading bookings and trip summaries)",
+      "label": "Use the AI model (reading bookings and journey summaries)",
       "hint": "Off: TravStats asks no language model at all – not even when an Ollama URL is entered above or OLLAMA_URL is set. Bookings are then read with the built-in templates only."
     },
     "ollama": {
@@ -899,8 +899,8 @@
       "place_visits": "Place visits",
       "cruise_stops": "Cruise stops",
       "cruises": "Cruises",
-      "trip_stops": "Trip stops",
-      "trips": "Trips",
+      "trip_stops": "Journey stops",
+      "trips": "Journeys",
       "trip_journal_entries": "Travel journal",
       "lodging_stays": "Stays",
       "users": "Profiles"

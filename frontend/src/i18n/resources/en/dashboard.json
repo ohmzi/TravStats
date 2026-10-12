@@ -64,11 +64,11 @@
   "tourTab": {
     "listTitle": "Tours",
     "listEmpty": "No tours recorded yet",
-    "empty": "No tours yet. Add your first one from a trip's “Tours” tab on its detail page.",
+    "empty": "No tours yet. Add your first one from a journey's “Tours” tab on its detail page.",
     "unavailable": "This feature is currently unavailable.",
     "emptyTitle": "No tours yet",
-    "emptyBody": "A tour belongs to a trip: open a trip and create it there under the \"Tours\" tab. A GPX file can be uploaded right away.",
-    "emptyCta": "Go to trips"
+    "emptyBody": "A tour belongs to a journey: open a journey and create it there under the \"Tours\" tab. A GPX file can be uploaded right away.",
+    "emptyCta": "Go to journeys"
   },
   "lodgingTab": {
     "loading": "Loading lodgings …",
@@ -164,7 +164,7 @@
   "trips": {
     "noTrips": "No trips yet",
     "label": "Trips",
-    "selectLabel": "Select trip",
+    "selectLabel": "Select journey",
     "flights_one": "flight",
     "flights_other": "flights",
     "unnamed": "Unnamed Trip"
@@ -277,7 +277,7 @@
     "listFilter": "Filter by list",
     "allLists": "All places",
     "emptyTitle": "No places yet",
-    "emptyBody": "Add your first place with \"+ Place\" on the places page — or assign one to a trip.",
+    "emptyBody": "Add your first place with \"+ Place\" on the places page — or assign one to a journey.",
     "emptyCta": "Go to places"
   },
   "tabDisabled": {

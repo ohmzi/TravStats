@@ -36,7 +36,7 @@
       "title": "Geocoder",
       "description": "Admins only: configure this instance's address search and coordinate resolution.",
       "photonUrlLabel": "Photon URL (address search)",
-      "photonUrlHint": "Used for live search-as-you-type (e.g. the lodging or trip location picker). Leave empty to use the public default, photon.komoot.io.",
+      "photonUrlHint": "Used for live search-as-you-type (e.g. the lodging or journey location picker). Leave empty to use the public default, photon.komoot.io.",
       "nominatimUrlLabel": "Nominatim URL (coordinate resolution)",
       "nominatimUrlHint": "Used for one-shot geocoding requests. Leave empty to use the public default, nominatim.openstreetmap.org.",
       "saveSuccess": "Geocoder settings saved.",
@@ -116,7 +116,7 @@
   },
   "homeAirport": {
     "title": "Home",
-    "description": "Where you live and which airports you fly from – with dates, because a move does not change old trips. Distances such as “away from home” or “farthest from home” are measured from your residence; returns home, round trips and connections are recognised by your home airports.",
+    "description": "Where you live and which airports you fly from – with dates, because a move does not change old journeys. Distances such as “away from home” or “farthest from home” are measured from your residence; returns home, round trips and connections are recognised by your home airports.",
     "currentLabel": "Current home",
     "notSet": "No home set yet.",
     "setNow": "Set your home",
@@ -140,7 +140,7 @@
     "residenceHint": "Search for your town or drop a pin on the map. It need not be your address – the city is enough.",
     "residenceNameField": "Name of your residence",
     "airportsField": "Home airports",
-    "airportsHint": "Pick one to three airports you fly from. The default airport is suggested for new trips.",
+    "airportsHint": "Pick one to three airports you fly from. The default airport is suggested for new journeys.",
     "nearbyLabel": "Near your residence",
     "nearbyDistance": "{{km}} km",
     "nearbyLoading": "Looking for airports nearby …",
@@ -153,7 +153,7 @@
     "removeAirport": "Remove",
     "fromDateField": "From when does this apply?",
     "toDateField": "Until when did this apply?",
-    "fromDateHint": "Trips before this date still count towards your previous home – a move does not change old data.",
+    "fromDateHint": "Journeys before this date still count towards your previous home – a move does not change old data.",
     "savedToast": "Home saved.",
     "loadError": "Your home could not be loaded.",
     "confirmDelete": "Really delete this period?",
@@ -167,7 +167,7 @@
       "deleteFailed": "The period could not be deleted."
     },
     "help": {
-      "historyExplained": "When you move, your previous home is not overwritten but kept as an earlier period. Old trips keep the home they had then."
+      "historyExplained": "When you move, your previous home is not overwritten but kept as an earlier period. Old journeys keep the home they had then."
     }
   },
   "display": {
@@ -197,7 +197,7 @@
   },
   "domainColors": {
     "title": "Domain colours",
-    "description": "One colour per domain — used in the statistics, the trip timeline, the activity sidebar, the import log and everywhere else a domain is marked with a single colour.",
+    "description": "One colour per domain — used in the statistics, the journey timeline, the activity sidebar, the import log and everywhere else a domain is marked with a single colour.",
     "mapNote": "The map is unaffected: there a route can be coloured by status or by frequency, a yearly bar cannot. Map colours stay in the map panel.",
     "lowContrast": "A very dark colour barely separates from the background. It is used exactly as picked — affected marks get a hairline outline so they stay findable.",
     "reset": "Reset to brand colours"
@@ -764,11 +764,11 @@
     "noRoutes": "No list format for this area yet. Add single entries in the area itself."
   },
   "trips": {
-    "title": "Trips",
-    "description": "How TravStats forms trips from your entries.",
+    "title": "Journeys",
+    "description": "How TravStats forms journeys from your entries.",
     "autoCreateTrips": {
-      "label": "Create trips automatically",
-      "description": "Flights sharing a booking reference are grouped into a trip with a booking during import. When off, the booking reference is kept – you can still group them later via “Detect trips”."
+      "label": "Create journeys automatically",
+      "description": "Flights sharing a booking reference are grouped into a journey with a booking during import. When off, the booking reference is kept – you can still group them later via “Detect journeys”."
     }
   },
   "devices": {
@@ -898,7 +898,7 @@
   "groups": {
     "account": "Account",
     "display": "Appearance",
-    "trips": "Trips",
+    "trips": "Journeys",
     "loyalty": "Loyalty programmes",
     "data": "Data",
     "services": "Services"
@@ -921,7 +921,7 @@
       "domainColors": "Colour, color, colours, map colour, line colour",
       "modules": "Areas, modules, flights, cruises, lodging, places, trips, switch on and off",
       "countryCounting": "Countries, count a country, layover, transit, country counting",
-      "trips": "trip, trips, automatic, booking reference, group, create trip, detect trips",
+      "trips": "journey, journeys, automatic, booking reference, group, create journey, detect journeys",
       "loyalty": "Loyalty programme, membership, membership number, status, tier, hotel programme, frequent flyer, miles, cruise line, points, rewards",
       "backup": "Backup, export, restore, download, Excel, spreadsheet, JSON, data",
       "import": "Import, CSV, Flightradar24, logbook, upload",
@@ -967,7 +967,7 @@
   },
   "profileZone": {
     "title": "Your time zone",
-    "body": "TravStats uses your time zone to work out which day today is, whether a trip is planned or already over, and how long until you leave. Your account has none yet — until you confirm one, UTC is used for this. It does not change the times of your trips: those always show the local time of the airport, station or port.",
+    "body": "TravStats uses your time zone to work out which day today is, whether a journey is planned or already over, and how long until you leave. Your account has none yet — until you confirm one, UTC is used for this. It does not change the times of your journeys: those always show the local time of the airport, station or port.",
     "proposal": "Suggested by your device",
     "confirm": "Use this zone",
     "later": "Later",

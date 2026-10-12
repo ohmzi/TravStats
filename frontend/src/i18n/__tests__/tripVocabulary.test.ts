@@ -4,11 +4,18 @@ import { describe, expect, it } from "vitest";
 
 import deCommon from "../resources/de/common.json";
 import deDashboard from "../resources/de/dashboard.json";
+import deRental from "../resources/de/rental.json";
 import deRoadtrips from "../resources/de/roadtrips.json";
+import deSettings from "../resources/de/settings.json";
+import deTripBuilder from "../resources/de/tripBuilder.json";
 import deTrips from "../resources/de/trips.json";
+import enAdmin from "../resources/en/admin.json";
 import enCommon from "../resources/en/common.json";
 import enDashboard from "../resources/en/dashboard.json";
+import enRental from "../resources/en/rental.json";
 import enRoadtrips from "../resources/en/roadtrips.json";
+import enSettings from "../resources/en/settings.json";
+import enTripBuilder from "../resources/en/tripBuilder.json";
 import enTrips from "../resources/en/trips.json";
 
 /**
@@ -124,6 +131,42 @@ describe("the trip vocabulary (design 2026-10-12 §7)", () => {
     // entity now carries; only EN said it that way (DE already said "Reise").
     expect(enRoadtrips.inTrip).toBe("Part of the journey “{{name}}”");
     expect(deRoadtrips.inTrip).toBe("Teil der Reise „{{name}}“");
+  });
+
+  it("names the parent a journey wherever the two levels share a surface", () => {
+    // Fix round 1: renaming the nested entity made every EN string that still
+    // called the parent "trip" read as if it named the nested one — the rental
+    // banner offering both links in one card, the entry picker, the builder's
+    // review and problems list, and the settings that configure the journey.
+    // DE always said "Reise" for the parent; these pins hold EN to the same
+    // two-level split and pin the nested side that must NOT move.
+    expect(enRental.suggest.trip).toBe("Fits the journey “{{name}}”.");
+    expect(enRental.suggest.linkTrip).toBe("Link to the journey");
+    expect(enTrips.addExisting.attachTimeout).toBe(
+      "The server did not answer in time. Whether the entry was added is unknown – close the dialog and check the journey."
+    );
+    expect(enTrips.addExisting.failure.notFound).toBe(
+      "The entry or the journey no longer exists. Reload the page."
+    );
+    expect(enTrips.addExisting.failure.conflict).toBe(
+      "This entry cannot be moved to another journey."
+    );
+    expect(enTripBuilder.page.title).toBe("Journey from photos");
+    expect(enTripBuilder.review.problems.blankTripName).toBe("Give the journey a name.");
+    expect(enTripBuilder.review.header.name).toBe("Journey name");
+    expect(enTripBuilder.review.titleNew).toBe("Review your journey");
+    expect(enSettings.groups.trips).toBe("Journeys");
+    expect(enAdmin.instance.fields.betaFeatures.features.roadtrips.what).toContain("on a journey");
+    // The nested side of the same pairs, which the sweep already set right.
+    expect(enTrips.addExisting.failure.roadtripPhotos).toBe(
+      "This trip's stations hold photos of its current journey, so it cannot be moved from here."
+    );
+    expect(enTripBuilder.review.area.name).toBe("Trip name");
+    expect(enTripBuilder.timeline.open).toBe("Open trip");
+    // DE is the oracle for the split and keeps it.
+    expect(deRental.suggest.trip).toBe("Passt zur Reise „{{name}}“.");
+    expect(deTripBuilder.page.title).toBe("Reise aus Fotos");
+    expect(deSettings.groups.trips).toBe("Reisen");
   });
 
   it("lands the Tours→Trips rename: the tab key is trips, tours is gone", () => {

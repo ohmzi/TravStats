@@ -56,7 +56,7 @@
     "endDateLabel": "End Date",
     "useEntrySpan": "Use the span of the entries: {{start}} – {{end}}",
     "endBeforeStart": "The end date cannot be before the start date.",
-    "nameRequired": "Give the trip a name.",
+    "nameRequired": "Give the journey a name.",
     "originLabel": "Origin",
     "destinationLabel": "Destination",
     "tagsLabel": "Tags",
@@ -125,7 +125,7 @@
     "companions": "Companions",
     "tags": "Tags",
     "countries": "Countries",
-    "noLinks": "Nothing is linked to this trip yet.",
+    "noLinks": "Nothing is linked to this journey yet.",
     "hiddenCruises_one": "{{count}} cruise segment hidden — the cruise domain is disabled.",
     "hiddenCruises_other": "{{count}} cruise segments hidden — the cruise domain is disabled.",
     "hiddenLodging_one": "{{count}} hotel stay hidden — the lodging domain is disabled.",
@@ -182,7 +182,7 @@
       "deletedStop": "Stop deleted",
       "deleteJournalConfirm": "Delete journal entry?",
       "deleteStopConfirm": "Delete stop \"{{title}}\"?",
-      "lodgingFarFromTrip": "Far from the trip's stops — check the address",
+      "lodgingFarFromTrip": "Far from the journey's stops — check the address",
       "showDetails": "Show details",
       "expandedHint": "Details open",
       "openCruise": "Open cruise",
@@ -198,9 +198,9 @@
       "atSea": "Day at sea",
       "openJournal": "Open in full"
     },
-    "stopNotFound": "This stop no longer exists on this trip.",
-    "journalEntryNotFound": "This journal entry no longer exists on this trip.",
-    "noLogistics": "This trip's connections and bookings appear here – none is linked yet.",
+    "stopNotFound": "This stop no longer exists on this journey.",
+    "journalEntryNotFound": "This journal entry no longer exists on this journey.",
+    "noLogistics": "This journey's connections and bookings appear here – none is linked yet.",
     "railCount_one": "{{count}} ride",
     "railCount_other": "{{count}} rides",
     "rentalCount_one": "{{count}} rental",
@@ -222,8 +222,8 @@
     "weatherLabel": "Weather (optional)",
     "save": "Save",
     "cancel": "Cancel",
-    "photosLabel": "Photos from the trip",
-    "photosEmpty": "The trip has no photos in its gallery yet.",
+    "photosLabel": "Photos from the journey",
+    "photosEmpty": "The journey has no photos in its gallery yet.",
     "photoAlt": "Photo for the entry"
   },
   "journalView": {
@@ -277,37 +277,37 @@
     "loadFailed": "The entries could not be loaded.",
     "retry": "Try again",
     "empty": "There are no entries in this domain yet.",
-    "allHere": "Every entry of this domain already belongs to this trip.",
+    "allHere": "Every entry of this domain already belongs to this journey.",
     "noMatches": "No entry matches the search.",
     "undated": "No date",
     "add": "Add",
     "move": "Move",
     "adding": "Adding …",
-    "addLabel": "Add {{title}} to this trip",
-    "moveLabel": "Move {{title}} to this trip",
-    "inOtherTrip": "Belongs to the trip “{{name}}” – moving takes the entry out of it.",
-    "inOtherTripUnnamed": "Belongs to another trip – moving takes the entry out of it.",
+    "addLabel": "Add {{title}} to this journey",
+    "moveLabel": "Move {{title}} to this journey",
+    "inOtherTrip": "Belongs to the journey “{{name}}” – moving takes the entry out of it.",
+    "inOtherTripUnnamed": "Belongs to another journey – moving takes the entry out of it.",
     "added_one": "{{count}} entry added",
     "added_other": "{{count}} entries added",
-    "alreadyHere_one": "{{count}} entry already belongs to this trip and is not listed.",
-    "alreadyHere_other": "{{count}} entries already belong to this trip and are not listed.",
+    "alreadyHere_one": "{{count}} entry already belongs to this journey and is not listed.",
+    "alreadyHere_other": "{{count}} entries already belong to this journey and are not listed.",
     "truncated_one": "{{count}} more entry – narrow the search to see it.",
     "truncated_other": "{{count}} more entries – narrow the search to see them.",
     "unlinkable": {
-      "lodging_one": "{{count}} lodging without a stay is not listed – a trip holds the stay, not the house.",
-      "lodging_other": "{{count}} lodgings without a stay are not listed – a trip holds the stay, not the house.",
-      "poi_one": "{{count}} place without a visit is not listed – a trip holds the visit, not the place.",
-      "poi_other": "{{count}} places without a visit are not listed – a trip holds the visit, not the place."
+      "lodging_one": "{{count}} lodging without a stay is not listed – a journey holds the stay, not the house.",
+      "lodging_other": "{{count}} lodgings without a stay are not listed – a journey holds the stay, not the house.",
+      "poi_one": "{{count}} place without a visit is not listed – a journey holds the visit, not the place.",
+      "poi_other": "{{count}} places without a visit are not listed – a journey holds the visit, not the place."
     },
-    "attachTimeout": "The server did not answer in time. Whether the entry was added is unknown – close the dialog and check the trip.",
+    "attachTimeout": "The server did not answer in time. Whether the entry was added is unknown – close the dialog and check the journey.",
     "failure": {
       "network": "The server cannot be reached. Check the connection and try again.",
       "timeout": "The server did not answer in time. Try again.",
-      "notFound": "The entry or the trip no longer exists. Reload the page.",
+      "notFound": "The entry or the journey no longer exists. Reload the page.",
       "demo": "The demo account cannot change anything.",
       "readOnly": "This access may read only, not change.",
       "roadtripPhotos": "This trip's stations hold photos of its current journey, so it cannot be moved from here.",
-      "conflict": "This entry cannot be moved to another trip.",
+      "conflict": "This entry cannot be moved to another journey.",
       "invalid": "The server refused the request. Open the entry in its logbook and check its details.",
       "rateLimited": "Too many requests. Wait a moment and try again.",
       "server": "The server ran into an error. Try again later."
@@ -356,7 +356,7 @@
   },
   "summary": {
     "title": "AI summary",
-    "cta": "Have the AI write a short, personal recap of this trip — from flights, cruises, stays, places, stops and journal, in your language.",
+    "cta": "Have the AI write a short, personal recap of this journey — from flights, cruises, stays, places, stops and journal, in your language.",
     "generateButton": "Generate summary",
     "regenerate": "Regenerate",
     "generating": "Writing… this can take a few minutes",
@@ -364,7 +364,7 @@
     "error": "Summary failed",
     "unavailable": "AI service unreachable. The admin sets up Ollama under Admin → Parser.",
     "disabled": "AI summaries are switched off – the admin has turned the AI model off under Admin → Parser.",
-    "cloudNotConsented": "The AI provider is outside the network, and the administrator has not agreed to sending trip data there."
+    "cloudNotConsented": "The AI provider is outside the network, and the administrator has not agreed to sending journey data there."
   },
   "figures": {
     "km": "Km driven",
@@ -388,20 +388,20 @@
     "fromLibraryAlt": "Photo from the photo library"
   },
   "insights": {
-    "longest": "Longest trip",
-    "mostExpensive": "Most expensive trip",
+    "longest": "Longest journey",
+    "mostExpensive": "Most expensive journey",
     "mostCountries": "Most countries",
-    "mostExpensiveExcluded_one": "{{count}} trip left out: no conversion",
-    "mostExpensiveExcluded_other": "{{count}} trips left out: no conversion"
+    "mostExpensiveExcluded_one": "{{count}} journey left out: no conversion",
+    "mostExpensiveExcluded_other": "{{count}} journeys left out: no conversion"
   },
-  "deleteTripConfirmTitle": "Delete trip?",
+  "deleteTripConfirmTitle": "Delete journey?",
   "tours": {
     "title": "Tours",
     "newSection": "Add tour",
     "namePlaceholder": "Tour name",
     "nameRequired": "Give the tour a name.",
     "save": "Save",
-    "empty": "No tour in this trip yet",
+    "empty": "No tour in this journey yet",
     "loadError": "Tours could not be loaded",
     "createError": "The tour could not be created",
     "stopCount_one": "{{count}} stop",
@@ -409,11 +409,11 @@
     "stopsHeading": "Stops",
     "legsHeading": "Legs",
     "noLegs": "No leg yet — assign at least two stops",
-    "noStops": "No stop in this trip yet — add stops in the timeline first",
+    "noStops": "No stop in this journey yet — add stops in the timeline first",
     "stopIsRoutePoint": "Route point",
     "needsCoordinate": "A stop without a coordinate cannot be part of a route",
     "notFound": "This tour does not exist",
-    "backToTrip": "Back to the trip",
+    "backToTrip": "Back to the journey",
     "assignError": "The stops could not be saved",
     "legError": "The leg could not be changed",
     "clearLeg": "Remove line",
@@ -530,14 +530,14 @@
     "deleteError": "The tour could not be deleted.",
     "deleteConfirm": {
       "title": "Delete this tour?",
-      "message_one": "The tour “{{name}}” with {{count}} stop will be deleted permanently, along with its legs and the tracks uploaded to it. The trip itself and its places are kept.",
-      "message_other": "The tour “{{name}}” with {{count}} stops will be deleted permanently, along with its legs and the tracks uploaded to it. The trip itself and its places are kept.",
+      "message_one": "The tour “{{name}}” with {{count}} stop will be deleted permanently, along with its legs and the tracks uploaded to it. The journey itself and its places are kept.",
+      "message_other": "The tour “{{name}}” with {{count}} stops will be deleted permanently, along with its legs and the tracks uploaded to it. The journey itself and its places are kept.",
       "confirm": "Delete tour"
     },
     "pageTitle": "Tours",
     "newTour": "New tour",
-    "pageEmpty": "No tour yet. A tour can belong to a trip, or stand on its own.",
-    "noTrip": "no trip",
+    "pageEmpty": "No tour yet. A tour can belong to a journey, or stand on its own.",
+    "noTrip": "no journey",
     "modeLabel": "Kind",
     "backToTours": "Back to tours",
     "points": {
@@ -553,7 +553,7 @@
       "incomplete": "Every point needs a name and both coordinates.",
       "saveError": "The points could not be saved.",
       "heading": "Points",
-      "saveErrorFromTrip": "This tour is built from its trip's stops. Assign the stops in the trip.",
+      "saveErrorFromTrip": "This tour is built from its journey's stops. Assign the stops in the journey.",
       "saveErrorOffline": "No connection to the server — the points were not saved.",
       "saveErrorInvalid": "The points were refused: every point needs a name and valid coordinates.",
       "saveErrorGone": "This tour no longer exists.",
@@ -568,12 +568,12 @@
     },
     "map": {
       "empty": "This tour has no points with coordinates yet — add points or upload a recording.",
-      "loadError": "This trip's tours could not be loaded — so the map does not show them."
+      "loadError": "This journey's tours could not be loaded — so the map does not show them."
     },
     "deleteWithCosts": {
       "title": "Delete with its costs?",
-      "message_one": "“{{name}}” has {{count}} recorded cost and belongs to no trip that could take it over. Deleting removes it too.",
-      "message_other": "“{{name}}” has {{count}} recorded costs and belongs to no trip that could take them over. Deleting removes them too.",
+      "message_one": "“{{name}}” has {{count}} recorded cost and belongs to no journey that could take it over. Deleting removes it too.",
+      "message_other": "“{{name}}” has {{count}} recorded costs and belongs to no journey that could take them over. Deleting removes them too.",
       "confirm": "Delete with costs"
     }
   },
@@ -597,7 +597,7 @@
     "undated": "Undated"
   },
   "photoWindow": {
-    "title": "Photos from the trip",
-    "alt": "Photo from the trip"
+    "title": "Photos from the journey",
+    "alt": "Photo from the journey"
   }
 }

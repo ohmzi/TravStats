@@ -1017,11 +1017,11 @@
     },
     "DOCUMENTED_TRIP_1": {
       "name": "Recorded end to end",
-      "description": "A trip with a journey, a bed, a journal and photos"
+      "description": "A journey with travel there, a bed, a journal and photos"
     },
     "DOCUMENTED_TRIP_10": {
       "name": "Chronicler",
-      "description": "10 trips with a journey, a bed, a journal and photos"
+      "description": "10 journeys with travel there, a bed, a journal and photos"
     },
     "FRIDAY_13_FLIGHT": {
       "name": "Friday the 13th",
@@ -1177,11 +1177,11 @@
     },
     "PLACE_TRIP_10": {
       "name": "Part of the journey",
-      "description": "Linked 10 visits to a trip"
+      "description": "Linked 10 visits to a journey"
     },
     "PLACE_TRIP_50": {
       "name": "Fully documented",
-      "description": "Linked 50 visits to a trip"
+      "description": "Linked 50 visits to a journey"
     },
     "PLACE_NORTH_60": {
       "name": "Far north",
