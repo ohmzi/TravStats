@@ -5,13 +5,14 @@ import FigureBand, { type FigureBandCell } from "../ui/FigureBand";
 import { Icon } from "../ui/Icon";
 import ResyncFromImmich from "../Trips/tripBuilder/ResyncFromImmich";
 import { useTranslation } from "../../hooks/useTranslation";
+import { albumForRoadtrip } from "../../lib/roadtrip/roadtripAlbum";
 import { daysAhead, spanDays } from "../../lib/roadtrip/roadtripView";
 import type { RoadtripDetail } from "../../types/roadtrip";
 
 /**
  * The figures band of a roadtrip (board 2): driven, days, places slept,
  * countries — each with the line that says what it is made of — then the
- * journey it belongs to and that journey's Immich album as entry points. Fixed
+ * journey it belongs to and the album its photos live in as entry points. Fixed
  * columns (6 / 3 / 2), so the cells never reflow into an odd last row: six is
  * the full set, and an undated roadtrip draws five, because Days is left out
  * rather than drawn as a zero. A figure that cannot be derived is left out; a
@@ -48,7 +49,9 @@ export default function RoadtripFigures({
   const days = spanDays(detail.startDate, detail.endDate);
   const ahead = daysAhead(detail.startDate, detail.endDate, today);
   const journey = detail.trip;
-  const album = journey?.immichAlbums?.[0] ?? null;
+  // The roadtrip's OWN album when the journey links it (`albumForRoadtrip`);
+  // the journey's first album otherwise (owner-reported, 2026-10-12).
+  const album = journey ? albumForRoadtrip(journey, r.name) : null;
 
   // The km figure is the length of ALL legs, whatever their date. It may be
   // called driven only once the roadtrip is over; before that it is the
@@ -92,10 +95,10 @@ export default function RoadtripFigures({
     },
     // The journey and its album, as ENTRY POINTS rather than figures: a
     // roadtrip is reached from its journey, and the way back — plus the way to
-    // the photos of the journey itself — belongs on this band. Either can be
-    // absent (a standalone section, a journey with no album), and an absent
-    // one says so rather than vanishing, so the reader can tell "none" from
-    // "not shown".
+    // the photos, the roadtrip's own album when the journey links one and the
+    // journey's first otherwise — belongs on this band. Either can be absent
+    // (a standalone section, a journey with no album), and an absent one says
+    // so rather than vanishing, so the reader can tell "none" from "not shown".
     {
       key: "journey",
       // The same two words as the journey band's two cells (see the header):

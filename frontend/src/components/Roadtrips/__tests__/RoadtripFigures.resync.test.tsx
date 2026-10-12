@@ -5,10 +5,17 @@ import { MemoryRouter } from "react-router-dom";
 import RoadtripFigures from "../RoadtripFigures";
 import type { RoadtripDetail } from "../../../types/roadtrip";
 
-// Synthetic roadtrip (public repository).
+// Synthetic roadtrip (public repository). The roadtrip's `name` is the
+// trip-named section, as the real DTO always carries one.
 function detail(trip: { id: string; name: string } | null): RoadtripDetail {
   return {
-    roadtrip: { drivenKm: 0, distanceKm: 0, startOdometerKm: null, endOdometerKm: null },
+    roadtrip: {
+      name: trip?.name ?? "Northvale loop",
+      drivenKm: 0,
+      distanceKm: 0,
+      startOdometerKm: null,
+      endOdometerKm: null,
+    },
     countries: [],
     trip,
     startDate: "2031-05-02T00:00:00.000Z",
