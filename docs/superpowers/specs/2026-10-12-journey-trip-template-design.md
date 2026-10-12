@@ -54,7 +54,13 @@ A shared page shell (`EntityPage`, working name) renders, in order:
 
 ## 4. The edit pages
 
-- **Journey edit** — a new page at the journey's existing edit path, holding today's modal form fields (name, dates, countries, color, icon, tags, companions, notes, cover) as page content, plus a **Re-sync from Immich** section (the same launch as today's header button) and a **Delete** section (the existing confirm flow; deleting a journey keeps §J's semantics — its trips are detached, never deleted, and the Immich album is never touched).
+- **Journey edit** — a new page at the journey's existing edit path, holding
+  the old modal's form fields (name, category, start and end dates, origin,
+  destination, description, companions, tags, cover, color, notes) as page
+  content, plus a **Re-sync from Immich** section (the same launch as today's
+  header button) and a **Delete** section (the existing confirm flow; deleting
+  a journey keeps §J's semantics — its trips are detached, never deleted, and
+  the Immich album is never touched).
 - **Trip edit** — the existing route & recordings editor page gains a **Re-sync from Immich** section (for a trip filed on a journey) and a **Delete** section (the existing roadtrip delete, with its confirm and its effect on stations — unchanged semantics, documented in the plan).
 - The headers lose their standalone Edit/Delete/Re-sync buttons; the trip page's two edit buttons collapse into the single Edit action.
 

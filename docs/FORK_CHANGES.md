@@ -907,11 +907,12 @@ the Map tab is full-screen on both levels.
 
 **Edit pages.** The standalone Edit, Delete and Re-sync buttons left the
 headers. Each level has one edit page: the journey's carries the old modal's
-fields (name, dates, countries, colour, icon, tags, companions, notes, cover)
-plus **Re-sync from Immich** and **Delete**; the trip's is the existing route
-& recordings editor with the same two sections. Deleting a journey detaches
-its trips — never deletes them — and never touches the Immich album (§J of
-the builder spec, pinned in `routes/__tests__/trips.deleteDetach.test.ts`).
+fields (name, category, start and end dates, origin, destination,
+description, companions, tags, cover, colour, notes) plus **Re-sync from
+Immich** and **Delete**; the trip's is the existing route & recordings
+editor with the same two sections. Deleting a journey detaches its trips —
+never deletes them — and never touches the Immich album (§J of the builder
+spec, pinned in `routes/__tests__/trips.deleteDetach.test.ts`).
 
 **A trip's own AI summary.** `TripRoute` gains `summary`,
 `summaryGeneratedAt` and `summarySource` — the journey's columns, through a
