@@ -455,6 +455,10 @@
       "detail": {
         "anchors": "Its line begins {{headOff}} km from the first stop and ends {{tailOff}} km from the second.",
         "distance": "Its line is {{distance}} km long for a {{chord}} km straight-line leg."
+      },
+      "autofetch": {
+        "downloading": "Map data for {{region}} is downloading (~{{minutes}} min) — try again after.",
+        "noMapData": "No map data is available for this area."
       }
     },
     "tracks": {

@@ -147,14 +147,17 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
    * silently looking like nothing happened. The toast carries the numbers
    * behind the refusal when the server sent any (`routeFallbackMessage`) —
    * a bare "did not fit" reads like the app rejecting a good answer
-   * (2026-10-13, the Muscat roadtrip).
+   * (2026-10-13, the Muscat roadtrip) — and the sentence saying the region's
+   * map is downloading when that is why (`autofetch`,
+   * spec 2026-10-13-osrm-autofetch-design §2.4), so a self-healing refusal
+   * does not read as a broken button.
    */
   const route = useCallback(
     (leg: TourLeg): void => {
       if (!routeId) return;
       void (async (): Promise<void> => {
         try {
-          const { fallbackReason, fallbackDetail } = await toursApi.routeLeg(
+          const { fallbackReason, fallbackDetail, autofetch } = await toursApi.routeLeg(
             tripId,
             routeId,
             leg.fromStopId,
@@ -168,7 +171,8 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
                 fallbackReason,
                 fallbackDetail,
                 t,
-                i18n.language
+                i18n.language,
+                autofetch
               )}`
             );
           }
@@ -196,7 +200,9 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
    * that quietly routed zero legs because no provider is configured. The
    * cause of the first fallback is named with the numbers behind it
    * (`routeFallbackMessage`), so a batch whose legs all stayed straight
-   * says how far off the provider's answers were, not just "did not fit".
+   * says how far off the provider's answers were, not just "did not fit" —
+   * and that same first fallback's `autofetch` rides along, so the batch
+   * whose whole region is downloading says so too.
    */
   const routeAll = useCallback((): void => {
     if (!routeId) return;
@@ -218,7 +224,8 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
                       result.fallbackReason,
                       result.fallbackDetail,
                       t,
-                      i18n.language
+                      i18n.language,
+                      result.autofetch
                     )
                   : "",
               })

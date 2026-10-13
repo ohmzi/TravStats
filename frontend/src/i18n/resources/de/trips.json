@@ -455,6 +455,10 @@
       "detail": {
         "anchors": "Die Linie beginnt {{headOff}} km vom ersten Ort entfernt und endet {{tailOff}} km vom zweiten.",
         "distance": "Die Linie ist {{distance}} km lang, die Luftlinie beträgt {{chord}} km."
+      },
+      "autofetch": {
+        "downloading": "Kartendaten für {{region}} werden gerade geladen (~{{minutes}} Min.) – versuch es danach erneut.",
+        "noMapData": "Für diese Gegend sind keine Kartendaten verfügbar."
       }
     },
     "tracks": {

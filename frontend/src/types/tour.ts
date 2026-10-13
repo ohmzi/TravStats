@@ -158,12 +158,33 @@ export type RouteFallbackDetail =
   | { kind: "anchors"; headOffKm: number; tailOffKm: number }
   | { kind: "distance"; distanceKm: number; chordKm: number };
 
+/**
+ * What the on-demand map fetch (`osrm-autofetch`, spec
+ * 2026-10-13-osrm-autofetch-design §2.4) said about a wrong-region refusal —
+ * the server's `AutoFetchStatus`. Only a wrong-region refusal (anchors off
+ * by more than 20 km) triggers it, so a pin error never carries one.
+ *
+ * `started`/`running` mean the covering extract is being downloaded and
+ * built; `region` is its human label ("Tennessee"), `etaMinutes` the rough
+ * wait. `no_map_data` means no extract covers the point at all. `covered`
+ * (the graph already had it — the refusal had a different cause),
+ * `blocked` (a cap) and `unavailable` (the service did not answer) add no
+ * copy. The field is absent entirely when the setting is off.
+ */
+export interface RouteAutofetch {
+  status: "covered" | "started" | "running" | "no_map_data" | "blocked" | "unavailable";
+  region?: string | null;
+  etaMinutes?: number | null;
+}
+
 /** A single-leg routing answer: the leg as stored, and why it was not routed (null: it was). */
 export interface RouteLegResult {
   leg: TourLeg;
   fallbackReason: RouteFallbackReason | null;
   /** The numbers behind an `untrustworthy` reason; null for every other one. */
   fallbackDetail: RouteFallbackDetail | null;
+  /** The map fetch a wrong-region refusal started; null when nothing ran. */
+  autofetch?: RouteAutofetch | null;
 }
 
 /** A whole-section routing answer, fallbacks counted apart from real routes. */
@@ -175,6 +196,8 @@ export interface RouteAllResult {
   fallbackReason: RouteFallbackReason | null;
   /** The numbers behind `fallbackReason`, from the same leg; null otherwise. */
   fallbackDetail: RouteFallbackDetail | null;
+  /** The map fetch that same first fallback started; null when nothing ran. */
+  autofetch?: RouteAutofetch | null;
   skippedCount: number;
 }
 

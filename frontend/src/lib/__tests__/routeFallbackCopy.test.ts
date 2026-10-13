@@ -1,7 +1,26 @@
+import i18next, { type TFunction } from "i18next";
 import { describe, it, expect } from "vitest";
 
 import { germanT } from "../../__tests__/helpers/germanT";
+import enTrips from "../../i18n/resources/en/trips.json";
 import { routeFallbackMessage } from "../routeFallbackCopy";
+
+/**
+ * The English counterpart of `germanT` for the cases below: a real i18next
+ * over the real English words, so an assertion on the English sentence
+ * cannot pass on a key echoed back.
+ */
+const englishInstance = i18next.createInstance();
+void englishInstance.init({
+  lng: "en",
+  fallbackLng: false,
+  ns: ["trips"],
+  defaultNS: "trips",
+  resources: { en: { trips: enTrips } },
+  interpolation: { escapeValue: false },
+  initAsync: false,
+});
+const englishT = englishInstance.t.bind(englishInstance) as TFunction;
 
 /**
  * 2026-10-13, the owner's Muscat roadtrip: "The routing provider's answer
@@ -58,6 +77,106 @@ describe("routeFallbackMessage — the reason, with the numbers that refused the
     );
     expect(routeFallbackMessage("point_not_near_road", null, germanT, "de")).toBe(
       "Ein Ort liegt mehr als einen Kilometer von der nächsten Straße entfernt — Ort der Station prüfen."
+    );
+  });
+});
+
+/**
+ * 2026-10-13, the auto-fetch (spec 2026-10-13-osrm-autofetch-design §2.4): a
+ * wrong-region refusal is no longer a dead end — the self-hosted OSRM's
+ * covering extract is being fetched in the background. The refusal still
+ * stands, but its message must say the map is on its way and roughly when,
+ * or the reader re-clicks and reads the same refusal as a broken button.
+ * Only `started`/`running` say the downloading sentence, only `no_map_data`
+ * says its short line, and every other answer — `covered` above all, where
+ * the refusal had a DIFFERENT cause — adds nothing: an extra sentence about
+ * maps there would blame the wrong thing.
+ */
+describe("routeFallbackMessage — the map for the region is downloading", () => {
+  const REFUSED = { kind: "anchors", headOffKm: 671.3, tailOffKm: 517.9 } as const;
+
+  it("says the map for the region is downloading while the auto-fetch runs", () => {
+    expect(
+      routeFallbackMessage("untrustworthy", REFUSED, germanT, "de", {
+        status: "started",
+        region: "Tennessee",
+        etaMinutes: 25,
+      })
+    ).toBe(
+      "Die Antwort des Routing-Anbieters passte nicht zu den beiden Orten und wurde verworfen. " +
+        "Die Linie beginnt 671,3 km vom ersten Ort entfernt und endet 517,9 km vom zweiten. " +
+        "Kartendaten für Tennessee werden gerade geladen (~25 Min.) – versuch es danach erneut."
+    );
+  });
+
+  it("says the same for a job already running, in the reader's own language", () => {
+    expect(
+      routeFallbackMessage("untrustworthy", null, englishT, "en", {
+        status: "running",
+        region: "Iceland",
+        etaMinutes: 20,
+      })
+    ).toBe(
+      "The routing provider's answer did not fit the two places and was discarded. " +
+        "Map data for Iceland is downloading (~20 min) — try again after."
+    );
+  });
+
+  it("adds nothing for covered/blocked/unavailable, and nothing for no_map_data beyond its line", () => {
+    const base = routeFallbackMessage("untrustworthy", null, germanT, "de");
+    expect(routeFallbackMessage("untrustworthy", null, germanT, "de", { status: "covered" })).toBe(
+      base
+    );
+    expect(routeFallbackMessage("untrustworthy", null, germanT, "de", { status: "blocked" })).toBe(
+      base
+    );
+    expect(
+      routeFallbackMessage("untrustworthy", null, germanT, "de", { status: "unavailable" })
+    ).toBe(base);
+    expect(
+      routeFallbackMessage("untrustworthy", null, germanT, "de", { status: "no_map_data" })
+    ).toBe(base + " Für diese Gegend sind keine Kartendaten verfügbar.");
+    expect(
+      routeFallbackMessage("untrustworthy", null, englishT, "en", { status: "no_map_data" })
+    ).toBe(
+      "The routing provider's answer did not fit the two places and was discarded. " +
+        "No map data is available for this area."
+    );
+  });
+
+  it("says nothing about a download when the answer names no region", () => {
+    // "Map data for null is downloading" would be worse than today's message.
+    const base = routeFallbackMessage("untrustworthy", null, germanT, "de");
+    expect(
+      routeFallbackMessage("untrustworthy", null, germanT, "de", {
+        status: "started",
+        region: null,
+      })
+    ).toBe(base);
+    expect(routeFallbackMessage("untrustworthy", null, germanT, "de", { status: "started" })).toBe(
+      base
+    );
+  });
+
+  it("uses the ~25 min default when the answer carries no estimate", () => {
+    expect(
+      routeFallbackMessage("untrustworthy", null, germanT, "de", {
+        status: "started",
+        region: "Tennessee",
+        etaMinutes: null,
+      })
+    ).toBe(
+      "Die Antwort des Routing-Anbieters passte nicht zu den beiden Orten und wurde verworfen. " +
+        "Kartendaten für Tennessee werden gerade geladen (~25 Min.) – versuch es danach erneut."
+    );
+  });
+
+  it("leaves a null/absent answer reading exactly as before the feature", () => {
+    expect(routeFallbackMessage("untrustworthy", null, germanT, "de", null)).toBe(
+      routeFallbackMessage("untrustworthy", null, germanT, "de")
+    );
+    expect(routeFallbackMessage("no_route", null, germanT, "de", undefined)).toBe(
+      "Der Routing-Anbieter kennt keinen Weg zwischen diesen beiden Orten."
     );
   });
 });

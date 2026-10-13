@@ -11,6 +11,7 @@ import type {
   LegMode,
   LegSource,
   RouteAllResult,
+  RouteAutofetch,
   RouteFallbackDetail,
   RouteFallbackReason,
   RouteLegResult,
@@ -273,6 +274,12 @@ export const toursApi = {
    * numbers behind the refusal (how far off the provider's line was); the
    * caller shows them through `routeFallbackMessage`
    * (`lib/routeFallbackCopy.ts`) rather than a bare "did not fit".
+   *
+   * A wrong-region refusal may also come with `autofetch` — the map the
+   * server started fetching for that region (2026-10-13) — which the caller
+   * passes on to the same composer. It is copied out explicitly, like
+   * `fallbackDetail`: this method builds its answer from named fields, so
+   * anything not named here never reaches a caller.
    */
   routeLeg: async (
     tripId: string | undefined,
@@ -284,6 +291,7 @@ export const toursApi = {
       leg: TourLeg;
       fallbackReason?: RouteFallbackReason | null;
       fallbackDetail?: RouteFallbackDetail | null;
+      autofetch?: RouteAutofetch | null;
     }>(`${sectionPath(tripId, routeId)}/legs/${fromStopId}/${toStopId}/route`);
     // A server from before the reason existed: a low-confidence answer is a fallback.
     const fallbackReason =
@@ -292,7 +300,12 @@ export const toursApi = {
         : data.leg.confidence === "low"
           ? "provider_error"
           : null;
-    return { leg: data.leg, fallbackReason, fallbackDetail: data.fallbackDetail ?? null };
+    return {
+      leg: data.leg,
+      fallbackReason,
+      fallbackDetail: data.fallbackDetail ?? null,
+      autofetch: data.autofetch ?? null,
+    };
   },
 
   /**
@@ -304,7 +317,8 @@ export const toursApi = {
    * the honest report the caller must show, never a blanket "success" toast.
    * `fallbackReason` is the FIRST fallback's cause, with that same leg's
    * `fallbackDetail` (the numbers behind an `untrustworthy` refusal) beside
-   * it — see `routeLeg` above for how they are shown.
+   * it — and the map fetch that same refusal started (`autofetch`,
+   * 2026-10-13) — see `routeLeg` above for how they are shown.
    */
   routeAll: async (tripId: string | undefined, routeId: string): Promise<RouteAllResult> => {
     const { data } = await api.post<
@@ -316,6 +330,7 @@ export const toursApi = {
       fallbackCount: data.fallbackCount ?? 0,
       fallbackReason: data.fallbackReason ?? null,
       fallbackDetail: data.fallbackDetail ?? null,
+      autofetch: data.autofetch ?? null,
     };
   },
 

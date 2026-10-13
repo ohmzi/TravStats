@@ -8,7 +8,12 @@ import { useTranslation } from "../../hooks/useTranslation";
 import { toursApi } from "../../lib/api/tours";
 import { logger } from "../../lib/logger";
 import { routeFallbackMessage } from "../../lib/routeFallbackCopy";
-import type { RouteFallbackDetail, RouteFallbackReason, TourLeg } from "../../types/tour";
+import type {
+  RouteAutofetch,
+  RouteFallbackDetail,
+  RouteFallbackReason,
+  TourLeg,
+} from "../../types/tour";
 
 type Mode = "road" | "ferry";
 type Line = "routed" | "straight" | "drawn";
@@ -24,7 +29,10 @@ type Line = "routed" | "straight" | "drawn";
  * the dialog open and says why (tester 2026-09-26: the button "did nothing" —
  * it wrote a straight line, ignored the answer and closed). The leg is not
  * set to straight first either: a drawn line survives a failed attempt, and
- * a straight line is saved only when the reader picks "Gerade Linie".
+ * a straight line is saved only when the reader picks "Gerade Linie". When
+ * the refusal was a wrong-region one, the server's `autofetch` answer rides
+ * along into the same copy, so a region whose map is downloading says so
+ * instead of looking like a broken button (2026-10-13-osrm-autofetch).
  */
 export default function LegDialog({
   routeId,
@@ -58,6 +66,7 @@ export default function LegDialog({
   const [fallback, setFallback] = useState<{
     reason: RouteFallbackReason;
     detail: RouteFallbackDetail | null;
+    autofetch: RouteAutofetch | null;
   } | null>(null);
 
   const routedOff = mode === "ferry" || !routingAvailable;
@@ -82,7 +91,7 @@ export default function LegDialog({
       if (modeChanged) {
         await toursApi.setLeg(undefined, routeId, from.id, to.id, { source: "straight", mode });
       }
-      const { fallbackReason, fallbackDetail } = await toursApi.routeLeg(
+      const { fallbackReason, fallbackDetail, autofetch } = await toursApi.routeLeg(
         undefined,
         routeId,
         from.id,
@@ -92,7 +101,7 @@ export default function LegDialog({
         onSaved();
         return;
       }
-      setFallback({ reason: fallbackReason, detail: fallbackDetail });
+      setFallback({ reason: fallbackReason, detail: fallbackDetail, autofetch: autofetch ?? null });
       if (modeChanged) onChanged?.();
     } catch (err) {
       logger.warn("Saving a roadtrip leg failed", err);
@@ -253,7 +262,13 @@ export default function LegDialog({
           <div role="alert" className="flex flex-col" style={{ gap: 4, fontSize: 13 }}>
             <span style={{ color: "var(--ts-warn)", fontWeight: 700 }}>
               {t("roadtrips:legDialog.fallback", {
-                reason: routeFallbackMessage(fallback.reason, fallback.detail, t, i18n.language),
+                reason: routeFallbackMessage(
+                  fallback.reason,
+                  fallback.detail,
+                  t,
+                  i18n.language,
+                  fallback.autofetch
+                ),
               })}
             </span>
             <span className="t-caption">{t("roadtrips:legDialog.fallbackKept")}</span>
