@@ -238,12 +238,31 @@ describe("FlightTripDetailPage", () => {
     renderAt("/flights/journeys/t1");
     await screen.findAllByText("Baltic 2026");
     // The owner's screenshot (2026-10-11): a 44 link beside a 52 primary. Both
-    // are the toolbar recipe now, so the banner's row reads as one control.
+    // are the toolbar recipe now, so the banner's row reads as one control —
+    // height, padding and label size together (owner, 2026-10-13: "no button
+    // should be heightwise bigger than other, text size should be uniform").
     const link = screen.getByRole("link", { name: "flights:detail.openTrip" });
     const edit = screen.getByRole("button", { name: "common:buttons.edit" });
     expect(link.style.height).toBe("var(--ts-size-button-secondary)");
     expect(link.style.padding).toBe("0 var(--ts-space-xl)");
+    expect(link.style.fontSize).toBe("16px");
     expect(edit.style.height).toBe("var(--ts-size-button-secondary)");
+    expect(edit.style.padding).toBe("0 var(--ts-space-xl)");
+    expect(edit.style.fontSize).toBe("16px");
+    expect(edit).toHaveClass("ts-button");
+  });
+
+  it("draws the head's Edit label-only, the shape every other head's Edit draws", async () => {
+    renderAt("/flights/journeys/t1");
+    await screen.findAllByText("Baltic 2026");
+    // The pencil was this head's own invention: no other Edit affordance in
+    // the app carries one — `EntityHeader`'s Edit link, the four detail heads'
+    // buttons and the journey page's Edit are all label-only — so the one
+    // icon had the head reading as a different design (owner's 2026-10-13
+    // screenshot). The label is the affordance; a regression that adds an
+    // icon back fails here.
+    const edit = screen.getByRole("button", { name: "common:buttons.edit" });
+    expect(edit.querySelector("svg")).toBeNull();
   });
 
   it("draws no status pill for a journey in the past, as the roadtrip page draws none", async () => {

@@ -116,6 +116,28 @@ describe("the standalone tour's point editor", () => {
     expect(screen.queryByRole("spinbutton")).toBeNull();
   });
 
+  it("draws a point's row at one body size — the remove link and the switch's label too", () => {
+    render(<TourPointEditor points={POINTS} saving={false} onSave={vi.fn()} />);
+
+    // The row draws its title input and its arrows at text-sm (the body
+    // role); the remove link and the correction switch's label were a size
+    // smaller than everything beside them — the owner's 2026-10-13 report
+    // ("text size should be uniform") named exactly these two. jsdom measures
+    // no layout, so the class is the hook the size is pinned on.
+    const input = screen.getAllByPlaceholderText("trips:tours.points.titlePlaceholder")[0];
+    expect(input.className).toContain("text-sm");
+
+    const remove = screen.getAllByText("trips:tours.points.remove")[0];
+    expect(remove.className).toContain("text-sm");
+    expect(remove.className).not.toContain("text-xs");
+
+    const switchLabel = screen
+      .getAllByRole("switch", { name: "trips:tours.points.via" })[0]
+      .closest("label") as HTMLElement;
+    expect(switchLabel.className).toContain("text-sm");
+    expect(switchLabel.className).not.toContain("text-xs");
+  });
+
   it("disables the correction switch on a point that carries a night, and says why", () => {
     render(<TourPointEditor points={[...POINTS, NIGHT_POINT]} saving={false} onSave={vi.fn()} />);
 

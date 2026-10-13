@@ -128,7 +128,17 @@ export default function RoadtripDatesSection({
             style={inputStyle}
           />
         </label>
-        <Button variant="primary" disabled={outOfOrder || saving} onClick={() => void save()}>
+        {/* `size="toolbar"`: the row it saves is the two date boxes beside it,
+            so it joins the row's shared height (one control size, 2026-10-11;
+            owner's 2026-10-13 screenshot named the tall amber Save). The
+            `default` primary's 52 is for a CTA that stands alone — the same
+            treatment the change-dates dialog's amber action already takes. */}
+        <Button
+          variant="primary"
+          size="toolbar"
+          disabled={outOfOrder || saving}
+          onClick={() => void save()}
+        >
           {t("roadtrips:dates.save")}
         </Button>
       </div>

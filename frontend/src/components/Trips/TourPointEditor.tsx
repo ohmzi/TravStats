@@ -111,10 +111,14 @@ export default function TourPointEditor({
             >
               ↓
             </button>
+            {/* One body size per row: the title input and the arrows draw
+                `text-sm`, so the remove link does too — at `text-xs` it was
+                the row's smallest control (owner, 2026-10-13: "text size
+                should be uniform"). */}
             <button
               type="button"
               onClick={() => setDraft((prev) => prev.filter((_, i) => i !== index))}
-              className="text-xs underline"
+              className="text-sm underline"
             >
               {t("trips:tours.points.remove")}
             </button>
@@ -126,8 +130,11 @@ export default function TourPointEditor({
                 2026-10-12). The night itself is cleared on the trip page's
                 station editor; the server rule stays the floor for what the
                 form cannot know (a night added while this page is open). */}
+            {/* The switch's label draws the row's body size too — the shared
+                `ui/Field` switch labels at 14/600 — keeping its muted colour
+                and its hint suffix. */}
             <label
-              className="flex basis-full items-center gap-2 text-xs text-(--text-muted)"
+              className="flex basis-full items-center gap-2 text-sm text-(--text-muted)"
               title={t(
                 point.hasNight === true
                   ? "trips:tours.points.saveErrorViaNight"

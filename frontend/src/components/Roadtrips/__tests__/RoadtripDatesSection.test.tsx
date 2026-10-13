@@ -236,4 +236,20 @@ describe("RoadtripDatesSection", () => {
 
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("draws Save dates at the shared row height, not the lone-CTA primary", () => {
+    render(<RoadtripDatesSection route={route()} tripId={undefined} onSaved={vi.fn()} />);
+
+    // The row it saves is the two date boxes beside it; a CTA in a row joins
+    // the row's shared height (owner, 2026-10-11: "all these should be same
+    // size"), and the owner's 2026-10-13 screenshot named the tall amber Save
+    // as the trip editor's odd one out — the same treatment the change-dates
+    // dialog's amber action already takes. jsdom measures no layout, so the
+    // recipe is pinned as its tokens.
+    const save = screen.getByRole("button", { name: "roadtrips:dates.save" });
+    expect(save).toHaveClass("ts-button");
+    expect(save.style.height).toBe("var(--ts-size-button-secondary)");
+    expect(save.style.padding).toBe("0 var(--ts-space-xl)");
+    expect(save.style.fontSize).toBe("16px");
+  });
 });

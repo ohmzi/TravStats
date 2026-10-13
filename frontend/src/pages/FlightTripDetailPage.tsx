@@ -249,12 +249,13 @@ export default function FlightTripDetailPage(): JSX.Element {
         actions={
           <div className="flex flex-wrap" style={{ gap: 8 }}>
             <ActionLink to={`/trips/${trip.id}`}>{t("flights:detail.openTrip")}</ActionLink>
-            <Button
-              variant="primary"
-              size="toolbar"
-              icon={<Icon name="pencil" size={16} />}
-              onClick={() => setEditing(true)}
-            >
+            {/* Label-only, like every other head's Edit — `EntityHeader`'s Edit
+                link and the four detail heads' buttons carry no icon, and this
+                head's pencil was the app's only one (owner's 2026-10-13
+                screenshot). The amber primary stays: a CTA in a row keeps its
+                skin and joins the row's height (`size="toolbar"`, one control
+                size, 2026-10-11), so it draws 46/16 beside the link's 46/16. */}
+            <Button variant="primary" size="toolbar" onClick={() => setEditing(true)}>
               {t("common:buttons.edit")}
             </Button>
           </div>
