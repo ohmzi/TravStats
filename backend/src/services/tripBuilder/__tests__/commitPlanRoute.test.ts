@@ -30,6 +30,7 @@ import type { CommitBody } from "../../../schemas/tripBuilder";
 import { toDbDate } from "../../../shared/time/localDate";
 import { setClockForTests } from "../../../shared/time/clock";
 import { loadVisibleDomains } from "../../domainVisibility";
+import { stationTimeColumns } from "../../timeModel/tripColumns";
 import { resolveRouteProvider } from "../../tour/routing/resolveProvider";
 import { resyncTripAlbum } from "../albumResync";
 import { preflightAlbum, writeTripAlbum } from "../albumWrite";
@@ -494,6 +495,106 @@ describe("a route-scoped commit", () => {
       endDate: toDbDate("2031-05-09"),
       night: { kind: "stay", lodgingStayId: fx.stayId },
     });
+  });
+
+  it("adopts the stored span, so the trip's own nights are the rows the commit writes", async () => {
+    // The owner's drift, end to end (2026-10-12): the fresh scan's matched
+    // station carries days of its own, the stored trip's nights fall outside
+    // them, and before the fix the seeding guard refused those nights and the
+    // scan's suggestions won. The stored Northvale overnight is moved to
+    // 05-05..05-07 (its nights 05-05 and 05-06) while the draft's Northvale
+    // photos are on 05-02..05-03, so the two pair by title alone. After the fix
+    // the station adopts the stored span, the stored nights seed, and the write
+    // carries them; the scan's own answers on days the adopted span cannot hold
+    // are unknown again, so the review still submits the plan it shows.
+    const startDate = toDbDate("2031-05-05");
+    const endDate = toDbDate("2031-05-07");
+    await prisma.tripStop.update({
+      where: { id: fx.station.a },
+      data: {
+        startDate,
+        endDate,
+        ...stationTimeColumns({
+          startDate,
+          endDate,
+          lat: FX.northvale.lat,
+          lon: FX.northvale.lon,
+        }),
+      },
+    });
+    try {
+      const draftForPlan = await scopedDraft();
+      // The stored span's nights are the plan's now …
+      expect(draftForPlan.dto.nights["2031-05-05"]).toMatchObject({
+        assign: K.northvale,
+        reason: "stored",
+      });
+      expect(draftForPlan.dto.nights["2031-05-06"]).toMatchObject({
+        assign: K.northvale,
+        reason: "stored",
+      });
+      // … the scan's own answers on days the adopted span cannot hold are
+      // unknown again, never a plan the review could not submit …
+      expect(draftForPlan.dto.nights["2031-05-02"]).toMatchObject({
+        assign: "unknown",
+        reason: "unknown",
+      });
+      expect(draftForPlan.dto.nights["2031-05-03"]).toMatchObject({
+        assign: "unknown",
+        reason: "unknown",
+      });
+      // … and the station carries the stored span the review ships.
+      expect(draftForPlan.dto.areas[0].stations.find((s) => s.key === K.northvale)).toMatchObject({
+        firstDay: "2031-05-05",
+        lastDay: "2031-05-07",
+      });
+
+      const plan = await prepareCommit(fx.userId, draftForPlan, draftBody(draftForPlan));
+      const [write] = plan.existing?.roadtrips ?? [];
+      expect(write?.stations.find((station) => station.id === fx.station.a)).toMatchObject({
+        startDate,
+        endDate,
+        night: { kind: "free" },
+      });
+      // The night the scan used to put there is not the write's any more: the
+      // place it drifted to is a pass-through, its own photo days only.
+      expect(write?.stations.find((station) => station.title === "Southbridge")).toMatchObject({
+        startDate: toDbDate("2031-05-05"),
+        endDate: toDbDate("2031-05-06"),
+        night: { kind: "pass" },
+      });
+
+      const written = await writeCommit(plan);
+      expect(written.roadtrips[0]).toMatchObject({ id: fx.roadtripId });
+      const rows = await prisma.tripStop.findMany({
+        where: { routeId: fx.roadtripId },
+        orderBy: { routeOrderIdx: "asc" },
+      });
+      const northvale = rows.find((row) => row.id === fx.station.a);
+      expect(northvale).toMatchObject({ startDate, endDate, overnight: true });
+      const southbridge = rows.find((row) => row.title === "Southbridge");
+      expect(southbridge).toMatchObject({
+        startDate: toDbDate("2031-05-05"),
+        endDate: toDbDate("2031-05-06"),
+        overnight: false,
+      });
+    } finally {
+      const backStart = toDbDate("2031-05-02");
+      const backEnd = toDbDate("2031-05-04");
+      await prisma.tripStop.update({
+        where: { id: fx.station.a },
+        data: {
+          startDate: backStart,
+          endDate: backEnd,
+          ...stationTimeColumns({
+            startDate: backStart,
+            endDate: backEnd,
+            lat: FX.northvale.lat,
+            lon: FX.northvale.lon,
+          }),
+        },
+      });
+    }
   });
 
   it("syncs when another trip of the journey repeats a city's title on other dates", async () => {

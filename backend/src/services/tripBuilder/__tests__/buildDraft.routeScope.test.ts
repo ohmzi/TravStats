@@ -29,6 +29,10 @@ const F1 = "f1a2b3c4-d5e6-4f70-8a9b-0c1d2e3f4a5b";
 
 const EASTPORT: Place = { lat: -38.0, lon: 177.0, city: "Eastport", state: "Eastshire" };
 const FENWICK: Place = { lat: -37.7, lon: 176.25, city: "Fenwick", state: "Eastshire" };
+/** A place the stored trip holds a station for and the photos never visit. */
+const CROWMOOR: Place = { lat: -43.4, lon: 171.2, city: "Crowmoor" };
+/** A place whose photos carry no Immich city, so the scan can only title it by coordinates. */
+const RIDGE: Place = { lat: -41.2, lon: 174.9 };
 const ZPC = { lat: -44.72, lon: 169.17 };
 const ZEP = { lat: -38.02, lon: 177.01 };
 
@@ -404,6 +408,180 @@ describe("buildDraftWith for a route-scoped re-sync", () => {
         { startDay: "2031-05-02", endDay: "2031-05-05" }
       )
     ).toEqual([]);
+  });
+
+  it("adopts the stored trip's own dates, so its stored nights seed (the owner's shape)", async () => {
+    // The owner's drift (2026-10-12, the scoped run): the stored trip's
+    // overnight — Jebel Shams 11-26..28, its two nights — met a FRESH scan whose
+    // matched station carried days of its own that could not hold those nights,
+    // so the seeding guard refused them and the scan's own suggestions won.
+    // Here: the stored "Northvale" overnight is 05-02..05-04 (nights 05-02 and
+    // 05-03) while the new scan's Northvale photos are on 05-05 — the match
+    // holds by title alone, and before the fix both nights keep the scan's
+    // Fenwick answers. With the stored span adopted, the station carries
+    // 05-02..05-04 and the trip's own nights come back as it.
+    const state: ExistingTripState = {
+      ...STATE,
+      startDay: "2031-05-02",
+      endDay: "2031-05-05",
+      roadtrips: [
+        {
+          id: ROUTE,
+          name: "Northvale loop",
+          legs: [],
+          stations: [
+            // The stored overnight the new scan cannot place: its own photo of
+            // the place sits a day after the stored span.
+            station("st-a", "Northvale", NORTHVALE, "2031-05-02", "2031-05-04"),
+            // A stored station no cluster matches: its not-seen behaviour is
+            // untouched by the adoption.
+            station("st-k", "Crowmoor", CROWMOOR, "2031-05-03", "2031-05-04"),
+          ],
+        },
+        STATE.roadtrips[1],
+      ],
+    };
+    const draft = await buildDraftWith(
+      deps(
+        [
+          ...photosAt("fw", FENWICK, [
+            "2031-05-02T09:00",
+            "2031-05-02T19:00",
+            "2031-05-03T09:00",
+            "2031-05-03T19:00",
+            "2031-05-04T09:00",
+            "2031-05-04T19:00",
+          ]),
+          ...photosAt("nv", NORTHVALE, ["2031-05-05T10:00", "2031-05-05T15:00"]),
+        ],
+        false,
+        state
+      ),
+      USER,
+      { ...INPUT, endDay: "2031-05-05" },
+      () => undefined
+    );
+
+    const [area] = draft.dto.areas;
+    // The pills still read the scan's own derivation (the photos' days versus
+    // what is stored) while the matched station carries the stored span.
+    expect(
+      area.stations.map((s) => [s.title, s.firstDay, s.lastDay, s.status, s.existingId])
+    ).toEqual([
+      ["Fenwick", "2031-05-02", "2031-05-04", "new", undefined],
+      ["Northvale", "2031-05-02", "2031-05-04", "changed", "st-a"],
+    ]);
+    // The commit's day allow-list offers the days the review will ship.
+    expect(draft.stationIndex.get(area.stations[1].key)).toMatchObject({
+      areaKey: area.key,
+      firstDay: "2031-05-02",
+      lastDay: "2031-05-04",
+    });
+    // The stored span's nights come back as the stored station …
+    expect(draft.dto.nights["2031-05-02"]).toMatchObject({
+      assign: area.stations[1].key,
+      reason: "stored",
+    });
+    expect(draft.dto.nights["2031-05-03"]).toMatchObject({
+      assign: area.stations[1].key,
+      reason: "stored",
+    });
+    // … a night outside the stored spans keeps today's scan suggestion …
+    expect(draft.dto.nights["2031-05-04"]).toMatchObject({
+      assign: area.stations[0].key,
+      reason: "lastPhoto",
+    });
+    // … and an unmatched stored station is offered not-seen, exactly as before.
+    expect(area.notSeen?.map((s) => [s.title, s.notSeen?.defaultKeep, s.notSeen?.reason])).toEqual([
+      ["Crowmoor", true, "notInPhotos"],
+    ]);
+    // The plan the review submits is the one the commit validates.
+    const stationRows = area.stations.map((s) => ({
+      key: s.key,
+      title: s.title,
+      lat: s.lat,
+      lon: s.lon,
+      firstDay: s.firstDay,
+      lastDay: s.lastDay,
+    }));
+    expect(
+      validateNightPlan(
+        stationRows,
+        Object.fromEntries(Object.entries(draft.dto.nights).map(([day, e]) => [day, e.assign])),
+        [
+          {
+            key: area.key,
+            startDay: area.startDay,
+            endDay: area.endDay,
+            stationKeys: area.stations.map((s) => s.key),
+          },
+        ],
+        { startDay: "2031-05-02", endDay: "2031-05-05" }
+      )
+    ).toEqual([]);
+  });
+
+  it("takes the stored title where the scan could only title a matched station by coordinates", async () => {
+    // The title rule the scoped flow reads is the journey-wide `keptTitle`
+    // (spec §K.2, applied by the annotation): a draft title that is empty or
+    // only the coordinate fallback adopts the stored one — no Immich city and
+    // no geocoder here, so the cluster's own title is "-41.20, 174.90" and the
+    // stored "Fenwick Fold" is what the review shows and the commit keeps.
+    const state: ExistingTripState = {
+      ...STATE,
+      startDay: "2031-05-02",
+      endDay: "2031-05-03",
+      roadtrips: [
+        {
+          id: ROUTE,
+          name: "Northvale loop",
+          legs: [],
+          stations: [station("st-r", "Fenwick Fold", RIDGE, "2031-05-02", "2031-05-03")],
+        },
+        STATE.roadtrips[1],
+      ],
+    };
+    const draft = await buildDraftWith(
+      deps(photosAt("rd", RIDGE, ["2031-05-02T10:00", "2031-05-02T19:00"]), false, state),
+      USER,
+      { ...INPUT, endDay: "2031-05-03" },
+      () => undefined
+    );
+
+    expect(draft.dto.areas[0].stations.map((s) => [s.title, s.status, s.existingId])).toEqual([
+      ["Fenwick Fold", "same", "st-r"],
+    ]);
+  });
+
+  it("keeps a legitimate name from the new scan when the stored title is only coordinates", async () => {
+    // The other arm of the same rule: the stored station's title is the old
+    // coordinate fallback and the new scan has a real name — the draft's own
+    // name is the one shown (a corrected place name is not overwritten by the
+    // placeholder the previous scan left).
+    const state: ExistingTripState = {
+      ...STATE,
+      startDay: "2031-05-02",
+      endDay: "2031-05-03",
+      roadtrips: [
+        {
+          id: ROUTE,
+          name: "Northvale loop",
+          legs: [],
+          stations: [station("st-f", "-37.70, 176.25", FENWICK, "2031-05-02", "2031-05-03")],
+        },
+        STATE.roadtrips[1],
+      ],
+    };
+    const draft = await buildDraftWith(
+      deps(photosAt("fw", FENWICK, ["2031-05-02T10:00", "2031-05-02T19:00"]), false, state),
+      USER,
+      { ...INPUT, endDay: "2031-05-03" },
+      () => undefined
+    );
+
+    expect(draft.dto.areas[0].stations.map((s) => [s.title, s.existingId])).toEqual([
+      ["Fenwick", "st-f"],
+    ]);
   });
 
   it("previews the trip's own album, matched by its stored name, and offers no removal", async () => {

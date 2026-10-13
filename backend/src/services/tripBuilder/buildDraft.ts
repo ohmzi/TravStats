@@ -252,6 +252,22 @@ function stationIndexOf(areas: readonly DraftArea[]): Map<string, StationIndexEn
   return index;
 }
 
+/**
+ * The day allow-list the commit reads (`spanOf`): the scan's own stations —
+ * its LEFT-OUT ones stay listed with their photo days, so a hand-built body
+ * naming one reaches the cross-row guard, not a day mismatch — with the days
+ * the re-sync annotation moved onto its matched stations on top. A
+ * route-scoped scan adopts the stored trip's own spans (owner case 2026-10-12,
+ * `withStoredSpan`) and the review ships those days in its body, so the index
+ * must offer them or the commit would refuse the plan the review showed.
+ */
+function stationIndexFor(
+  scan: readonly DraftArea[],
+  annotated: readonly DraftArea[]
+): Map<string, StationIndexEntry> {
+  return new Map([...stationIndexOf(scan), ...stationIndexOf(annotated)]);
+}
+
 function withPreviews(plan: AreaPlan, previewIdx: ReadonlyMap<string, number[]>): AreaPlan {
   return {
     ...plan,
@@ -738,7 +754,7 @@ export async function buildDraftWith(
     previewAssetIds: previews.previewAssetIds,
     albumAssetIds: photos.map((p) => p.id),
     flightIds: new Set(listed.map((a) => a.id)),
-    stationIndex: stationIndexOf(areas),
+    stationIndex: stationIndexFor(areas, applied.dto.areas),
     stopovers: namedStopovers,
     // The pitstop areas' own album lists (spec 2026-10-11 pitstops §4): the
     // album takes the area's photos, which no DTO may carry.

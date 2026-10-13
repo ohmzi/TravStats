@@ -27,6 +27,7 @@ import { pickLinkedAlbum, previewAlbumSync, type AlbumResyncClient } from "./alb
 import {
   isSleptNight,
   type ExistingRoadtrip,
+  type ExistingStation,
   type ExistingTripState,
   type StoredExisting,
   type StoredRoadtripOffer,
@@ -257,6 +258,71 @@ function nightsWithStored(
 }
 
 /**
+ * The night answers a station can no longer hold once the stored spans have
+ * replaced its photo days (the adoption below): the bound `validateNightPlan`
+ * enforces for the commit (`nightNotAdjacent` — a night within [first day − 1,
+ * last day + 1] of the station it names) is read here, so an answer naming a
+ * station the adopted span leaves behind is unknown again — the treatment a
+ * left-out stop's answer gets — and no suggestion is left that the night could
+ * not be given to. The review therefore always submits the plan it shows.
+ */
+function nightsWithinSpans(
+  nights: TripBuilderDraft["nights"],
+  spans: ReadonlyMap<string, { firstDay: Day; lastDay: Day }>
+): TripBuilderDraft["nights"] {
+  const fits = (key: string, day: Day): boolean => {
+    const span = spans.get(key);
+    return (
+      span === undefined || (day >= addDays(span.firstDay, -1) && day <= addDays(span.lastDay, 1))
+    );
+  };
+  return Object.fromEntries(
+    Object.entries(nights).map(([day, entry]) => {
+      const held = fits(entry.assign, day);
+      const suggested = entry.suggestedStationKeys.filter((key) => fits(key, day));
+      if (held && suggested.length === entry.suggestedStationKeys.length) return [day, entry];
+      return [
+        day,
+        held
+          ? { ...entry, suggestedStationKeys: suggested }
+          : {
+              ...entry,
+              assign: NIGHT_UNKNOWN,
+              reason: "unknown" as const,
+              suggestedStationKeys: suggested,
+            },
+      ];
+    })
+  );
+}
+
+/**
+ * A matched draft station with the stored station's own dates (owner case
+ * 2026-10-12, the scoped night seeding's root cause): the trip's stored truth
+ * wins over the photos' guesses FOR THE SPAN, so the nights the stored span
+ * covers are nights the station may legally hold — without this, the seeding
+ * guard below (the same `nightNotAdjacent` bound `validateNightPlan` reads)
+ * refuses them on the photo days and the scan's own suggestions win, which is
+ * the drift the owner saw. The span is read the way the trip's own timeline
+ * reads a stored station (`notSeenStation`, `storedSpanNights`): the start is
+ * `startDate ?? endDate` and the end `endDate ?? startDate`, so a span dated
+ * at one end is the one day it names. A stored station with no date at all
+ * holds no span of its own: nothing to adopt, and the photo days stand.
+ *
+ * The TITLE is deliberately untouched: the scoped flow reads the journey-wide
+ * rule (`keptTitle`, through `annotate`): a draft title that is empty or only
+ * a coordinate fallback adopts the stored title, and a legitimate name from
+ * the new scan survives a stored title that is empty or only coordinates. A
+ * real draft name does NOT override a real stored one (spec §K.2), and the
+ * scoped assertions pin that: the stored title is the one the owner curated.
+ */
+function withStoredSpan(station: DraftStation, stored: ExistingStation): DraftStation {
+  const firstDay = stored.startDate ?? stored.endDate;
+  const lastDay = stored.endDate ?? stored.startDate;
+  return firstDay === null || lastDay === null ? station : { ...station, firstDay, lastDay };
+}
+
+/**
  * The route-scoped annotation (owner request 2026-10-12): a trip-side Re-sync
  * updates exactly one stored roadtrip.
  *
@@ -283,6 +349,14 @@ function nightsWithStored(
  * keeps the scan's own answer. Only nights the draft station (and its area)
  * could legally hold are seeded, so the plan the review submits still
  * validates; nothing is locked, every night stays editable.
+ *
+ * For those seeds to take effect, every matched station ADOPTS the stored
+ * station's own dates (`withStoredSpan`): a fresh scan's matched station can
+ * carry photo days the stored nights may never legally reach, and the guard
+ * below (the bound `validateNightPlan` enforces at the commit) would refuse
+ * exactly the owner's stored nights — the live drift. The stored span is the
+ * trip's own truth for the days; a station whose photo span the adoption
+ * leaves behind keeps no stale answers (`nightsWithinSpans`).
  */
 function annotateDraftForRoute(
   dto: TripBuilderDraft,
@@ -338,6 +412,15 @@ function annotateDraftForRoute(
       if (rec.existing) matchedIds.add(rec.existing.id);
     }
     for (const n of reconciled.notSeen) notSeenIds.add(n.stored.id);
+    // Every matched station adopts the stored station's own dates first (owner
+    // case 2026-10-12, the seeding's root cause): the trip's span is the truth,
+    // and it is what the seeding guard below and the review's own validation
+    // read — the photo days a fresh scan carries can be days the stored nights
+    // can never legally reach (`validateNightPlan`'s `nightNotAdjacent`).
+    const stations = keptArea.stations.map((station, index) => {
+      const stored = reconciled.derived[index]?.existing;
+      return stored === undefined ? station : withStoredSpan(station, stored);
+    });
     // The target trip's own stored spans seed the review's night answers: a
     // stored station that matched a kept station answers each night its span
     // holds (`storedSpanNights` — the owner's 11-26..28 → the nights of 26/27
@@ -347,7 +430,7 @@ function annotateDraftForRoute(
     // legally hold is not seeded, so the submitted plan still validates. The
     // first stored station of the trip wins a night two of them both cover.
     reconciled.derived.forEach((rec, index) => {
-      const station = keptArea.stations[index];
+      const station = stations[index];
       if (rec.existing === undefined || station === undefined) return;
       for (const night of storedSpanNights(rec.existing)) {
         if (dto.nights[night] === undefined) continue;
@@ -362,7 +445,7 @@ function annotateDraftForRoute(
       // one, so the review's Name field holds what the commit keeps.
       suggestedName: target.name,
       roadtripId: target.id,
-      stations: keptArea.stations.map((s, i) => annotate(s, reconciled.derived[i])),
+      stations: stations.map((s, i) => annotate(s, reconciled.derived[i])),
       legs: annotateLegs(keptArea, reconciled.derived, target),
       notSeen: reconciled.notSeen.map((n) => notSeenStation(n, taken, area.startDay)),
       ...(leftOut.length === 0 ? {} : { leftOut }),
@@ -370,10 +453,23 @@ function annotateDraftForRoute(
   });
   // The left-out stops' answers first (a night naming one is unknown again),
   // then the target trip's own stored spans on top: a seeded night can only
-  // name a kept station, so the two never collide.
-  const nights = nightsWithStored(
-    leftOutKeys.size === 0 ? dto.nights : nightsWithoutLeftOut(dto.nights, leftOutKeys),
-    seededNights
+  // name a kept station, so the two never collide — and last, an answer the
+  // adopted spans leave behind is unknown again, so the review stays
+  // submittable whatever the stored spans did to the scan's own days.
+  const spans = new Map(
+    areas.flatMap((area) =>
+      area.stations.map(
+        (station) =>
+          [station.key, { firstDay: station.firstDay, lastDay: station.lastDay }] as const
+      )
+    )
+  );
+  const nights = nightsWithinSpans(
+    nightsWithStored(
+      leftOutKeys.size === 0 ? dto.nights : nightsWithoutLeftOut(dto.nights, leftOutKeys),
+      seededNights
+    ),
+    spans
   );
   return {
     dto: {
