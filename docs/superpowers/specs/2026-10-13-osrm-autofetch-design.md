@@ -98,3 +98,13 @@ Reuses `build.sh`'s steps but **stages** them so the live graph keeps serving un
 ## 8. Open questions
 
 None. Resolved by the design above: trigger threshold 20 km; caps as listed; Iceland as the E2E; the app is the only client; the download+build runs on the host under the owner's user with no docker-socket exposure.
+
+## Status (2026-10-13)
+
+Implemented, gated at `ffe6801a4`, deployed and verified live — end to end, on the owner's data:
+
+- The service's whole pipeline ran **unattended in production**: Turkey's region was probed, downloaded, stage-built, swapped, and the router restarted and health-probed (`built: 14`); a live Istanbul probe then answered a real road distance where the degenerate snap had been.
+- The **Istanbul** trip: 2/2 legs routed (48.2 / 48.8 km; both had been refused at a 1.83 km airport-apron snap under the old 1 km rule).
+- The **Smokey Mountains** trip: 6/6 legs routed (121.0 / 101.3 / 74.7 / 352.2 / 96.5 / 353.5 km; three had been straight lines since the morning).
+- The **app-driven Iceland E2E** (the acceptance): on the deployed build the refusal rendered "Map data for Iceland is downloading", the app's own ensure call logged `autofetchStatus: "started"`, the service fetched and built the region (`built: 15`), the leg then routed, and the test tour was deleted. Evidence: `uat-autofetch-2/`.
+- The final whole-branch review found one critical (the file-size ratchet) and one important (one-sided refusals never triggered the fetch); both were fixed in `ffe6801a4` and re-reviewed clean.

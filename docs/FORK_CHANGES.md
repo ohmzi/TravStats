@@ -978,6 +978,12 @@ wording where it names the journey itself.
   accent's own pressed shade 39.4 apart; every other domain stays clear of the
   accent and of info, warn and bad.
 
+### On-demand map fetching for routing (2026-10-13)
+
+When the routing provider answers from a road graph that has no data for a trip's region, its line snaps hundreds or thousands of kilometres away; the app refuses that answer and now also asks an operator-configured helper — the `osrm-autofetch` service — to fetch the missing region. The helper downloads the region's OpenStreetMap extract, rebuilds the routing graph into a staging directory, swaps it in while the old graph keeps serving, and restarts the router; the next attempt routes. The admin setting `routingAutoFetchUrl` holds the helper's URL; left empty, behaviour is byte-for-byte what it was before this change. The refusal message itself then says the map for the region is downloading, and roughly how long it takes.
+
+The same routing guard accepts the provider's own nearest-road snap when a trip pin sits within 25 km of a road — a photo taken on a beach or a hike routes from the nearest road instead of being refused — and keeps refusing (with the map fetch) beyond that bound.
+
 ## How it fits with Immich
 
 The photo library is where the journeys actually happened, and the logbook links
