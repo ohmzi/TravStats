@@ -293,6 +293,8 @@ describe("routeLegGeometry", () => {
     expect(result.confidence).toBe("low");
     expect(Number.isFinite(result.distanceKm)).toBe(true);
     expect(result.distanceKm).toBeCloseTo(CHORD_KM, 6);
+    // A malformed answer has no numbers to quote — the reason stands alone.
+    expect(result.fallbackDetail).toBeNull();
   });
 
   it("rejects a route with a NaN waypoint coordinate — NaN > tolerance and NaN > chord*ratio are both false", async () => {
@@ -318,6 +320,8 @@ describe("routeLegGeometry", () => {
     expect(result.confidence).toBe("low");
     expect(Number.isFinite(result.distanceKm)).toBe(true);
     expect(result.distanceKm).toBeCloseTo(CHORD_KM, 6);
+    // A malformed answer has no numbers to quote — the reason stands alone.
+    expect(result.fallbackDetail).toBeNull();
   });
 
   it("rejects an implausible distance (50x the chord) even when both anchors are correct", async () => {

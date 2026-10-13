@@ -41,6 +41,17 @@ describe("routeFallbackMessage — the reason, with the numbers that refused the
     );
   });
 
+  it("falls back to the headline for a kind this build does not know — never NaN", () => {
+    // A newer server could add a third kind; this build must say the reason
+    // it always did rather than formatting fields it cannot read.
+    const unknown = { kind: "mystery" } as unknown as Parameters<typeof routeFallbackMessage>[1];
+    const message = routeFallbackMessage("untrustworthy", unknown, germanT, "de");
+    expect(message).toBe(
+      "Die Antwort des Routing-Anbieters passte nicht zu den beiden Orten und wurde verworfen."
+    );
+    expect(message).not.toContain("NaN");
+  });
+
   it("leaves the reason standing alone when the server sent no numbers", () => {
     expect(routeFallbackMessage("untrustworthy", null, germanT, "de")).toBe(
       "Die Antwort des Routing-Anbieters passte nicht zu den beiden Orten und wurde verworfen."

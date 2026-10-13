@@ -36,8 +36,13 @@ export function routeFallbackMessage(
       tailOff: nf.format(detail.tailOffKm),
     })}`;
   }
-  return `${headline} ${t("trips:tours.routing.detail.distance", {
-    distance: nf.format(detail.distanceKm),
-    chord: nf.format(detail.chordKm),
-  })}`;
+  if (detail.kind === "distance") {
+    return `${headline} ${t("trips:tours.routing.detail.distance", {
+      distance: nf.format(detail.distanceKm),
+      chord: nf.format(detail.chordKm),
+    })}`;
+  }
+  // An unknown kind — a newer server's field this build cannot read — has no
+  // numbers to say: the headline stands alone rather than "NaN".
+  return headline;
 }
