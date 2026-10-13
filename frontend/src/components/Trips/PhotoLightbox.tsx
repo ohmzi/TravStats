@@ -136,15 +136,19 @@ export default function PhotoLightbox({
           data-testid="lightbox-stage"
           data-details-open={detailsOpen ? "true" : "false"}
           className={`relative flex min-h-0 flex-1 items-center justify-center px-4 py-6 transition-transform duration-300 ${
-            detailsOpen && !isPhone ? "md:-translate-x-8" : ""
+            detailsOpen && !isPhone ? "-translate-x-8" : ""
           }`}
         >
-          <div className="relative max-h-full max-w-full" onClick={(e) => e.stopPropagation()}>
+          {/* The photo is capped against the viewport, not its wrapper: a
+              percentage cap cannot resolve here (the wrapper's height is its
+              content's), and an overflowing image painted over the footer and
+              made the controls unclickable. */}
+          <div className="relative max-h-[85vh] max-w-full" onClick={(e) => e.stopPropagation()}>
             <img
               data-testid="lightbox-image"
               src={item.previewUrl}
               alt={item.caption ?? ""}
-              className="max-h-full object-contain"
+              className="max-h-[85vh] object-contain"
             />
 
             {items.length > 1 && (
@@ -176,7 +180,7 @@ export default function PhotoLightbox({
             data-testid="lightbox-details"
             data-variant="column"
             aria-label={t("gallery.details")}
-            className="w-80 max-w-[45vw] shrink-0 overflow-y-auto border-l border-slate-700 bg-slate-950/80 p-4"
+            className="w-80 max-w-[45vw] shrink-0 overflow-y-auto border-l border-[var(--ts-border)] bg-[var(--ts-surface2)] p-4"
             onClick={(e) => e.stopPropagation()}
           >
             {detailsPanel}
@@ -192,7 +196,7 @@ export default function PhotoLightbox({
           data-testid="lightbox-details"
           data-variant="sheet"
           aria-label={t("gallery.details")}
-          className="max-h-[45vh] shrink-0 overflow-y-auto rounded-t-xl border-t border-slate-700 bg-slate-950/95 p-4"
+          className="max-h-[45vh] shrink-0 overflow-y-auto rounded-t-xl border-t border-[var(--ts-border)] bg-[var(--ts-surface2)] p-4"
           onClick={(e) => e.stopPropagation()}
         >
           {detailsPanel}

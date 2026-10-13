@@ -215,6 +215,22 @@ describe("PhotoLightbox — details panel", () => {
     expect(screen.getByTestId("lightbox-image")).toBeInTheDocument();
   });
 
+  it("keeps the photo within the viewport and the controls reachable", async () => {
+    const user = userEvent.setup();
+    renderDetailed();
+    await openDetails(user);
+
+    // A percentage cap resolves against nothing here, so the viewer once let
+    // the image grow past the fold and paint over the footer — Details, Close
+    // and Set cover became unclickable. These pins hold the viewport cap
+    // (jsdom computes no layout, so the classes are the contract).
+    const image = screen.getByTestId("lightbox-image");
+    expect(image.className).toContain("max-h-[85vh]");
+    expect(image.parentElement?.className).toContain("max-h-[85vh]");
+    // The stage nudges aside at every non-phone width, not only from md up.
+    expect(screen.getByTestId("lightbox-stage").className).toContain("-translate-x-8");
+  });
+
   it("renders the asset's facts from the served DTO", async () => {
     const user = userEvent.setup();
     renderDetailed();
@@ -266,7 +282,11 @@ describe("PhotoLightbox — details panel", () => {
     renderDetailed();
     await openDetails(user);
 
-    expect(screen.getByTestId("lightbox-details")).toHaveAttribute("data-variant", "sheet");
+    const sheet = screen.getByTestId("lightbox-details");
+    expect(sheet).toHaveAttribute("data-variant", "sheet");
+    // The surfaces take the app's tokens, not the raw palette.
+    expect(sheet.className).toContain("bg-[var(--ts-surface2)]");
+    expect(sheet.className).toContain("border-[var(--ts-border)]");
   });
 
   it("uses the side column on a roomy viewport", async () => {
@@ -274,7 +294,10 @@ describe("PhotoLightbox — details panel", () => {
     renderDetailed();
     await openDetails(user);
 
-    expect(screen.getByTestId("lightbox-details")).toHaveAttribute("data-variant", "column");
+    const column = screen.getByTestId("lightbox-details");
+    expect(column).toHaveAttribute("data-variant", "column");
+    expect(column.className).toContain("bg-[var(--ts-surface2)]");
+    expect(column.className).toContain("border-[var(--ts-border)]");
   });
 });
 
