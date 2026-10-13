@@ -160,6 +160,10 @@ describe("JourneyTripsTab", () => {
       "/roadtrips/a",
     ]);
     const flights = cards[0];
+    // The flights entry carries the map its roadtrip neighbours carry — the
+    // owner's report was a blank where the flight route belongs (the card's
+    // own suite pins what the map is handed).
+    expect(screen.getAllByTestId("card-map")).toHaveLength(2);
     // Named as the flights, and carrying the flown sum (3.400 + 1.200), its
     // own label, and the flight count.
     expect(flights.textContent).toContain("common:summary.flights");
@@ -176,6 +180,9 @@ describe("JourneyTripsTab", () => {
 
     const cards = await screen.findAllByRole("link");
     expect(cards.map((card) => card.getAttribute("href"))).toEqual(["/roadtrips/a"]);
+    // One map only — the roadtrip card's. A journey without flights mounts no
+    // flights card and so draws no stray map.
+    expect(screen.getAllByTestId("card-map")).toHaveLength(1);
   });
 
   it("keeps the flights entry while the roadtrips domain is off — and asks for no roadtrips", async () => {

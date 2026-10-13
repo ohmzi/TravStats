@@ -2,14 +2,91 @@ import type { JSX } from "react";
 import { Link } from "react-router-dom";
 
 import { Figure, useRoadtripSpan } from "../Roadtrips/RoadtripCard";
+import CardMap, { type CardMapLine, type CardMapStop } from "../map/CardMap";
 import { Icon } from "../ui/Icon";
+import {
+  calculateDistance,
+  getArcPeakAltitudeMeters,
+  getArcSteps,
+  greatCircleWaypoints,
+} from "../Globe/arcUtils";
 import { useTranslation } from "../../hooks/useTranslation";
 import {
   distancePrefix,
+  isRealEndpoint,
   journeyDays,
   journeyDistanceKm,
   type JourneyFlight,
 } from "../../lib/flights/journeyFigures";
+
+/**
+ * One leg's drawn line: the great circle between its two airports as
+ * `[lon, lat]` — the logbook journey card's own arc (`FlightJourneyCard.arcOf`
+ * over `Globe/arcUtils`), so one journey reads the same shape on both cards —
+ * or `null` for a leg the app stored without a real endpoint.
+ *
+ * A LEG WITH NO POSITION AT EITHER END IS SKIPPED, NOT DRAWN TO NULL ISLAND.
+ * An airport the catalogue never resolved is stored as (0,0), not as a null
+ * (`isRealEndpoint`); the distance fold already refuses to measure such a leg
+ * and `TripMap` draws no arc for it. The map here obeys the same rule rather
+ * than inventing a second one.
+ *
+ * DASHED IS THE FLIGHT DOMAIN'S OWN "UPCOMING": a leg whose status is
+ * `"scheduled"` has not been flown — the whole flight domain reads exactly
+ * that (`routesLayer`, `globeArcData`, `tripMapColors`: `status ===
+ * "scheduled"`) — while a flown or historical leg stays solid. The dash is
+ * what a card line says for a trip that has not happened (`CardMap.dashed`,
+ * and the roadtrip card beside this one dashing its planned phase); the
+ * dashboard's own flight map cannot draw it at all (deck.gl has no dash on
+ * arcs, `statusColors.PLANNED_STROKE_IS_DASHED`), so where the card's SVG can,
+ * the dash says what the map can only colour.
+ */
+function legLine(flight: JourneyFlight): CardMapLine | null {
+  if (
+    !isRealEndpoint(flight.depLat, flight.depLon) ||
+    !isRealEndpoint(flight.arrLat, flight.arrLon)
+  ) {
+    return null;
+  }
+  const km =
+    flight.routeDistance ??
+    calculateDistance(flight.depLat, flight.depLon, flight.arrLat, flight.arrLon);
+  return {
+    coords: greatCircleWaypoints(
+      [flight.depLon, flight.depLat],
+      [flight.arrLon, flight.arrLat],
+      getArcPeakAltitudeMeters(km),
+      getArcSteps(km, false)
+    ).map(([lon, lat]) => [lon, lat] as const),
+    width: 1.6,
+    dashed: flight.status === "scheduled",
+  };
+}
+
+/**
+ * Every distinct airport the legs touch, one dot per position — the roadtrip
+ * cards' own stations rule, so the arcs meet on the airports the way a routed
+ * roadtrip's line meets its stations. Deduped by the coordinate itself: the
+ * two legs that land at, or leave from, one airport read the same catalogue
+ * position, so the key is exact. A sentinel end draws no dot (there is no
+ * position to draw), but the other end of a broken leg is still a place the
+ * journey touched and keeps its own.
+ */
+function airportStops(flights: readonly JourneyFlight[]): CardMapStop[] {
+  const stops = new Map<string, CardMapStop>();
+  for (const flight of flights) {
+    const ends = [
+      [flight.depLat, flight.depLon],
+      [flight.arrLat, flight.arrLon],
+    ] as const;
+    for (const [lat, lon] of ends) {
+      if (!isRealEndpoint(lat, lon)) continue;
+      // The radius the logbook journey card gives its airports.
+      stops.set(`${lon},${lat}`, { coord: [lon, lat], radius: 2.4 });
+    }
+  }
+  return [...stops.values()];
+}
 
 /**
  * The journey's flights as a trip of its own, in the Trips tab (owner,
@@ -19,6 +96,14 @@ import {
  * card furniture (surface, radius, a three-figure row) so the tab reads as one
  * list of the journey's trips, with the flights' own affordance: the plane
  * icon in the flight domain's colour beside the word.
+ *
+ * THE MAP IS THE ROADTRIP CARDS' MAP, DRAWN FROM THIS CARD'S OWN FLIGHTS
+ * (owner, 2026-10-12: the journey's Trips tab drew the flights card "showing
+ * the thumbnail of flight as blank" where the roadtrip cards beside it drew
+ * their routes). One line per leg over the same `CardMap` as the cards beside
+ * it, and a dot on every distinct airport, so a flight reads as one more trip
+ * in the same grid (`legLine`, `airportStops` above) — nothing else about the
+ * card moves: one link, the same figures, the same affordance.
  *
  * THE FIGURES ARE THE FLIGHTS BAND'S OWN FOLDS, NOT NEW ONES. The distance is
  * `journeyDistanceKm` carrying `distancePrefix`, so `~` (a sum of derived
@@ -53,6 +138,8 @@ export default function JourneyFlightsCard({
   const span = useRoadtripSpan();
   const nf = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 });
 
+  const lines = flights.map(legLine).filter((line): line is CardMapLine => line !== null);
+  const stops = airportStops(flights);
   const distance = journeyDistanceKm(flights);
   const knownLegs = distance.liveLegs + distance.derivedLegs;
   const days = journeyDays(flights);
@@ -85,6 +172,7 @@ export default function JourneyFlightsCard({
         textDecoration: "none",
       }}
     >
+      <CardMap lines={lines} stops={stops} />
       <div
         className="flex flex-1 flex-col"
         style={{ padding: "var(--ts-space-lg)", gap: "var(--ts-space-sm)" }}

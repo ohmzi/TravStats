@@ -49,13 +49,20 @@ import { hasUnknownLength, stayNights, type DisplayableStay } from "../lodgingDa
 const DAY_MS = 86_400_000;
 
 /**
- * The fields of a flight this fold reads. Minimal on purpose, like
- * `SummarisableFlight`: a `Pick<Flight, …>` from `/trips/:id` satisfies it
- * without the fold knowing the rest of the row.
+ * The fields of a flight this module and the cards over it read. Minimal on
+ * purpose, like `SummarisableFlight`: a `Pick<Flight, …>` from `/trips/:id`
+ * satisfies it without the fold knowing the rest of the row.
  */
 export interface JourneyFlight {
   routeDistance?: number | null;
   routeSource?: string | null;
+  /**
+   * The row's lifecycle state (`Flight.status`). Optional, like
+   * `JourneyStay.status` below — no fold here reads it, and a fixture that
+   * omits it is a leg nobody asked a state about. The Trips tab's flights card
+   * is the reader: it dashes a `"scheduled"` leg, the domain's own "upcoming".
+   */
+  status?: string | null;
   depIata?: string | null;
   arrIata?: string | null;
   depCity?: string | null;
@@ -82,11 +89,13 @@ export interface JourneyFlight {
  * the catalogue never resolved does not store a null endpoint — it stores
  * (0,0). That is Null Island's twin in name only: `TripMap` draws no arc for a
  * leg with either end there (`TripMap.tsx`: `depLat === 0 && depLon === 0 ||
- * arrLat === 0 && arrLon === 0`). Counting the leg anyway is how a phantom
- * great-circle chord reaches a headline, which is the "unknown is a dash, never
- * a zero" mistake this module exists to prevent.
+ * arrLat === 0 && arrLon === 0`), and the Trips tab's flights card reads this
+ * function for the same reason — it draws no line to a position that is not
+ * one. Counting the leg anyway is how a phantom great-circle chord reaches a
+ * headline, which is the "unknown is a dash, never a zero" mistake this module
+ * exists to prevent.
  */
-function isRealEndpoint(lat: number, lon: number): boolean {
+export function isRealEndpoint(lat: number, lon: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lon) && !(lat === 0 && lon === 0);
 }
 
