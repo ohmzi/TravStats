@@ -228,7 +228,9 @@ describe("PhotoLightbox — details panel", () => {
     expect(image.className).toContain("max-h-[85vh]");
     expect(image.parentElement?.className).toContain("max-h-[85vh]");
     // The stage nudges aside at every non-phone width, not only from md up.
-    expect(screen.getByTestId("lightbox-stage").className).toContain("-translate-x-8");
+    // The pin names the class TOKEN, not a substring: the old `md:-translate-x-8`
+    // contains "-translate-x-8" and would slip past a naive toContain.
+    expect(screen.getByTestId("lightbox-stage").className.split(/\s+/)).toContain("-translate-x-8");
   });
 
   it("renders the asset's facts from the served DTO", async () => {
