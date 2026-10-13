@@ -7,7 +7,7 @@
  * (shared/tour/builderNightPlan.ts), fed with `mainCityOf` and each area's start day.
  */
 import { daysBetween } from "../../shared/time/localDate";
-import { isMultiNightStay } from "../../shared/tour/builderNightPlan";
+import { isTripShape } from "../../shared/tour/builderNightPlan";
 import type {
   AreaKind,
   AreaPlan,
@@ -49,8 +49,10 @@ const cityIdOf = (station: PlanStation): string => station.title.trim().toLowerC
  * (owner ruling 2026-10-13): a city the traveller stayed in for two nights or
  * more with photos on more than one day is a trip of its own, one station and
  * all, because "clearly istanbul first stay and karachi stay should prompt
- * trip creation suggestion". Anything more than one city is a roadtrip too,
- * if roadtrips are visible to the user. Home and airport stations are not
+ * trip creation suggestion". That is the shared trip-shape predicate read
+ * with the one row a one-city area would write, so the offer and the commit's
+ * guards give one answer. Anything more than one city is a roadtrip too, if
+ * roadtrips are visible to the user. Home and airport stations are not
  * cities, and an area with no city at all (only the way home) is a stop — it
  * has nothing to drive between.
  */
@@ -61,8 +63,12 @@ export function decideAreaKind(
   const cities = new Set(plan.stations.filter(isCity).map(cityIdOf));
   const homeLegs = plan.home.start.defaultOn || plan.home.end.defaultOn;
   if (cities.size === 0) return "stops";
-  const stay = isMultiNightStay(plan.area.startDay, plan.area.endDay, plan.stations);
-  if (cities.size === 1 && !homeLegs && !stay) return "stops";
+  const oneStationTrip = isTripShape(1, {
+    startDay: plan.area.startDay,
+    endDay: plan.area.endDay,
+    stations: plan.stations,
+  });
+  if (cities.size === 1 && !homeLegs && !oneStationTrip) return "stops";
   return roadtripsVisible ? "roadtrip" : "stops";
 }
 

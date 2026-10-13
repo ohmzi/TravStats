@@ -25,6 +25,7 @@ import type { CommitArea, CommitBody, CommitStation } from "../../schemas/tripBu
 import { toDbDate } from "../../shared/time/localDate";
 import {
   deriveStationRows,
+  isTripShape,
   rowLegModes,
   type NightPlanStation,
   type StationRow,
@@ -215,8 +216,11 @@ function buildRoadtripWrite(
   diff.removed = [...currentIds].filter((id) => !finalIds.includes(id)).length;
 
   // `prepareCommit` cannot ask this of an area that updates a stored roadtrip, because its kept
-  // stations are not rows there. The final list is the one place that sees them all.
-  if (stations.filter((s) => s.night.kind !== "via").length < 2) {
+  // stations are not rows there. The final list is the one place that sees them all, and the
+  // shape rule is the shared `isTripShape` (the create guard and the review read the same one,
+  // so the one-station multi-night stay a scan offers is never refused here — the live
+  // "Karachi" blocker of 2026-10-13). A via station is no station, so it never counts.
+  if (!isTripShape(stations.filter((s) => s.night.kind !== "via").length, draftArea)) {
     throw new AppError(
       "A roadtrip needs at least two valid stations",
       400,

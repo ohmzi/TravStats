@@ -43,6 +43,15 @@ const USER = "m7k-plan";
 const AREA = "2031-05-02#1";
 const COMMIT_KEY = "6a0b7c1d-2e3f-4a5b-8c6d-7e8f9a0b1c2d";
 
+/**
+ * The fixture stations with every span one day long: the offer is then no
+ * multi-night stay, so a two-station-floor pin reads exactly that floor. The
+ * stay-shaped offer's own case is the Karachi pin in `through prepareCommit`
+ * and the shape matrix (`tripShape.test.ts`).
+ */
+const oneDayStations = (stations: DraftStation[]): DraftStation[] =>
+  stations.map((station) => ({ ...station, lastDay: station.firstDay }));
+
 // Both describes share one client, so it closes once, after the last of them.
 afterAll(async () => {
   await prisma.$disconnect();
@@ -388,11 +397,13 @@ describe("extendPlanForExisting", () => {
   });
 
   it("refuses to leave a stored roadtrip with one station: the matched stations deleted, the rest removed", async () => {
+    // The offer is no stay (every station's photos sit on one day), so one
+    // station is still one too few.
     const [first] = body().areas[0].stations;
     await expect(
       extendPlanForExisting(
         fx.userId,
-        await storedDraft(),
+        await storedDraft(oneDayStations(derivedStations())),
         body({ stations: [first], legModes: [], keepNotSeen: [], removeNotSeen: [fx.station.c] }),
         basePlan()
       )
@@ -609,6 +620,8 @@ describe("extendPlanForExisting", () => {
     });
 
     it("still holds a stored roadtrip to two stations, though its rows alone may be fewer", async () => {
+      // The offer is one station on one day: no stay, so the final list's one
+      // station is refused (the one-station stay's own case is the pin below).
       const single = northvaleOnly();
       const [onlyArea] = single.areas;
       const shrunk: CommitBody = {
@@ -622,8 +635,49 @@ describe("extendPlanForExisting", () => {
         ],
       };
       await expect(
-        prepareCommit(fx.userId, await storedDraft(derivedStations().slice(0, 1)), shrunk)
+        prepareCommit(
+          fx.userId,
+          await storedDraft(oneDayStations(derivedStations().slice(0, 1))),
+          shrunk
+        )
       ).rejects.toMatchObject({ statusCode: 400, code: "STATIONS_INVALID", field: "areas.0" });
+    });
+
+    it("writes a stored roadtrip left as the one-station multi-night stay it is (the Karachi shape)", async () => {
+      // The live blocker (owner report 2026-10-13): "Sumayya's wedding ·
+      // Karachi", a matched roadtrip of one station and fifteen nights,
+      // answered STATIONS_INVALID on every re-sync. The offer is one station
+      // whose photos span days, so the one-station stay rule applies to the
+      // final list exactly as it does to a new trip's rows; the shape matrix
+      // (tripShape.test.ts) holds the paths together.
+      const scanned = await storedDraft(derivedStations().slice(3));
+      const [offered] = scanned.dto.areas[0].stations;
+      const stay = body({
+        stations: [
+          {
+            key: offered.key,
+            title: offered.title,
+            lat: offered.lat,
+            lon: offered.lon,
+            kind: "visit",
+            firstDay: offered.firstDay,
+            lastDay: offered.lastDay,
+            notes: offered.notes ?? null,
+            existingId: offered.existingId,
+          },
+        ],
+        legModes: [],
+        keepNotSeen: [],
+        removeNotSeen: [fx.station.a, fx.station.b, fx.station.c],
+      });
+      stay.nights = { "2031-05-07": offered.key, "2031-05-08": offered.key };
+
+      const plan = await prepareCommit(fx.userId, scanned, stay);
+      const [write] = plan.existing?.roadtrips ?? [];
+      expect(write.stations.map((s) => [s.id, s.title])).toEqual([
+        [fx.station.s, "Tarnside Lodge"],
+      ]);
+      expect(write.diff).toEqual({ updated: 0, unchanged: 1, added: 0, removed: 3, kept: 0 });
     });
 
     it("still needs two rows for a roadtrip that would be new", async () => {

@@ -21,7 +21,7 @@ import { daysBetween } from "../../shared/time/localDate";
 import {
   NIGHT_UNKNOWN,
   deriveStationRows,
-  isMultiNightStay,
+  isTripShape,
   nightsOf,
   roadtripAreaNames,
   rowLegModes,
@@ -237,16 +237,15 @@ function roadtripPlan(
     })),
   });
   // A stay of one station is a trip of its own (owner ruling 2026-10-13): the
-  // one row IS the stay, zero legs and all. The row must still exist — a
-  // stay-shaped area the user emptied writes nothing.
-  const stayRow =
-    parsed.success &&
-    parsed.data.stations.length === 1 &&
-    isMultiNightStay(offered.startDay, offered.endDay, offered.stations);
-  // An area that updates a stored roadtrip keeps its other stations, which are not rows here.
+  // one row IS the stay, zero legs and all — a stay-shaped area the user
+  // emptied writes nothing. The shape rule is `isTripShape`, the one predicate
+  // the re-sync guard and the review read too, so the paths cannot drift (the
+  // matrix in __tests__/tripShape.test.ts holds them together).
+  // An area that updates a stored roadtrip keeps its other stations, which are
+  // not rows here: `commitPlanExisting` judges its final list instead.
   if (
     !parsed.success ||
-    (parsed.data.stations.length < 2 && area.roadtripId === undefined && !stayRow)
+    (area.roadtripId === undefined && !isTripShape(parsed.data.stations.length, offered))
   ) {
     throw new AppError(
       "A roadtrip needs at least two valid stations",
@@ -351,6 +350,12 @@ function stopoverPlan(
       night: { kind: "pass" },
     })),
   });
+  // The shared shape predicate does NOT apply here: a stopover is a same-day
+  // transit — its stations are hours of one day, and no night ever reaches
+  // the plan (every row is a pass row) — so `isMultiNightStay`, the one-row
+  // arm of `isTripShape`, can never hold for it. The two-station floor is the
+  // whole rule, and the scan's own derivation already offers the arrival
+  // airport and the outing's city at the least.
   if (!parsed.success || parsed.data.stations.length < 2) {
     throw new AppError(
       "A roadtrip needs at least two valid stations",

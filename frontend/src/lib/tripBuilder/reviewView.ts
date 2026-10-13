@@ -9,7 +9,7 @@ import {
   NIGHT_HOME,
   NIGHT_UNKNOWN,
   addDays,
-  isMultiNightStay,
+  isTripShape,
   type NightAssign,
 } from "../../shared/tour/builderNightPlan";
 import type {
@@ -198,7 +198,7 @@ export function reviewProblems(draft: TripBuilderDraft, state: ReviewState): Rev
 /**
  * Whether the area's roadtrip wants another row: fewer than two rows, and not
  * the one-row stay the commit writes (the offer's own shape decides — the
- * same `isMultiNightStay` the review's default and the server read, so the
+ * same `isTripShape` the review's default and both commit guards read, so the
  * page can never offer a trip the commit refuses nor refuse one it would
  * write). An area the draft does not know keeps the old answer.
  */
@@ -207,11 +207,10 @@ function roadtripRowsRefused(
   area: ReviewArea,
   nights: Readonly<Record<Day, NightAssign>>
 ): boolean {
-  if (roadtripRowCount(area, nights) >= 2) return false;
+  const rows = roadtripRowCount(area, nights);
   const offered = draft.areas.find((candidate) => candidate.key === area.key);
-  return (
-    offered === undefined || !isMultiNightStay(offered.startDay, offered.endDay, offered.stations)
-  );
+  if (offered === undefined) return rows < 2;
+  return !isTripShape(rows, offered);
 }
 
 // ─── The map preview ─────────────────────────────────────────────────────────

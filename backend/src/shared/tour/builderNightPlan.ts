@@ -124,6 +124,28 @@ export function isMultiNightStay(
   return stations.some((station) => station.firstDay < station.lastDay);
 }
 
+/** What a trip-shape check needs of an area: its span and the stations the scan offered. A `DraftArea` fits. */
+export interface TripShapeArea {
+  startDay: string;
+  endDay: string;
+  stations: ReadonlyArray<{ firstDay: string; lastDay: string }>;
+}
+
+/**
+ * Whether `rowCount` dated station rows are a trip shape the commit writes
+ * (owner ruling 2026-10-13, "Sumayya's wedding"): two rows or more, or exactly
+ * one when the area is the multi-night stay that row is (`isMultiNightStay`).
+ * The ONE predicate every path that judges an area's shape reads — the create
+ * guard, the re-sync guard, the review's report and the scan's offer — so a
+ * one-station stay can never be offered by one path and refused by another.
+ * Zero rows is never a trip: an area the user emptied writes nothing. A via
+ * station is no station: callers count dated stations only.
+ */
+export function isTripShape(rowCount: number, area: TripShapeArea): boolean {
+  if (rowCount >= 2) return true;
+  return rowCount === 1 && isMultiNightStay(area.startDay, area.endDay, area.stations);
+}
+
 /** The window's nights, S … E−1; none for a one-day window. */
 export function nightsOf(window: NightPlanWindow): string[] {
   const nights: string[] = [];

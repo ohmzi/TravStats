@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { NightEntry } from "../../../types/tripBuilder";
+import type { DraftStation, NightEntry, TripBuilderDraft } from "../../../types/tripBuilder";
 import { applyEdit, initialReviewState, type DraftEdit } from "../draftEdits";
 import {
   areaDays,
@@ -281,6 +281,114 @@ describe("reviewProblems", () => {
     // Still not held to a name or to two rows; the only reason left is the two
     // nights the deleted stations took with them (ruling 2026-10-13).
     expect(reviewProblems(existing, state)).toEqual([{ code: "nightPlanInvalid" }]);
+  });
+});
+
+/**
+ * The review's half of the trip-shape matrix (owner directive 2026-10-13, the
+ * "Sumayya's wedding" re-sync blocker): `reviewProblems` reads the same
+ * `isTripShape` the create guard and the re-sync guard read, so a shape the
+ * review lets through is a shape the commit writes and one it holds back is
+ * one the commit refuses. The backend half, over the same four shapes, is
+ * backend/src/services/tripBuilder/__tests__/tripShape.test.ts.
+ */
+describe("the trip-shape matrix", () => {
+  const entry = (assign: string): NightEntry => ({
+    assign,
+    reason: "lastPhoto",
+    suggestedStationKeys: [],
+  });
+
+  /** A one-roadtrip draft of the shape, its area the only thing the nights name. */
+  function shapeDraft(
+    startDay: string,
+    endDay: string,
+    stations: DraftStation[],
+    nights: Record<string, NightEntry>
+  ): TripBuilderDraft {
+    return reviewDraft({
+      window: { ...draft.window, startDay, endDay },
+      nights,
+      areas: [
+        {
+          key: "2031-05-02#1",
+          defaultAs: "roadtrip",
+          suggestedName: "Southern loop",
+          mainCity: stations[0]?.title ?? null,
+          startDay,
+          endDay,
+          home: {
+            start: { offered: false, defaultOn: false },
+            end: { offered: false, defaultOn: false },
+            unconfirmed: false,
+          },
+          stations,
+          legs: [],
+        },
+      ],
+      flights: [],
+      days: [],
+    });
+  }
+
+  const stayStation = () => station("shape-stay", "Vastra", "2031-05-02", "2031-05-08");
+  const stayNights = (): Record<string, NightEntry> =>
+    Object.fromEntries(
+      [
+        "2031-05-02",
+        "2031-05-03",
+        "2031-05-04",
+        "2031-05-05",
+        "2031-05-06",
+        "2031-05-07",
+        "2031-05-08",
+      ].map((day) => [day, entry("shape-stay")])
+    );
+
+  it("lets a one-station multi-night stay through, one row and all", () => {
+    const stay = shapeDraft("2031-05-02", "2031-05-09", [stayStation()], stayNights());
+    expect(reviewProblems(stay, initialReviewState(stay))).toEqual([]);
+  });
+
+  it("holds a one-station one-night area to two rows", () => {
+    const oneNight = shapeDraft(
+      "2031-05-02",
+      "2031-05-03",
+      [station("shape-one", "Norvik", "2031-05-02", "2031-05-03")],
+      { "2031-05-02": entry("shape-one") }
+    );
+    expect(reviewProblems(oneNight, initialReviewState(oneNight))).toEqual([
+      { code: "roadtripTooShort", areaKey: "2031-05-02#1" },
+    ]);
+  });
+
+  it("lets a two-station drive through", () => {
+    const drive = shapeDraft(
+      "2031-05-02",
+      "2031-05-04",
+      [
+        station("shape-lund", "Lund", "2031-05-02", "2031-05-02"),
+        station("shape-hafn", "Hafn", "2031-05-03", "2031-05-03"),
+      ],
+      { "2031-05-02": entry("shape-lund"), "2031-05-03": entry("shape-hafn") }
+    );
+    expect(reviewProblems(drive, initialReviewState(drive))).toEqual([]);
+  });
+
+  it("holds a stay area the user emptied to two rows, as the commit refuses it", () => {
+    // Rows alone cannot save a stay: with the one station gone there is no row
+    // at all, and the predicate refuses exactly as the commit does. Before this
+    // pin the review let the emptied stay through while the commit answered
+    // 400 STATIONS_INVALID — the same drift, one path over.
+    const stay = shapeDraft("2031-05-02", "2031-05-09", [stayStation()], stayNights());
+    const emptied = applyEdit(stay, initialReviewState(stay), {
+      type: "delete",
+      stationKey: "shape-stay",
+    });
+    expect(reviewProblems(stay, emptied)).toEqual([
+      { code: "roadtripTooShort", areaKey: "2031-05-02#1" },
+      { code: "nightPlanInvalid" },
+    ]);
   });
 });
 
