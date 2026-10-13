@@ -2,6 +2,7 @@ import { useCallback, useState, type RefObject } from "react";
 
 import { apiErrorProse } from "../lib/apiError";
 import { toursApi, type SetTourLegInput } from "../lib/api/tours";
+import { routeFallbackMessage } from "../lib/routeFallbackCopy";
 import { useToastStore } from "../store/toastStore";
 import type { LegMode, TourLeg } from "../types/tour";
 import { useTranslation } from "./useTranslation";
@@ -113,7 +114,7 @@ function legModeChangeInput(
  */
 export function useTourLegActions(options: UseTourLegActionsOptions): TourLegActions {
   const { tripId, routeId, load, mountedRef, trackCoverageByLegId } = options;
-  const { t } = useTranslation(["trips"]);
+  const { t, i18n } = useTranslation(["trips"]);
   const addToast = useToastStore((s) => s.addToast);
   const [routingAllInProgress, setRoutingAllInProgress] = useState(false);
   const [modeChangeInFlightLegId, setModeChangeInFlightLegId] = useState<string | null>(null);
@@ -143,14 +144,17 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
    * unconfigured routing between load and click). A 200 with a low-confidence
    * fallback is not an error — `load()` picks up the honest result (source
    * reverts to "straight") and a distinct info toast says so, rather than
-   * silently looking like nothing happened.
+   * silently looking like nothing happened. The toast carries the numbers
+   * behind the refusal when the server sent any (`routeFallbackMessage`) —
+   * a bare "did not fit" reads like the app rejecting a good answer
+   * (2026-10-13, the Muscat roadtrip).
    */
   const route = useCallback(
     (leg: TourLeg): void => {
       if (!routeId) return;
       void (async (): Promise<void> => {
         try {
-          const { fallbackReason } = await toursApi.routeLeg(
+          const { fallbackReason, fallbackDetail } = await toursApi.routeLeg(
             tripId,
             routeId,
             leg.fromStopId,
@@ -160,7 +164,12 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
           if (fallbackReason !== null) {
             addToast(
               "info",
-              `${t("trips:tours.routing.fallback")} ${t(`trips:tours.routing.reason.${fallbackReason}`)}`
+              `${t("trips:tours.routing.fallback")} ${routeFallbackMessage(
+                fallbackReason,
+                fallbackDetail,
+                t,
+                i18n.language
+              )}`
             );
           }
         } catch (err) {
@@ -184,7 +193,10 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
    * (`geometry`, fetched separately for the map), so only a full reload
    * keeps every part of the page honest. The counts are then reported
    * verbatim — never a blanket "done!" toast, which would hide a batch
-   * that quietly routed zero legs because no provider is configured.
+   * that quietly routed zero legs because no provider is configured. The
+   * cause of the first fallback is named with the numbers behind it
+   * (`routeFallbackMessage`), so a batch whose legs all stayed straight
+   * says how far off the provider's answers were, not just "did not fit".
    */
   const routeAll = useCallback((): void => {
     if (!routeId) return;
@@ -202,7 +214,12 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
                 fallback: result.fallbackCount,
                 skipped: result.skippedCount,
                 reason: result.fallbackReason
-                  ? t(`trips:tours.routing.reason.${result.fallbackReason}`)
+                  ? routeFallbackMessage(
+                      result.fallbackReason,
+                      result.fallbackDetail,
+                      t,
+                      i18n.language
+                    )
                   : "",
               })
             : t("trips:tours.routing.result", {

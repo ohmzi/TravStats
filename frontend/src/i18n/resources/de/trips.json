@@ -451,6 +451,10 @@
         "rate_limited": "Das Anfragelimit des Routing-Anbieters ist erreicht. Später noch einmal versuchen.",
         "auth": "Der Routing-Anbieter hat den API-Schlüssel abgelehnt — Schlüssel in den Einstellungen prüfen.",
         "untrustworthy": "Die Antwort des Routing-Anbieters passte nicht zu den beiden Orten und wurde verworfen."
+      },
+      "detail": {
+        "anchors": "Die Linie beginnt {{headOff}} km vom ersten Ort entfernt und endet {{tailOff}} km vom zweiten.",
+        "distance": "Die Linie ist {{distance}} km lang, die Luftlinie beträgt {{chord}} km."
       }
     },
     "tracks": {

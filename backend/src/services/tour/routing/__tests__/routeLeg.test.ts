@@ -52,6 +52,7 @@ describe("routeLegGeometry", () => {
       confidence: "high",
       drivingMinutes: 4,
       fallbackReason: null,
+      fallbackDetail: null,
     });
     expect(route).toHaveBeenCalledTimes(1);
     expect(route).toHaveBeenCalledWith({ from: FROM, to: TO, mode: "road" });
@@ -68,6 +69,8 @@ describe("routeLegGeometry", () => {
     expect(result.drivingMinutes).toBeNull();
     expect(result.distanceKm).toBeCloseTo(CHORD_KM, 6);
     expect(result.fallbackReason).toBe("provider_error");
+    // Only the refusal itself; there is no provider answer to quote numbers from.
+    expect(result.fallbackDetail).toBeNull();
     expect(route).toHaveBeenCalledTimes(1);
   });
 
@@ -79,6 +82,7 @@ describe("routeLegGeometry", () => {
     expect(result.source).toBe("straight");
     expect(result.confidence).toBe("low");
     expect(result.fallbackReason).toBe("point_not_near_road");
+    expect(result.fallbackDetail).toBeNull();
   });
 
   it("hands the roadtrip's vehicle to the provider", async () => {
@@ -99,6 +103,7 @@ describe("routeLegGeometry", () => {
       confidence: "low",
       drivingMinutes: null,
       fallbackReason: "no_provider",
+      fallbackDetail: null,
     });
   });
 
@@ -191,6 +196,62 @@ describe("routeLegGeometry", () => {
     expect(result.distanceKm).toBeCloseTo(CHORD_KM, 6);
   });
 
+  it("case 5d: an off-anchor answer comes back with the two offsets that refused it", async () => {
+    // 2026-10-13 (owner's Muscat roadtrip): the bare reason "the answer did
+    // not fit the two places" was all the client got, and it cannot tell a
+    // stop 1.3 km off the road apart from a provider answering from ~10,000
+    // km away (a road graph with no data for the region, its whole line
+    // snapped to the far side of an ocean). The fallback must carry the
+    // distances — head and tail separately — so the message can say how far
+    // off the answer actually was.
+    const head = { lat: FROM.lat, lon: FROM.lon + 0.02 }; // ~1.35 km east of FROM
+    const tail = { lat: TO.lat + 0.03, lon: TO.lon }; // ~3.3 km north of TO
+    const offAnchor: RouteResult = {
+      waypoints: [
+        [head.lon, head.lat],
+        [tail.lon, tail.lat],
+      ],
+      distanceKm: 5,
+      drivingMinutes: 10,
+    };
+    const { provider } = makeProvider(async () => offAnchor);
+
+    const result = await routeLegGeometry(provider, { from: FROM, to: TO, mode: "road" });
+
+    expect(result.source).toBe("straight");
+    expect(result.fallbackReason).toBe("untrustworthy");
+    expect(result.fallbackDetail).toEqual({
+      kind: "anchors",
+      headOffKm: haversineKm(FROM, head),
+      tailOffKm: haversineKm(TO, tail),
+    });
+  });
+
+  it("case 5e: the offsets are measured per end, never one number standing in for both", async () => {
+    // Case 5b (only the tail off) again, this time read through the detail:
+    // the tail offset is the big one and the head offset is exactly 0. A
+    // mutant that reported the same number twice, or swapped the two ends,
+    // must not survive.
+    const offTail = { lat: TO.lat + 5, lon: TO.lon + 5 };
+    const tailOffResult: RouteResult = {
+      waypoints: [
+        [FROM.lon, FROM.lat],
+        [offTail.lon, offTail.lat],
+      ],
+      distanceKm: 700,
+      drivingMinutes: 500,
+    };
+    const { provider } = makeProvider(async () => tailOffResult);
+
+    const result = await routeLegGeometry(provider, { from: FROM, to: TO, mode: "road" });
+
+    expect(result.fallbackDetail).toEqual({
+      kind: "anchors",
+      headOffKm: 0,
+      tailOffKm: haversineKm(TO, offTail),
+    });
+  });
+
   it("rejects a route with fewer than two waypoints — cannot verify anchors on a degenerate line", async () => {
     // An EMPTY waypoints array, not a single point sitting on one of the
     // stops: a single-point fixture placed at FROM would already fail the
@@ -211,6 +272,8 @@ describe("routeLegGeometry", () => {
 
     expect(result.source).toBe("straight");
     expect(result.distanceKm).toBeCloseTo(CHORD_KM, 6);
+    // A malformed line has no numbers to quote — the reason stands alone.
+    expect(result.fallbackDetail).toBeNull();
   });
 
   it("rejects a route whose distance is a NaN — a comparison against NaN silently loses, so this must be checked explicitly", async () => {
@@ -279,6 +342,13 @@ describe("routeLegGeometry", () => {
     expect(result.source).toBe("straight");
     expect(result.confidence).toBe("low");
     expect(result.distanceKm).toBeCloseTo(CHORD_KM, 6);
+    // The anchors fit here — the numbers that refused this answer are its
+    // own reported distance against the chord, not an anchor offset.
+    expect(result.fallbackDetail).toEqual({
+      kind: "distance",
+      distanceKm: CHORD_KM * 50,
+      chordKm: CHORD_KM,
+    });
   });
 
   it("accepts a real-world detour ratio (e.g. a fjord/mountain road at ~6x the chord)", async () => {

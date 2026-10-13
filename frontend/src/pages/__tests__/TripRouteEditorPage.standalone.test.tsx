@@ -141,6 +141,7 @@ describe("TripRouteEditorPage — routing the whole tour", () => {
       routedCount: 0,
       fallbackCount: 1,
       fallbackReason: "point_not_near_road",
+      fallbackDetail: null,
       skippedCount: 0,
     });
 

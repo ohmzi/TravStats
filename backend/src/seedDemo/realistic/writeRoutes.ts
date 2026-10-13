@@ -132,6 +132,8 @@ export async function writeRoadtrip(
       distanceKm: stored.km,
       drivingMinutes: stored.min,
       fallbackReason: null,
+      // A demo route was routed; there is no refused answer to number.
+      fallbackDetail: null,
     });
   }
   ctx.stationIdsByRoadtrip.set(

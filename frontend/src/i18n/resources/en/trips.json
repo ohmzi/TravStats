@@ -451,6 +451,10 @@
         "rate_limited": "The routing provider's request limit is reached. Try again later.",
         "auth": "The routing provider refused the API key — check the key in the settings.",
         "untrustworthy": "The routing provider's answer did not fit the two places and was discarded."
+      },
+      "detail": {
+        "anchors": "Its line begins {{headOff}} km from the first stop and ends {{tailOff}} km from the second.",
+        "distance": "Its line is {{distance}} km long for a {{chord}} km straight-line leg."
       }
     },
     "tracks": {

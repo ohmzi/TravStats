@@ -10,7 +10,13 @@ import { prisma } from "../../db";
 import { hashPassword } from "../../utils/password";
 import { generateToken } from "../../utils/jwt";
 import { resolveRouteProvider } from "../../services/tour/routing/resolveProvider";
-import type { RouteFailure, RouteProvider, RouteResult } from "../../services/tour/routing/types";
+import type {
+  RouteFailure,
+  RouteProvider,
+  RouteRequest,
+  RouteResult,
+} from "../../services/tour/routing/types";
+import { haversineKm } from "../../shared/geo/haversine";
 
 const mockResolveProvider = resolveRouteProvider as jest.Mock<Promise<RouteProvider | null>>;
 
@@ -124,6 +130,7 @@ describe("Tour route sections — provider routing", () => {
     expect(res.body.leg.drivingMinutes).toBe(240);
     expect(res.body.leg.waypoints).toEqual(line);
     expect(res.body.fallbackReason).toBeNull();
+    expect(res.body.fallbackDetail).toBeNull();
     expect(routeImpl).toHaveBeenCalledTimes(1);
   });
 
@@ -139,6 +146,38 @@ describe("Tour route sections — provider routing", () => {
     expect(res.status).toBe(200);
     expect(res.body.leg.source).toBe("straight");
     expect(res.body.fallbackReason).toBe("point_not_near_road");
+    // A named failure has no provider answer to quote numbers from.
+    expect(res.body.fallbackDetail).toBeNull();
+  });
+
+  it("a discarded answer comes back with the numbers that refused it, so the client can say how far off it was", async () => {
+    // 2026-10-13 (owner's Muscat roadtrip): a routing graph with no data for
+    // the region snaps both stops ~10,000 km away and every leg stays
+    // straight. "Did not fit" alone reads like the app being fussy about a
+    // good answer; the offsets show the provider never had the roads.
+    const head = { lat: OSLO.lat + 2, lon: OSLO.lon + 2 };
+    const tail = { lat: KRISTIANSAND.lat + 2, lon: KRISTIANSAND.lon + 2 };
+    const routeImpl = jest.fn().mockResolvedValue({
+      waypoints: [
+        [head.lon, head.lat],
+        [tail.lon, tail.lat],
+      ],
+      distanceKm: 400,
+      drivingMinutes: 300,
+    });
+    mockResolveProvider.mockResolvedValue(fakeProvider(routeImpl));
+
+    const res = await request(app)
+      .post(routeLegUrl(osloId, kristiansandId))
+      .set("Cookie", cookie)
+      .send();
+
+    expect(res.status).toBe(200);
+    expect(res.body.leg.source).toBe("straight");
+    expect(res.body.fallbackReason).toBe("untrustworthy");
+    expect(res.body.fallbackDetail.kind).toBe("anchors");
+    expect(res.body.fallbackDetail.headOffKm).toBeCloseTo(haversineKm(OSLO, head), 6);
+    expect(res.body.fallbackDetail.tailOffKm).toBeCloseTo(haversineKm(KRISTIANSAND, tail), 6);
   });
 
   it("a failed routing attempt leaves a hand-drawn leg as it was drawn", async () => {
@@ -267,6 +306,36 @@ describe("Tour route sections — provider routing", () => {
 
     const legs = res.body.legs as Array<{ source: string; confidence: string }>;
     expect(legs.every((l) => l.source === "straight" && l.confidence === "low")).toBe(true);
+  });
+
+  it("route-all pairs the numbers with the first cause, so the batch message says how far off the answer was", async () => {
+    // Both legs answer from ~200 km away — the harness's stand-in for a road
+    // graph with no data for the region (the owner's Muscat case, 2026-10-13).
+    // The batch keeps only the FIRST fallback's cause; its detail must be
+    // that same leg's numbers, never another leg's offset attached to it.
+    const routeImpl = jest.fn().mockImplementation(async (req: RouteRequest) => ({
+      waypoints: [
+        [req.from.lon + 2, req.from.lat + 2],
+        [req.to.lon + 2, req.to.lat + 2],
+      ],
+      distanceKm: 400,
+      drivingMinutes: 300,
+    }));
+    mockResolveProvider.mockResolvedValue(fakeProvider(routeImpl));
+
+    const res = await request(app).post(routeAllUrl()).set("Cookie", cookie).send();
+
+    expect(res.status).toBe(200);
+    expect(res.body.routedCount).toBe(0);
+    expect(res.body.fallbackCount).toBe(2);
+    expect(res.body.fallbackReason).toBe("untrustworthy");
+    expect(res.body.fallbackDetail.kind).toBe("anchors");
+    // The first leg is Oslo → Kristiansand (route order), so its head
+    // offset is measured from Oslo.
+    expect(res.body.fallbackDetail.headOffKm).toBeCloseTo(
+      haversineKm(OSLO, { lat: OSLO.lat + 2, lon: OSLO.lon + 2 }),
+      6
+    );
   });
 
   it('rejects a leg override with source "track" and no trackId (400) — trackId is required, track itself is NOT refused', async () => {

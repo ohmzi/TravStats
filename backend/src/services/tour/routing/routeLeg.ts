@@ -4,6 +4,7 @@ import { Coord, LegMode, legDistanceKm } from "../tourDistance";
 import {
   isRouteFailure,
   isRoutableMode,
+  RouteFallbackDetail,
   RouteFallbackReason,
   RouteProvider,
   RouteResult,
@@ -25,6 +26,13 @@ export interface RoutedLeg {
   drivingMinutes: number | null;
   /** Why this leg is a straight chord; null when the provider's line was kept. */
   fallbackReason: RouteFallbackReason | null;
+  /**
+   * The numbers behind an `untrustworthy` fallback (how far off the
+   * provider's line was); null for every other reason — see
+   * `RouteFallbackDetail`. Carried so the message can say how far off the
+   * answer was instead of a bare "did not fit" (2026-10-13).
+   */
+  fallbackDetail: RouteFallbackDetail | null;
 }
 
 /**
@@ -78,11 +86,18 @@ interface StraightFallbackArgs {
   from: Coord;
   to: Coord;
   reason: RouteFallbackReason;
+  /**
+   * The numbers behind the refusal, when the check that failed has any —
+   * only `untrustworthy` does (`checkTrustworthy`). Every other reason
+   * refused an answer with nothing in it to measure.
+   */
+  detail?: RouteFallbackDetail | null;
 }
 
-function straightFallback({ from, to, reason }: StraightFallbackArgs): RoutedLeg {
+function straightFallback({ from, to, reason, detail = null }: StraightFallbackArgs): RoutedLeg {
   return {
     fallbackReason: reason,
+    fallbackDetail: detail,
     waypoints: null,
     distanceKm: legDistanceKm({ source: "straight", from, to }),
     source: "straight",
@@ -96,6 +111,15 @@ function toCoord([lon, lat]: [number, number]): Coord {
 }
 
 const finite = (n: number): boolean => Number.isFinite(n);
+
+/**
+ * The verdict on a provider's returned line. `trusted: false` carries the
+ * numbers behind the refusal when the check that failed has any — the anchor
+ * offsets or the distance-vs-chord pair — so the caller can report how far
+ * off the answer actually was instead of a bare "did not fit". A malformed
+ * line (too few points, a non-finite value) has no numbers to quote.
+ */
+type TrustCheck = { trusted: true } | { trusted: false; detail: RouteFallbackDetail | null };
 
 /**
  * Whether a provider's returned line can be trusted as an answer to the leg
@@ -113,20 +137,20 @@ const finite = (n: number): boolean => Number.isFinite(n);
  * data, because it only runs on the straight-fallback path, so this one
  * has to exist here independently.
  */
-function isTrustworthy(
+function checkTrustworthy(
   result: RouteResult,
   from: Coord,
   to: Coord,
   chordKm: number,
   providerId: string
-): boolean {
+): TrustCheck {
   const line = result.waypoints;
   if (line.length < 2) {
     logger.warn(
       { providerId, waypointCount: line.length },
       "routing provider returned fewer than two waypoints; falling back to straight line"
     );
-    return false;
+    return { trusted: false, detail: null };
   }
 
   if (!finite(result.distanceKm) || result.distanceKm < 0) {
@@ -134,7 +158,7 @@ function isTrustworthy(
       { providerId, distanceKm: result.distanceKm },
       "routing provider returned a non-finite or negative distance; falling back to straight line"
     );
-    return false;
+    return { trusted: false, detail: null };
   }
 
   for (const [lon, lat] of line) {
@@ -144,7 +168,7 @@ function isTrustworthy(
         "routing provider returned a non-finite waypoint coordinate; falling back to straight line"
       );
       logger.debug({ providerId, lon, lat }, "non-finite waypoint coordinate");
-      return false;
+      return { trusted: false, detail: null };
     }
   }
 
@@ -157,7 +181,7 @@ function isTrustworthy(
       { providerId, headOffKm: headOff, tailOffKm: tailOff, toleranceKm: ANCHOR_TOLERANCE_KM },
       "routing provider's line does not anchor at the requested stops; falling back to straight line"
     );
-    return false;
+    return { trusted: false, detail: { kind: "anchors", headOffKm: headOff, tailOffKm: tailOff } };
   }
 
   if (chordKm >= MIN_CHORD_FOR_SANITY_KM && result.distanceKm > chordKm * SANITY_RATIO) {
@@ -165,10 +189,13 @@ function isTrustworthy(
       { providerId, distanceKm: result.distanceKm, chordKm, ratio: result.distanceKm / chordKm },
       "routing provider's distance is implausible relative to the straight-line chord; falling back to straight line"
     );
-    return false;
+    return {
+      trusted: false,
+      detail: { kind: "distance", distanceKm: result.distanceKm, chordKm },
+    };
   }
 
-  return true;
+  return { trusted: true };
 }
 
 /**
@@ -183,7 +210,8 @@ function isTrustworthy(
  *  4. The provider answers with a line, but that line carries a non-finite
  *     coordinate or distance, does not anchor at the requested stops, or
  *     its distance is implausible relative to the chord → the answer is
- *     discarded, straight chord.
+ *     discarded, straight chord, with the numbers behind the refusal (when
+ *     the failed check has any) in `fallbackDetail`.
  *  5. Otherwise the provider's own line and distance are trusted verbatim —
  *     never recomputed from the polyline, because the provider's distance
  *     reflects the road network, not a geometric measurement of its own
@@ -215,8 +243,9 @@ export async function routeLegGeometry(
   }
 
   const chordKm = haversineKm(from, to);
-  if (!isTrustworthy(result, from, to, chordKm, provider.id)) {
-    return straightFallback({ from, to, reason: "untrustworthy" });
+  const trust = checkTrustworthy(result, from, to, chordKm, provider.id);
+  if (!trust.trusted) {
+    return straightFallback({ from, to, reason: "untrustworthy", detail: trust.detail });
   }
 
   return {
@@ -226,5 +255,6 @@ export async function routeLegGeometry(
     confidence: "high",
     drivingMinutes: result.drivingMinutes,
     fallbackReason: null,
+    fallbackDetail: null,
   };
 }

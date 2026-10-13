@@ -9,6 +9,7 @@ import { routeLegGeometry } from "../../services/tour/routing/routeLeg";
 import { applyRoutedLeg } from "../../services/tour/routing/autoRouteLegs";
 import {
   isRoutableMode,
+  RouteFallbackDetail,
   RouteFallbackReason,
   RouteProvider,
 } from "../../services/tour/routing/types";
@@ -82,7 +83,13 @@ async function routeVehicle(routeId: string): Promise<string | null> {
  * does for a per-leg provider failure inside a batch. `fallbackReason` says
  * why (null when the provider's line was kept): the leg alone reads the same
  * for "no road near the campsite" and "the key was refused", and a client
- * that cannot tell them apart can only say "nothing happened". A fallback
+ * that cannot tell them apart can only say "nothing happened".
+ * `fallbackDetail` carries the numbers behind an `untrustworthy` refusal
+ * (how far the returned line sat from the stops, or its implausible
+ * distance) so the client can say how far off the answer was — the owner's
+ * Muscat roadtrip (2026-10-13) stayed straight for seven legs and the bare
+ * "did not fit" read like the app rejecting a good route, when the provider
+ * had actually snapped ~9,500 km away. A fallback
  * never replaces a leg that is not straight already: a hand-drawn line stays
  * as it was, and the answer carries it unchanged together with the reason.
  */
@@ -135,7 +142,11 @@ router.post(
         confidence: updated.confidence,
         fallbackReason: routed.fallbackReason,
       });
-      res.json({ leg: toLegDto(updated), fallbackReason: routed.fallbackReason });
+      res.json({
+        leg: toLegDto(updated),
+        fallbackReason: routed.fallbackReason,
+        fallbackDetail: routed.fallbackDetail,
+      });
     } catch (error) {
       next(error);
     }
@@ -164,7 +175,9 @@ router.post(
  *   to a straight chord (`source: "straight"`, `confidence: "low"`).
  *   `routedCount` used to count both, so a tour whose every leg failed
  *   reported "5 legs processed" and looked routed (2026-09-26).
- *   `fallbackReason` is the first fallback's cause, null when none fell back.
+ *   `fallbackReason` is the first fallback's cause, null when none fell back,
+ *   with that same leg's `fallbackDetail` (the numbers behind an
+ *   `untrustworthy` refusal, null for every other cause) beside it.
  *
  * Each leg is routed and persisted sequentially rather than in one
  * transaction: a provider call is a network round trip, and holding a
@@ -198,6 +211,7 @@ router.post(
       let skippedCount = 0;
       let fallbackCount = 0;
       let fallbackReason: RouteFallbackReason | null = null;
+      let fallbackDetail: RouteFallbackDetail | null = null;
 
       for (const leg of legs) {
         const mode = requireLegMode(leg.mode);
@@ -219,7 +233,13 @@ router.post(
           routedCount++;
         } else {
           fallbackCount++;
-          fallbackReason ??= routed.fallbackReason;
+          if (fallbackReason === null) {
+            fallbackReason = routed.fallbackReason;
+            // The detail belongs to the SAME leg as the first cause a client
+            // is shown — never a later leg's numbers beside an earlier leg's
+            // reason.
+            fallbackDetail = routed.fallbackDetail;
+          }
         }
       }
 
@@ -247,6 +267,7 @@ router.post(
         skippedCount,
         fallbackCount,
         fallbackReason,
+        fallbackDetail,
       });
     } catch (error) {
       next(error);

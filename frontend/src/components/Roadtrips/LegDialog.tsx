@@ -7,7 +7,8 @@ import Dialog from "../ui/Dialog";
 import { useTranslation } from "../../hooks/useTranslation";
 import { toursApi } from "../../lib/api/tours";
 import { logger } from "../../lib/logger";
-import type { RouteFallbackReason, TourLeg } from "../../types/tour";
+import { routeFallbackMessage } from "../../lib/routeFallbackCopy";
+import type { RouteFallbackDetail, RouteFallbackReason, TourLeg } from "../../types/tour";
 
 type Mode = "road" | "ferry";
 type Line = "routed" | "straight" | "drawn";
@@ -54,7 +55,10 @@ export default function LegDialog({
   );
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [fallback, setFallback] = useState<RouteFallbackReason | null>(null);
+  const [fallback, setFallback] = useState<{
+    reason: RouteFallbackReason;
+    detail: RouteFallbackDetail | null;
+  } | null>(null);
 
   const routedOff = mode === "ferry" || !routingAvailable;
   const effectiveLine: Line = routedOff && line === "routed" ? "straight" : line;
@@ -78,12 +82,17 @@ export default function LegDialog({
       if (modeChanged) {
         await toursApi.setLeg(undefined, routeId, from.id, to.id, { source: "straight", mode });
       }
-      const { fallbackReason } = await toursApi.routeLeg(undefined, routeId, from.id, to.id);
+      const { fallbackReason, fallbackDetail } = await toursApi.routeLeg(
+        undefined,
+        routeId,
+        from.id,
+        to.id
+      );
       if (fallbackReason === null) {
         onSaved();
         return;
       }
-      setFallback(fallbackReason);
+      setFallback({ reason: fallbackReason, detail: fallbackDetail });
       if (modeChanged) onChanged?.();
     } catch (err) {
       logger.warn("Saving a roadtrip leg failed", err);
@@ -244,7 +253,7 @@ export default function LegDialog({
           <div role="alert" className="flex flex-col" style={{ gap: 4, fontSize: 13 }}>
             <span style={{ color: "var(--ts-warn)", fontWeight: 700 }}>
               {t("roadtrips:legDialog.fallback", {
-                reason: t(`trips:tours.routing.reason.${fallback}`),
+                reason: routeFallbackMessage(fallback.reason, fallback.detail, t, i18n.language),
               })}
             </span>
             <span className="t-caption">{t("roadtrips:legDialog.fallbackKept")}</span>

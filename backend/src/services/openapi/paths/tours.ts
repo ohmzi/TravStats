@@ -65,6 +65,29 @@ const fallbackReason = z
       "was refused; 'rate_limited' — the provider's quota; 'untrustworthy' — " +
       "the answer did not fit the stops; 'provider_error' — anything else."
   );
+const fallbackDetail = z
+  .discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("anchors"),
+      headOffKm: z
+        .number()
+        .describe("How far the returned line's first point lies from the leg's first stop"),
+      tailOffKm: z
+        .number()
+        .describe("How far the returned line's last point lies from the leg's second stop"),
+    }),
+    z.object({
+      kind: z.literal("distance"),
+      distanceKm: z.number().describe("The distance the provider reported"),
+      chordKm: z.number().describe("The straight-line distance between the two stops"),
+    }),
+  ])
+  .nullable()
+  .describe(
+    "The numbers behind an 'untrustworthy' fallback, in kilometres — how far " +
+      "off the discarded answer was; null for every other reason (a 'no_route' " +
+      "or 'auth' refusal carries no geometry to measure)."
+  );
 
 const tourRoute = registry.register(
   "TourRoute",
@@ -653,7 +676,9 @@ registerSectionPath({
     200: {
       description: "Leg routed (or honestly left as a straight chord)",
       content: {
-        "application/json": { schema: z.object({ leg: tourLeg, fallbackReason }) },
+        "application/json": {
+          schema: z.object({ leg: tourLeg, fallbackReason, fallbackDetail }),
+        },
       },
     },
     404: { description: "Trip, section or leg not found", content: errorContent },
@@ -695,6 +720,7 @@ registerSectionPath({
               .int()
               .describe("Legs sent to the provider that stayed a straight chord"),
             fallbackReason,
+            fallbackDetail,
             skippedCount: z.number().int().describe("Legs left alone — ferry/rail, not routable"),
           }),
         },

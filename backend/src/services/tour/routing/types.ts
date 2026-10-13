@@ -57,6 +57,29 @@ export const ROUTE_FALLBACK_REASONS = [
 ] as const;
 export type RouteFallbackReason = (typeof ROUTE_FALLBACK_REASONS)[number];
 
+/**
+ * The numbers behind an `untrustworthy` fallback, in kilometres — why the
+ * provider's answer could not be kept, in a form a client can show beside
+ * the reason. A bare "the answer did not fit the two places" cannot tell a
+ * stop 1.3 km off the nearest road apart from a provider whose road graph
+ * has no data for the whole region and snapped ~9,500 km away (owner report
+ * 2026-10-13, the Muscat roadtrip — every leg stayed straight and the
+ * message read like the app rejecting a good answer). The numbers can tell
+ * the two apart, which is the difference between "move the pin" and "add
+ * the region to the router".
+ *
+ *  - `anchors` — the returned line does not begin/end at the requested
+ *    stops: how far its first and last points lie from them.
+ *  - `distance` — the line anchored, but the distance it reports is
+ *    implausible against the straight-line chord: both numbers.
+ *
+ * `null` on every other reason: a `no_route` or an `auth` refusal carries no
+ * geometry to measure.
+ */
+export type RouteFallbackDetail =
+  | { kind: "anchors"; headOffKm: number; tailOffKm: number }
+  | { kind: "distance"; distanceKm: number; chordKm: number };
+
 /** A provider's "could not route this", with the cause it could identify. */
 export interface RouteFailure {
   failure: RouteFallbackReason;

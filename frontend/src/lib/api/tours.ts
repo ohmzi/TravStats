@@ -11,6 +11,7 @@ import type {
   LegMode,
   LegSource,
   RouteAllResult,
+  RouteFallbackDetail,
   RouteFallbackReason,
   RouteLegResult,
 } from "../../types/tour";
@@ -268,7 +269,10 @@ export const toursApi = {
    * that IS configured but fails still answers 200 with `fallbackReason`
    * set: a straight leg stays straight (`confidence: "low"`), any other leg
    * is left as it was. The caller must read the reason — a 200 alone is not
-   * "routed".
+   * "routed". An `untrustworthy` reason comes with `fallbackDetail`, the
+   * numbers behind the refusal (how far off the provider's line was); the
+   * caller shows them through `routeFallbackMessage`
+   * (`lib/routeFallbackCopy.ts`) rather than a bare "did not fit".
    */
   routeLeg: async (
     tripId: string | undefined,
@@ -276,9 +280,11 @@ export const toursApi = {
     fromStopId: string,
     toStopId: string
   ): Promise<RouteLegResult> => {
-    const { data } = await api.post<{ leg: TourLeg; fallbackReason?: RouteFallbackReason | null }>(
-      `${sectionPath(tripId, routeId)}/legs/${fromStopId}/${toStopId}/route`
-    );
+    const { data } = await api.post<{
+      leg: TourLeg;
+      fallbackReason?: RouteFallbackReason | null;
+      fallbackDetail?: RouteFallbackDetail | null;
+    }>(`${sectionPath(tripId, routeId)}/legs/${fromStopId}/${toStopId}/route`);
     // A server from before the reason existed: a low-confidence answer is a fallback.
     const fallbackReason =
       data.fallbackReason !== undefined
@@ -286,7 +292,7 @@ export const toursApi = {
         : data.leg.confidence === "low"
           ? "provider_error"
           : null;
-    return { leg: data.leg, fallbackReason };
+    return { leg: data.leg, fallbackReason, fallbackDetail: data.fallbackDetail ?? null };
   },
 
   /**
@@ -296,16 +302,20 @@ export const toursApi = {
    * it degrades every routable leg to its honest straight-chord fallback
    * and still answers 200. `routedCount`/`fallbackCount`/`skippedCount` are
    * the honest report the caller must show, never a blanket "success" toast.
+   * `fallbackReason` is the FIRST fallback's cause, with that same leg's
+   * `fallbackDetail` (the numbers behind an `untrustworthy` refusal) beside
+   * it — see `routeLeg` above for how they are shown.
    */
   routeAll: async (tripId: string | undefined, routeId: string): Promise<RouteAllResult> => {
     const { data } = await api.post<
-      Omit<RouteAllResult, "fallbackCount" | "fallbackReason"> &
-        Partial<Pick<RouteAllResult, "fallbackCount" | "fallbackReason">>
+      Omit<RouteAllResult, "fallbackCount" | "fallbackReason" | "fallbackDetail"> &
+        Partial<Pick<RouteAllResult, "fallbackCount" | "fallbackReason" | "fallbackDetail">>
     >(`${sectionPath(tripId, routeId)}/route-all`);
     return {
       ...data,
       fallbackCount: data.fallbackCount ?? 0,
       fallbackReason: data.fallbackReason ?? null,
+      fallbackDetail: data.fallbackDetail ?? null,
     };
   },
 

@@ -6,13 +6,17 @@ import LegDialog from "../LegDialog";
 import { toursApi } from "../../../lib/api/tours";
 import type { TourLeg } from "../../../types/tour";
 
+// A recording key-echo, so a test can see WHAT the dialog asked its copy
+// for — the numbers behind a refused answer travel inside one of these
+// options (`routeFallbackMessage`), invisible to a DOM query.
+const tMock = vi.fn((key: string) => key);
 vi.mock("../../../hooks/useTranslation", () => ({
-  useTranslation: () => ({ t: (k: string) => k, i18n: { language: "de" } }),
+  useTranslation: () => ({ t: tMock, i18n: { language: "de" } }),
 }));
 vi.mock("../../../lib/api/tours", () => ({
   toursApi: {
     setLeg: vi.fn(async () => ({})),
-    routeLeg: vi.fn(async () => ({ leg: {}, fallbackReason: null })),
+    routeLeg: vi.fn(async () => ({ leg: {}, fallbackReason: null, fallbackDetail: null })),
   },
 }));
 
@@ -77,6 +81,7 @@ describe("LegDialog", () => {
     vi.mocked(toursApi.routeLeg).mockResolvedValueOnce({
       leg: LEG,
       fallbackReason: "point_not_near_road",
+      fallbackDetail: null,
     });
     const onSaved = renderDialog();
     fireEvent.click(screen.getByRole("radio", { name: /roadtrips:legDialog.routed/ }));
@@ -87,8 +92,31 @@ describe("LegDialog", () => {
     expect(onSaved).not.toHaveBeenCalled();
   });
 
+  it("hands the numbers behind a refused answer to its copy (2026-10-13, Muscat)", async () => {
+    // "The answer did not fit the two places" without them reads like the
+    // app rejected a good route; the offsets are what show the provider was
+    // answering from a road graph ~9,500 km away.
+    vi.mocked(toursApi.routeLeg).mockResolvedValueOnce({
+      leg: LEG,
+      fallbackReason: "untrustworthy",
+      fallbackDetail: { kind: "anchors", headOffKm: 9533, tailOffKm: 9551 },
+    });
+    renderDialog();
+    fireEvent.click(screen.getByRole("radio", { name: /roadtrips:legDialog.routed/ }));
+    fireEvent.click(screen.getByText("roadtrips:legDialog.apply"));
+
+    await screen.findByText("roadtrips:legDialog.fallback");
+    expect(tMock).toHaveBeenCalledWith("roadtrips:legDialog.fallback", {
+      reason: expect.stringContaining("trips:tours.routing.detail.anchors"),
+    });
+  });
+
   it("does not flatten a drawn leg to a straight line before trying to route it", async () => {
-    vi.mocked(toursApi.routeLeg).mockResolvedValueOnce({ leg: LEG, fallbackReason: "no_route" });
+    vi.mocked(toursApi.routeLeg).mockResolvedValueOnce({
+      leg: LEG,
+      fallbackReason: "no_route",
+      fallbackDetail: null,
+    });
     renderDialog(true, vi.fn(), {
       ...LEG,
       source: "drawn",

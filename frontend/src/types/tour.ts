@@ -147,10 +147,23 @@ export const ROUTE_FALLBACK_REASONS = [
 ] as const;
 export type RouteFallbackReason = (typeof ROUTE_FALLBACK_REASONS)[number];
 
+/**
+ * The numbers behind an `untrustworthy` fallback, in kilometres — mirror of
+ * the server's `RouteFallbackDetail`
+ * (`backend/src/services/tour/routing/types.ts`). The server sends the
+ * unrounded doubles; `routeFallbackMessage` (`lib/routeFallbackCopy.ts`)
+ * formats them, so what a reader sees is one copy rule for every surface.
+ */
+export type RouteFallbackDetail =
+  | { kind: "anchors"; headOffKm: number; tailOffKm: number }
+  | { kind: "distance"; distanceKm: number; chordKm: number };
+
 /** A single-leg routing answer: the leg as stored, and why it was not routed (null: it was). */
 export interface RouteLegResult {
   leg: TourLeg;
   fallbackReason: RouteFallbackReason | null;
+  /** The numbers behind an `untrustworthy` reason; null for every other one. */
+  fallbackDetail: RouteFallbackDetail | null;
 }
 
 /** A whole-section routing answer, fallbacks counted apart from real routes. */
@@ -160,6 +173,8 @@ export interface RouteAllResult {
   routedCount: number;
   fallbackCount: number;
   fallbackReason: RouteFallbackReason | null;
+  /** The numbers behind `fallbackReason`, from the same leg; null otherwise. */
+  fallbackDetail: RouteFallbackDetail | null;
   skippedCount: number;
 }
 
