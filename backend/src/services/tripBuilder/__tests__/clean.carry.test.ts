@@ -9,8 +9,12 @@ import { makePhoto, NORTHVALE, OWNER, PORT_CARROW, type PhotoInput } from "./pho
 // location of the most recent located photo before it in the trip window.
 
 const WINDOW = scanWindow("2031-05-02", "2031-05-09");
-const clean = (photos: PhotoPoint[]) => cleanAssets(photos, { ownerId: OWNER, window: WINDOW });
+const clean = (photos: PhotoPoint[], flightDeparturesMs: readonly number[] = []) =>
+  cleanAssets(photos, { ownerId: OWNER, window: WINDOW, flightDeparturesMs });
 const byId = (photos: readonly PhotoPoint[]) => new Map(photos.map((p) => [p.id, p] as const));
+
+/** The invented flight ZZ101 leaves Northvale at 13:00 NZST on 4 May 2031 — 01:00Z. */
+const DEPARTURE = Date.parse("2031-05-04T01:00:00Z");
 
 /** One shot of the invented GPS-less "Lumen D40" camera: no fix, no names of its own. */
 const gpsLess = (id: string, local: string, over: PhotoInput = {}): PhotoPoint =>
@@ -146,5 +150,73 @@ describe("cleanAssets: the location carry (owner ruling 2026-10-12)", () => {
     expect(carried.nightDay).toBe("2031-05-04");
     expect(carried.zone).toBe("Pacific/Auckland");
     expect(result.albumAssetIds).toEqual(["fix", "slr"]);
+  });
+});
+
+describe("cleanAssets: the carry never crosses a departure", () => {
+  it("leaves a photo after a departure unlocated instead of carrying across the flight", () => {
+    const result = clean(
+      [
+        makePhoto({ id: "before", local: "2031-05-04 09:00" }),
+        gpsLess("after", "2031-05-04 15:00"),
+      ],
+      [DEPARTURE]
+    );
+
+    const after = byId(result.photos).get("after")!;
+    expect(after.flags).toMatchObject({ located: false, locationCarried: false });
+    expect(after.lat).toBeNull();
+    expect(after.lon).toBeNull();
+    expect(result.excluded).toMatchObject({ unlocated: 1, locationCarried: 0 });
+  });
+
+  it("starts the carry again from the first located photo after the flight", () => {
+    const result = clean(
+      [
+        makePhoto({ id: "before", local: "2031-05-04 09:00" }),
+        gpsLess("across", "2031-05-04 15:00"),
+        makePhoto({
+          id: "arrival",
+          local: "2031-05-04 16:00",
+          lat: PORT_CARROW.lat,
+          lon: PORT_CARROW.lon,
+          city: "Port Carrow",
+        }),
+        gpsLess("arrival-day", "2031-05-04 17:00"),
+      ],
+      [DEPARTURE]
+    );
+
+    const photos = byId(result.photos);
+    expect(photos.get("across")!.flags).toMatchObject({ located: false, locationCarried: false });
+    expect(photos.get("arrival-day")!.flags).toMatchObject({
+      located: true,
+      locationCarried: true,
+    });
+    expect(photos.get("arrival-day")!.city).toBe("Port Carrow");
+  });
+
+  it("still carries when no departure lies between the donor and the photo", () => {
+    const result = clean(
+      [makePhoto({ id: "fix", local: "2031-05-04 09:00" }), gpsLess("morning", "2031-05-04 12:00")],
+      [DEPARTURE]
+    );
+
+    const morning = byId(result.photos).get("morning")!;
+    expect(morning.flags).toMatchObject({ located: true, locationCarried: true });
+    expect(morning.lat).toBe(NORTHVALE.lat);
+  });
+
+  it("keeps carrying to a photo AT the departure instant — the splitter reads it as before the flight", () => {
+    const result = clean(
+      [makePhoto({ id: "fix", local: "2031-05-04 09:00" }), gpsLess("at-cut", "2031-05-04 13:00")],
+      [DEPARTURE]
+    );
+
+    // 13:00 NZST is exactly the departure instant; `sideOf` gives such a photo the
+    // flight's "before" side, so the carry must not cut it away there.
+    const atCut = byId(result.photos).get("at-cut")!;
+    expect(atCut.tMs).toBe(DEPARTURE);
+    expect(atCut.flags).toMatchObject({ located: true, locationCarried: true });
   });
 });

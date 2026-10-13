@@ -127,6 +127,36 @@ describe("collectWindow", () => {
     expect(collected.clock.homeZone).toBe("Pacific/Auckland");
   });
 
+  it("gates the location carry on the window's flights: a photo after a departure stays unlocated", async () => {
+    const flight = preciseFlight({
+      id: "ff0f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
+      label: "ZZ101 NVL→ZNC",
+      depIata: "NVL",
+      arrIata: "ZNC",
+      dep: NORTHVALE,
+      arr: { lat: -37.01, lon: 174.79 },
+      depLocal: "2031-05-02T22:00",
+      arrLocal: "2031-05-02T23:30",
+    });
+    const { deps } = fakeDeps(
+      [
+        nzAsset({ id: "fix", local: "2031-05-02T09:00", ...at(NORTHVALE) }),
+        nzAsset({ id: "after", local: "2031-05-03T09:00", lat: null, lon: null }),
+      ],
+      { loadFlights: async () => [flight] }
+    );
+
+    const { clean } = await collectWindow(deps, BASE);
+
+    // The flight leaves 22:00 NZST on 2 May (10:00Z); the GPS-less photo at
+    // 09:00 NZST on 3 May (21:00Z) lies after it and takes no location.
+    expect(clean.photos.find((p) => p.id === "after")!.flags).toMatchObject({
+      located: false,
+      locationCarried: false,
+    });
+    expect(clean.excluded.unlocated).toBe(1);
+  });
+
   it("passes Immich's truncation flag through", async () => {
     const { deps } = fakeDeps([], {}, true);
     expect((await collectWindow(deps, BASE)).truncated).toBe(true);

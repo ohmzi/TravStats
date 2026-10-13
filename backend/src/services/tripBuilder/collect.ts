@@ -57,6 +57,12 @@ export async function collectWindow(
     areaZones: areaZoneSpans(assets, anchors),
   };
   const photos = clockAssets(assets, clock);
-  const clean = cleanAssets(photos, { ownerId: input.immichUserId, window });
+  // The exact departures gate the location carry (`carryLocations`): a GPS-less
+  // photo after a take-off never takes a fix from before it.
+  const clean = cleanAssets(photos, {
+    ownerId: input.immichUserId,
+    window,
+    flightDeparturesMs: anchors.flatMap((anchor) => (anchor.depMs === null ? [] : [anchor.depMs])),
+  });
   return { window, anchors, clean, truncated: page.truncated, clock, homeAt: homeAtDay };
 }

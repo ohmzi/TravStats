@@ -109,15 +109,34 @@ interface OwnLocation {
  * before the window's first located one stays unlocated. Runs after
  * `markDuplicates`, so a duplicate group's keeper stays the copy with the
  * real fix.
+ *
+ * A carry NEVER crosses a departure (owner report 2026-10-13, "Sumayya's
+ * wedding": one GPS-less video taken after landing took an Istanbul fix from
+ * before the IST→KHI flight and founded a one-photo "Küçükçekmece" area at
+ * the head of the Karachi stay — the landing night was then attributed to a
+ * station that area cannot hold and the review refused the plan). When an
+ * exact departure (`flightDeparturesMs`) lies strictly between the donor's
+ * and the photo's instants, the traveller boarded: the place is stale and the
+ * photo stays unlocated, exactly as one before the window's first fix. A
+ * photo AT the departure instant keeps the carry — `sideOf` reads it as
+ * before the flight, and this pass must not disagree. A flight known only by
+ * its day cuts nothing: its instants are a guess, and a guess must not
+ * unlocate a photo.
  */
-function carryLocations(photos: readonly PhotoPoint[]): void {
+function carryLocations(
+  photos: readonly PhotoPoint[],
+  flightDeparturesMs: readonly number[]
+): void {
   let donor: OwnLocation | null = null;
+  let donorMs = 0;
   for (const p of photos) {
     if (p.lat !== null && p.lon !== null && hasGps(p.lat, p.lon)) {
       donor = { lat: p.lat, lon: p.lon, city: p.city, state: p.state, country: p.country };
+      donorMs = p.tMs;
       continue;
     }
     if (donor === null) continue;
+    if (flightDeparturesMs.some((cut) => donorMs < cut && cut < p.tMs)) continue;
     p.lat = donor.lat;
     p.lon = donor.lon;
     p.city = p.city ?? donor.city;
@@ -134,11 +153,13 @@ function carryLocations(photos: readonly PhotoPoint[]): void {
  * half, then the photo's own day. An asset with no owner id cannot be shown
  * to be the caller's, so it counts as a partner's: the album must never take
  * someone else's photo. The window's GPS-less photos then take the location
- * before them (`carryLocations`). Nothing it is given is changed.
+ * before them (`carryLocations`), but never across a departure
+ * (`flightDeparturesMs`, the exact `depMs` of the window's flights; absent or
+ * empty: no gate). Nothing it is given is changed.
  */
 export function cleanAssets(
   photos: readonly PhotoPoint[],
-  opts: { ownerId: string; window: ScanWindow }
+  opts: { ownerId: string; window: ScanWindow; flightDeparturesMs?: readonly number[] }
 ): CleanResult {
   const excluded: ExcludedCounts = {
     partner: 0,
@@ -174,7 +195,7 @@ export function cleanAssets(
   context.sort(byTime);
   markDuplicates(inside);
   markDuplicates(context);
-  carryLocations(inside);
+  carryLocations(inside, opts.flightDeparturesMs ?? []);
   for (const p of inside) {
     if (!p.flags.located) excluded.unlocated += 1;
     if (p.flags.locationCarried) excluded.locationCarried += 1;
