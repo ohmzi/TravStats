@@ -4,15 +4,15 @@ import { MemoryRouter } from "react-router-dom";
 import type { Trip } from "../../../types";
 
 /**
- * The trip card hid its total behind `enableCostTracking`, while the trip
- * DETAIL page renders the same total ungated. Same trip, two answers: the card
- * said "—" where the detail page said "EUR 2832" (the detail page's own
- * spelling at the time; since forgejo#86 both go through `formatCurrency`
- * and read "2.832 €").
+ * The card used to carry the trip's total, and this suite chased which switch
+ * gated the figure: the card hid it behind `enableCostTracking` while the trip
+ * DETAIL page rendered the same total ungated (same trip, two answers), and
+ * since 2.4.0/#192 the toggle gates the taxes/fees breakdown, not whether a
+ * price is shown at all.
  *
- * Since 2.4.0 (#192) the toggle gates the taxes/fees BREAKDOWN and the business
- * statistics — not whether a price is shown at all. The card was still on the
- * old semantics.
+ * The figure itself is gone from the card (owner, 2026-10-12): the journey card
+ * shows days, kilometres and countries, the price lives on the trip page. The
+ * toggle now changes nothing here, and the cost cell's "—" went with it.
  */
 const settings = vi.hoisted(() => ({
   value: {
@@ -62,16 +62,17 @@ describe("TripCard cost tile", () => {
     };
   });
 
-  it("shows the total even when cost TRACKING is switched off", () => {
+  it("carries no total with cost tracking off", () => {
     render(
       <MemoryRouter>
         <TripCard trip={trip} onOpen={() => {}} />
       </MemoryRouter>
     );
-    expect(screen.getByText(/2\.?832/)).toBeInTheDocument();
+    expect(screen.queryByText(/2\.?832/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/trips:card\.entries/)).not.toBeInTheDocument();
   });
 
-  it("shows the total when cost tracking is on, too", () => {
+  it("carries no total with cost tracking on either", () => {
     settings.value = {
       features: { enableCostTracking: true },
       enabledDomains: ["flight", "cruise"],
@@ -81,10 +82,10 @@ describe("TripCard cost tile", () => {
         <TripCard trip={trip} onOpen={() => {}} />
       </MemoryRouter>
     );
-    expect(screen.getByText(/2\.?832/)).toBeInTheDocument();
+    expect(screen.queryByText(/2\.?832/)).not.toBeInTheDocument();
   });
 
-  it("still shows a dash when the trip genuinely carries no price", () => {
+  it("leaves a trip with no price without a cost dash, too", () => {
     const free = { ...trip, bookings: [], flights: [] } as unknown as Trip;
     render(
       <MemoryRouter>
@@ -92,5 +93,8 @@ describe("TripCard cost tile", () => {
       </MemoryRouter>
     );
     expect(screen.queryByText(/2\.?832/)).not.toBeInTheDocument();
+    // The only dash left is the km cell's own (no distance either); the cost
+    // cell, dash and all, is not in the document.
+    expect(screen.getByText("—").parentElement?.textContent).toBe("— km");
   });
 });

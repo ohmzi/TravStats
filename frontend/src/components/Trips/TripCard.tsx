@@ -1,11 +1,9 @@
-import { formatCurrency } from "../../lib/units";
 import type { Trip } from "../../types";
 import { useEnabledDomains } from "../../hooks/useEnabledDomains";
 import { useRailVisible } from "../../hooks/useRailVisible";
 import { useRentalVisible } from "../../hooks/useRentalVisible";
 import { tripEntryCounts, tripEntryTotal } from "../../lib/tripEntryCount";
 import { useTranslation } from "../../hooks/useTranslation";
-import { sumByCurrency, tripCostSources } from "../../lib/bookingCost";
 import { formatLocalDate } from "../../lib/displayFormat";
 import { flightArrival, flightDeparture, tripEnd, tripStart } from "../../lib/entityTimes";
 import { dayOf } from "../../shared/time";
@@ -59,11 +57,15 @@ export function tripDays(trip: Trip): number | null {
  * footer of three buttons (open, edit, delete) on every card. Edit and delete
  * live on the trip page, where the head carries them for every detail page;
  * a destructive button repeated down a grid of cards was the easiest thing on
- * the page to hit by accident. Kilometres and cost stay, as figures — both
- * were fixed to count every area (forgejo#86 and the cruise totals).
+ * the page to hit by accident.
+ *
+ * The mono line of figures is days · kilometres · countries, in that order
+ * (owner, 2026-10-12). The entry count and the cost total that used to sit
+ * beside them are off the card — the price lives on the trip page — and with
+ * the cost cell its "—" placeholder is gone too.
  */
 export default function TripCard({ trip, onOpen }: TripCardProps): JSX.Element {
-  const { t, i18n } = useTranslation(["trips"]);
+  const { t } = useTranslation(["trips"]);
 
   const { start, end } = tripSpan(trip);
   const days = tripDays(trip);
@@ -74,10 +76,9 @@ export default function TripCard({ trip, onOpen }: TripCardProps): JSX.Element {
     .join(" – ");
 
   // Domain-gating: with the cruise domain disabled the card must not
-  // advertise cruise segments — not as an icon, not inside the km or cost.
+  // advertise cruise segments — not as an icon, not inside the kilometres.
   const { isEnabled } = useEnabledDomains();
   const cruiseEnabled = isEnabled("cruise");
-  const lodgingEnabled = isEnabled("lodging");
   const railVisible = useRailVisible();
   const rentalVisible = useRentalVisible();
   // Every area the trip page lists counts (forgejo#169), each behind the same
@@ -92,17 +93,7 @@ export default function TripCard({ trip, onOpen }: TripCardProps): JSX.Element {
   const cruiseCount = counts.cruise;
   const stayCount = counts.lodging;
   const cruises = cruiseEnabled ? (trip.cruises ?? []) : [];
-  const stays = lodgingEnabled ? (trip.lodgingStays ?? []) : [];
 
-  // Same sources as the trip detail page: bookings PLUS any flight, cruise or
-  // stay carrying its own price and no booking. Summing bookings alone made a
-  // hand-entered flight price vanish from the card while the detail page
-  // counted it, and left a cruise- or hotel-only trip at "—" on both.
-  // NOT gated on features.enableCostTracking: since #192 that toggle gates the
-  // taxes/fees breakdown, not whether a price is visible at all.
-  const costTotals = sumByCurrency(
-    tripCostSources(trip.bookings ?? [], trip.flights ?? [], cruises, stays)
-  );
   // The trip's own route sections contribute the distance the list endpoint
   // summed for them (`drivenKm`); `estimateTripDistanceKm` can only see
   // flights and cruises, so a driving trip used to sit at "—" here while its
@@ -111,6 +102,8 @@ export default function TripCard({ trip, onOpen }: TripCardProps): JSX.Element {
   // kilometres of a domain the reader cannot see.
   const routeKm = isEnabled("roadtrip") ? (trip.drivenKm ?? 0) : 0;
   const distanceKm = estimateTripDistanceKm(trip.flights ?? [], cruises) + routeKm;
+  // The count survives only as the countries cell's "?" signal (forgejo#169):
+  // a trip with entries but no recorded country cannot honestly say "0".
   const entries = tripEntryTotal(counts);
 
   const areas: IconName[] = [
@@ -225,27 +218,13 @@ export default function TripCard({ trip, onOpen }: TripCardProps): JSX.Element {
             </span>
           )}
           <span>
+            <span style={figure}>{distanceKm > 0 ? formatDistance(distanceKm) : "—"}</span> km
+          </span>
+          <span>
             <span style={figure}>
               {trip.countries.length > 0 ? trip.countries.length : entries > 0 ? "?" : "—"}
             </span>{" "}
             {t("trips:card.countries", { count: trip.countries.length })}
-          </span>
-          <span>
-            <span style={figure}>{entries}</span> {t("trips:card.entries", { count: entries })}
-          </span>
-        </p>
-        <p className="t-caption flex flex-wrap gap-x-3" style={mono}>
-          <span>
-            <span style={figure}>{distanceKm > 0 ? formatDistance(distanceKm) : "—"}</span> km
-          </span>
-          <span style={figure}>
-            {costTotals.length > 0
-              ? costTotals
-                  .map((c) =>
-                    formatCurrency(c.total, c.currency, { compact: true, language: i18n.language })
-                  )
-                  .join(" + ")
-              : "—"}
           </span>
         </p>
       </div>

@@ -8,6 +8,10 @@ import type { Trip } from "../../../types";
  * although the cruises carried prices and their legs carried distances. The
  * card summed flights and nothing else, so a trip with `flights: []` summed to
  * nothing at all.
+ *
+ * The kilometres half of that fix stays, pinned below. The cost half has since
+ * left the card altogether (owner, 2026-10-12: days, kilometres, countries), so
+ * a cruise price no longer renders here — nor does a cost "—" in its place.
  */
 const settings = vi.hoisted(() => ({
   value: {
@@ -70,9 +74,9 @@ function renderCard(trip: Trip): void {
 }
 
 describe("TripCard totals on a cruise-only trip", () => {
-  it("counts the cruise price towards the trip total", () => {
+  it("shows no price for the cruise on the card", () => {
     renderCard(cruiseOnlyTrip);
-    expect(screen.getByText(/1\.?290/)).toBeInTheDocument();
+    expect(screen.queryByText(/1\.?290/)).not.toBeInTheDocument();
   });
 
   it("counts the cruise distance towards the trip kilometres", () => {
@@ -97,7 +101,7 @@ describe("TripCard totals on a cruise-only trip", () => {
     expect(screen.getByText("4.1k")).toBeInTheDocument();
   });
 
-  it("still shows a dash when a cruise has neither price nor computed legs", () => {
+  it("keeps the km dash for a cruise without computed legs — and no cost dash", () => {
     const bare = {
       ...cruiseOnlyTrip,
       cruises: [
@@ -118,6 +122,8 @@ describe("TripCard totals on a cruise-only trip", () => {
 
     renderCard(bare);
     expect(screen.queryByText(/1\.?290/)).not.toBeInTheDocument();
-    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    // The only dash left is the km cell's; the cost cell, dash and all, is
+    // not in the document.
+    expect(screen.getByText("—").parentElement?.textContent).toBe("— km");
   });
 });
