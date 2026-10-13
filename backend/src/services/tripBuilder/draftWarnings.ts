@@ -3,7 +3,9 @@
  * the orchestrator already holds. Pure: the Immich, database and geocoder
  * answers arrive resolved, so each rule can be tested with plain values.
  *
- * Order is the spec's order; the review page renders them as given.
+ * Order is the spec's order; the review page renders them as given. A far move
+ * a logged flight of the journey covers is not one of them (owner ruling
+ * 2026-10-13): photos, the flight, photos is a journey, not a gap in the log.
  */
 import { daysBetween } from "../../shared/time/localDate";
 import { distanceKm } from "../photoJourneys/cluster";
@@ -72,6 +74,29 @@ function flightOutsideDates(
   return warnings;
 }
 
+/**
+ * Whether a logged flight explains a far move (owner ruling 2026-10-13): it
+ * departs the airport nearest the place the move left, lands at the one
+ * nearest the place it reached, and its own days lie between the move's photo
+ * days — it left on or after the last photo at the origin and landed by the
+ * first photo at the destination (`ImplicitGap`'s `fromDay`/`toDay`, read on
+ * the flight's own airport-local days). The owner's Istanbul → Karachi shape:
+ * photos, the flight, photos — so the move is the flight, not a gap in the
+ * log. A flight in the wrong direction, at another airport, or outside those
+ * days covers nothing.
+ */
+function flightCoversGap(flight: FlightAnchor, gap: UnrecordedFlight): boolean {
+  const { from, to } = gap.nearestAirports;
+  return (
+    from !== null &&
+    to !== null &&
+    flight.depIata === from &&
+    flight.arrIata === to &&
+    flight.depDay >= gap.fromDay &&
+    flight.arrDay <= gap.toDay
+  );
+}
+
 export function assembleWarnings(input: WarningInput): BuilderWarning[] {
   const warnings: BuilderWarning[] = [];
   const { stats, window } = input;
@@ -88,8 +113,11 @@ export function assembleWarnings(input: WarningInput): BuilderWarning[] {
   }
 
   if (input.inspect) {
-    for (const flight of input.unrecordedFlights) {
-      warnings.push({ code: "possibleUnrecordedFlight", params: flight });
+    // A far move a logged flight of the journey covers is the flight, not a
+    // gap in the log; only the moves no flight explains are reported.
+    for (const gap of input.unrecordedFlights) {
+      if (input.flights.some((flight) => flightCoversGap(flight, gap))) continue;
+      warnings.push({ code: "possibleUnrecordedFlight", params: gap });
     }
     if (input.hasLegs && !input.roads.available) {
       warnings.push({ code: "noRouting", params: {} });

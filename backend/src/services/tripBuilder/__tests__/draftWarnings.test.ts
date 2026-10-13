@@ -54,6 +54,115 @@ const FLIGHT = preciseFlight({
   arrLocal: "2031-05-02T00:30",
 });
 
+/**
+ * The far move the warning is about (owner ruling 2026-10-13): photos at ZPC
+ * through the 3rd, photos at ZEP from the 4th, no ground travel in between.
+ */
+const GAP = {
+  fromDay: "2031-05-03",
+  toDay: "2031-05-04",
+  nearestAirports: { from: "ZPC", to: "ZEP" },
+};
+
+/** A logged ZPC → ZEP flight whose own days lie inside the move's days. */
+const COVERING = preciseFlight({
+  id: "cc0f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
+  label: "ZZ110 ZPC→ZEP",
+  depIata: "ZPC",
+  arrIata: "ZEP",
+  dep: { lat: -44.72, lon: 169.17 },
+  arr: { lat: -38.02, lon: 177.01 },
+  depLocal: "2031-05-03T21:00",
+  arrLocal: "2031-05-04T02:00",
+});
+
+describe("a far move a logged flight covers", () => {
+  it("raises no warning when the flight departs the first place and lands at the second", () => {
+    expect(assembleWarnings({ ...QUIET, unrecordedFlights: [GAP], flights: [COVERING] })).toEqual(
+      []
+    );
+  });
+
+  it("covers a same-day move: the whole flight sits on the day the photos jump", () => {
+    const sameDay = preciseFlight({
+      id: "dd0f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
+      label: "ZZ111 ZPC→ZEP",
+      depIata: "ZPC",
+      arrIata: "ZEP",
+      dep: { lat: -44.72, lon: 169.17 },
+      arr: { lat: -38.02, lon: 177.01 },
+      depLocal: "2031-05-03T09:00",
+      arrLocal: "2031-05-03T13:00",
+    });
+    expect(
+      assembleWarnings({
+        ...QUIET,
+        unrecordedFlights: [{ ...GAP, toDay: "2031-05-03" }],
+        flights: [sameDay],
+      })
+    ).toEqual([]);
+  });
+
+  it("still warns when no flight of the journey covers it", () => {
+    expect(assembleWarnings({ ...QUIET, unrecordedFlights: [GAP] })).toEqual([
+      { code: "possibleUnrecordedFlight", params: GAP },
+    ]);
+  });
+
+  it("does not let a flight in the wrong direction, or from another place, cover it", () => {
+    const backwards = preciseFlight({
+      id: "ee0f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
+      label: "ZZ112 ZEP→ZPC",
+      depIata: "ZEP",
+      arrIata: "ZPC",
+      dep: { lat: -38.02, lon: 177.01 },
+      arr: { lat: -44.72, lon: 169.17 },
+      depLocal: "2031-05-03T21:00",
+      arrLocal: "2031-05-04T02:00",
+    });
+    const elsewhere = preciseFlight({
+      id: "ab0f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
+      label: "ZZ113 ZPC→ZQA",
+      depIata: "ZPC",
+      arrIata: "ZQA",
+      dep: { lat: -44.72, lon: 169.17 },
+      arr: { lat: -41.29, lon: 174.77 },
+      depLocal: "2031-05-03T21:00",
+      arrLocal: "2031-05-04T02:00",
+    });
+    expect(
+      assembleWarnings({ ...QUIET, unrecordedFlights: [GAP], flights: [backwards, elsewhere] })
+    ).toEqual([{ code: "possibleUnrecordedFlight", params: GAP }]);
+  });
+
+  it("does not let a flight outside the move's days cover it", () => {
+    // `early` lands before the move's own days; `late` leaves after them.
+    const early = preciseFlight({
+      id: "bc0f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
+      label: "ZZ114 ZPC→ZEP",
+      depIata: "ZPC",
+      arrIata: "ZEP",
+      dep: { lat: -44.72, lon: 169.17 },
+      arr: { lat: -38.02, lon: 177.01 },
+      depLocal: "2031-05-02T21:00",
+      arrLocal: "2031-05-02T23:00",
+    });
+    const late = preciseFlight({
+      id: "bd0f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
+      label: "ZZ115 ZPC→ZEP",
+      depIata: "ZPC",
+      arrIata: "ZEP",
+      dep: { lat: -44.72, lon: 169.17 },
+      arr: { lat: -38.02, lon: 177.01 },
+      depLocal: "2031-05-05T21:00",
+      arrLocal: "2031-05-06T02:00",
+    });
+    expect(
+      assembleWarnings({ ...QUIET, unrecordedFlights: [GAP], flights: [early, late] })
+    ).toEqual([{ code: "possibleUnrecordedFlight", params: GAP }]);
+  });
+});
+
 describe("assembleWarnings", () => {
   it("says nothing when nothing is wrong", () => {
     expect(assembleWarnings(QUIET)).toEqual([]);
