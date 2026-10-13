@@ -54,7 +54,7 @@ import {
   type ExistingEdit,
   type ExistingReviewState,
 } from "./existingReview";
-import { effectiveNights } from "./planRules";
+import { resolvedNights } from "./planRules";
 import { syncArea } from "./reviewRules";
 
 export { logEdit } from "./editLog";
@@ -112,7 +112,7 @@ export interface ReviewState {
   tripName: string;
   countries: string[];
   areas: ReviewArea[];
-  /** The raw answer for every night; a skipped area's stations read as unknown (`effectiveNights`). */
+  /** The raw answer for every night: an `unknown` one is open, and `resolvedNights` answers it. */
   nights: Record<Day, NightAssign>;
   flightTicks: Record<string, boolean>;
   photoJourneyTicks: Record<string, boolean>;
@@ -316,8 +316,11 @@ function commitTarget(
 
 /**
  * What `POST /trip-builder/drafts/:id/commit` takes. Every area goes, `skip`
- * ones too; the nights go as the commit will read them (`effectiveNights`);
- * flights already on the target trip stay where they are.
+ * ones too; the nights go as the commit will read them — every open night
+ * resolved to the app's default (`resolvedNights`), so no `unknown` is sent
+ * unless a night has no legal place at all, and the review refuses the plan
+ * before it can be submitted in that case. Flights already on the target trip
+ * stay where they are.
  */
 export function buildCommitBody(
   draft: TripBuilderDraft,
@@ -338,7 +341,7 @@ export function buildCommitBody(
       : draft.flights
           .filter((flight) => !flight.locked && state.flightTicks[flight.id] === true)
           .map((flight) => flight.id),
-    nights: effectiveNights(state),
+    nights: resolvedNights(draft, state),
     areas: state.areas.map((area) => commitArea(area, fallbackName)),
     stopovers: (draft.stopovers ?? [])
       .map((stopover) => ({

@@ -52,7 +52,7 @@ function renderArea(
       area={area}
       ordinal={areaIndex + 1}
       nights={placeNights(draft, state).byArea.get(area.key) ?? []}
-      slept={sleptKeys(state)}
+      slept={sleptKeys(draft, state)}
       roadtripsHidden={props.roadtripsHidden ?? false}
       onEdit={onEdit}
     />
@@ -226,7 +226,7 @@ describe("a route-scoped area with a stop left out", () => {
         area={area}
         ordinal={2}
         nights={placeNights(scoped, state).byArea.get(area.key) ?? []}
-        slept={sleptKeys(state)}
+        slept={sleptKeys(scoped, state)}
         roadtripsHidden={false}
         onEdit={vi.fn()}
       />
@@ -286,7 +286,7 @@ describe("a stops area matched to a stored stop", () => {
         area={area}
         ordinal={1}
         nights={placeNights(draft, state).byArea.get(area.key) ?? []}
-        slept={sleptKeys(state)}
+        slept={sleptKeys(draft, state)}
         roadtripsHidden={false}
         onEdit={vi.fn()}
       />
@@ -342,7 +342,7 @@ describe("a pitstop area", () => {
         area={area}
         ordinal={2}
         nights={placeNights(draft, state).byArea.get(area.key) ?? []}
-        slept={sleptKeys(state)}
+        slept={sleptKeys(draft, state)}
         roadtripsHidden={props.roadtripsHidden ?? false}
         onEdit={onEdit}
       />
@@ -447,7 +447,7 @@ describe("a pitstop area matched to a stored stop", () => {
         area={area}
         ordinal={1}
         nights={placeNights(draft, state).byArea.get(area.key) ?? []}
-        slept={sleptKeys(state)}
+        slept={sleptKeys(draft, state)}
         roadtripsHidden={false}
         onEdit={vi.fn()}
       />

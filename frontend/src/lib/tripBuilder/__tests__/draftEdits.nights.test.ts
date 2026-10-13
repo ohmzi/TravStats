@@ -1,12 +1,23 @@
 import { describe, expect, it } from "vitest";
 
+import type { NightEntry } from "../../../types/tripBuilder";
 import { applyEdit, initialReviewState, type DraftEdit } from "../draftEdits";
-import { nightFits, sleepNight } from "../nightRules";
-import { effectiveNights, planErrors, sleptKeys } from "../planRules";
+import { sleepNight } from "../nightRules";
+import {
+  effectiveNights,
+  nightFits,
+  planErrors,
+  resolvedNights,
+  sleptKeys,
+  stillOpenNights,
+} from "../planRules";
 import { AREAS, KEY, reviewDraft, station } from "./reviewFixtures";
 
 const draft = reviewDraft();
 const start = initialReviewState(draft);
+
+/** A night the scan left open with nothing to suggest. */
+const openNight: NightEntry = { assign: "unknown", reason: "unknown", suggestedStationKeys: [] };
 
 function run(...edits: DraftEdit[]) {
   return edits.reduce((state, edit) => applyEdit(draft, state, edit), start);
@@ -17,10 +28,86 @@ describe("the draft as scanned", () => {
     expect(planErrors(draft, start)).toEqual([]);
   });
 
-  it("sleeps at the three stations that hold a night", () => {
-    expect([...sleptKeys(start)].sort()).toEqual(
-      [KEY.northvale, KEY.northvaleAgain, KEY.southbridge].sort()
+  it("sleeps at the stations that hold a night, the answered open night's default included", () => {
+    expect([...sleptKeys(draft, start)].sort()).toEqual(
+      [KEY.northvale, KEY.northvaleAgain, KEY.southbridge, KEY.tarnside].sort()
     );
+  });
+});
+
+describe("an open night resolves to the app's default", () => {
+  it("takes the scan's suggestion, keeps the raw answer, and lets an answer from the user win", () => {
+    expect(resolvedNights(draft, start)).toEqual({
+      "2031-05-02": KEY.northvale,
+      "2031-05-03": KEY.northvaleAgain,
+      "2031-05-04": "flight",
+      "2031-05-05": KEY.southbridge,
+      "2031-05-06": KEY.tarnside,
+    });
+    // The raw answer stays the open question it was; the default is what the plan reads.
+    expect(start.nights["2031-05-06"]).toBe("unknown");
+    expect(planErrors(draft, start)).toEqual([]);
+    const answered = run({ type: "assignNight", day: "2031-05-06", assign: "home" });
+    expect(resolvedNights(draft, answered)["2031-05-06"]).toBe("home");
+  });
+
+  it("takes the previous night's place when the night has no suggestion", () => {
+    const noSuggestion = reviewDraft({
+      nights: { ...draft.nights, "2031-05-06": openNight },
+    });
+    const state = initialReviewState(noSuggestion);
+    expect(resolvedNights(noSuggestion, state)["2031-05-06"]).toBe(KEY.southbridge);
+    expect(planErrors(noSuggestion, state)).toEqual([]);
+  });
+
+  it("chains the place through a night that resolved by its suggestion", () => {
+    const chained = reviewDraft({
+      nights: {
+        ...draft.nights,
+        "2031-05-05": {
+          assign: "unknown",
+          reason: "unknown",
+          suggestedStationKeys: [KEY.southbridge],
+        },
+        "2031-05-06": openNight,
+      },
+    });
+    const state = initialReviewState(chained);
+    expect(resolvedNights(chained, state)["2031-05-06"]).toBe(KEY.southbridge);
+  });
+
+  it("takes home when the previous night was spent at home", () => {
+    const away = reviewDraft({
+      nights: {
+        ...draft.nights,
+        "2031-05-05": { assign: "home", reason: "home", suggestedStationKeys: [] },
+        "2031-05-06": openNight,
+      },
+    });
+    const state = initialReviewState(away);
+    expect(resolvedNights(away, state)["2031-05-06"]).toBe("home");
+  });
+
+  it("keeps a night with no place to go open: the one case that still refuses", () => {
+    const stranded = reviewDraft({
+      nights: {
+        ...draft.nights,
+        "2031-05-05": { assign: "flight", reason: "flight", suggestedStationKeys: [] },
+        "2031-05-06": openNight,
+      },
+    });
+    const state = initialReviewState(stranded);
+    expect(resolvedNights(stranded, state)["2031-05-06"]).toBe("unknown");
+    expect(stillOpenNights(stranded, state)).toEqual(["2031-05-06"]);
+    // The commit's own validator accepts an open night; it is the review that must not send one.
+    expect(planErrors(stranded, state)).toEqual([]);
+  });
+
+  it("reads a skipped area's answers as open, and resolves what may hold them", () => {
+    const skipped = run({ type: "setAreaKind", areaKey: "2031-05-05#1", as: "skip" });
+    expect(effectiveNights(skipped)["2031-05-05"]).toBe("unknown");
+    expect(resolvedNights(draft, skipped)["2031-05-05"]).toBe("unknown");
+    expect(stillOpenNights(draft, skipped)).toEqual(["2031-05-05", "2031-05-06"]);
   });
 });
 
@@ -132,7 +219,7 @@ describe("setAreaKind", () => {
     const skipped = run({ type: "setAreaKind", areaKey: "2031-05-05#1", as: "skip" });
     expect(effectiveNights(skipped)["2031-05-05"]).toBe("unknown");
     expect(skipped.nights["2031-05-05"]).toBe(KEY.southbridge);
-    expect([...sleptKeys(skipped)]).not.toContain(KEY.southbridge);
+    expect([...sleptKeys(draft, skipped)]).not.toContain(KEY.southbridge);
     const back = applyEdit(draft, skipped, {
       type: "setAreaKind",
       areaKey: "2031-05-05#1",

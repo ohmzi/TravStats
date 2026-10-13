@@ -5,7 +5,7 @@ import { useDisplayFormat } from "../../../lib/displayFormat";
 import type { DraftEdit, ReviewArea, ReviewState } from "../../../lib/tripBuilder/draftEdits";
 import { refusesExistingEdit } from "../../../lib/tripBuilder/existingReview";
 import { sleepNight } from "../../../lib/tripBuilder/nightRules";
-import { effectiveNights } from "../../../lib/tripBuilder/planRules";
+import { resolvedNights } from "../../../lib/tripBuilder/planRules";
 import { nightChoices, type DayStation } from "../../../lib/tripBuilder/reviewView";
 import { foldDayTrip, mergeWithNext } from "../../../lib/tripBuilder/stationOps";
 import type { Day, DraftDay, TripBuilderDraft } from "../../../types/tripBuilder";
@@ -127,7 +127,7 @@ export default function ReviewDayGroup({
       {night !== null && (
         <ReviewNightChip
           day={night}
-          assign={effectiveNights(state)[night]}
+          assign={resolvedNights(draft, state)[night]}
           choices={nightChoices(draft, state, night)}
           onAssign={(assign) => onEdit({ type: "assignNight", day: night, assign })}
         />

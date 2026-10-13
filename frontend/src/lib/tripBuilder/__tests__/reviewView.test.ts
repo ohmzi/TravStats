@@ -69,6 +69,23 @@ describe("nightChoices", () => {
     ]);
   });
 
+  it("marks the place an open night resolved to, even when the scan suggested nothing", () => {
+    // The night of the 6th has no suggestion; the previous night's place (Southbridge) answers it.
+    const noSuggestion = reviewDraft({
+      nights: {
+        ...draft.nights,
+        "2031-05-06": { assign: "unknown", reason: "unknown", suggestedStationKeys: [] },
+      },
+    });
+    const state = initialReviewState(noSuggestion);
+    expect(nightChoices(noSuggestion, state, "2031-05-06")).toEqual([
+      { value: KEY.southbridge, title: "Southbridge", suggested: true },
+      { value: KEY.tarnside, title: "Tarnside", suggested: false },
+      { value: "home", title: null, suggested: false },
+      { value: "unknown", title: null, suggested: false },
+    ]);
+  });
+
   it("leaves out anchors and excursions, and the places of another area", () => {
     expect(nightChoices(draft, start, "2031-05-03").map((c) => c.value)).toEqual([
       KEY.northvale,
@@ -113,11 +130,23 @@ describe("placeNights", () => {
 });
 
 describe("unknownNightCount", () => {
-  it("counts the nights nobody has answered, a skipped area's included", () => {
-    expect(unknownNightCount(start)).toBe(1);
+  it("counts only the nights neither the scan's suggestion nor the previous place answers", () => {
+    expect(unknownNightCount(draft, start)).toBe(0);
+    // A skipped area's two nights: its stations are gone, so nothing may hold them.
     expect(
-      unknownNightCount(run({ type: "setAreaKind", areaKey: "2031-05-05#1", as: "skip" }))
+      unknownNightCount(draft, run({ type: "setAreaKind", areaKey: "2031-05-05#1", as: "skip" }))
     ).toBe(2);
+  });
+
+  it("counts the night a dead area leaves with nowhere to go", () => {
+    const stranded = reviewDraft({
+      nights: {
+        ...draft.nights,
+        "2031-05-05": { assign: "flight", reason: "flight", suggestedStationKeys: [] },
+        "2031-05-06": { assign: "unknown", reason: "unknown", suggestedStationKeys: [] },
+      },
+    });
+    expect(unknownNightCount(stranded, initialReviewState(stranded))).toBe(1);
   });
 });
 
@@ -137,15 +166,37 @@ describe("reviewProblems", () => {
       { type: "delete", stationKey: KEY.southbridge },
       { type: "delete", stationKey: KEY.tarnside }
     );
+    // The stations that held the 5th and the 6th are gone: those two nights now
+    // have no place at all, so the plan refuses (ruling 2026-10-13) — the one
+    // refusal that survives, next to the row count the area still owes.
     expect(reviewProblems(draft, emptied)).toEqual([
       { code: "roadtripTooShort", areaKey: "2031-05-05#1" },
+      { code: "nightPlanInvalid" },
     ]);
     const skipped = applyEdit(draft, emptied, {
       type: "setAreaKind",
       areaKey: "2031-05-05#1",
       as: "skip",
     });
-    expect(reviewProblems(draft, skipped)).toEqual([]);
+    expect(reviewProblems(draft, skipped)).toEqual([{ code: "nightPlanInvalid" }]);
+  });
+
+  it("holds the trip until a night nothing may hold is answered, and lets it go after", () => {
+    const stranded = reviewDraft({
+      nights: {
+        ...draft.nights,
+        "2031-05-05": { assign: "flight", reason: "flight", suggestedStationKeys: [] },
+        "2031-05-06": { assign: "unknown", reason: "unknown", suggestedStationKeys: [] },
+      },
+    });
+    const state = initialReviewState(stranded);
+    expect(reviewProblems(stranded, state)).toEqual([{ code: "nightPlanInvalid" }]);
+    const answered = applyEdit(stranded, state, {
+      type: "assignNight",
+      day: "2031-05-06",
+      assign: KEY.tarnside,
+    });
+    expect(reviewProblems(stranded, answered)).toEqual([]);
   });
 
   it("does not hold an existing trip to a name or to two rows", () => {
@@ -160,7 +211,9 @@ describe("reviewProblems", () => {
     state = applyEdit(existing, state, { type: "setTripName", name: "" });
     state = applyEdit(existing, state, { type: "delete", stationKey: KEY.tarnside });
     state = applyEdit(existing, state, { type: "delete", stationKey: KEY.southbridge });
-    expect(reviewProblems(existing, state)).toEqual([]);
+    // Still not held to a name or to two rows; the only reason left is the two
+    // nights the deleted stations took with them (ruling 2026-10-13).
+    expect(reviewProblems(existing, state)).toEqual([{ code: "nightPlanInvalid" }]);
   });
 });
 

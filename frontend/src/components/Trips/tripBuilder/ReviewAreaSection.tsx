@@ -3,7 +3,7 @@ import type { JSX } from "react";
 import { useTranslation } from "../../../hooks/useTranslation";
 import { useDisplayFormat } from "../../../lib/displayFormat";
 import type { DraftEdit, ReviewArea, ReviewState } from "../../../lib/tripBuilder/draftEdits";
-import { effectiveNights } from "../../../lib/tripBuilder/planRules";
+import { resolvedNights } from "../../../lib/tripBuilder/planRules";
 import { spanOf } from "../../../lib/tripBuilder/reviewRules";
 import { areaDays, nightChoices, stationsByDay } from "../../../lib/tripBuilder/reviewView";
 import { ROADTRIP_VEHICLES, type RoadtripVehicle } from "../../../shared/tour/roadtrip";
@@ -90,7 +90,7 @@ export default function ReviewAreaSection({
       (kind !== "roadtrip" || !roadtripsHidden || area.as === "roadtrip") &&
       (kind !== "roadtrip" || !matchedStop)
   );
-  const answers = effectiveNights(state);
+  const answers = resolvedNights(draft, state);
   const keys = new Set(area.stations.map((station) => station.key));
   const sleptNights = nights.filter((night) => keys.has(answers[night])).length;
 

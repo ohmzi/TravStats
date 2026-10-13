@@ -68,7 +68,7 @@ function renderDay(when: string, stationKeys: string[], night: string | null = n
         day={day(when, stationKeys)}
         rows={rows}
         night={night}
-        slept={sleptKeys(state)}
+        slept={sleptKeys(draft, state)}
         onEdit={vi.fn()}
       />
       <Reveal />

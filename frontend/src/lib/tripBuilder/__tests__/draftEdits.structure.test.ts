@@ -93,9 +93,28 @@ describe("foldDayTrip", () => {
 });
 
 describe("toggleSlept", () => {
-  it("gives an unknown night within reach to the station", () => {
-    const next = run({ type: "toggleSlept", stationKey: KEY.tarnside, slept: true });
+  it("gives an open night within reach to the station", () => {
+    // The night of the 6th has no default here (the 5th is in the air), so the
+    // switch is what answers it; with a default it is the station's already.
+    const stranded = reviewDraft({
+      nights: {
+        ...draft.nights,
+        "2031-05-05": { assign: "flight", reason: "flight", suggestedStationKeys: [] },
+        "2031-05-06": { assign: "unknown", reason: "unknown", suggestedStationKeys: [] },
+      },
+    });
+    const next = applyEdit(stranded, initialReviewState(stranded), {
+      type: "toggleSlept",
+      stationKey: KEY.tarnside,
+      slept: true,
+    });
     expect(next.nights["2031-05-06"]).toBe(KEY.tarnside);
+  });
+
+  it("is accepted without change for a station the night already resolved to", () => {
+    const next = run({ type: "toggleSlept", stationKey: KEY.tarnside, slept: true });
+    expect(next).not.toBe(start);
+    expect(next.nights).toEqual(start.nights);
   });
 
   it("is accepted without change for a station that already sleeps", () => {

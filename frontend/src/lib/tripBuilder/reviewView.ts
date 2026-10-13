@@ -22,8 +22,14 @@ import type {
 } from "../../types/tripBuilder";
 import type { TourGeometry } from "../../types/tour";
 import type { ReviewArea, ReviewState } from "./draftEdits";
-import { nightFits } from "./nightRules";
-import { effectiveNights, planErrors, roadtripRowCount } from "./planRules";
+import {
+  effectiveNights,
+  nightFits,
+  planErrors,
+  resolvedNights,
+  roadtripRowCount,
+  stillOpenNights,
+} from "./planRules";
 import { locate, spanOf } from "./reviewRules";
 
 // ─── Days ────────────────────────────────────────────────────────────────────
@@ -68,29 +74,42 @@ export interface NightChoice {
   value: NightAssign;
   /** The station's title; null for the words home and unknown. */
   title: string | null;
-  /** The scan suggested it for this night. */
+  /**
+   * The app suggests it for this night: the scan's own suggestion, or the
+   * default an open night resolved to (`resolvedNights`). The chip marks such a
+   * choice "(suggested)", so a defaulted answer says what it is and invites the
+   * user to pick another.
+   */
   suggested: boolean;
 }
 
 /**
  * What a night may be answered: the places next to it, in its own area, then
- * home and unknown. The night's present answer is always among them, so the
- * choice never shows a value it cannot name.
+ * home and unknown. The night's present answer — the resolved one, so an open
+ * night shows the app's default — is always among them, so the choice never
+ * shows a value it cannot name. Choosing "unknown" on a night a default covers
+ * hands the night back to that default; a night nothing may hold keeps it.
  */
 export function nightChoices(draft: TripBuilderDraft, state: ReviewState, day: Day): NightChoice[] {
   const suggested = new Set(draft.nights[day]?.suggestedStationKeys ?? []);
+  const answers = resolvedNights(draft, state);
+  const defaulted = effectiveNights(state)[day] === NIGHT_UNKNOWN && answers[day] !== NIGHT_UNKNOWN;
   const places = state.areas
     .flatMap((area) => area.stations)
     .filter(
       (s) => (s.kind === "visit" || s.kind === "brief") && nightFits(draft, state, day, s.key)
     )
-    .map((s) => ({ value: s.key, title: s.title, suggested: suggested.has(s.key) }));
+    .map((s) => ({
+      value: s.key,
+      title: s.title,
+      suggested: suggested.has(s.key) || (defaulted && answers[day] === s.key),
+    }));
   const choices: NightChoice[] = [
     ...places,
     { value: NIGHT_HOME, title: null, suggested: false },
     { value: NIGHT_UNKNOWN, title: null, suggested: false },
   ];
-  const current = effectiveNights(state)[day];
+  const current = answers[day];
   if (
     current !== undefined &&
     current !== NIGHT_FLIGHT &&
@@ -114,7 +133,7 @@ export function placeNights(
 ): { byArea: Map<string, Day[]>; loose: Day[] } {
   const byArea = new Map<string, Day[]>();
   const loose: Day[] = [];
-  const nights = effectiveNights(state);
+  const nights = resolvedNights(draft, state);
   const saved = state.areas.filter((area) => area.as !== "skip");
   for (const day of Object.keys(nights).sort()) {
     const at = locate(state.areas, nights[day]);
@@ -130,8 +149,12 @@ export function placeNights(
   return { byArea, loose };
 }
 
-export function unknownNightCount(state: ReviewState): number {
-  return Object.values(effectiveNights(state)).filter((assign) => assign === NIGHT_UNKNOWN).length;
+/**
+ * The nights still open: no answer, no suggestion, no place before them. A
+ * night the app resolved to a default is answered, so it is not one of these.
+ */
+export function unknownNightCount(draft: TripBuilderDraft, state: ReviewState): number {
+  return stillOpenNights(draft, state).length;
 }
 
 // ─── What stops "Create trip" ────────────────────────────────────────────────
@@ -146,18 +169,26 @@ export type ReviewProblem =
  * refuse; the page says so first. For an existing trip a roadtrip that is
  * shorter than two rows may be one that is only updated, which the server
  * judges, so only a new trip is held to it here.
+ *
+ * The night plan is read as the commit will read it (every open night resolved
+ * to the app's default), so a night the app can answer never holds the trip
+ * back. What still does is a night NOTHING may hold — no suggestion and no
+ * place before it — and a plan `validateNightPlan` refuses outright (ruling
+ * 2026-10-13: that refusal survives, and only that one).
  */
 export function reviewProblems(draft: TripBuilderDraft, state: ReviewState): ReviewProblem[] {
   const problems: ReviewProblem[] = [];
   const isNew = draft.target.kind === "new";
   if (isNew && state.tripName.trim() === "") problems.push({ code: "blankTripName" });
-  const nights = effectiveNights(state);
+  const nights = resolvedNights(draft, state);
   for (const area of state.areas) {
     if (isNew && area.as === "roadtrip" && roadtripRowCount(area, nights) < 2) {
       problems.push({ code: "roadtripTooShort", areaKey: area.key });
     }
   }
-  if (planErrors(draft, state).length > 0) problems.push({ code: "nightPlanInvalid" });
+  if (stillOpenNights(draft, state).length > 0 || planErrors(draft, state).length > 0) {
+    problems.push({ code: "nightPlanInvalid" });
+  }
   return problems;
 }
 

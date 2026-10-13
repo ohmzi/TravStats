@@ -30,7 +30,7 @@ import { useConfirmDialog } from "../hooks/useConfirmDialog";
 import { useTranslation } from "../hooks/useTranslation";
 import { DETAIL_MAP_STICKY_TOP } from "../lib/detailChrome";
 import { useDisplayFormat } from "../lib/displayFormat";
-import { effectiveNights, sleptKeys } from "../lib/tripBuilder/planRules";
+import { resolvedNights, sleptKeys } from "../lib/tripBuilder/planRules";
 import {
   nightChoices,
   placeNights,
@@ -297,8 +297,8 @@ function ReviewScreen({
 
   const problems = reviewProblems(draft, state);
   const placed = placeNights(draft, state);
-  const slept = sleptKeys(state);
-  const answers = effectiveNights(state);
+  const slept = sleptKeys(draft, state);
+  const answers = resolvedNights(draft, state);
   const running = commit.kind === "running";
   // While a commit is in flight its key belongs to this draft: scanning again
   // would hand the key to another draft (and so a second trip), and leaving would
@@ -497,7 +497,7 @@ function ReviewScreen({
         draft={draft}
         tripName={state.tripName}
         countries={state.countries}
-        unknownNights={unknownNightCount(state)}
+        unknownNights={unknownNightCount(draft, state)}
         carried={session.carried}
         onTripName={(name) => edit({ type: "setTripName", name })}
         onCountries={(countries) => edit({ type: "setCountries", countries })}

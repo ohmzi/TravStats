@@ -32,7 +32,7 @@ function renderDay(day: DraftDay, night: string | null = null, onEdit = vi.fn())
       day={day}
       rows={rows}
       night={night}
-      slept={sleptKeys(state)}
+      slept={sleptKeys(draft, state)}
       onEdit={onEdit}
     />
   );

@@ -12,6 +12,7 @@ import {
   rowFactsFor,
   type StationRowFacts,
 } from "../../../lib/tripBuilder/existingReview";
+import { resolvedNights } from "../../../lib/tripBuilder/planRules";
 import type {
   AlbumSyncPreview,
   DraftStation,
@@ -89,8 +90,10 @@ export function ExistingDiffProvider({
   const value = useMemo((): ExistingDiffValue => {
     if (draft.target.kind !== "existing" || existing === null) return INACTIVE;
     const facts = new Map<string, StationRowFacts>();
+    // The rows the commit will write: every open night resolved to its default.
+    const nights = resolvedNights(draft, state);
     for (const area of state.areas) {
-      for (const [key, row] of rowFactsFor(area, state.nights)) facts.set(key, row);
+      for (const [key, row] of rowFactsFor(area, nights)) facts.set(key, row);
     }
     // Roadtrip areas follow the night answers; a stops area keeps the status the draft gave its stop.
     const live = new Set(

@@ -88,14 +88,43 @@ describe("buildCommitBody for a new trip", () => {
   it("sends the ticked flights and journeys, the nights and the album", () => {
     expect(body.flightIds).toEqual([FLIGHT_OUT]);
     expect(body.photoJourneyIds).toEqual([JOURNEY]);
+    // The open night of the 6th goes as the answer the app resolved it to (its
+    // suggestion, Tarnside); no `unknown` reaches the commit (ruling 2026-10-13).
     expect(body.nights).toEqual({
       "2031-05-02": KEY.northvale,
       "2031-05-03": KEY.northvaleAgain,
       "2031-05-04": "flight",
       "2031-05-05": KEY.southbridge,
-      "2031-05-06": "unknown",
+      "2031-05-06": KEY.tarnside,
     });
     expect(body.album).toEqual({ create: true, name: "Southern loop" });
+  });
+
+  it("sends the continuity default of an open night the scan gave no suggestion", () => {
+    const noSuggestion = reviewDraft({
+      nights: {
+        ...draft.nights,
+        "2031-05-06": { assign: "unknown", reason: "unknown", suggestedStationKeys: [] },
+      },
+    });
+    const state = initialReviewState(noSuggestion);
+    const body = buildCommitBody(noSuggestion, state, FORM, COMMIT_KEY);
+    expect(body.nights["2031-05-06"]).toBe(KEY.southbridge);
+    const included = body.areas.filter((a) => a.as !== "skip");
+    const areas: NightPlanArea[] = included.map((a) => ({
+      key: a.key,
+      startDay: noSuggestion.areas.find((d) => d.key === a.key)?.startDay ?? "",
+      endDay: noSuggestion.areas.find((d) => d.key === a.key)?.endDay ?? "",
+      stationKeys: a.stations.map((s) => s.key),
+    }));
+    expect(
+      validateNightPlan(
+        included.flatMap((a) => a.stations.map(toPlanStation)),
+        body.nights,
+        areas,
+        body.window
+      )
+    ).toEqual([]);
   });
 
   it("sends every area with one leg mode per pair of stations and the home flags its stations imply", () => {
@@ -166,7 +195,9 @@ describe("buildCommitBody after edits", () => {
       [KEY.southbridge],
     ]);
     expect(body.areas.map((a) => a.legModes)).toEqual([["road"], []]);
-    expect(body.nights["2031-05-06"]).toBe("unknown");
+    // Tarnside is gone; the open night of the 6th falls to the previous night's
+    // place (Southbridge) instead of going as unknown (ruling 2026-10-13).
+    expect(body.nights["2031-05-06"]).toBe(KEY.southbridge);
   });
 
   it("falls back to the trip's name for a blank album or area name", () => {

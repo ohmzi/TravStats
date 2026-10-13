@@ -22,8 +22,11 @@ interface ReviewNightChipProps {
 /**
  * Where the night after `day` was spent. A night in the air is a fact and
  * stays a fact; every other night is a choice among the places next to it, home
- * and unknown, with the scan's suggestion marked. An unknown night is drawn as
- * the open question it is: the builder never guesses (spec decision 11).
+ * and unknown, with the app's suggestion marked — the scan's own, or the
+ * default an open night resolved to (`resolvedNights`), so a night the app
+ * answered says so and invites another choice (owner ruling 2026-10-13). Only
+ * a night NOTHING may hold is drawn as `unknown`, the open question decision
+ * 11 describes.
  */
 export default function ReviewNightChip({
   day,

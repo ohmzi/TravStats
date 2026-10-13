@@ -379,12 +379,12 @@ describe("the review", () => {
     expect(await screen.findByTestId("map")).toHaveAttribute("data-stops", "6");
   });
 
-  it("draws every area, and the nights still open", async () => {
+  it("draws every area, with no night left open once the app's default answers it", async () => {
     await renderDraft();
     expect(document.querySelectorAll("[data-area]")).toHaveLength(2);
-    expect(
-      screen.getByText('tripBuilder:review.header.unknownNights {"count":1}')
-    ).toBeInTheDocument();
+    // The draft's open night of the 6th resolved to its suggestion (ruling 2026-10-13),
+    // so the header's still-open count has nothing to say.
+    expect(screen.queryByText(/unknownNights/)).not.toBeInTheDocument();
   });
 
   it("offers Create trip for a new trip", async () => {

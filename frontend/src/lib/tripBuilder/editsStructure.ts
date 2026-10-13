@@ -95,7 +95,7 @@ export function toggleSlept(
       nights: repointNights(state.nights, [edit.stationKey], NIGHT_UNKNOWN),
     });
   }
-  if (sleptKeys(state).has(edit.stationKey)) return accept(state, edit);
+  if (sleptKeys(draft, state).has(edit.stationKey)) return accept(state, edit);
   const day = sleepNight(draft, state, edit.stationKey);
   if (day === null) return state;
   return accept(state, edit, { nights: { ...state.nights, [day]: edit.stationKey } });
