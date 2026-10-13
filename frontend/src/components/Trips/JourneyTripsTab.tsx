@@ -3,7 +3,7 @@ import type { JSX } from "react";
 
 import { roadtripsApi } from "../../lib/api/roadtrips";
 import { logger } from "../../lib/logger";
-import { roadtripPhase, dayKey } from "../../lib/roadtrip/roadtripView";
+import { roadtripPhase, travelOrder } from "../../lib/roadtrip/roadtripView";
 import { todayIn } from "../../shared/time";
 import { useTodayZone } from "../../hooks/useTodayZone";
 import { useEnabledDomains } from "../../hooks/useEnabledDomains";
@@ -90,18 +90,9 @@ export default function JourneyTripsTab({
     void load();
   }, [load]);
 
-  // Travel order, the journey's own chronology; an undated trip goes last.
-  const sorted = useMemo(() => {
-    if (rows === null) return null;
-    return [...rows].sort((a, b) => {
-      const ak = dayKey(a.startDate) ?? "";
-      const bk = dayKey(b.startDate) ?? "";
-      if (ak === bk) return 0;
-      if (ak === "") return 1;
-      if (bk === "") return -1;
-      return ak < bk ? -1 : 1;
-    });
-  }, [rows]);
+  // Travel order, the journey's own chronology (`travelOrder` — the one fold
+  // the Overview's chain sorts its nodes by too, so the surfaces agree).
+  const sorted = useMemo(() => (rows === null ? null : travelOrder(rows)), [rows]);
 
   if (loadError) {
     return (

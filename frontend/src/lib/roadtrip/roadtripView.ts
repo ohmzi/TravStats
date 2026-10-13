@@ -410,3 +410,28 @@ export function groupRoadtrips<T extends { startDate: string | null; endDate: st
     }));
   return groups;
 }
+
+/**
+ * Rows in travel order: by their own start day, the undated last. The
+ * journey's Trips tab draws its cards in this order and the Overview's chain
+ * its nodes (`JourneyTripsTab`, `JourneyTripsChain`) — one fold for both, so
+ * the journey's chronology cannot be spelled two ways on the two surfaces.
+ * The list endpoint's order is not travel order (on the live "Sumayya's
+ * wedding" it put the later, later-created trip first), and `startDate` is
+ * the effective span the rows carry.
+ *
+ * A same-day tie goes by `id`: a deterministic order the reader keeps across
+ * re-reads of the list, where the endpoint's own row order is not promised.
+ */
+export function travelOrder<T extends { id: string; startDate: string | null }>(
+  rows: readonly T[]
+): T[] {
+  return [...rows].sort((a, b) => {
+    const ak = dayKey(a.startDate) ?? "";
+    const bk = dayKey(b.startDate) ?? "";
+    if (ak === bk) return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    if (ak === "") return 1;
+    if (bk === "") return -1;
+    return ak < bk ? -1 : 1;
+  });
+}

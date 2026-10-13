@@ -104,6 +104,73 @@ describe("JourneyTripsChain", () => {
     expect(mountain?.textContent).toContain("common:summary.cardDays");
   });
 
+  it("orders the nodes by travel, not by the order the list arrives in", () => {
+    // The live "Sumayya's wedding" shape, measured 2026-10-13: the trip
+    // created last — Karachi, 02.–17.11. — arrives from the list ahead of the
+    // earlier Istanbul (28.10.–01.11.), and the chain drew it first. The
+    // chain is the journey's chronology, so the earlier trip leads however
+    // the rows came back; the Trips tab's cards sort by the same rule, and
+    // the two surfaces cannot disagree.
+    vi.mocked(useTripRoadtrips).mockReturnValue({
+      rows: [
+        summary({
+          id: "khi",
+          name: "Sumayya's wedding · Karachi",
+          startDate: "2031-11-02T00:00:00.000Z",
+          endDate: "2031-11-17T00:00:00.000Z",
+        }),
+        summary({
+          id: "ist",
+          name: "Sumayya's wedding · Istanbul",
+          startDate: "2031-10-28T00:00:00.000Z",
+          endDate: "2031-11-01T00:00:00.000Z",
+        }),
+      ],
+      settled: true,
+    });
+    renderChain();
+
+    const nodes = screen.getAllByRole("link");
+    expect(nodes.map((n) => n.getAttribute("href"))).toEqual(["/roadtrips/ist", "/roadtrips/khi"]);
+    expect(nodes[0].textContent).toContain("Istanbul");
+    expect(nodes[1].textContent).toContain("Karachi");
+  });
+
+  it("keeps an undated trip last, after every dated one", () => {
+    // A trip with no start day has no place in a chronology; the list hands
+    // it over first, and it still waits at the end of the chain.
+    vi.mocked(useTripRoadtrips).mockReturnValue({
+      rows: [
+        summary({ id: "x", name: "Allein unterwegs" }),
+        summary({
+          id: "a",
+          name: "Anreise",
+          startDate: "2031-09-16T00:00:00.000Z",
+          endDate: "2031-09-17T00:00:00.000Z",
+        }),
+      ],
+      settled: true,
+    });
+    renderChain();
+
+    const nodes = screen.getAllByRole("link");
+    expect(nodes.map((n) => n.getAttribute("href"))).toEqual(["/roadtrips/a", "/roadtrips/x"]);
+  });
+
+  it("breaks a same-day tie by id, so a re-read cannot reshuffle the nodes", () => {
+    vi.mocked(useTripRoadtrips).mockReturnValue({
+      rows: [
+        summary({ id: "r2", name: "Second", startDate: "2031-05-02T00:00:00.000Z" }),
+        summary({ id: "r1", name: "First", startDate: "2031-05-02T00:00:00.000Z" }),
+      ],
+      settled: true,
+    });
+    renderChain();
+
+    const nodes = screen.getAllByRole("link");
+    expect(nodes.map((n) => n.getAttribute("href"))).toEqual(["/roadtrips/r1", "/roadtrips/r2"]);
+  });
+
   it("counts the days the way the figures band does, ≈ and all", () => {
     // An end date is missing: no span to count, so the fold falls back to the
     // stored nights + 1 and keeps the "≈" while those nights are only a lower

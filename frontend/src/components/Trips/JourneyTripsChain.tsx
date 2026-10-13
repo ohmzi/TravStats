@@ -1,9 +1,10 @@
+import { useMemo } from "react";
 import type { JSX } from "react";
 import { Link } from "react-router-dom";
 
 import { useTranslation } from "../../hooks/useTranslation";
 import { useEnabledDomains } from "../../hooks/useEnabledDomains";
-import { roadtripCityOf, roadtripDays } from "../../lib/roadtrip/roadtripView";
+import { roadtripCityOf, roadtripDays, travelOrder } from "../../lib/roadtrip/roadtripView";
 import { useTripRoadtrips } from "../Roadtrips/useTripRoadtrips";
 
 /**
@@ -21,16 +22,22 @@ import { useTripRoadtrips } from "../Roadtrips/useTripRoadtrips";
  * the span is approximate), so a node cannot put two day counts under the one
  * word.
  *
- * The rows come from the roadtrips list (`useTripRoadtrips`). A finished read
- * that found no trips says so; while the read is still in flight, after it
- * failed, or with the domain off, the chain draws nothing rather than assert
- * an empty journey — "no trips" is a claim only a finished read can make.
+ * The rows come from the roadtrips list (`useTripRoadtrips`) and draw in
+ * TRAVEL order, not the order the endpoint answers in: the shared
+ * `travelOrder` fold — the same one behind the Trips tab's cards — sorts by
+ * the trip's own start day, undated last, so the two surfaces cannot disagree
+ * on a journey's chronology (the live "Sumayya's wedding" drew the later,
+ * later-created Karachi above the earlier Istanbul). A finished read that
+ * found no trips says so; while the read is still in flight, after it failed,
+ * or with the domain off, the chain draws nothing rather than assert an empty
+ * journey — "no trips" is a claim only a finished read can make.
  */
 export default function JourneyTripsChain({ tripId }: { tripId: string }): JSX.Element | null {
   const { t, i18n } = useTranslation(["trips", "roadtrips", "common"]);
   const { isEnabled } = useEnabledDomains();
   const nf = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 });
-  const { rows: trips, settled } = useTripRoadtrips(tripId, isEnabled("roadtrip"));
+  const { rows, settled } = useTripRoadtrips(tripId, isEnabled("roadtrip"));
+  const trips = useMemo(() => travelOrder(rows), [rows]);
 
   if (!settled) {
     return null;
