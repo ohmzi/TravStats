@@ -57,13 +57,6 @@ export default function TripModal({
 
   const [tab, setTab] = useState<ModalTab>("general");
 
-  // Read from the entries the trip detail already carries; a trip from a list
-  // endpoint has none, and then there is simply nothing to offer. Computed
-  // BEFORE the form core: the date boxes open at the span where a side has no
-  // stored day (`useTripForm`), so the offer below and the boxes read the
-  // same number.
-  const entrySpan = trip ? tripEntrySpan(trip) : null;
-
   // The form itself — its fields, its seeding, its cover buffer, its refusals,
   // its payloads and its edit-save sequence — is shared with the edit page
   // (`useTripForm`), so the two surfaces of the trip form cannot drift. This
@@ -109,11 +102,16 @@ export default function TripModal({
     createInput,
     uploadCoverIfPicked,
     save,
-  } = useTripForm(trip, entrySpan);
+  } = useTripForm(trip);
 
   // Offered under the two place labels, never written into them: the labels
   // stay the user's free text.
   const placeSuggestions = useTripEntrySuggestions(trip?.id ?? null);
+  // Read from the entries the trip detail already carries; a trip from a list
+  // endpoint has none, and then there is simply nothing to offer. The offer's
+  // number only — the date boxes open at the journey's served effective span
+  // (`useTripForm`), never at this.
+  const entrySpan = trip ? tripEntrySpan(trip) : null;
   const offerEntrySpan =
     entrySpan !== null && (entrySpan.start !== startDate || entrySpan.end !== endDate);
 

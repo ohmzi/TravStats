@@ -56,11 +56,6 @@ export default function TripEditPage(): JSX.Element {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const phone = useIsPhoneViewport();
 
-  // The span the journey's entries cover, for the form's date boxes to open
-  // at (and for the "Use the span of the entries" offer below) — the same
-  // number both read.
-  const entrySpan = trip ? tripEntrySpan(trip) : null;
-
   const {
     name,
     setName,
@@ -95,9 +90,15 @@ export default function TripEditPage(): JSX.Element {
     showNameMissing,
     datesOutOfOrder,
     save,
-  } = useTripForm(trip, entrySpan);
+  } = useTripForm(trip);
 
   const placeSuggestions = useTripEntrySuggestions(trip?.id ?? null);
+  // The span the journey's visible entries cover — the number the "Use the
+  // span of the entries" offer below shows and copies in. NOT a seeding rule:
+  // the date boxes open at the journey's served effective span (`useTripForm`
+  // reads it through `tripStart`/`tripEnd`), so the two can never disagree
+  // about what the boxes hold.
+  const entrySpan = trip ? tripEntrySpan(trip) : null;
   const offerEntrySpan =
     entrySpan !== null && (entrySpan.start !== startDate || entrySpan.end !== endDate);
 

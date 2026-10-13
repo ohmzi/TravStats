@@ -3,13 +3,13 @@ import { useEffect, useRef, useState, type ChangeEvent, type RefObject } from "r
 import { useTranslation } from "../../hooks/useTranslation";
 import { tripsApi } from "../../lib/api";
 import type { CreateTripInput, UpdateTripInput } from "../../lib/api/trips";
+import { tripEnd, tripStart } from "../../lib/entityTimes";
 import { saveErrorMessage } from "../../lib/saveErrorMessage";
 import { TRIP_COLORS as PALETTE } from "../../lib/tripColors";
-import type { DaySpan } from "../../lib/tripEntrySpan";
 import { useToastStore } from "../../store/toastStore";
 import type { Trip, TripCategory } from "../../types";
 import { offerResync } from "./tripBuilder/offerResync";
-import { fromDateInput, toDateInput } from "./tripFormParts";
+import { fromDateInput } from "./tripFormParts";
 
 /**
  * The journey form's core, shared by its two surfaces — the modal
@@ -22,11 +22,15 @@ import { fromDateInput, toDateInput } from "./tripFormParts";
  * The modal's create mode reads the same state and `createInput`, and wraps
  * its own write in the Immich-scan hand-off; the page owns loading and Delete.
  *
- * `entrySpan` is the span the journey's own entries cover (`tripEntrySpan`),
- * the same number both surfaces already offer through "Use the span of the
- * entries": the date boxes open at the stored days, or at the span's where a
- * side has no day of its own. Callers that cannot compute it (a create form)
- * leave it out, and the boxes open at the stored days alone.
+ * The date boxes open at the journey's EFFECTIVE span exactly as the server
+ * serves it (`services/trips/journeySpan.ts` on the DTO: a stored day on its
+ * own side, the entries' days — flights, cruises, stays — answering the rest),
+ * read here through `tripStart`/`tripEnd` (`lib/entityTimes`), the same reader
+ * the journey's cards and its Dates cell use. `times` (ADR 0002) is the
+ * carrier that matters: a stored day can live in `startDay` alone, with the
+ * legacy anchor null. This core does NOT derive a span of its own — the
+ * entries' span is computed per surface for its "Use the span of the entries"
+ * offer only, and it never seeds a box, so only the served answer fills them.
  */
 export interface TripForm {
   name: string;
@@ -77,7 +81,7 @@ export interface TripForm {
   save: () => Promise<Trip | null>;
 }
 
-export function useTripForm(trip: Trip | null, entrySpan?: DaySpan | null): TripForm {
+export function useTripForm(trip: Trip | null): TripForm {
   const { t } = useTranslation(["trips", "tripBuilder"]);
   const addToast = useToastStore((s) => s.addToast);
 
@@ -85,20 +89,15 @@ export function useTripForm(trip: Trip | null, entrySpan?: DaySpan | null): Trip
   const [description, setDescription] = useState(trip?.description ?? "");
   const [color, setColor] = useState(trip?.color ?? PALETTE[0]);
   const [category, setCategory] = useState<TripCategory | "">(trip?.category ?? "");
-  // The dates open at the journey's EFFECTIVE days (owner report 2026-10-12:
-  // "after changing date theres no way to save" — the boxes themselves opened
-  // empty for a journey with no stored days though its entries showed a span,
-  // leaving only the "Use the span of the entries" offer). Stored wins on its
-  // own side; a side without one opens at the entries' span, the trip editor's
-  // rule (`RoadtripDatesSection`, commit 571736068). A box the reader CLEARS
-  // hands that side back — its empty day travels as null, never as the span's,
-  // and nothing re-derives it while the trip stands.
-  const [startDate, setStartDate] = useState(
-    toDateInput(trip?.startDate ?? null) || (entrySpan?.start ?? "")
-  );
-  const [endDate, setEndDate] = useState(
-    toDateInput(trip?.endDate ?? null) || (entrySpan?.end ?? "")
-  );
+  // The dates open at the journey's EFFECTIVE span, the one answer the server
+  // serves (owner report 2026-10-12: "after changing date theres no way to
+  // save" — the boxes opened EMPTY for a journey with no stored days though
+  // its flights gave a span). `tripStart`/`tripEnd` read it where every other
+  // surface does, `times` first. A box the reader CLEARS hands that side back:
+  // its empty day travels as null, never as the day it opened with, and
+  // nothing re-derives it while the trip stands.
+  const [startDate, setStartDate] = useState(trip ? (tripStart(trip)?.date ?? "") : "");
+  const [endDate, setEndDate] = useState(trip ? (tripEnd(trip)?.date ?? "") : "");
   const [originLabel, setOriginLabel] = useState(trip?.originLabel ?? "");
   const [destinationLabel, setDestinationLabel] = useState(trip?.destinationLabel ?? "");
   const [tags, setTags] = useState<string[]>(trip?.tags ?? []);
@@ -122,19 +121,15 @@ export function useTripForm(trip: Trip | null, entrySpan?: DaySpan | null): Trip
 
   // Seed the form from the loaded trip — the page loads it after the first
   // render; the modal hands it in already loaded, and this repeats its values.
-  // The dates take the same stored-wins-else-span rule as the initial state
-  // (a fresh trip carries the entries' span with it, so the two agree). The
-  // span is deliberately NOT a dependency: callers derive it per render, and
-  // an identity change would re-seed — and so hand a cleared side back — on
-  // every keystroke.
+  // The dates take the same served-span read as the initial state.
   useEffect(() => {
     if (!trip) return;
     setName(trip.name);
     setDescription(trip.description ?? "");
     setColor(trip.color);
     setCategory(trip.category ?? "");
-    setStartDate(toDateInput(trip.startDate) || (entrySpan?.start ?? ""));
-    setEndDate(toDateInput(trip.endDate) || (entrySpan?.end ?? ""));
+    setStartDate(tripStart(trip)?.date ?? "");
+    setEndDate(tripEnd(trip)?.date ?? "");
     setOriginLabel(trip.originLabel ?? "");
     setDestinationLabel(trip.destinationLabel ?? "");
     setTags(trip.tags);

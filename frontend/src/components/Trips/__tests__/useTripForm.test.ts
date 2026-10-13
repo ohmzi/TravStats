@@ -72,20 +72,48 @@ describe("useTripForm — the shared journey form core", () => {
     expect(result.current.companions).toEqual([]);
   });
 
-  it("opens its date boxes at the entries' span where the journey stores no day", () => {
-    const undated = { ...trip, startDate: null, endDate: null } as Trip;
-    const { result } = renderHook(() =>
-      useTripForm(undated, { start: "2031-04-30", end: "2031-05-07" })
-    );
+  it("opens its date boxes at the journey's served span", () => {
+    // The server's effective span (services/trips/journeySpan.ts) is served on
+    // `times` (ADR 0002), and a stored day the row carries in `startDay` alone
+    // reaches the page ONLY there — the legacy anchor stays null. One rule,
+    // read through the app's one reader (`entityTimes`, as the band and the
+    // cards read it); the entries' span is not a second seeding rule.
+    const served = {
+      ...trip,
+      startDate: null,
+      times: {
+        start: { date: "2031-04-30", zone: null, precision: "day" },
+        end: { date: "2031-05-07", zone: "Europe/Berlin", precision: "day" },
+      },
+    } as unknown as Trip;
+    const { result } = renderHook(() => useTripForm(served));
 
     expect(result.current.startDate).toBe("2031-04-30");
     expect(result.current.endDate).toBe("2031-05-07");
   });
 
-  it("lets a stored day win on its own side of the span", () => {
-    const { result } = renderHook(() =>
-      useTripForm(trip, { start: "2031-01-01", end: "2031-01-09" })
-    );
+  it("reads a served day by the time model's rule, not the legacy anchor's UTC slice", () => {
+    // A legacy day column written on a host east of UTC (22:00Z) is the NEXT
+    // day (`legacyDayOf`, the backfill's own rule) — a day a naive UTC slice
+    // of the anchor would open the box a day early. The served `times` holds
+    // it, and an untouched save must not "move" the journey to the other day.
+    const shifted = {
+      ...trip,
+      startDate: "2031-05-02T22:00:00.000Z",
+      times: { start: { date: "2031-05-03", zone: null, precision: "day" } },
+    } as unknown as Trip;
+    const { result } = renderHook(() => useTripForm(shifted));
+
+    expect(result.current.startDate).toBe("2031-05-03");
+  });
+
+  it("seeds the boxes when the trip arrives after the first render (the page's load)", () => {
+    const { result, rerender } = renderHook(({ t }: { t: Trip | null }) => useTripForm(t), {
+      initialProps: { t: null as Trip | null },
+    });
+    expect(result.current.startDate).toBe("");
+
+    rerender({ t: trip });
 
     expect(result.current.startDate).toBe("2031-05-02");
     expect(result.current.endDate).toBe("2031-05-09");

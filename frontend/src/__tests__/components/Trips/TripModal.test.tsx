@@ -223,15 +223,31 @@ describe("TripModal", () => {
     expect(screen.queryByText("trips:modal.useEntrySpan")).not.toBeInTheDocument();
   });
 
-  it("opens the date boxes at the entries' span when the journey stores no day", () => {
-    // The same rule as the edit page's, from the same core (`useTripForm`,
-    // commit 571736068's mirrored rule): the boxes open at the days the
-    // journey already shows — the stored day where a side has one, the
-    // entries' span otherwise.
-    const undated = {
+  it("opens the date boxes at the journey's served span", async () => {
+    // The trip as the server serves it (services/trips/journeySpan.ts): no
+    // stored days, `times` and the anchors carrying the span its flights and
+    // stay give. The boxes open at that one answer — the same rule the edit
+    // page gets from the same core (`useTripForm`) — and the offer to copy
+    // the entries' span in is gone because they already hold it.
+    vi.mocked(tripsApi.update).mockResolvedValue(existingTrip);
+    const served = {
       ...existingTrip,
-      startDate: null,
-      endDate: null,
+      startDate: "2025-05-01T00:00:00.000Z",
+      endDate: "2025-05-07T00:00:00.000Z",
+      times: {
+        start: { date: "2025-05-01", zone: null, precision: "day" },
+        end: { date: "2025-05-07", zone: null, precision: "day" },
+      },
+      flights: [
+        {
+          id: "f1",
+          status: "flown",
+          departureTime: "2025-05-01T08:00:00Z",
+          depTimezone: "Europe/Berlin",
+          arrivalTime: "2025-05-01T10:00:00Z",
+          arrTimezone: "Europe/Berlin",
+        },
+      ],
       lodgingStays: [
         {
           id: "s1",
@@ -241,12 +257,19 @@ describe("TripModal", () => {
         },
       ],
     } as unknown as Trip;
-    render(<TripModal trip={undated} onClose={vi.fn()} onSaved={vi.fn()} />);
+    render(<TripModal trip={served} onClose={vi.fn()} onSaved={vi.fn()} />);
 
     const dates = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="date"]'));
     expect(dates[0].value).toBe("2025-05-01");
     expect(dates[1].value).toBe("2025-05-07");
-    // Both boxes hold the span, so the offer to copy it in is gone.
     expect(screen.queryByText("trips:modal.useEntrySpan")).not.toBeInTheDocument();
+
+    // A cleared side travels as null — never as the day it opened with.
+    await userEvent.clear(dates[0]);
+    await userEvent.click(screen.getByText("trips:modal.save"));
+
+    await waitFor(() => expect(tripsApi.update).toHaveBeenCalled());
+    const calls = vi.mocked(tripsApi.update).mock.calls;
+    expect(calls[calls.length - 1][1]).toMatchObject({ startDate: null, endDate: "2025-05-07" });
   });
 });

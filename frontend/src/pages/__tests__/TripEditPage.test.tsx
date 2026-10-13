@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
 import type { Trip } from "../../types";
+import { tripEntrySpan } from "../../lib/tripEntrySpan";
 
 /**
  * The journey's edit page (spec 2026-10-12 §4): the modal's fields as page
@@ -202,7 +203,7 @@ describe("TripEditPage — the journey's form", () => {
   });
 });
 
-describe("TripEditPage — the dates open at the journey's effective span", () => {
+describe("TripEditPage — the date boxes open at the journey's one served span", () => {
   beforeEach(() => {
     mocks.getById.mockReset();
     mocks.update.mockReset().mockResolvedValue(trip);
@@ -211,9 +212,21 @@ describe("TripEditPage — the dates open at the journey's effective span", () =
     mocks.addToast.mockReset();
   });
 
-  // A flight-only journey as GET /trips/:id now serves it (owner 2026-10-13):
-  // no stored days, and `startDate`/`endDate`/`times` carrying the span its
-  // flights give — a 23:30 New York departure is the evening of the 20th.
+  // A flight-only journey as GET /trips/:id serves it (owner 2026-10-13): no
+  // stored days, no other entries, and the flights' days — each read on the
+  // clock at its own airport — served as `times` (ADR 0002) with the legacy
+  // anchors beside them. The backend half (the served span IS 2020-11-20 →
+  // 2020-11-28, nothing written to the row) is pinned in
+  // `backend/src/routes/__tests__/trips.journeySpan.test.ts`; this is its
+  // consumer half. A 23:30 New York departure is the evening of the 20th.
+  const outbound = {
+    id: "f1",
+    status: "flown",
+    departureTime: "2020-11-21T04:30:00Z",
+    depTimezone: "America/New_York",
+    arrivalTime: "2020-11-21T12:00:00Z",
+    arrTimezone: "Europe/Berlin",
+  };
   const flightOnly = {
     ...trip,
     name: "NYC 2020",
@@ -226,22 +239,28 @@ describe("TripEditPage — the dates open at the journey's effective span", () =
       end: { date: "2020-11-28", zone: "America/New_York", precision: "day" },
     },
     flights: [
+      outbound,
       {
-        id: "f1",
+        id: "f2",
         status: "flown",
-        departureTime: "2020-11-21T04:30:00Z",
-        arrivalTime: "2020-11-21T12:00:00Z",
+        departureTime: "2020-11-28T17:40:00Z",
+        depTimezone: "Europe/Berlin",
+        arrivalTime: "2020-11-28T23:30:00Z",
+        arrTimezone: "America/New_York",
       },
     ],
   } as unknown as Trip;
 
-  it("prefills the inputs from the served span, and an untouched save makes it the journey's own", async () => {
+  it("opens at the served span of a flight-only journey — the NYC shape, end to end", async () => {
     mocks.getById.mockResolvedValue(flightOnly);
     renderPage();
 
     await screen.findByDisplayValue("NYC 2020");
     await waitFor(() => expect(dateInputs()[0].value).toBe("2020-11-20"));
     expect(dateInputs()[1].value).toBe("2020-11-28");
+    // Here the served span IS the entries' span, so the offer to copy the
+    // latter in has nothing to say.
+    expect(screen.queryByText("trips:modal.useEntrySpan")).toBeNull();
 
     // The trip editor's rule, mirrored (commit 571736068): saving the
     // untouched, pre-filled form persists those dates as the journey's own.
@@ -269,6 +288,81 @@ describe("TripEditPage — the dates open at the journey's effective span", () =
     await screen.findByDisplayValue("NYC 2020");
     await waitFor(() => expect(dateInputs()[0].value).toBe("2020-11-19"));
     expect(dateInputs()[1].value).toBe("2020-11-28");
+  });
+
+  it("opens at the served day the legacy anchors do not carry", async () => {
+    // A stored day the row keeps in `startDay` alone: `withJourneySpan`
+    // leaves the legacy anchor untouched (null here) and the day travels on
+    // `times` — the name every other reader already uses. Reading the anchors
+    // alone would open the box empty, and a client-side re-derivation would
+    // open it at the entries' span instead (the 20th), silently dropping the
+    // day the journey stored.
+    mocks.getById.mockResolvedValue({
+      ...flightOnly,
+      startDate: null,
+      startDay: "2020-11-19T00:00:00.000Z",
+      times: {
+        ...flightOnly.times,
+        start: { date: "2020-11-19", zone: null, precision: "day" },
+      },
+    } as unknown as Trip);
+    renderPage();
+
+    await screen.findByDisplayValue("NYC 2020");
+    await waitFor(() => expect(dateInputs()[0].value).toBe("2020-11-19"));
+    expect(dateInputs()[1].value).toBe("2020-11-28");
+  });
+
+  it("opens at the flights-inclusive served span, which the entries-only client span would get wrong", async () => {
+    // The constructed disagreement: the payload's flight rows are the legacy
+    // zone-less shape, so the client's `tripEntrySpan` — what the offer below
+    // reads — can only see the UTC day, a day late and a week short of the
+    // days the journey's flights really cover. The boxes take the SERVED span
+    // (read on each airport's clock, over the whole flight set); the client
+    // span stays what it is for, the offer's number.
+    const zoneLess = {
+      ...flightOnly,
+      flights: [
+        {
+          id: outbound.id,
+          status: outbound.status,
+          departureTime: outbound.departureTime,
+          arrivalTime: outbound.arrivalTime,
+        },
+      ],
+    } as unknown as Trip;
+    expect(tripEntrySpan(zoneLess)).toEqual({ start: "2020-11-21", end: "2020-11-21" });
+
+    mocks.getById.mockResolvedValue(zoneLess);
+    renderPage();
+
+    await screen.findByDisplayValue("NYC 2020");
+    await waitFor(() => expect(dateInputs()[0].value).toBe("2020-11-20"));
+    expect(dateInputs()[1].value).toBe("2020-11-28");
+    // The client span is still what the offer is built from — deliberately,
+    // and it never seeds a box.
+    expect(screen.getByText("trips:modal.useEntrySpan")).toBeInTheDocument();
+  });
+
+  it("sends null for a pre-filled side the reader clears, whatever it opened with", async () => {
+    mocks.getById.mockResolvedValue(flightOnly);
+    renderPage();
+
+    await screen.findByDisplayValue("NYC 2020");
+    await waitFor(() => expect(dateInputs()[0].value).toBe("2020-11-20"));
+
+    fireEvent.change(dateInputs()[0], { target: { value: "" } });
+    fireEvent.change(dateInputs()[1], { target: { value: "" } });
+    save();
+
+    await waitFor(() => expect(mocks.update).toHaveBeenCalled());
+    // A cleared side hands itself back to the journey's fallback: it travels
+    // as null, never as the day the box was pre-filled with, and nothing
+    // re-derives it while the trip stands.
+    expect(mocks.update).toHaveBeenCalledWith(
+      "t1",
+      expect.objectContaining({ startDate: null, endDate: null })
+    );
   });
 });
 
@@ -300,82 +394,6 @@ describe("TripEditPage — the two sections the header loses", () => {
     await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith("t1"));
     expect(mocks.addToast).toHaveBeenCalledWith("success", "trips:toasts.deleted");
     await waitFor(() => expect(screen.getByTestId("where")).toHaveTextContent(/^\/trips$/));
-  });
-});
-
-describe("TripEditPage — the dates open at the entries' span", () => {
-  // A journey that stores no day of its own but whose entries give one — a
-  // 2031-05-01 → 2031-05-07 stay (the shape `tripEntrySpan` reads, and the
-  // shape the modal's own "Use the span of the entries" offer is built
-  // from). The boxes opened empty for exactly this journey until now.
-  const entrySpanTrip = {
-    ...trip,
-    name: "Entry-span journey",
-    startDate: null,
-    endDate: null,
-    lodgingStays: [
-      {
-        id: "s1",
-        status: "completed",
-        checkIn: "2031-05-01T00:00:00Z",
-        checkOut: "2031-05-07T00:00:00Z",
-      },
-    ],
-  } as unknown as Trip;
-
-  beforeEach(() => {
-    mocks.getById.mockReset().mockResolvedValue(entrySpanTrip);
-    mocks.update.mockReset().mockResolvedValue(entrySpanTrip);
-    mocks.uploadCover.mockReset();
-    mocks.remove.mockReset().mockResolvedValue(undefined);
-    mocks.addToast.mockReset();
-  });
-
-  it("pre-fills both boxes from the entries' span when no day is stored", async () => {
-    renderPage();
-
-    await screen.findByDisplayValue("Entry-span journey");
-    await waitFor(() => expect(dateInputs()[0].value).toBe("2031-05-01"));
-    expect(dateInputs()[1].value).toBe("2031-05-07");
-    // The numbers are in the boxes now, so the offer that would copy them in
-    // is gone — the fields already hold what it was offering.
-    expect(screen.queryByText("trips:modal.useEntrySpan")).toBeNull();
-  });
-
-  it("keeps a stored day on its own side, the entries' span answering the other", async () => {
-    mocks.getById.mockResolvedValue({
-      ...entrySpanTrip,
-      startDate: "2031-04-30T00:00:00.000Z",
-    } as unknown as Trip);
-    renderPage();
-
-    await screen.findByDisplayValue("Entry-span journey");
-    await waitFor(() => expect(dateInputs()[0].value).toBe("2031-04-30"));
-    expect(dateInputs()[1].value).toBe("2031-05-07");
-  });
-
-  it("sends null for a pre-filled side the reader clears, whatever it opened with", async () => {
-    // One side opened from a stored day, the other from the entries' span:
-    // clearing either hands that side back to the entries — the payload
-    // carries null, never the day the box was pre-filled with.
-    mocks.getById.mockResolvedValue({
-      ...entrySpanTrip,
-      startDate: "2031-04-30T00:00:00.000Z",
-    } as unknown as Trip);
-    renderPage();
-
-    await screen.findByDisplayValue("Entry-span journey");
-    await waitFor(() => expect(dateInputs()[0].value).toBe("2031-04-30"));
-
-    fireEvent.change(dateInputs()[0], { target: { value: "" } });
-    fireEvent.change(dateInputs()[1], { target: { value: "" } });
-    save();
-
-    await waitFor(() => expect(mocks.update).toHaveBeenCalled());
-    expect(mocks.update).toHaveBeenCalledWith(
-      "t1",
-      expect.objectContaining({ startDate: null, endDate: null })
-    );
   });
 });
 
