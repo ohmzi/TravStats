@@ -47,7 +47,7 @@ import {
   FX,
   type ExistingFixture,
 } from "./existingDb";
-import { area, derivedStations, draft, K } from "./existingDraftFixture";
+import { area, derivedStation, derivedStations, draft, K } from "./existingDraftFixture";
 
 const mockDomains = loadVisibleDomains as jest.Mock;
 const mockPreflight = preflightAlbum as jest.Mock;
@@ -595,6 +595,147 @@ describe("a route-scoped commit", () => {
         },
       });
     }
+  });
+
+  it("writes a split stay's places into the stay's own roadtrip", async () => {
+    // The owner's live shape (2026-10-13, "Sumayya's wedding"): the trip-side
+    // Re-sync of a long stay whose scan now derives several places — the city,
+    // the place 33 km out, the city again. The stored stay's one station
+    // matches the city's first run (its span adopted, as every matched
+    // station's is), and the other two are written beside it, so the trip is
+    // no longer one point.
+    const VASTRA = { lat: 10.0, lon: 100.0 };
+    const COVE = { lat: 10.3, lon: 100.0 };
+    const stations = [
+      derivedStation("stay-city", "Vastra", VASTRA, "2031-05-02", "2031-05-05"),
+      derivedStation("stay-cove", "Vastra Cove", COVE, "2031-05-05", "2031-05-05"),
+      derivedStation("stay-city-2", "Vastra", VASTRA, "2031-05-06", "2031-05-08"),
+    ];
+    const nightBy = (assign: string) => ({
+      assign,
+      reason: "lastPhoto" as const,
+      suggestedStationKeys: [],
+    });
+    const nights = {
+      "2031-05-02": nightBy("stay-city"),
+      "2031-05-03": nightBy("stay-city"),
+      "2031-05-04": nightBy("stay-city"),
+      "2031-05-05": nightBy("stay-cove"),
+      "2031-05-06": nightBy("stay-city-2"),
+      "2031-05-07": nightBy("stay-city-2"),
+      "2031-05-08": nightBy("stay-city-2"),
+    };
+
+    await withDecoyRoute(
+      "Vastra stay",
+      { title: "Vastra", at: VASTRA, startDay: "2031-05-02", endDay: "2031-05-08" },
+      async (stay) => {
+        const state = await loadExistingState(fx.userId, fx.tripId);
+        const scanned = draft(fx.tripId, [area({ stations })], { nights });
+        const { dto, existing } = annotateDraftForExisting(scanned, state, new Map(), {
+          tripId: fx.tripId,
+          routeId: stay.routeId,
+        });
+
+        // The city's first run matches the stored stay (its span adopted), and
+        // the place out of town and the city's later run stand as new.
+        expect(
+          dto.areas[0].stations.map((s) => [
+            s.title,
+            s.firstDay,
+            s.lastDay,
+            s.existingId === undefined,
+          ])
+        ).toEqual([
+          ["Vastra", "2031-05-02", "2031-05-08", false],
+          ["Vastra Cove", "2031-05-05", "2031-05-05", true],
+          ["Vastra", "2031-05-06", "2031-05-08", true],
+        ]);
+
+        const stored: StoredDraft = {
+          id: dto.id,
+          ownerId: fx.userId,
+          createdAt: 0,
+          touchedAt: 0,
+          status: "ready",
+          input: {
+            name: "Vastra stay",
+            startDay: "2031-05-02",
+            endDay: "2031-05-09",
+            inspect: true,
+            createAlbum: true,
+            target: { kind: "existing", tripId: fx.tripId, routeId: stay.routeId },
+          },
+          immichUserId: "immich-user-1",
+          connSource: "user",
+          dto,
+          previewAssetIds: [],
+          albumAssetIds: [],
+          flightIds: new Set<string>([fx.flightId]),
+          stationIndex: new Map(
+            dto.areas[0].stations.map((s) => [
+              s.key,
+              { areaKey: AREA, firstDay: s.firstDay, lastDay: s.lastDay },
+            ])
+          ),
+          stopovers: [],
+          pitstops: [],
+          existing,
+        };
+        const stayBody: CommitBody = {
+          commitKey: COMMIT_KEY,
+          window: { startDay: "2031-05-02", endDay: "2031-05-09" },
+          target: {
+            kind: "existing",
+            tripId: fx.tripId,
+            routeId: stay.routeId,
+            applyWindow: false,
+          },
+          flightIds: [],
+          nights: Object.fromEntries(
+            Object.entries(dto.nights).map(([day, entry]) => [day, entry.assign])
+          ),
+          areas: [
+            {
+              key: AREA,
+              as: "roadtrip",
+              name: "Vastra stay",
+              vehicle: "car",
+              homeStart: false,
+              homeEnd: false,
+              roadtripId: stay.routeId,
+              stations: dto.areas[0].stations.map((s) => ({
+                key: s.key,
+                title: s.title,
+                lat: s.lat,
+                lon: s.lon,
+                kind: s.kind,
+                firstDay: s.firstDay,
+                lastDay: s.lastDay,
+                notes: s.notes,
+                ...(s.existingId === undefined ? {} : { existingId: s.existingId }),
+              })),
+              legModes: dto.areas[0].legs.map(() => "road" as const),
+              album: false,
+              keepNotSeen: [],
+              removeNotSeen: [],
+            },
+          ],
+          stopovers: [],
+          photoJourneyIds: [],
+          stops: { keep: [], remove: [] },
+          album: { create: false, name: "Vastra stay" },
+        };
+
+        const plan = await prepareCommit(fx.userId, stored, stayBody);
+        const [write] = plan.existing?.roadtrips ?? [];
+        expect(write.stations.map((s) => [s.id !== undefined, s.title])).toEqual([
+          [true, "Vastra"],
+          [false, "Vastra Cove"],
+          [false, "Vastra"],
+        ]);
+      }
+    );
   });
 
   it("syncs when another trip of the journey repeats a city's title on other dates", async () => {

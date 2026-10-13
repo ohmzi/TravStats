@@ -139,6 +139,35 @@ const SHAPES: Shape[] = [
     ],
   },
   {
+    key: "split-stay",
+    label: "a stay the scan split into its places",
+    // The by-name split's own shape (amended 2026-10-13, the "Sumayya's
+    // wedding" stay): the city's photos chain to a place 33 km out, so the
+    // stay's station list is the city, the place and the city again — and a
+    // stored roadtrip holding the one old station gains the two new ones.
+    writes: 3,
+    span: { startDay: "2031-05-02", endDay: "2031-05-09" },
+    stations: [
+      s("split-city", "Vastra", 16.5, 107.5, "2031-05-02", "2031-05-05"),
+      s("split-cove", "Vastra Cove", 16.8, 107.5, "2031-05-05", "2031-05-05"),
+      s("split-city-2", "Vastra", 16.5, 107.5, "2031-05-06", "2031-05-08"),
+    ],
+    nights: {
+      "2031-05-02": "split-city",
+      "2031-05-03": "split-city",
+      "2031-05-04": "split-city",
+      "2031-05-05": "split-cove",
+      "2031-05-06": "split-city-2",
+      "2031-05-07": "split-city-2",
+      "2031-05-08": "split-city-2",
+    },
+    keepsAll: true,
+    routeName: "Vastra stay",
+    stored: [
+      s("split-stored", "Vastra", 16.5, 107.5, "2031-05-02", "2031-05-08", { overnight: true }),
+    ],
+  },
+  {
     key: "emptied",
     label: "an area left with no dated station (emptied / via-only)",
     writes: 0,
@@ -410,6 +439,23 @@ describe("the trip-shape matrix", () => {
         }
       });
     }
+
+    it("updates the stored stay's station in place and adds the places the split found", async () => {
+      const shape = SHAPES.find((candidate) => candidate.key === "split-stay");
+      if (shape === undefined) throw new Error("the split-stay shape is gone");
+      const plan = await updatePlan(shape);
+      const [write] = plan.existing?.roadtrips ?? [];
+
+      // The stored stay's one station is the city's, so it updates in place
+      // (its id kept, the photo days' row written); the place 33 km out and
+      // the city's later run are new stations of the same roadtrip, in order.
+      expect(write.stations.map((s) => [s.id !== undefined, s.title])).toEqual([
+        [true, "Vastra"],
+        [false, "Vastra Cove"],
+        [false, "Vastra"],
+      ]);
+      expect(write.diff).toEqual({ updated: 1, unchanged: 0, added: 2, removed: 0, kept: 0 });
+    });
   });
 
   describe("the scan's offer: decideAreaKind", () => {

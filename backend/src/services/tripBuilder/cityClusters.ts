@@ -9,18 +9,17 @@
  * tall but only about 20 km wide at 47°N, so the longitude reach grows with
  * latitude instead of staying a 3×3 block.
  *
- * A chain can run one city into the next, so a cluster that sprawls past
- * `CLUSTER_OVERSIZE_KM` is split again by the names Immich gave its photos.
+ * A chain can run one city into the next — and a chain need not sprawl to do
+ * it (2026-10-13, the "Sumayya's wedding" stay: the drive's photos chain a
+ * place 33 km out into the city's cluster, which stays 37 km wide) — so a
+ * cluster holding several named places is split again by the names Immich
+ * gave its photos, and only the places whose own medians lie farther apart
+ * than `CITY_LINK_KM` stand apart.
  */
 import { distanceKm } from "../photoJourneys/cluster";
 import type { Coord } from "../tour/tourDistance";
 import { medianPoint } from "./medians";
-import {
-  CITY_LINK_KM,
-  CLUSTER_GRID_DEG,
-  CLUSTER_OVERSIZE_KM,
-  CLUSTER_SPLIT_MIN_PHOTOS,
-} from "./thresholds";
+import { CITY_LINK_KM, CLUSTER_GRID_DEG, CLUSTER_SPLIT_MIN_PHOTOS } from "./thresholds";
 import type { CityCluster, PhotoPoint } from "./types";
 
 /** A photo with its coordinates narrowed, and its place in the (time-ordered) input. */
@@ -201,15 +200,20 @@ function nearestIndex(from: Coord, centres: readonly Coord[]): number {
 }
 
 /**
- * A cluster past `CLUSTER_OVERSIZE_KM` is split by Immich's `city|state`. A
- * group of fewer than `CLUSTER_SPLIT_MIN_PHOTOS` photos joins the nearest
- * group, and groups whose medians lie within `CITY_LINK_KM` merge again. When
- * that leaves one group — Immich names it all one place, or only one name has
- * enough photos to stand alone — the cluster stays whole.
+ * A cluster is split by Immich's `city|state` wherever two of its named places
+ * lie farther apart than one place's own link distance (`CITY_LINK_KM`): the
+ * chain that joined them is what single linkage cannot see, and how wide that
+ * chain made the cluster says nothing about whether it joined two places —
+ * a compact city cluster whose drive-by photos reach a place 33 km out is two
+ * named places, not one (the live 2026-10-13 shape; the cluster was 37 km wide
+ * and the by-name split never ran). A group of fewer than
+ * `CLUSTER_SPLIT_MIN_PHOTOS` photos joins the nearest group, and groups whose
+ * medians lie within `CITY_LINK_KM` merge again, so a metro area's neighbouring
+ * names stay one place. When that leaves one group — Immich names it all one
+ * place, or only one name has enough photos to stand alone — the cluster stays
+ * whole.
  */
-function splitOversized(members: readonly Placed[]): Placed[][] {
-  if (spreadKm(members) <= CLUSTER_OVERSIZE_KM) return [inOrder(members)];
-
+function splitByNames(members: readonly Placed[]): Placed[][] {
   const groups = groupByCityAndState(members);
   const large = groups.filter((group) => group.length >= CLUSTER_SPLIT_MIN_PHOTOS);
   if (large.length < 2) return [inOrder(members)];
@@ -271,7 +275,7 @@ export function clusterCities(photos: readonly PhotoPoint[]): CityCluster[] {
   });
 
   return [...byRoot.values()]
-    .flatMap(splitOversized)
+    .flatMap(splitByNames)
     .sort((a, b) => a[0].order - b[0].order)
     .map((members, index) => toCluster(members, `c${index + 1}`));
 }

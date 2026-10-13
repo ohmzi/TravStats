@@ -43,8 +43,6 @@ export const AT_SEA_RING_POINTS = 8;
 
 // ─── Clusters and segments (§C.5, §C.6) ──────────────────────────────────────
 
-/** A cluster spread wider than this is split by Immich `city|state`. */
-export const CLUSTER_OVERSIZE_KM = 60;
 /** A split group with fewer photos than this joins the nearest group. */
 export const CLUSTER_SPLIT_MIN_PHOTOS = 3;
 /** Clustering buckets photos on this grid, in degrees. */

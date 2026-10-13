@@ -64,7 +64,38 @@ describe("clusterCities: a chain that runs two cities together", () => {
     expect(clusters[0].spreadKm).toBeGreaterThan(60);
   });
 
-  it("does not split a cluster under 60 km however many names it carries", () => {
+  it("splits two named places farther apart than one place's link, however compact the chain", () => {
+    // The live "Sumayya's wedding" shape (synthetic places, 2026-10-13): the
+    // city's photos chain through a handful of drive-by photos to a place
+    // 33 km out, so the whole cluster stays under 60 km wide and carries the
+    // two names the stay stood in — the city's 8 photos and the place's 4.
+    // The names' medians are farther apart than CITY_LINK_KM, the cluster's
+    // own "one place" scale, so the chain is cut along them.
+    const bridged = [
+      ...row("n", -45.0, 6, "Northvale", 6),
+      photo(
+        "d1",
+        "2031-05-05 12:00",
+        { lat: -44.85, lon: 168.7 },
+        { city: "Northvale", state: WESTSHIRE }
+      ),
+      photo(
+        "d2",
+        "2031-05-05 13:00",
+        { lat: -44.85, lon: 168.7 },
+        { city: "Northvale", state: WESTSHIRE }
+      ),
+      ...row("p", -44.7, 4, "Port Carrow", 14),
+    ];
+    expect(clusterCities(bridged).map((c) => [c.id, c.immichCity, c.photoIds.length])).toEqual([
+      ["c1", "Northvale", 8],
+      ["c2", "Port Carrow", 4],
+    ]);
+  });
+
+  it("merges the names of a cluster whose groups lie within one place's link", () => {
+    // Northvale and Port Carrow 27.8 km apart: closer than CITY_LINK_KM, so
+    // the split merges them back — a metro area with two names is one place.
     const compact = [
       ...row("n", -45.0, 3, "Northvale", 6),
       ...row("e", -44.75, 3, "Port Carrow", 9),
