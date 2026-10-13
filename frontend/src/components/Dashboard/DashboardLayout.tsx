@@ -11,6 +11,8 @@ import { useRailVisible } from "../../hooks/useRailVisible";
 import { useRailImportAdapter } from "../import/adapters/railAdapter";
 import { useRentalImportAdapter } from "../import/adapters/rentalAdapter";
 import { useRentalVisible } from "../../hooks/useRentalVisible";
+import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
+import { PHONE_COLUMN_TOP } from "../map/phoneChrome";
 import { flightsApi } from "../../lib/api/flights";
 import { getUpcoming, type UpcomingEntry } from "../../lib/api/upcoming";
 import { useToastStore } from "../../store/toastStore";
@@ -137,7 +139,16 @@ export function DashboardLayout({
   // has to start under it. Measured rather than hard-coded: the card grows a
   // line for a secondary and another for a trip name, so a fixed offset would
   // either overlap it or leave a gap, depending on the entry.
+  //
+  // The column's own top is 64 on a desktop — clear of the "+ hinzufügen"
+  // button (top 16 + its button) — and PHONE_COLUMN_TOP on a phone, where the
+  // activity strip occupies a full-width row of its own above the column
+  // (`map/phoneChrome.ts`); at 390px the desktop 64 put this card ON the
+  // strip. Both places that need the number read `columnTop`, so the measured
+  // chrome offset and the card can never disagree.
   const [domainFilterOpen, setDomainFilterOpen] = useState(false);
+  const phone = useIsPhoneViewport();
+  const columnTop = phone ? PHONE_COLUMN_TOP : 64;
   const nextUpRef = useRef<HTMLDivElement | null>(null);
   const [chromeTop, setChromeTop] = useState<number | null>(null);
   useLayoutEffect(() => {
@@ -147,12 +158,12 @@ export function DashboardLayout({
     }
     const el = nextUpRef.current;
     if (!el) return;
-    const measure = (): void => setChromeTop(64 + el.offsetHeight + 8);
+    const measure = (): void => setChromeTop(columnTop + el.offsetHeight + 8);
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [nextUp]);
+  }, [nextUp, columnTop]);
 
   const enabledDomains = {
     flight: isEnabled("flight"),
@@ -261,13 +272,17 @@ export function DashboardLayout({
         {isEmpty && tab === "all" && (
           <DashboardEmptyState onAddFlight={() => setAddingDomain("flight")} />
         )}
-        {/* Als Nächstes, at the top of the map's right column. `top: 64`
-            clears the "+ hinzufügen" button above it, the same offset
-            GlobeStatsCard uses for the same reason. z-30 puts it in the
-            chrome band, below the domain filter (35) so an open filter panel
-            is never covered by it. */}
+        {/* Als Nächstes, at the top of the map's right column. `top` is
+            `columnTop`: it clears the "+ hinzufügen" button above it on a
+            desktop, and the activity strip's own phone row on a phone —
+            the same offset GlobeStatsCard uses below it for the same
+            reason. z-30 puts it in the chrome band, below the domain filter
+            (35) so an open filter panel is never covered by it. */}
         {nextUp && (
-          <div ref={nextUpRef} style={{ position: "absolute", top: 64, right: 16, zIndex: 30 }}>
+          <div
+            ref={nextUpRef}
+            style={{ position: "absolute", top: columnTop, right: 16, zIndex: 30 }}
+          >
             <MapNextUpCard entry={nextUp} nowMs={nowMs} />
           </div>
         )}

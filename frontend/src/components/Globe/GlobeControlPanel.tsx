@@ -13,6 +13,8 @@
 // State lives in GlobeView; this component is presentation + callbacks.
 
 import { useTranslation } from "../../hooks/useTranslation";
+import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
+import { phonePanelMaxHeight } from "../map/phoneChrome";
 import type { Quartile } from "./heatmapUtils";
 import {
   CollapsibleSection,
@@ -120,10 +122,19 @@ export function GlobeControlPanel({
 }: GlobeControlPanelProps): JSX.Element {
   const { t } = useTranslation();
   const [expanded, toggleExpanded] = usePanelExpanded();
+  // The panel is 232px of a 390px phone — two thirds of the width — and the
+  // bottom corner it lives in is shared with the map key's pill and the
+  // "Domänen · x/y" button there. So on a phone the dock places it in a band
+  // of its own (`GlobePanelDock`, `phoneChrome.ts`), the card shrinks to its
+  // header while shut and fills the width while open, and its body stops
+  // above the map's right column instead of over it.
+  const phone = useIsPhoneViewport();
 
   return (
     <div
-      className="flex w-[232px] flex-col overflow-hidden rounded-xl text-xs"
+      className={`flex flex-col overflow-hidden rounded-xl text-xs ${
+        phone ? (expanded ? "w-full" : "w-auto") : "w-[232px]"
+      }`}
       style={{
         background: PANEL_BG,
         backdropFilter: "blur(14px)",
@@ -133,7 +144,7 @@ export function GlobeControlPanel({
         boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
         // Never taller than the space between the Aktivität toolbar row
         // and the bottom edge — the body scrolls when all sections open.
-        maxHeight: "calc(100vh - 232px)",
+        maxHeight: phone ? phonePanelMaxHeight() : "calc(100vh - 232px)",
       }}
     >
       {/* Header — click to collapse */}

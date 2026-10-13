@@ -17,6 +17,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useTranslation } from "../../hooks/useTranslation";
+import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 import { useTimeSliderStore } from "../../store/timeSliderStore";
 import type { MonthBucket } from "./timeSliderUtils";
 
@@ -76,6 +77,14 @@ export const GlobeTimeHistogram = ({
 }: Props): JSX.Element => {
   const { t, i18n } = useTranslation(["map"]);
   const locale = i18n.language || "de";
+  // On a phone the strip is a full-width row of its own (`phoneChrome.ts`,
+  // PHONE_STRIP_TOP) and may not grow past that band, or it would reach the
+  // map's right column below it: the 460px minimum width alone is wider than
+  // a 390px screen, and the expanded row (64px bars + axis) is taller than
+  // the band. So on a phone the bars keep their collapsed height, the year
+  // axis — decoration the readout already carries as dates — stays off, and
+  // the flight/cruise counts step aside for the date.
+  const phone = useIsPhoneViewport();
 
   const mode = useTimeSliderStore((s) => s.mode);
   const rangeMin = useTimeSliderStore((s) => s.rangeMin);
@@ -260,8 +269,8 @@ export const GlobeTimeHistogram = ({
       style={{
         ...panelStyle,
         padding: expanded ? 12 : "6px 10px",
-        minWidth: expanded ? 460 : 300,
-        maxWidth: 720,
+        minWidth: phone ? 0 : expanded ? 460 : 300,
+        maxWidth: phone ? "100%" : 720,
         transition: "min-width 160ms ease, padding 160ms ease",
       }}
     >
@@ -298,10 +307,12 @@ export const GlobeTimeHistogram = ({
             </span>
             <span className="flex items-center gap-2 text-[12px] font-semibold tabular-nums">
               <span>{readout}</span>
-              <span style={{ color: "rgba(241,245,249,0.55)", fontWeight: 500 }}>
-                · {visibleFlights} {t("map:globe.timeSlider.flights")} · {visibleCruises}{" "}
-                {t("map:globe.timeSlider.cruises")}
-              </span>
+              {!phone && (
+                <span style={{ color: "rgba(241,245,249,0.55)", fontWeight: 500 }}>
+                  · {visibleFlights} {t("map:globe.timeSlider.flights")} · {visibleCruises}{" "}
+                  {t("map:globe.timeSlider.cruises")}
+                </span>
+              )}
               {mode !== "off" && (
                 <button
                   type="button"
@@ -325,7 +336,7 @@ export const GlobeTimeHistogram = ({
           onPointerUp={onTrackUp}
           className="relative flex cursor-crosshair touch-none items-end gap-[2px] px-px"
           style={{
-            height: expanded ? BAR_H_EXPANDED : BAR_H_COLLAPSED,
+            height: expanded && !phone ? BAR_H_EXPANDED : BAR_H_COLLAPSED,
             transition: "height 160ms ease",
           }}
         >
@@ -417,12 +428,13 @@ export const GlobeTimeHistogram = ({
           )}
         </div>
 
-        {/* year axis — expanded only. Ticks sit at their real chronological
-            position (via fracOfDate), not evenly spaced by index — the
-            range rarely starts/ends on a year boundary, so a plain
-            flex/justify-between row would misplace every intermediate
+        {/* year axis — expanded only, and never on a phone (the strip may not
+            grow past its band; see `phone` above). Ticks sit at their real
+            chronological position (via fracOfDate), not evenly spaced by
+            index — the range rarely starts/ends on a year boundary, so a
+            plain flex/justify-between row would misplace every intermediate
             label. */}
-        {expanded && (
+        {expanded && !phone && (
           <div
             className="relative h-[11px] text-[9.5px] tabular-nums"
             style={{ color: "rgba(241,245,249,0.4)" }}

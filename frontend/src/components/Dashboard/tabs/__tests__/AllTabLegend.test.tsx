@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { act, render, renderHook, screen } from "@testing-library/react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AllTabLegend, useLegendOpen } from "../AllTabLegend";
@@ -83,5 +83,85 @@ describe("useLegendOpen", () => {
     window.localStorage.setItem("dashboard.legendOpen", "false");
     const { result } = renderHook(() => useLegendOpen());
     expect(result.current[0]).toBe(false);
+  });
+});
+
+/**
+ * Below 640px the key's floating card was the third overlay in a corner with
+ * room for two: at 390×844 its rows sat on the "Karte" panel's pill and under
+ * "Domänen · x/y" (2026-10-12). On a phone it keeps its pill in its own row
+ * above the filter button and opens as a bottom sheet, the shape
+ * DomainFilterButton already uses there — fixed to the bottom edge with a
+ * scrim, closed by the same toggle that opened it.
+ *
+ * Deliberate-break protocol: in AllTabLegend.tsx drop the `phone` branch and
+ * both cases below fail (the closed pill moves back to the attribution
+ * clearance and the opened key is an absolutely positioned card again).
+ */
+describe("AllTabLegend on a phone", () => {
+  const rows = [<span key="a">A</span>, <span key="b">B</span>];
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("max-width: 639px"),
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+  });
+
+  afterEach(() => {
+    // Back to jsdom's own answer, which is not a phone.
+    window.matchMedia = ((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+  });
+
+  it("keeps the shut key as a pill in the row above the filter button", () => {
+    render(
+      <AllTabLegend rows={rows} open={false} onToggle={() => {}} title="dashboard:legend.title" />
+    );
+    const pill = screen.getByRole("button").parentElement as HTMLElement;
+    expect(pill.style.position).toBe("absolute");
+    // PHONE_KEY_BOTTOM, plus the safe-area inset (0 until the viewport meta
+    // carries viewport-fit=cover). jsdom re-serialises `env()` in its own
+    // spelling, so the offset and the inset are asserted as parts.
+    expect(pill.style.bottom).toContain("58px");
+    expect(pill.style.bottom).toContain("safe-area-inset-bottom");
+    expect(pill.style.maxWidth).toBe("calc(100vw - 24px)");
+    // The count still says how much is behind it.
+    expect(screen.getByText("2")).toBeInTheDocument();
+  });
+
+  it("opens as a bottom sheet with a scrim, not as a floating card", () => {
+    const onToggle = vi.fn();
+    const { container } = render(
+      <AllTabLegend rows={rows} open onToggle={onToggle} title="dashboard:legend.title" />
+    );
+    const sheet = screen.getByRole("dialog", { name: "dashboard:legend.title" });
+    expect(sheet.style.position).toBe("fixed");
+    expect(sheet.style.left).toBe("0px");
+    expect(sheet.style.bottom).toBe("0px");
+    expect(sheet.style.maxHeight).toBe("70vh");
+    expect(sheet.style.overflowY).toBe("auto");
+    // Its rows are inside it...
+    expect(screen.getByText("A")).toBeInTheDocument();
+    // ...and the scrim closes it, so the sheet needs no second "done" control.
+    const scrim = container.querySelector('[role="presentation"]') as HTMLElement;
+    expect(scrim).not.toBeNull();
+    fireEvent.click(scrim);
+    expect(onToggle).toHaveBeenCalledTimes(1);
   });
 });

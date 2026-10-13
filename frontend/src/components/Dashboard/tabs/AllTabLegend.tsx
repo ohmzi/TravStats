@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { Dispatch, JSX, SetStateAction } from "react";
 import { ATTRIBUTION_CLEARANCE } from "../../map/attributionClearance";
+import { PHONE_KEY_BOTTOM, phoneBottomOffset } from "../../map/phoneChrome";
+import { useIsPhoneViewport } from "../../../hooks/useIsPhoneViewport";
 import { Icon } from "../../ui/Icon";
 import { initialLegendOpen, isPhoneViewport } from "./legendInitialState";
 
@@ -75,6 +77,9 @@ interface AllTabLegendProps {
  * The count stays visible when collapsed. A bare chevron hides how much is
  * behind it, and a key is the one overlay where "there is more here" is the
  * whole point.
+ *
+ * On a phone (`useIsPhoneViewport`) it is a pill in its own row and, open, a
+ * bottom sheet — see the branch below for the two collisions that bought.
  */
 export function AllTabLegend({
   rows,
@@ -82,53 +87,121 @@ export function AllTabLegend({
   onToggle,
   title,
 }: AllTabLegendProps): JSX.Element | null {
+  // Below 640px the key's floating card is the third overlay in a corner that
+  // has room for two: at 390×844 its rows sat on the "Karte" panel's pill and
+  // under "Domänen · x/y" (which draws at z-35, above it). So on a phone the
+  // key keeps its pill — in its own row, above the filter button
+  // (`map/phoneChrome.ts`, PHONE_KEY_BOTTOM) — and OPENS as a sheet, the shape
+  // the domain filter already uses on a phone (`DomainFilterButton`): fixed to
+  // the bottom edge, above the map chrome, with a scrim, and closed by the
+  // same toggle it was opened with (no second "done" control to translate).
+  const phone = useIsPhoneViewport();
   if (rows.length === 0) return null;
+
+  const toggle = (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        background: "none",
+        border: "none",
+        padding: 0,
+        margin: 0,
+        font: "inherit",
+        color: "var(--ts-muted)",
+        cursor: "pointer",
+      }}
+    >
+      {/* Round 4: a mono section label over the rows, like every panel title. */}
+      <span className="t-label-mono">{title}</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {!open && <span style={{ fontVariantNumeric: "tabular-nums" }}>{rows.length}</span>}
+        <Icon name={open ? "chevron-down" : "chevron-up"} size={14} />
+      </span>
+    </button>
+  );
+
+  const cardStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    padding: "12px 16px",
+    borderRadius: "var(--ts-radius-card)",
+    background: "color-mix(in srgb, var(--ts-surface) 94%, transparent)",
+    color: "var(--ts-text-bright)",
+    border: "1px solid var(--ts-border)",
+    fontSize: 13,
+    whiteSpace: "nowrap",
+  };
+
+  if (phone) {
+    if (!open) {
+      return (
+        <div
+          style={{
+            ...cardStyle,
+            position: "absolute",
+            bottom: phoneBottomOffset(PHONE_KEY_BOTTOM),
+            right: 12,
+            zIndex: 30,
+            maxWidth: "calc(100vw - 24px)",
+          }}
+        >
+          {toggle}
+        </div>
+      );
+    }
+    return (
+      <>
+        <div
+          role="presentation"
+          onClick={onToggle}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 90 }}
+        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          style={{
+            ...cardStyle,
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 91,
+            maxHeight: "70vh",
+            overflowY: "auto",
+            borderRadius: "16px 16px 0 0",
+            // A phone's home bar, when the viewport meta ever carries
+            // `viewport-fit=cover` (`phoneBottomOffset`).
+            paddingBottom: phoneBottomOffset(16),
+          }}
+        >
+          {toggle}
+          {open && rows}
+        </div>
+      </>
+    );
+  }
+
   return (
     <div
       style={{
+        ...cardStyle,
         position: "absolute",
         bottom: ATTRIBUTION_CLEARANCE,
         right: 12,
         zIndex: 30,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        padding: "12px 16px",
-        borderRadius: "var(--ts-radius-card)",
-        background: "color-mix(in srgb, var(--ts-surface) 94%, transparent)",
-        color: "var(--ts-text-bright)",
-        border: "1px solid var(--ts-border)",
-        fontSize: 13,
-        whiteSpace: "nowrap",
         maxHeight: open ? "min(60vh, 420px)" : undefined,
         overflowY: open ? "auto" : undefined,
       }}
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          background: "none",
-          border: "none",
-          padding: 0,
-          margin: 0,
-          font: "inherit",
-          color: "var(--ts-muted)",
-          cursor: "pointer",
-        }}
-      >
-        {/* Round 4: a mono section label over the rows, like every panel title. */}
-        <span className="t-label-mono">{title}</span>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {!open && <span style={{ fontVariantNumeric: "tabular-nums" }}>{rows.length}</span>}
-          <Icon name={open ? "chevron-down" : "chevron-up"} size={14} />
-        </span>
-      </button>
+      {toggle}
       {open && rows}
     </div>
   );

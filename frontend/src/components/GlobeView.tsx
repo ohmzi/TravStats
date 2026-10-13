@@ -51,6 +51,7 @@ import { buildGlobeArcData } from "./Globe/globeArcData";
 import { lodgingLabelPoints, placeLabelPoints } from "./Globe/globePinLabels";
 import { createMarkerTooltip } from "./map/markerTooltip";
 import { GlobeControlPanel, type StyleId, type LiteMode } from "./Globe/GlobeControlPanel";
+import { GlobePanelDock } from "./Globe/GlobePanelDock";
 import type { ArcDatum, CruisePathDatum, PointDatum } from "./Globe/globeLayerTypes";
 import type { MapPinned } from "./map/cards/pinnedTypes";
 import { STYLE_OPTIONS } from "./Globe/globeStyles";
@@ -69,7 +70,7 @@ import { resolveFlightTipColor } from "../lib/flightColor";
 import { logger } from "../lib/logger";
 import { useTranslation } from "../hooks/useTranslation";
 import { useTimeSliderStore } from "../store/timeSliderStore";
-import { GlobeTimeHistogram } from "./Globe/GlobeTimeHistogram";
+import { GlobeTimeStrip } from "./Globe/GlobeTimeStrip";
 import {
   computeCruiseLegDates,
   computeTimeRange,
@@ -1220,8 +1221,10 @@ export default function GlobeView({
       <GlobeStatsCard stats={liveStats} t={t} />
 
       {/* Consolidated map controls — layers, basemap, frequency filter,
-          performance + recenter in one collapsible panel (own design). */}
-      <div className="absolute bottom-4 left-4 z-10" style={{ pointerEvents: "auto" }}>
+          performance + recenter in one collapsible panel (own design).
+          Bottom-left corner on a desktop, its own band on a phone
+          (`GlobePanelDock`). */}
+      <GlobePanelDock>
         <GlobeControlPanel
           autoRotate={autoRotate}
           onAutoRotateChange={setAutoRotate}
@@ -1289,22 +1292,16 @@ export default function GlobeView({
             onLabelSourceChange: setPlaceLabelSource,
           }}
         />
-      </div>
+      </GlobePanelDock>
 
-      {/* Top-center: activity histogram — filter (brush) + playback (▶) in
-          one strip, replacing the old three-mode slider. Sits at the top
-          centre: the dashboard's colour legend now lives in a bottom-right
-          table (AllTab), so the top band is clear. */}
-      <div
-        className="absolute top-3 left-1/2 z-10 -translate-x-1/2"
-        style={{ pointerEvents: "auto" }}
-      >
-        <GlobeTimeHistogram
-          buckets={monthBuckets}
-          visibleFlights={filteredFlights.length}
-          visibleCruises={new Set(cruisePaths.map((p) => p.cruiseId)).size}
-        />
-      </div>
+      {/* Activity histogram — filter (brush) + playback (▶) in one strip,
+          replacing the old three-mode slider. Its placement (top centre on a
+          desktop, its own row on a phone) lives in `GlobeTimeStrip`. */}
+      <GlobeTimeStrip
+        buckets={monthBuckets}
+        visibleFlights={filteredFlights.length}
+        visibleCruises={new Set(cruisePaths.map((p) => p.cruiseId)).size}
+      />
 
       {/* First-run coachmark — semi-modal hint, dismissed forever via
           localStorage. Backdrop is click-through so a missed card does not
