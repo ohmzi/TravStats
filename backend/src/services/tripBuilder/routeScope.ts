@@ -12,12 +12,26 @@
  * window, its stations in travel order — is merged into the ONE area the target
  * route becomes.
  *
+ * A stop of the window's photos that reconciles to ANOTHER stored roadtrip of
+ * the journey is not this trip's to write (owner case 2026-10-12, the live
+ * cross-trip refusal): the annotation leaves it out of the area
+ * (`withoutStations`) and shows the skip in the review, so the commit's hard
+ * refusal stays a floor under the write plan rather than the normal path.
+ *
  * This module holds only the words and the merge; the scan's use of them is
  * `buildDraft.ts`, the annotation `existingDraft.ts`, the commit
  * `commitPlanExisting.ts`.
  */
 import { distanceKm } from "../photoJourneys/cluster";
-import type { AreaPlan, DraftLeg, PassedThrough, PlanLeg, PlanStation, ScanInput } from "./types";
+import type {
+  AreaPlan,
+  DraftArea,
+  DraftLeg,
+  PassedThrough,
+  PlanLeg,
+  PlanStation,
+  ScanInput,
+} from "./types";
 
 /** The journey and the one roadtrip a route-scoped re-sync names. */
 export interface RouteScope {
@@ -68,6 +82,28 @@ function mergedByDay(plans: readonly AreaPlan[]): Map<string, PassedThrough[]> {
     }
   }
   return out;
+}
+
+/**
+ * The area without the stops that stand on another trip of the journey (owner
+ * case 2026-10-12, the cross-trip stop): the stations and legs as scanned,
+ * minus the dropped ones, with a straight road leg joining each pair the drop
+ * left adjacent — the same chord and the same "no probe ran across it" reading
+ * a merged boundary takes. An area nothing is dropped from comes back as it is.
+ */
+export function withoutStations(area: DraftArea, dropKeys: ReadonlySet<string>): DraftArea {
+  const kept = area.stations
+    .map((station, index) => ({ station, index }))
+    .filter(({ station }) => !dropKeys.has(station.key));
+  if (kept.length === area.stations.length) return area;
+  const legs: DraftLeg[] = [];
+  for (let i = 0; i + 1 < kept.length; i++) {
+    const from = kept[i];
+    const to = kept[i + 1];
+    const storedLeg = to.index === from.index + 1 ? area.legs[from.index] : undefined;
+    legs.push(storedLeg ?? boundaryLeg(from.station, to.station));
+  }
+  return { ...area, stations: kept.map(({ station }) => station), legs };
 }
 
 /**

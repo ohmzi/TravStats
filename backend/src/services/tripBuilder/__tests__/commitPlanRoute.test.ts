@@ -45,7 +45,7 @@ import {
   FX,
   type ExistingFixture,
 } from "./existingDb";
-import { area, derivedStations, draft } from "./existingDraftFixture";
+import { area, derivedStations, draft, K } from "./existingDraftFixture";
 
 const mockDomains = loadVisibleDomains as jest.Mock;
 const mockPreflight = preflightAlbum as jest.Mock;
@@ -130,7 +130,10 @@ describe("a route-scoped commit", () => {
   }
 
   /** The stored draft a trip-side scan would leave: one area, annotated against the target route. */
-  async function scopedDraft(listedFlights: readonly string[] = []): Promise<StoredDraft> {
+  async function scopedDraft(
+    listedFlights: readonly string[] = [],
+    albumAssetIds: string[] = []
+  ): Promise<StoredDraft> {
     const state = await loadExistingState(fx.userId, fx.tripId);
     const withAlbum = draft(fx.tripId, [area()], {
       album: {
@@ -165,7 +168,7 @@ describe("a route-scoped commit", () => {
       connSource: "user",
       dto,
       previewAssetIds: [],
-      albumAssetIds: [],
+      albumAssetIds,
       // The scan listed the journey's own flight, and whatever the test adds.
       flightIds: new Set<string>([fx.flightId, ...listedFlights]),
       stationIndex: new Map(
@@ -228,6 +231,42 @@ describe("a route-scoped commit", () => {
       ...over,
     };
   }
+
+  /**
+   * The body the review sends for a scoped draft: its area's stations and legs
+   * as the draft shows them, and the draft's own night answers — a left-out
+   * stop's answer is unknown again there, so the night plan still validates.
+   */
+  function draftBody(draft: StoredDraft): CommitBody {
+    const base = body();
+    const area = draft.dto.areas[0];
+    return {
+      ...base,
+      nights: Object.fromEntries(
+        Object.entries(draft.dto.nights).map(([day, entry]) => [day, entry.assign])
+      ),
+      areas: [
+        {
+          ...base.areas[0],
+          legModes: area.legs.map((leg) => leg.mode),
+          stations: area.stations.map((s) => ({
+            key: s.key,
+            title: s.title,
+            lat: s.lat,
+            lon: s.lon,
+            kind: s.kind,
+            firstDay: s.firstDay,
+            lastDay: s.lastDay,
+            notes: s.notes,
+            ...(s.existingId === undefined ? {} : { existingId: s.existingId }),
+          })),
+        },
+      ],
+    };
+  }
+
+  const strip = <T extends Record<string, unknown>>(row: T): Record<string, unknown> =>
+    Object.fromEntries(Object.entries(row).sort(([a], [b]) => a.localeCompare(b)));
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -306,6 +345,10 @@ describe("a route-scoped commit", () => {
   });
 
   it("refuses when the scanned stops also stand on another stored roadtrip (never writes across rows)", async () => {
+    // Defense in depth (the scan leaves such a stop out, below): this body is
+    // built from the fixture, not from the annotated draft, so it still NAMES
+    // the cross-trip stop — exactly what a body that re-added one would do —
+    // and what reaches the write plan is what the guard judges.
     await withDecoyRoute(
       "Southbridge camp",
       { title: "Southbridge", at: CAMP, startDay: "2031-05-05", endDay: "2031-05-06" },
@@ -314,6 +357,109 @@ describe("a route-scoped commit", () => {
           statusCode: 409,
           code: "ROUTE_SCOPE_CONFLICT",
         });
+      }
+    );
+  });
+
+  it("leaves a stop that stands on another trip out of the write, and re-syncs the rest", async () => {
+    // The owner's shape (2026-10-12, the live refusal): the scoped window's
+    // last day also picks up photos of ANOTHER trip's stop — the 11-30 arrival
+    // — whose coordinates reconcile to that trip's stored station on
+    // overlapping days. The scan leaves the stop out and the review shows it;
+    // the commit writes the rest and the other trip is never touched.
+    await withDecoyRoute(
+      "Southbridge camp",
+      { title: "Camp Nine", at: CAMP, startDay: "2031-05-05", endDay: "2031-05-06" },
+      async (decoy) => {
+        const draftForPlan = await scopedDraft([], ["nv-1", "sb-1"]);
+        const [area] = draftForPlan.dto.areas;
+        // What the review reads: the stop is out of the route, with its reason.
+        expect(area.stations.map((s) => s.title)).toEqual([
+          "Northvale",
+          "Port Carrow",
+          // The stored title wins on a matched station (`keptTitle`).
+          "Tarnside Lodge",
+        ]);
+        expect(area.leftOut).toEqual([
+          {
+            key: K.southbridge,
+            title: "Southbridge",
+            firstDay: "2031-05-05",
+            lastDay: "2031-05-06",
+            routeId: decoy.routeId,
+            routeName: "Southbridge camp",
+          },
+        ]);
+        // The night it held is unknown again, so the night plan still validates
+        // and the review can submit.
+        expect(draftForPlan.dto.nights["2031-05-05"]?.assign).toBe("unknown");
+
+        const before = {
+          row: await prisma.tripRoute.findUniqueOrThrow({ where: { id: decoy.routeId } }),
+          stations: await prisma.tripStop.findMany({
+            where: { routeId: decoy.routeId },
+            orderBy: { routeOrderIdx: "asc" },
+          }),
+          legs: await prisma.tripRouteLeg.findMany({
+            where: { routeId: decoy.routeId },
+            orderBy: { id: "asc" },
+          }),
+        };
+
+        const plan = await prepareCommit(fx.userId, draftForPlan, draftBody(draftForPlan));
+        const written = await runCommitJob(draftForPlan, plan);
+        if (written.status !== "committed") throw new Error("the commit did not write");
+
+        // The rest of the trip IS written; the left-out stop is not.
+        const titles = (
+          await prisma.tripStop.findMany({
+            where: { routeId: fx.roadtripId },
+            orderBy: { routeOrderIdx: "asc" },
+          })
+        ).map((station) => station.title);
+        expect(titles).toEqual(
+          expect.arrayContaining(["Northvale", "Port Carrow", "Tarnside Lodge"])
+        );
+        expect(titles).not.toContain("Southbridge");
+        expect(written.roadtrips).toHaveLength(1);
+        expect(written.roadtrips[0]).toMatchObject({ id: fx.roadtripId });
+
+        // The other trip — the stop's real owner — is byte-identical: row,
+        // stations and legs alike, nothing moved, nothing deleted.
+        expect(
+          strip(await prisma.tripRoute.findUniqueOrThrow({ where: { id: decoy.routeId } }))
+        ).toEqual(strip(before.row));
+        expect(
+          (
+            await prisma.tripStop.findMany({
+              where: { routeId: decoy.routeId },
+              orderBy: { routeOrderIdx: "asc" },
+            })
+          ).map(strip)
+        ).toEqual(before.stations.map(strip));
+        expect(
+          (
+            await prisma.tripRouteLeg.findMany({
+              where: { routeId: decoy.routeId },
+              orderBy: { id: "asc" },
+            })
+          ).map(strip)
+        ).toEqual(before.legs.map(strip));
+
+        // The album step is the WINDOW's, not the stops': the skipped stop's
+        // photo is still in the list the trip's own album receives, add-only —
+        // the skip changes nothing about the album's membership.
+        expect(mockResync).toHaveBeenCalledTimes(1);
+        expect(mockResync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            tripId: fx.tripId,
+            named: true,
+            removeOutside: false,
+            assetIds: ["nv-1", "sb-1"],
+          })
+        );
+        expect(mockWriteAlbum).not.toHaveBeenCalled();
+        expect(await prisma.tripImmichAlbum.count({ where: { tripId: fx.tripId } })).toBe(1);
       }
     );
   });
@@ -351,7 +497,9 @@ describe("a route-scoped commit", () => {
 
   it("refuses when the other trip's station only touches the scanned days at one day", async () => {
     // The boundary of `daysOverlap`: a stored span ENDING on the derived
-    // span's first day shares that day, so it still stands on this write.
+    // span's first day shares that day, so it still stands on this write. The
+    // body (fixture-built) names the stop the scan left out; the guard reads
+    // what the write plan carries.
     await withDecoyRoute(
       "Northvale touch",
       { title: "Northvale", at: FX.northvale, startDay: "2031-05-01", endDay: "2031-05-02" },
@@ -423,9 +571,6 @@ describe("a route-scoped commit", () => {
       expect.objectContaining({ tripId: fx.tripId, named: true, removeOutside: false })
     );
     expect(mockWriteAlbum).not.toHaveBeenCalled();
-
-    const strip = <T extends Record<string, unknown>>(row: T): Record<string, unknown> =>
-      Object.fromEntries(Object.entries(row).sort(([a], [b]) => a.localeCompare(b)));
 
     // The ONE documented exception (finding NEW-2): phase C's recompute writes
     // the journey's DERIVED status when the trip's held days derive another one

@@ -1,5 +1,5 @@
-import { mergeAreaPlans, routeScopeOf } from "../routeScope";
-import type { AreaPlan, PlanStation, ScanInput } from "../types";
+import { mergeAreaPlans, routeScopeOf, withoutStations } from "../routeScope";
+import type { AreaPlan, DraftArea, PlanStation, ScanInput } from "../types";
 
 // Synthetic fixtures only (public repository): invented places, shifted years.
 const TRIP = "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c";
@@ -153,5 +153,61 @@ describe("mergeAreaPlans", () => {
 
   it("refuses nothing to merge", () => {
     expect(() => mergeAreaPlans([])).toThrow("Cannot merge no plans");
+  });
+});
+
+describe("withoutStations", () => {
+  const stations = [
+    station("nv", -45.05, 168.7, "2031-05-02"),
+    station("sb", -45.45, 169.1, "2031-05-05"),
+    station("ts", -45.2, 169.4, "2031-05-07"),
+  ];
+  const legs = stations.slice(1).map((s, i) => ({
+    fromKey: stations[i].key,
+    toKey: s.key,
+    chordKm: 12 + i,
+    routedKm: 15 + i,
+    mode: "ferry" as const,
+    ferryEvidence: "seaPhotos" as const,
+  }));
+  const area = (): DraftArea => ({
+    key: "2031-05-02#1",
+    defaultAs: "roadtrip",
+    suggestedName: "Northvale loop",
+    mainCity: "Northvale",
+    startDay: "2031-05-02",
+    endDay: "2031-05-09",
+    home: {
+      start: { offered: false, defaultOn: false },
+      end: { offered: false, defaultOn: false },
+      unconfirmed: false,
+    },
+    stations,
+    legs,
+  });
+
+  it("is the area unchanged when nothing is dropped", () => {
+    const before = area();
+    expect(withoutStations(before, new Set())).toBe(before);
+  });
+
+  it("joins the neighbours a dropped middle stop left adjacent by a straight road leg", () => {
+    const kept = withoutStations(area(), new Set(["sb"]));
+    expect(kept.stations.map((s) => s.key)).toEqual(["nv", "ts"]);
+    expect(kept.legs).toHaveLength(1);
+    expect(kept.legs[0]).toMatchObject({
+      fromKey: "nv",
+      toKey: "ts",
+      routedKm: null,
+      mode: "road",
+      ferryEvidence: null,
+    });
+    expect(kept.legs[0].chordKm).toBeGreaterThan(0);
+  });
+
+  it("keeps the legs between stations that stay adjacent, and drops the one a last stop carried", () => {
+    const kept = withoutStations(area(), new Set(["ts"]));
+    expect(kept.stations.map((s) => s.key)).toEqual(["nv", "sb"]);
+    expect(kept.legs).toEqual([legs[0]]);
   });
 });

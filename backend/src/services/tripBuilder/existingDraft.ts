@@ -15,7 +15,11 @@
  * `stored` — the review locks both switches on — and offered the same way, for
  * the commit to leave its roadtrip untouched (add-only v1, spec 2026-10-11 §6).
  */
-import { deriveStationRows, type NightPlanStation } from "../../shared/tour/builderNightPlan";
+import {
+  NIGHT_UNKNOWN,
+  deriveStationRows,
+  type NightPlanStation,
+} from "../../shared/tour/builderNightPlan";
 import { AppError } from "../../middleware/errorHandler";
 import logger from "../../utils/logger";
 import { pickLinkedAlbum, previewAlbumSync, type AlbumResyncClient } from "./albumResync";
@@ -28,6 +32,7 @@ import {
   type StoredStopoverOffer,
 } from "./existingTypes";
 import {
+  crossRowMatches,
   derivedStopOf,
   groundSpan,
   reconcileStations,
@@ -38,11 +43,12 @@ import {
   type ReconciledStation,
   type StopArea,
 } from "./reconcile";
-import type { RouteScope } from "./routeScope";
+import { withoutStations, type RouteScope } from "./routeScope";
 import { claimKey, stationKeyOf } from "./stations";
 import type {
   Day,
   DraftArea,
+  DraftLeftOutStop,
   DraftLeg,
   DraftPitstop,
   DraftStation,
@@ -198,6 +204,36 @@ function annotatePitstop(
 }
 
 /**
+ * The night answers with the left-out stops taken out: an answer that named one
+ * is unknown again — `validateNightPlan` refuses a night naming a station no
+ * area carries, and the review must stay submittable — and no suggestion names
+ * one either.
+ */
+function nightsWithoutLeftOut(
+  nights: TripBuilderDraft["nights"],
+  leftOut: ReadonlySet<string>
+): TripBuilderDraft["nights"] {
+  return Object.fromEntries(
+    Object.entries(nights).map(([day, entry]) => {
+      const named = leftOut.has(entry.assign);
+      const suggested = entry.suggestedStationKeys.filter((key) => !leftOut.has(key));
+      if (!named && suggested.length === entry.suggestedStationKeys.length) return [day, entry];
+      return [
+        day,
+        named
+          ? {
+              ...entry,
+              assign: NIGHT_UNKNOWN,
+              reason: "unknown" as const,
+              suggestedStationKeys: suggested,
+            }
+          : { ...entry, suggestedStationKeys: suggested },
+      ];
+    })
+  );
+}
+
+/**
  * The route-scoped annotation (owner request 2026-10-12): a trip-side Re-sync
  * updates exactly one stored roadtrip.
  *
@@ -208,6 +244,14 @@ function annotatePitstop(
  * name (the row is never re-minted), carries the stored stations' statuses the
  * journey-wide re-sync shows, and its notSeen list. Nothing else of the journey
  * is offered: no timeline stops, no stopovers, no own album.
+ *
+ * A stop that also stands on ANOTHER roadtrip of the journey is left out
+ * (owner case 2026-10-12, the live cross-trip refusal): its photos are the
+ * other trip's — the window's edge picks them up, e.g. the owner's 11-30
+ * arrival at another trip's stop — and writing it here would cross rows. It
+ * leaves `stations`/`legs` and is reported in `leftOut`, which the review
+ * shows; the commit's own refusal (`assertNoCrossRowWrite`) stays the floor
+ * under a body that names one anyway.
  */
 function annotateDraftForRoute(
   dto: TripBuilderDraft,
@@ -226,27 +270,51 @@ function annotateDraftForRoute(
       ...(a.home.end.station ? [a.home.end.station.key] : []),
     ])
   );
+  const window = { startDay: dto.window.startDay, endDay: dto.window.endDay };
+  const otherRoutes = state.roadtrips.filter((route) => route.id !== target.id);
   const matchedIds = new Set<string>();
   const notSeenIds = new Set<string>();
+  const leftOutKeys = new Set<string>();
   const areas = dto.areas.map((area): DraftArea => {
     const derived = derivedStationsOf(area, assigns);
-    const reconciled = reconcileStations(derived, target.stations, {
-      startDay: dto.window.startDay,
-      endDay: dto.window.endDay,
+    const crosses = crossRowMatches(area.stations, otherRoutes, window);
+    const dropped = new Set(crosses.map((match) => match.index));
+    for (const match of crosses) leftOutKeys.add(area.stations[match.index].key);
+    const keptArea = withoutStations(
+      area,
+      new Set(crosses.map((match) => area.stations[match.index].key))
+    );
+    const leftOut: DraftLeftOutStop[] = crosses.map((match) => {
+      const station = area.stations[match.index];
+      return {
+        key: station.key,
+        title: station.title,
+        firstDay: station.firstDay,
+        lastDay: station.lastDay,
+        routeId: match.routeId,
+        routeName: match.routeName,
+      };
     });
+    // The stored stations' statuses read off the stops the review still shows.
+    const reconciled = reconcileStations(
+      derived.filter((_, index) => !dropped.has(index)),
+      target.stations,
+      window
+    );
     for (const rec of reconciled.derived) {
       if (rec.existing) matchedIds.add(rec.existing.id);
     }
     for (const n of reconciled.notSeen) notSeenIds.add(n.stored.id);
     return {
-      ...area,
+      ...keptArea,
       // The area IS that stored roadtrip: show its own name, never a re-minted
       // one, so the review's Name field holds what the commit keeps.
       suggestedName: target.name,
       roadtripId: target.id,
-      stations: area.stations.map((s, i) => annotate(s, reconciled.derived[i])),
-      legs: annotateLegs(area, reconciled.derived, target),
+      stations: keptArea.stations.map((s, i) => annotate(s, reconciled.derived[i])),
+      legs: annotateLegs(keptArea, reconciled.derived, target),
       notSeen: reconciled.notSeen.map((n) => notSeenStation(n, taken, area.startDay)),
+      ...(leftOut.length === 0 ? {} : { leftOut }),
     };
   });
   return {
@@ -256,6 +324,17 @@ function annotateDraftForRoute(
       flights: dto.flights.map((f) =>
         state.flightIds.includes(f.id) ? { ...f, locked: true, defaultAssign: true } : f
       ),
+      // A left-out stop is gone from the area, so no night answer and no day
+      // row may still name it: the review is submitted from these two.
+      ...(leftOutKeys.size === 0
+        ? {}
+        : {
+            nights: nightsWithoutLeftOut(dto.nights, leftOutKeys),
+            days: dto.days.map((day) => ({
+              ...day,
+              stationKeys: day.stationKeys.filter((key) => !leftOutKeys.has(key)),
+            })),
+          }),
     },
     existing: {
       tripId: state.tripId,

@@ -240,6 +240,36 @@ export default function ReviewAreaSection({
             />
           ))}
           <NotSeenList areaKey={area.key} />
+          {/* Route-scoped only: stops the window's photos show that stand on
+              another trip of the journey. The scan left them out of the route
+              (they are that trip's); the review says so, with its reason. */}
+          {offered?.leftOut !== undefined && offered.leftOut.length > 0 && (
+            <section style={{ marginTop: "var(--ts-space-md)" }}>
+              <h4 className="t-caption" style={{ fontWeight: 700 }}>
+                {t("tripBuilder:review.area.leftOut.title")}
+              </h4>
+              <ul className="flex flex-col" style={{ gap: "var(--ts-space-sm)" }}>
+                {offered.leftOut.map((stop) => (
+                  <li key={stop.key} className="flex flex-col" style={{ gap: 4 }}>
+                    <div className="flex items-center" style={{ gap: 8 }}>
+                      <Pill color="var(--ts-warn)">
+                        {t("tripBuilder:review.area.leftOut.pill")}
+                      </Pill>
+                      <span className="t-caption">
+                        {stop.firstDay === stop.lastDay
+                          ? fmt.localDate(stop.firstDay)
+                          : `${fmt.localDate(stop.firstDay)} – ${fmt.localDate(stop.lastDay)}`}
+                      </span>
+                    </div>
+                    <span>{stop.title}</span>
+                    <span className="t-caption">
+                      {t("tripBuilder:review.area.leftOut.otherTrip", { trip: stop.routeName })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
       )}
     </Card>

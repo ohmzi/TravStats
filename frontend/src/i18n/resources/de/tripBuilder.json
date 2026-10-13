@@ -162,6 +162,11 @@
         "skip": "Nicht speichern",
         "stops": "Zeitleisten-Stopps"
       },
+      "leftOut": {
+        "otherTrip": "Gehört zu einem anderen Trip dieser Reise: {{trip}}. Die Fotos bleiben dort.",
+        "pill": "Anderer Trip",
+        "title": "Aus diesem Trip ausgelassen"
+      },
       "name": "Name des Trips",
       "skipped": "Dieses Gebiet wird nicht gespeichert.",
       "summary": "{{stations}} Stopps · {{nights}} Nächte",

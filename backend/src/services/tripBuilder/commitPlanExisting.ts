@@ -43,14 +43,11 @@ import type {
   StoredExisting,
 } from "./existingTypes";
 import {
-  daysOverlap,
+  crossRowMatches,
   groundSpan,
   interleaveKept,
   matchStatus,
-  reconcileStations,
   stopAsStation,
-  type DerivedStation,
-  type ReconciledStation,
 } from "./reconcile";
 import type { CommitPlan, DraftArea, StoredDraft, StopPlan } from "./types";
 
@@ -434,9 +431,16 @@ function buildStopWrites(
 }
 
 /**
- * The refusal a route-scoped commit owes when the scanned stations would stand
- * on ANOTHER stored roadtrip of the journey as well: the materials are the
- * journey's, not this trip's, and writing them here would cross rows.
+ * The refusal a route-scoped commit owes when a station the WRITE PLAN carries
+ * would stand on ANOTHER stored roadtrip of the journey as well: the materials
+ * are the journey's, not this trip's, and writing them here would cross rows.
+ *
+ * The check reads the stations being written (the body's), not the draft's:
+ * the scan already leaves out the stops that stand on another trip
+ * (`annotateDraftForRoute`, the same `crossRowMatches` rule), so what survives
+ * into the write plan is a body that re-named one anyway, or a hand-built plan
+ * — and that is refused. One rule, two arms: whatever this refuses, the scan
+ * skips; this is the floor under the skip.
  *
  * "Stand on as well" is the reconciliation's DAYS OVERLAP, not any match: the
  * match also pairs equal titles on other dates (`reconcileStations`), and the
@@ -447,41 +451,21 @@ function buildStopWrites(
  */
 function assertNoCrossRowWrite(
   window: { startDay: string; endDay: string },
-  draftArea: DraftArea,
+  area: CommitArea,
   state: ExistingTripState,
   routeId: string
 ): void {
-  const derived: DerivedStation[] = draftArea.stations.map((station) => ({
-    key: station.key,
-    title: station.title,
-    titleSource: station.titleSource,
-    lat: station.lat,
-    lon: station.lon,
-    startDate: station.firstDay,
-    endDate: station.lastDay,
-    slept: false,
-  }));
-  // `reconcileStations` answers one entry per input station, in order, and the
-  // match carries only the stored side: the derived days come from the input.
-  const crossesRows = (rec: ReconciledStation, index: number): boolean => {
-    const source = derived[index];
-    return (
-      rec.existing !== undefined &&
-      daysOverlap(source.startDate, source.endDate, rec.existing.startDate, rec.existing.endDate)
+  const crosses = crossRowMatches(
+    area.stations,
+    state.roadtrips.filter((route) => route.id !== routeId),
+    window
+  );
+  if (crosses.length > 0) {
+    throw new AppError(
+      "The scanned stops belong to another trip of the journey as well; nothing was saved",
+      409,
+      "ROUTE_SCOPE_CONFLICT"
     );
-  };
-  for (const other of state.roadtrips) {
-    if (other.id === routeId) continue;
-    // The window still shapes the reconciliation's notSeen list; the matches
-    // this guard reads never consult it.
-    const rec = reconcileStations(derived, other.stations, window);
-    if (rec.derived.some(crossesRows)) {
-      throw new AppError(
-        "The scanned stops belong to another trip of the journey as well; nothing was saved",
-        409,
-        "ROUTE_SCOPE_CONFLICT"
-      );
-    }
   }
 }
 
@@ -509,11 +493,9 @@ function scopedRoutePlan(
   for (const area of body.areas) {
     if (area.as !== "roadtrip") continue;
     if (area.roadtripId !== routeId) throw mismatch("areas");
-    const draftArea = draft.dto.areas.find((a) => a.key === area.key);
-    if (draftArea === undefined) throw mismatch("areas");
     assertNoCrossRowWrite(
       { startDay: draft.dto.window.startDay, endDay: draft.dto.window.endDay },
-      draftArea,
+      area,
       state,
       routeId
     );

@@ -173,6 +173,80 @@ describe("ReviewAreaSection", () => {
   });
 });
 
+describe("a route-scoped area with a stop left out", () => {
+  /**
+   * The owner's shape (2026-10-12): the trip-scoped window also picked up
+   * photos of a stop that stands on ANOTHER trip of the journey. The scan
+   * leaves it out of the route; the review must show the skip and its reason.
+   */
+  function renderLeftOut(): void {
+    const base = reviewDraft();
+    const scoped: TripBuilderDraft = {
+      ...base,
+      target: {
+        kind: "existing",
+        tripId: "5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e",
+        tripName: "Southern loop",
+        routeId: "7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
+        routeName: "Southern loop",
+      },
+      areas: base.areas.map((area, i) =>
+        i === 1
+          ? {
+              ...area,
+              leftOut: [
+                {
+                  key: "left-out-sb",
+                  title: "Halwan",
+                  firstDay: "2031-05-05",
+                  lastDay: "2031-05-06",
+                  routeId: "9c8b7a65-4321-4fed-8cba-0987654321ab",
+                  routeName: "Selby Bay stay",
+                },
+              ],
+            }
+          : area
+      ),
+    };
+    const state = initialReviewState(scoped);
+    const area = state.areas[1];
+    render(
+      <ReviewAreaSection
+        draft={scoped}
+        state={state}
+        area={area}
+        ordinal={2}
+        nights={placeNights(scoped, state).byArea.get(area.key) ?? []}
+        slept={sleptKeys(state)}
+        roadtripsHidden={false}
+        onEdit={vi.fn()}
+      />
+    );
+  }
+
+  it("shows the left-out stop with its dates and the trip it belongs to", () => {
+    renderLeftOut();
+    const section = screen
+      .getByRole("heading", { name: "tripBuilder:review.area.leftOut.title" })
+      .closest("section") as HTMLElement;
+    expect(within(section).getByText("tripBuilder:review.area.leftOut.pill")).toBeInTheDocument();
+    expect(within(section).getByText("Halwan")).toBeInTheDocument();
+    expect(within(section).getByText("05.05.2031 – 06.05.2031")).toBeInTheDocument();
+    expect(
+      within(section).getByText(
+        'tripBuilder:review.area.leftOut.otherTrip {"trip":"Selby Bay stay"}'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("shows no left-out list on an area nothing was left out of", () => {
+    renderArea(0);
+    expect(
+      screen.queryByRole("heading", { name: "tripBuilder:review.area.leftOut.title" })
+    ).toBeNull();
+  });
+});
+
 describe("a stops area matched to a stored stop", () => {
   const draft = matchedStopDraft();
 

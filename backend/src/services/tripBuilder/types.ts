@@ -388,6 +388,22 @@ export interface NightInputs {
 
 // ─── The draft DTO (GET /trip-builder/drafts/:id) ────────────────────────────
 
+/**
+ * Route-scoped only: a scanned stop the update leaves out because it also
+ * stands on another roadtrip of the journey (overlapping days within
+ * `CITY_LINK_KM`). Its photos stay where they belong; the review shows the
+ * skip and its reason, so the trip-side re-sync never has to refuse as a whole.
+ */
+export interface DraftLeftOutStop {
+  key: string;
+  title: string;
+  firstDay: Day;
+  lastDay: Day;
+  /** The other roadtrip of the journey the stop also stands on. */
+  routeId: string;
+  routeName: string;
+}
+
 export interface DraftArea {
   key: string;
   defaultAs: AreaKind;
@@ -409,6 +425,12 @@ export interface DraftArea {
   roadtripId?: string;
   /** Re-sync only: stored stations of that roadtrip the photos do not show. Not part of `stations`/`legs`. */
   notSeen?: DraftStation[];
+  /**
+   * Route-scoped only: stops of the window's photos that also stand on ANOTHER
+   * roadtrip of the journey. The scan leaves them out of `stations`/`legs` —
+   * this write updates its own row alone — and the review shows the skip.
+   */
+  leftOut?: DraftLeftOutStop[];
   /** A pitstop: the area gets its own album, named here (spec 2026-10-11 pitstops §2). Absent on an ordinary area. */
   pitstop?: DraftPitstop;
 }

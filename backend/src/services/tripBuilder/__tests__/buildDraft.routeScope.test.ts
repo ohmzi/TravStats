@@ -4,6 +4,7 @@
  * that stored roadtrip, under its stored name, with its own album, and nothing
  * else of the journey.
  */
+import { NIGHT_SPECIALS } from "../../../shared/tour/builderNightPlan";
 import { buildDraftWith } from "../buildDraft";
 import type { ExistingDeps } from "../existingDraft";
 import type { ExistingTripState } from "../existingTypes";
@@ -12,6 +13,7 @@ import {
   ME,
   NORTHVALE,
   PORT_CARROW,
+  SELBY_BAY,
   builderDeps,
   countryAtFixture,
   photosAt,
@@ -151,7 +153,11 @@ const existing: ExistingDeps = {
 
 const GATE = { allowed: true, missingScopes: [] as string[] };
 
-function deps(photos: Parameters<typeof builderDeps>[0], flights = false) {
+function deps(
+  photos: Parameters<typeof builderDeps>[0],
+  flights = false,
+  state: ExistingTripState = STATE
+) {
   return builderDeps(photos, {
     loadFlights: async () => (flights ? [FLIGHT] : []),
     countryAt: countryAtFixture,
@@ -161,7 +167,7 @@ function deps(photos: Parameters<typeof builderDeps>[0], flights = false) {
       countries: ["NZ"],
       roadtripNames: ["Northvale loop", "Selby Bay stay"],
     },
-    existing,
+    existing: { ...existing, state },
     album: { gate: GATE, findOwned: async () => null, linkedTripName: async () => null },
   });
 }
@@ -236,6 +242,61 @@ describe("buildDraftWith for a route-scoped re-sync", () => {
     ]);
     expect(area.legs).toHaveLength(3);
     expect(draft.dto.stopovers).toEqual([]);
+  });
+
+  it("leaves out a stop that stands on another trip of the journey, and says so in the review", async () => {
+    // The owner's shape (2026-10-12, live failure): the trip-scoped window's
+    // last day also picks up photos that belong to ANOTHER trip of the journey —
+    // the 11-30 Dubai arrival photos against the Dubai trip's own stored stop —
+    // and the commit refused the whole re-sync. The scan leaves that stop out of
+    // the route and records the skip for the review to show.
+    const otherStay = station(
+      "st-x",
+      "Camp Nine",
+      { lat: -44.21, lon: 169.94 },
+      "2031-05-04",
+      "2031-05-06"
+    );
+    const state: ExistingTripState = {
+      ...STATE,
+      roadtrips: [STATE.roadtrips[0], { ...STATE.roadtrips[1], stations: [otherStay] }],
+    };
+    const draft = await buildDraftWith(
+      deps(
+        [...AREA_A, ...photosAt("sb", SELBY_BAY, ["2031-05-04T17:00", "2031-05-05T10:00"])],
+        false,
+        state
+      ),
+      USER,
+      { ...INPUT, endDay: "2031-05-05" },
+      () => undefined
+    );
+
+    const [area] = draft.dto.areas;
+    expect(area.stations.map((s) => s.title)).toEqual(["Northvale Lodge", "Port Carrow"]);
+    expect(area.legs).toHaveLength(1);
+    const [leftOut] = area.leftOut ?? [];
+    expect(leftOut).toMatchObject({
+      title: "Selby Bay",
+      firstDay: "2031-05-04",
+      lastDay: "2031-05-05",
+      routeId: OTHER_ROUTE,
+      routeName: "Selby Bay stay",
+    });
+    expect(typeof leftOut?.key).toBe("string");
+    // The stop is out of the route, not out of the trip: the target's own offer
+    // is untouched, and the other trip's row is not this scan's to write.
+    expect([...(draft.existing?.roadtrips.keys() ?? [])]).toEqual([ROUTE]);
+    // No night may name a station the review cannot show: the answer the
+    // left-out stop held is unknown again, so the night plan still validates.
+    const shown = new Set(area.stations.map((s) => s.key));
+    const specials: readonly string[] = NIGHT_SPECIALS;
+    for (const entry of Object.values(draft.dto.nights)) {
+      if (!specials.includes(entry.assign)) expect(shown.has(entry.assign)).toBe(true);
+    }
+    // The day rows carry no phantom either: the left-out key is gone from them.
+    const dayKeys = draft.dto.days.flatMap((day) => day.stationKeys);
+    expect(dayKeys).not.toContain(leftOut?.key);
   });
 
   it("previews the trip's own album, matched by its stored name, and offers no removal", async () => {

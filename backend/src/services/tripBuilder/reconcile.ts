@@ -226,6 +226,69 @@ export function reconcileStations(
   return { derived: derivedOut, notSeen, vias: stored.filter((s) => s.night === "via") };
 }
 
+/** What the cross-row check needs of a scanned station: where it is and when. A `DraftStation`, a `PlanStation` and a commit body's station all fit. */
+export interface CrossRowStation {
+  title: string;
+  lat: number;
+  lon: number;
+  firstDay: Day;
+  lastDay: Day;
+}
+
+/** A scanned station that also stands on another roadtrip of the journey. */
+export interface CrossRowMatch {
+  /** Index into the scanned list. */
+  index: number;
+  /** The other roadtrip of the journey whose stored station it also stands on. */
+  routeId: string;
+  routeName: string;
+}
+
+/**
+ * The scanned stations that also stand on ANOTHER roadtrip of the journey: a
+ * pair `reconcileStations` matches (within `CITY_LINK_KM`, equal titles or
+ * overlapping days) whose DAYS actually overlap. An equal title alone pairs
+ * across date ranges too — a hub city the owner's journeys repeat between
+ * trips — and that is the other trip's own stay, never this write's; a pair
+ * whose days touch, one day included, is. `roadtrips` names the OTHER trips:
+ * the caller filters its own route out. Each station is reported once, the
+ * first roadtrip of the list winning.
+ *
+ * One rule, two readers: the route-scoped scan leaves these stops out of the
+ * draft (`annotateDraftForRoute`) and the route-scoped commit refuses a write
+ * plan that still carries one (`assertNoCrossRowWrite`).
+ */
+export function crossRowMatches(
+  stations: readonly CrossRowStation[],
+  roadtrips: readonly ExistingRoadtrip[],
+  window: ReconcileWindow
+): CrossRowMatch[] {
+  const found = new Map<number, CrossRowMatch>();
+  for (const roadtrip of roadtrips) {
+    // Only the match is read here, so the derived title's source is inert.
+    const derived: DerivedStation[] = stations.map((station, index) => ({
+      key: String(index),
+      title: station.title,
+      titleSource: "geocode",
+      lat: station.lat,
+      lon: station.lon,
+      startDate: station.firstDay,
+      endDate: station.lastDay,
+      slept: false,
+    }));
+    reconcileStations(derived, roadtrip.stations, window).derived.forEach((rec, index) => {
+      if (rec.existing === undefined || found.has(index)) return;
+      const station = stations[index];
+      if (
+        daysOverlap(station.firstDay, station.lastDay, rec.existing.startDate, rec.existing.endDate)
+      ) {
+        found.set(index, { index, routeId: roadtrip.id, routeName: roadtrip.name });
+      }
+    });
+  }
+  return [...found.values()].sort((a, b) => a.index - b.index);
+}
+
 export type FinalEntry =
   { kind: "derived"; index: number } | { kind: "kept"; stored: ExistingStation };
 

@@ -162,6 +162,11 @@
         "skip": "Don't save",
         "stops": "Timeline stops"
       },
+      "leftOut": {
+        "otherTrip": "Belongs to another trip of this journey: {{trip}}. Its photos stay there.",
+        "pill": "Another trip",
+        "title": "Left out of this trip"
+      },
       "name": "Trip name",
       "skipped": "This area is not saved.",
       "summary": "{{stations}} stops · {{nights}} nights",

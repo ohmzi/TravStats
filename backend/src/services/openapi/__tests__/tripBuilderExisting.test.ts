@@ -92,6 +92,19 @@ describe("trip builder OpenAPI documents the re-sync fields", () => {
       expect(area.required ?? []).not.toContain("notSeen");
     });
 
+    it("lists the route-scoped stops left out because they stand on another trip", () => {
+      const leftOut = at(draft, "areas", "[]", "leftOut", "[]");
+      expect(keysOf(leftOut)).toEqual([
+        "firstDay",
+        "key",
+        "lastDay",
+        "routeId",
+        "routeName",
+        "title",
+      ]);
+      expect(at(draft, "areas", "[]").required ?? []).not.toContain("leftOut");
+    });
+
     it("lists the timeline stops the photos do not show", () => {
       expect(at(draft, "notSeenStops").type).toBe("array");
       expect(draft.required ?? []).not.toContain("notSeenStops");

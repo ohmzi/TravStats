@@ -1,6 +1,7 @@
 import type { ExistingRoadtrip, ExistingStation, ExistingStop } from "../existingTypes";
 import {
   claimStopovers,
+  crossRowMatches,
   derivedStopOf,
   interleaveKept,
   isCoordinateTitle,
@@ -740,5 +741,100 @@ describe("claimStopovers", () => {
     });
     expect(result.stopovers.map((m) => [m.key, m.roadtripId])).toEqual([["f1#f2", "r9"]]);
     expect(result.roadtrips).toEqual([]);
+  });
+});
+
+describe("crossRowMatches", () => {
+  const route = (id: string, name: string, stations: ExistingStation[]): ExistingRoadtrip => ({
+    id,
+    name,
+    legs: [],
+    stations,
+  });
+
+  /** A scanned station as the cross-row check reads one: a `DraftStation`'s own fields. */
+  const scan = (
+    title: string,
+    at: { lat: number; lon: number },
+    firstDay: string,
+    lastDay: string
+  ) => ({
+    title,
+    ...at,
+    firstDay,
+    lastDay,
+  });
+
+  it("names the other roadtrip a scanned station also stands on", () => {
+    const other = route("r9", "Selby Bay stay", [
+      stored({
+        id: "o1",
+        title: "Camp Nine",
+        ...PORT_CARROW,
+        startDate: "2031-05-04",
+        endDate: "2031-05-06",
+      }),
+    ]);
+    const matches = crossRowMatches(
+      [
+        scan("Northvale", NORTHVALE, "2031-05-02", "2031-05-04"),
+        scan("Port Carrow", PORT_CARROW, "2031-05-04", "2031-05-04"),
+      ],
+      [other],
+      WINDOW
+    );
+    // The day overlap is what pairs them: the titles differ, the coordinates are
+    // the same point (the owner's "Dubai" photos against the trip's own stop).
+    expect(matches).toEqual([{ index: 1, routeId: "r9", routeName: "Selby Bay stay" }]);
+  });
+
+  it("ignores an equal title on days the scanned station does not reach", () => {
+    // Finding NEW-1: the owner's journeys repeat hub cities across trips.
+    const other = route("r9", "Selby Bay stay", [
+      stored({ id: "o1", title: "Northvale", startDate: "2031-06-01", endDate: "2031-06-02" }),
+    ]);
+    expect(
+      crossRowMatches([scan("Northvale", NORTHVALE, "2031-05-02", "2031-05-04")], [other], WINDOW)
+    ).toEqual([]);
+  });
+
+  it("ignores a station beyond the link distance, however the days read", () => {
+    const other = route("r9", "Selby Bay stay", [
+      stored({
+        id: "o1",
+        title: "Camp Nine",
+        ...KELMORE,
+        startDate: "2031-05-02",
+        endDate: "2031-05-04",
+      }),
+    ]);
+    expect(
+      crossRowMatches([scan("Tarnside", TARNSIDE, "2031-05-02", "2031-05-04")], [other], WINDOW)
+    ).toEqual([]);
+  });
+
+  it("counts a span touching the scanned days at one day", () => {
+    const other = route("r9", "Selby Bay stay", [
+      stored({ id: "o1", title: "Camp Nine", startDate: "2031-04-30", endDate: "2031-05-02" }),
+    ]);
+    expect(
+      crossRowMatches([scan("Northvale", NORTHVALE, "2031-05-02", "2031-05-04")], [other], WINDOW)
+    ).toEqual([{ index: 0, routeId: "r9", routeName: "Selby Bay stay" }]);
+  });
+
+  it("reports each station once, the first roadtrip of the list winning", () => {
+    const first = route("r8", "First camp", [
+      stored({ id: "o1", title: "Camp Nine", startDate: "2031-05-02", endDate: "2031-05-04" }),
+    ]);
+    const second = route("r9", "Second camp", [
+      stored({ id: "o2", title: "Camp Ten", startDate: "2031-05-02", endDate: "2031-05-04" }),
+    ]);
+    expect(
+      crossRowMatches(
+        [scan("Northvale", NORTHVALE, "2031-05-02", "2031-05-04")],
+        [first, second],
+        WINDOW
+      )
+    ).toEqual([{ index: 0, routeId: "r8", routeName: "First camp" }]);
   });
 });
