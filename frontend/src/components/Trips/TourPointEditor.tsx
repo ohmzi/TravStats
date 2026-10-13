@@ -60,6 +60,15 @@ export default function TourPointEditor({
     (p) => (p.via !== true && p.title.trim() === "") || !isFinite(p.lat) || !isFinite(p.lon)
   );
 
+  /**
+   * The list as the endpoint takes it. `hasNight` is the SERVER's answer to
+   * "would a correction here delete a night" — the form shows it and never
+   * writes it back, so the save payload is the same one it was before the
+   * flag existed. The whole list is sent, night-carrying rows included.
+   */
+  const wirePoints = (points: TourPointInput[]): TourPointInput[] =>
+    points.map(({ hasNight: _hasNight, ...point }) => point);
+
   return (
     <div className="space-y-2">
       {draft.length === 0 && (
@@ -106,9 +115,21 @@ export default function TourPointEditor({
             >
               {t("trips:tours.points.remove")}
             </button>
+            {/* A station with a night cannot become a correction here — the
+                server refuses it (`VIA_POINT_HAS_NIGHT`) because this editor
+                knows no nights and would delete one unseen. So the switch is
+                disabled where the reader is about to flip it, and shows the
+                same sentence a refused save would (owner report
+                2026-10-12). The night itself is cleared on the trip page's
+                station editor; the server rule stays the floor for what the
+                form cannot know (a night added while this page is open). */}
             <label
               className="flex basis-full items-center gap-2 text-xs text-(--text-muted)"
-              title={t("trips:tours.points.viaHint")}
+              title={t(
+                point.hasNight === true
+                  ? "trips:tours.points.saveErrorViaNight"
+                  : "trips:tours.points.viaHint"
+              )}
             >
               <input
                 type="checkbox"
@@ -116,10 +137,15 @@ export default function TourPointEditor({
                 aria-checked={point.via === true}
                 aria-label={t("trips:tours.points.via")}
                 checked={point.via === true}
+                disabled={point.hasNight === true}
                 onChange={(e) => update(index, { via: e.target.checked })}
               />
               <span>{t("trips:tours.points.via")}</span>
-              {point.via === true && <span>— {t("trips:tours.points.viaHint")}</span>}
+              {point.hasNight === true ? (
+                <span>— {t("trips:tours.points.saveErrorViaNight")}</span>
+              ) : (
+                point.via === true && <span>— {t("trips:tours.points.viaHint")}</span>
+              )}
             </label>
             <div className="basis-full">
               <LocationInput
@@ -158,7 +184,7 @@ export default function TourPointEditor({
         <button
           type="button"
           disabled={saving || incomplete}
-          onClick={() => onSave(draft)}
+          onClick={() => onSave(wirePoints(draft))}
           className="rounded-sm bg-(--accent) px-3 py-1.5 text-sm text-white disabled:opacity-40"
         >
           {t("trips:tours.points.save")}

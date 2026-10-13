@@ -16,9 +16,10 @@
  * `./tourIndex.ts` path module rather than here: adding them here would
  * have pushed this file past the 800-line hard maximum, the exact same
  * reason `tourLegs.ts` / `tourRouting.ts` / `tourTracks.ts` were split off
- * `routes/trips/tourRoutes.ts` as their own router files. `legMode` and
- * `tourRouteGeometry` are exported below for that module to reuse rather
- * than redefine.
+ * `routes/trips/tourRoutes.ts` as their own router files. The standalone
+ * tour's point endpoint went to `./tourPoints.ts` the same way (2026-10-12).
+ * `legMode`, `tourLeg`, `tourRoute`, `tourRouteGeometry` and `tourStop` are
+ * exported below for those modules to reuse rather than redefine.
  */
 
 import { z } from "zod";
@@ -29,7 +30,6 @@ import { errorContent, errorResponse } from "./shared";
 import {
   createRouteSchema,
   createTourSchema,
-  tourPointsSchema,
   updateRouteSchema,
   assignStopsSchema,
   legOverrideSchema,
@@ -167,6 +167,18 @@ const tourStop = registry.register(
           "A route correction: the legs run through it, but it is no stop — not counted, " +
             "may have an empty title"
         ),
+      hasNight: z
+        .boolean()
+        .optional()
+        .describe(
+          "Whether the stored point carries a night (`overnight` or a lodging stay) — the " +
+            "two columns themselves are never sent. The point editor disables its " +
+            "route-correction switch while this is true: the server refuses a correction " +
+            "there (400 `VIA_POINT_HAS_NIGHT`), because that editor knows no nights and " +
+            "would delete the night unseen. Present on the responses that list a " +
+            "section's own points (the section GET and PUT points); absent from the " +
+            "assign response, which carries trip timeline stops."
+        ),
     })
     .openapi("TourRouteStop")
 );
@@ -277,17 +289,6 @@ const tourCreateInput = registry.register(
     description:
       "Omit `tripId` for a tour that belongs to no trip — that is what makes " + "it standalone.",
     example: { name: "Wanderung Besseggen", mode: "foot" },
-  })
-);
-const tourPointsInput = registry.register(
-  "TourPointsInput",
-  tourPointsSchema.openapi("TourPointsInput", {
-    example: {
-      points: [
-        { title: "Gjendesheim", lat: 61.4948, lon: 8.8054 },
-        { title: "Besseggen", lat: 61.5024, lon: 8.7311 },
-      ],
-    },
   })
 );
 const routeUpdateInput = registry.register(
@@ -745,54 +746,4 @@ registry.registerPath({
   },
 });
 
-const tourPointsPaths = [
-  { path: "/tours/{routeId}/points", params: z.object({ routeId: z.string().uuid() }) },
-  {
-    path: "/trips/{id}/routes/{routeId}/points",
-    params: z.object({ id: z.string().uuid(), routeId: z.string().uuid() }),
-  },
-] as const;
-
-for (const { path, params } of tourPointsPaths) registerTourPoints(path, params);
-
-function registerTourPoints(path: string, params: z.ZodObject<z.ZodRawShape>): void {
-  registry.registerPath({
-    method: "put",
-    path,
-    summary: "Replace a tour's own points",
-    description:
-      "The complete, ordered point list, written in one go: added, moved, " +
-      "removed and renumbered together. A section built from a TRIP's timeline " +
-      "stops is assigned instead (`PUT /trips/{id}/routes/{routeId}/stops`) and " +
-      "this endpoint refuses it with 409 `TOUR_POINTS_FROM_TRIP`. A day tour that " +
-      "joined a trip keeps points of its own and stays editable here, also as " +
-      "`PUT /trips/{id}/routes/{routeId}/points`.",
-    tags: ["Tours"],
-    request: {
-      params,
-      body: { content: { "application/json": { schema: tourPointsInput } } },
-    },
-    responses: {
-      200: {
-        description: "The tour, its points in order, and the recomputed legs",
-        content: {
-          "application/json": {
-            schema: z.object({
-              route: tourRoute,
-              stops: z.array(tourStop),
-              legs: z.array(tourLeg),
-            }),
-          },
-        },
-      },
-      400: { description: "Validation failed", content: errorContent },
-      404: { description: "Tour not found", content: errorContent },
-      409: {
-        description: "The tour is built from its trip's stops (code TOUR_POINTS_FROM_TRIP)",
-        content: errorContent,
-      },
-    },
-  });
-}
-
-export { legMode, tourLeg, tourRoute, tourRouteGeometry };
+export { legMode, tourLeg, tourRoute, tourRouteGeometry, tourStop };

@@ -594,6 +594,9 @@ export default function TripRouteEditorPage(): JSX.Element {
                 lat: s.lat ?? NaN,
                 lon: s.lon ?? NaN,
                 via: s.viaPoint === true,
+                // The stored night, so the editor disables the correction
+                // switch there instead of letting a save find the refusal.
+                hasNight: s.hasNight === true,
               }))}
               saving={savingPoints}
               error={pointsError}

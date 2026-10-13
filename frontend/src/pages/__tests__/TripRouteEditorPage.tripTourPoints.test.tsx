@@ -137,6 +137,27 @@ describe("TripRouteEditorPage — a day tour that joined a trip", () => {
     expect(vi.mocked(toursApi.replacePoints).mock.calls[0].slice(0, 2)).toEqual(["t1", "r1"]);
   });
 
+  it("passes the night flag on, so the switch is disabled before any save", async () => {
+    // The server sends `hasNight` for a point whose stored stop has one
+    // (owner report 2026-10-12); the page must hand it to the editor, or the
+    // reader only learns it from the refusal.
+    vi.mocked(toursApi.get).mockResolvedValue({
+      route: ROUTE,
+      stops: [
+        { ...ownPoint("a", "Gjendesheim"), hasNight: true },
+        ownPoint("b", "Memurubu"),
+      ] as never,
+      legs: [],
+      routingAvailable: false,
+    });
+    renderPage();
+    const switches = await screen.findAllByRole("switch", {
+      name: "trips:tours.points.via",
+    });
+    expect(switches[0]).toBeDisabled();
+    expect(switches[1]).toBeEnabled();
+  });
+
   it("says why a refused save was refused, instead of nothing", async () => {
     vi.mocked(toursApi.replacePoints).mockRejectedValue({
       response: {

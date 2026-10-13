@@ -4,7 +4,12 @@ import type { TourPointsInput } from "../../schemas/tour";
 import { recomputeLegs, type StopCoords } from "./legRecompute";
 import { autoRouteNewLegs } from "./routing/autoRouteLegs";
 import logger from "../../utils/logger";
-import { readRouteAndLegs, ROUTE_SELECT } from "../../routes/trips/tourRoutes";
+import {
+  readRouteAndLegs,
+  ROUTE_SELECT,
+  TOUR_POINT_SELECT,
+  toStopDto,
+} from "../../routes/trips/tourRoutes";
 
 /**
  * A point as the writer takes it. `notes` is absent from the editor's body
@@ -12,20 +17,6 @@ import { readRouteAndLegs, ROUTE_SELECT } from "../../routes/trips/tourRoutes";
  * note as it is, so the editor saving an order cannot wipe what a file wrote.
  */
 export type TourPoint = TourPointsInput["points"][number] & { notes?: string | null };
-
-/** The columns every response that lists a tour's points carries. */
-export const TOUR_POINT_SELECT = {
-  id: true,
-  title: true,
-  lat: true,
-  lon: true,
-  notes: true,
-  routeOrderIdx: true,
-  /** Null for a point the tour owns; set for a trip's timeline stop it draws on. */
-  tripId: true,
-  /** A route correction: drawn through, never counted (tester 2026-09-26). */
-  viaPoint: true,
-} as const;
 
 /**
  * The point list of a STANDALONE tour — the ONE writer of it. The editor
@@ -153,17 +144,23 @@ export async function replaceTourPoints(
 
       const createdLegs = await recomputeLegs(tx, routeId, section.mode, ordered);
 
+      // The same point list every other response carries — `hasNight`
+      // included, because the editor replaces its own list with this answer
+      // and would otherwise re-enable the correction switch on a station
+      // whose night it had just been told about.
+      const savedStops = await tx.tripStop.findMany({
+        where: { routeId },
+        orderBy: { routeOrderIdx: "asc" },
+        select: TOUR_POINT_SELECT,
+      });
+
       return {
         createdLegs,
         route: await tx.tripRoute.findUniqueOrThrow({
           where: { id: routeId },
           include: ROUTE_SELECT,
         }),
-        stops: await tx.tripStop.findMany({
-          where: { routeId },
-          orderBy: { routeOrderIdx: "asc" },
-          select: TOUR_POINT_SELECT,
-        }),
+        stops: savedStops.map(toStopDto),
         legs: await tx.tripRouteLeg.findMany({
           where: { routeId },
           orderBy: { fromStop: { routeOrderIdx: "asc" } },

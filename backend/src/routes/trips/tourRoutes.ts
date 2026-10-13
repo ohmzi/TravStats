@@ -181,6 +181,52 @@ export function toLegDto(leg: {
   };
 }
 
+/**
+ * The columns every response that lists a tour's points carries. The two
+ * night columns are folded away by `toStopDto` below: the point editor needs
+ * one bit — "would a correction here delete a night" — and that is exactly
+ * the rule `replaceTourPoints` refuses on (`VIA_POINT_HAS_NIGHT`).
+ */
+export const TOUR_POINT_SELECT = {
+  id: true,
+  title: true,
+  lat: true,
+  lon: true,
+  notes: true,
+  routeOrderIdx: true,
+  /** Null for a point the tour owns; set for a trip's timeline stop it draws on. */
+  tripId: true,
+  /** A route correction: drawn through, never counted (tester 2026-09-26). */
+  viaPoint: true,
+  overnight: true,
+  lodgingStayId: true,
+} as const;
+
+/**
+ * One point as every point-list response sends it: `overnight` and
+ * `lodgingStayId` answered as the one bit `hasNight` (owner report
+ * 2026-10-12). The point editor disables its correction switch on such a
+ * point instead of letting a save discover the refusal — the server still
+ * refuses (`VIA_POINT_HAS_NIGHT`), because this editor knows no nights and
+ * making one a correction here would delete it unseen. The two columns stay
+ * server-side; no client reads a night out of a route point.
+ */
+export function toStopDto(stop: {
+  id: string;
+  title: string;
+  lat: number | null;
+  lon: number | null;
+  notes: string | null;
+  routeOrderIdx: number | null;
+  tripId: string | null;
+  viaPoint: boolean;
+  overnight: boolean;
+  lodgingStayId: string | null;
+}): Record<string, unknown> {
+  const { overnight, lodgingStayId, ...point } = stop;
+  return { ...point, hasNight: overnight || lodgingStayId !== null };
+}
+
 /** Exported for `routes/trips/tourRouting.ts` — see `toDto` above. */
 export const ROUTE_SELECT = {
   legs: { select: { mode: true, distanceKm: true } },
@@ -455,16 +501,7 @@ router.get(
         prisma.tripStop.findMany({
           where: { routeId },
           orderBy: { routeOrderIdx: "asc" },
-          select: {
-            id: true,
-            title: true,
-            lat: true,
-            lon: true,
-            notes: true,
-            routeOrderIdx: true,
-            tripId: true,
-            viaPoint: true,
-          },
+          select: TOUR_POINT_SELECT,
         }),
         prisma.tripRouteLeg.findMany({
           where: { routeId },
@@ -475,7 +512,7 @@ router.get(
 
       res.json({
         route: toDto(route),
-        stops,
+        stops: stops.map(toStopDto),
         legs: legs.map(toLegDto),
         routingAvailable: routing.configured,
       });

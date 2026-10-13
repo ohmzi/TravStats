@@ -151,4 +151,46 @@ describe("Roadtrip route corrections", () => {
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("VIA_POINT_HAS_NIGHT");
   });
+
+  it("tells the point editor which of its points carries a night", async () => {
+    await put([HAMBURG, VIA, KRISTIANSAND]);
+    const res = await request(app).get(`/api/v1/tours/${roadtripId}`).set("Cookie", cookie);
+    expect(res.status).toBe(200);
+    // The editor disables its correction switch on these BEFORE a save (owner
+    // report 2026-10-12): a station with a night cannot become a correction —
+    // the server refuses it to protect the night — so the form has to know
+    // which points those are rather than learn it from the refusal. Hamburg
+    // only passes through, the correction carries no night, Kristiansand is a
+    // free night.
+    expect(res.body.stops.map((s: { hasNight: boolean }) => s.hasNight)).toEqual([
+      false,
+      false,
+      true,
+    ]);
+    // The flag, not the columns it is derived from: `overnight` and
+    // `lodgingStayId` stay server-side.
+    expect(res.body.stops[2]).not.toHaveProperty("overnight");
+    expect(res.body.stops[2]).not.toHaveProperty("lodgingStayId");
+  });
+
+  it("keeps the night flag on the answer the editor saves through", async () => {
+    await put([HAMBURG, KRISTIANSAND]);
+    const read = await request(app).get(`/api/v1/tours/${roadtripId}`).set("Cookie", cookie);
+    const points = read.body.stops.map(
+      (s: { id: string; title: string; lat: number; lon: number }) => ({
+        id: s.id,
+        title: s.title,
+        lat: s.lat,
+        lon: s.lon,
+      })
+    );
+    const res = await request(app)
+      .put(`/api/v1/tours/${roadtripId}/points`)
+      .set("Cookie", cookie)
+      .send({ points });
+    expect(res.status).toBe(200);
+    // The editor replaces its list with this answer: without the flag here,
+    // every save would re-enable the switch it had just disabled.
+    expect(res.body.stops.map((s: { hasNight: boolean }) => s.hasNight)).toEqual([false, true]);
+  });
 });

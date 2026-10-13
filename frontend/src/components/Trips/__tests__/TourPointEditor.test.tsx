@@ -32,6 +32,9 @@ const POINTS = [
   { id: "p2", title: "Besseggen", lat: 61.5, lon: 8.73 },
 ];
 
+/** A stored station with a night — `hasNight` as the server sends it. */
+const NIGHT_POINT = { id: "p3", title: "Memurubu", lat: 61.5, lon: 8.73, hasNight: true };
+
 describe("the standalone tour's point editor", () => {
   it("writes the whole list in one call, in the order shown", () => {
     const onSave = vi.fn();
@@ -111,5 +114,34 @@ describe("the standalone tour's point editor", () => {
   it("offers no bare latitude/longitude fields", () => {
     render(<TourPointEditor points={POINTS} saving={false} onSave={vi.fn()} />);
     expect(screen.queryByRole("spinbutton")).toBeNull();
+  });
+
+  it("disables the correction switch on a point that carries a night, and says why", () => {
+    render(<TourPointEditor points={[...POINTS, NIGHT_POINT]} saving={false} onSave={vi.fn()} />);
+
+    // The server refuses a correction on a station with a night — this editor
+    // knows no nights, so a save through here would delete one unseen
+    // (VIA_POINT_HAS_NIGHT, owner report 2026-10-12). The form tells the
+    // reader where the switch is instead of letting the save find out.
+    const switches = screen.getAllByRole("switch", { name: "trips:tours.points.via" });
+    expect(switches[0]).toBeEnabled();
+    expect(switches[1]).toBeEnabled();
+    expect(switches[2]).toBeDisabled();
+    expect(screen.getByText(/trips:tours.points.saveErrorViaNight/)).toBeInTheDocument();
+  });
+
+  it("saves the whole list after a flip elsewhere, the night's row sent as it stood", () => {
+    const onSave = vi.fn();
+    render(<TourPointEditor points={[...POINTS, NIGHT_POINT]} saving={false} onSave={onSave} />);
+
+    fireEvent.click(screen.getAllByRole("switch", { name: "trips:tours.points.via" })[0]);
+    fireEvent.click(screen.getByText("trips:tours.points.save"));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const sent = onSave.mock.calls[0][0];
+    expect(sent.map((p: { via?: boolean }) => p.via ?? false)).toEqual([true, false, false]);
+    // `hasNight` is the server's answer, not a field this form writes: the
+    // save payload is the same one it was before the flag existed.
+    expect(sent[2]).not.toHaveProperty("hasNight");
   });
 });

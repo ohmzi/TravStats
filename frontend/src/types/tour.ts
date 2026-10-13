@@ -108,6 +108,15 @@ export interface TourStop {
   tripId?: string | null;
   /** A route correction: the route bends through it; not a stop (tester 2026-09-26). */
   viaPoint?: boolean;
+  /**
+   * Whether the STORED stop carries a night — `overnight` or a lodging stay,
+   * the server's own two columns answered as one bit. Sent by the endpoints
+   * the point editor loads from (the section GET and the points write), so
+   * the editor can disable its correction switch there; optional because a
+   * stop built locally need not invent one, and a flag that is absent is not
+   * a night.
+   */
+  hasNight?: boolean;
 }
 
 export interface TourLeg {

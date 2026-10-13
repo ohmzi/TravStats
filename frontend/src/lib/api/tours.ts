@@ -34,6 +34,14 @@ export interface TourPointInput {
   lon: number;
   /** A route correction ("Streckenkorrektur"): may have no name, is never counted. */
   via?: boolean;
+  /**
+   * Whether the stored point carries a night — the server's answer on every
+   * response that lists a section's own points (`hasNight` on `TourStop`),
+   * so the editor can disable its correction switch on such a point. A form
+   * field only: the editor never sends it back, and `tourPointsSchema`
+   * ignores it.
+   */
+  hasNight?: boolean;
 }
 
 // PATCH semantics: explicit `null` clears `color`, `undefined` leaves it
