@@ -127,6 +127,21 @@ describe("mapAssetDetail", () => {
     expect(mapAssetDetail({ ...RAW, visibility: 3 })?.visibility).toBeNull();
   });
 
+  it("reads the legacy isArchived flag as the archive visibility", () => {
+    // Immich before the visibility enum sent `isArchived` and no `visibility`;
+    // the scan must read the flag the same way (owner ruling 2026-10-13).
+    const legacy = { ...RAW, visibility: undefined, isArchived: true };
+    expect(mapAssetDetail(legacy)?.visibility).toBe("archive");
+    expect(mapAssetDetail({ ...legacy, isArchived: false })?.visibility).toBeNull();
+    // The v3 field wins when both are sent.
+    expect(mapAssetDetail({ ...RAW, isArchived: true })?.visibility).toBe("timeline");
+  });
+
+  it("drops an asset Immich reports as trashed", () => {
+    expect(mapAssetDetail({ ...RAW, isTrashed: true })).toBeNull();
+    expect(mapAssetDetail({ ...RAW, isTrashed: false })?.id).toBe(RAW.id);
+  });
+
   it("turns an empty string into null for the free-text fields", () => {
     const mapped = mapAssetDetail({
       ...RAW,

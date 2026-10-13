@@ -106,8 +106,8 @@ export interface ImmichClient extends ImmichAlbumCalls {
    * structured `filter` body exists only from v3.2: no `type` (so images and
    * videos both come back), `withExif` (an inner join, so an asset with no EXIF
    * row is absent), `order: "asc"`. Immich leaves trashed and locked assets out
-   * on its own; hidden Live Photo halves and partners' assets DO come back and
-   * are the caller's to drop (`ownerId`, `visibility`).
+   * on its own; hidden Live Photo halves, archived assets and partners' assets
+   * DO come back and are the caller's to drop (`ownerId`, `visibility`).
    *
    * The range is on `fileCreatedAt`, a UTC instant, so a caller that wants whole
    * local days pads it and trims by local day afterwards. Pages are offset based
@@ -226,14 +226,31 @@ function visibilityOrNull(value: unknown): ImmichVisibility | null {
 }
 
 /**
+ * The visibility the trip builder reads, from either spelling Immich has used:
+ * v3's `visibility` ("archive" is an asset the owner put away) or the legacy
+ * `isArchived` flag an older server sends instead. The v3 field wins when both
+ * are present; an unknown value is null, never guessed.
+ */
+function assetVisibility(raw: Record<string, unknown>): ImmichVisibility | null {
+  const v3 = visibilityOrNull(raw.visibility);
+  if (v3 !== null) return v3;
+  return raw.isArchived === true ? "archive" : null;
+}
+
+/**
  * One search hit as the trip builder reads it: `mapAsset`'s fields plus the
  * clock, zone, owner, visibility, grouping and place facts. Anything Immich did
  * not send, or sent in a shape this does not trust, is null; nothing is guessed
  * here (the clock model decides what a naive `localDateTime` means).
+ *
+ * A trashed asset is dropped outright. Immich leaves trashed assets out of a
+ * search on its own, so this is a belt for a server that does not; a trashed
+ * photo is deleted, and nothing in the library — the album included — wants it.
  */
 export function mapAssetDetail(raw: unknown): ImmichAssetDetail | null {
   const base = mapAsset(raw);
   if (base === null || !isRecord(raw)) return null;
+  if (raw.isTrashed === true) return null;
   const exif = isRecord(raw.exifInfo) ? raw.exifInfo : undefined;
 
   return {
@@ -245,7 +262,7 @@ export function mapAssetDetail(raw: unknown): ImmichAssetDetail | null {
     state: nonEmptyString(exif?.state),
     country: nonEmptyString(exif?.country),
     ownerId: nonEmptyString(raw.ownerId),
-    visibility: visibilityOrNull(raw.visibility),
+    visibility: assetVisibility(raw),
     livePhotoVideoId: nonEmptyString(raw.livePhotoVideoId),
     duplicateId: nonEmptyString(raw.duplicateId),
     make: nonEmptyString(exif?.make),

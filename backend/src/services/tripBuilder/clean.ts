@@ -7,8 +7,9 @@
  * misdated, airborne or at sea — what the user took on the trip. MOVEMENT is
  * the part of it that may place a station: located, one copy per Immich
  * duplicate group, and not flagged by `flagMisdated`, `flagAtSea` or the
- * flight steps. A partner's photos and the hidden motion half of a Live
- * Photo are in neither.
+ * flight steps. A partner's photos, the hidden motion half of a Live Photo
+ * and an archived asset (owner ruling 2026-10-13) are in neither — an
+ * archived asset is in the album alone.
  *
  * Pure. The one impure input, `flagMisdated`'s filename lookup, is injected.
  */
@@ -150,10 +151,15 @@ function carryLocations(
 /**
  * Splits one fetch into the trip's photos and their context (§C.2). Assets
  * are excluded in this order: a partner's asset, then a hidden Live Photo
- * half, then the photo's own day. An asset with no owner id cannot be shown
- * to be the caller's, so it counts as a partner's: the album must never take
- * someone else's photo. The window's GPS-less photos then take the location
- * before them (`carryLocations`), but never across a departure
+ * half, then an archived asset, then the photo's own day. An asset with no
+ * owner id cannot be shown to be the caller's, so it counts as a partner's:
+ * the album must never take someone else's photo. An archived asset is one its
+ * owner put away: it shapes nothing — no cluster, no station, no night, no
+ * context for the misdated checks — while it stays in the album list, which
+ * the app defines as every own photo and video of the window (owner ruling
+ * 2026-10-13, "Sumayya's wedding": two archived videos still founded a Fatih
+ * station and split the Karachi stay). The window's GPS-less photos then take
+ * the location before them (`carryLocations`), but never across a departure
  * (`flightDeparturesMs`, the exact `depMs` of the window's flights; absent or
  * empty: no gate). Nothing it is given is changed.
  */
@@ -174,6 +180,7 @@ export function cleanAssets(
   };
   const inside: PhotoPoint[] = [];
   const context: PhotoPoint[] = [];
+  const archived: PhotoPoint[] = [];
   for (const p of photos) {
     if (p.ownerId !== opts.ownerId) {
       excluded.partner += 1;
@@ -181,6 +188,10 @@ export function cleanAssets(
     }
     if (p.visibility === "hidden") {
       excluded.hiddenLivePart += 1;
+      continue;
+    }
+    if (p.visibility === "archive") {
+      if (inWindow(p.day, opts.window)) archived.push(p);
       continue;
     }
     const flags = {
@@ -193,6 +204,7 @@ export function cleanAssets(
   }
   inside.sort(byTime);
   context.sort(byTime);
+  archived.sort(byTime);
   markDuplicates(inside);
   markDuplicates(context);
   carryLocations(inside, opts.flightDeparturesMs ?? []);
@@ -201,7 +213,15 @@ export function cleanAssets(
     if (p.flags.locationCarried) excluded.locationCarried += 1;
     if (p.flags.dayGuessed) excluded.dayGuessed += 1;
   }
-  return { photos: inside, context, albumAssetIds: inside.map((p) => p.id), excluded };
+  return {
+    photos: inside,
+    context,
+    // The album is every own photo and video of the window, archived
+    // included, by instant: the previous behaviour, with the archived ones
+    // merged back in the order they always had in this list.
+    albumAssetIds: [...inside, ...archived].sort(byTime).map((p) => p.id),
+    excluded,
+  };
 }
 
 // ─── Misdated: the straggler check (§C.2, check 1) ───────────────────────────
