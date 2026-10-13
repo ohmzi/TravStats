@@ -193,6 +193,24 @@ describe("the journey's figures row (design §2)", () => {
     expect(screen.getByText("6")).toBeInTheDocument();
   });
 
+  it("heads a flight-only journey with the span its entries give", () => {
+    // The server serves the effective span on `times` (and the DATE anchors
+    // beside it) for a journey whose row stores no days — owner 2026-10-13:
+    // the flights carry the real dates, so the band must not stand blank.
+    renderJourney(
+      journey({
+        startDate: null,
+        endDate: null,
+        times: {
+          start: { date: "2020-11-20", zone: "America/New_York", precision: "day" },
+          end: { date: "2020-11-28", zone: "America/New_York", precision: "day" },
+        },
+      })
+    );
+    expect(screen.getByText("Zeitraum")).toBeInTheDocument();
+    expect(screen.getByText("20.11. – 28.11.2020")).toBeInTheDocument();
+  });
+
   it("marks the days approximate while an end is not known to its day", () => {
     renderJourney(
       journey({

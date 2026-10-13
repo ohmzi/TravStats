@@ -249,8 +249,20 @@ export const tripResponse = registry.register(
       userId: z.string().uuid(),
       name: z.string().nullable(),
       description: z.string().nullable(),
-      startDate: z.string().datetime().nullable(),
-      endDate: z.string().datetime().nullable(),
+      startDate: z
+        .string()
+        .datetime()
+        .nullable()
+        .describe(
+          "The trip's first day. A stored span travels as it was; a trip that stores none " +
+            "gets the day its own entries give (the first departure of its flights, else a " +
+            "cruise's or stay's — services/trips/journeySpan.ts). Never written back."
+        ),
+      endDate: z
+        .string()
+        .datetime()
+        .nullable()
+        .describe("The trip's last day, by the same effective-span rule as `startDate`."),
       createdAt: z.string().datetime(),
       _count: z
         .object({

@@ -202,6 +202,76 @@ describe("TripEditPage — the journey's form", () => {
   });
 });
 
+describe("TripEditPage — the dates open at the journey's effective span", () => {
+  beforeEach(() => {
+    mocks.getById.mockReset();
+    mocks.update.mockReset().mockResolvedValue(trip);
+    mocks.uploadCover.mockReset();
+    mocks.remove.mockReset().mockResolvedValue(undefined);
+    mocks.addToast.mockReset();
+  });
+
+  // A flight-only journey as GET /trips/:id now serves it (owner 2026-10-13):
+  // no stored days, and `startDate`/`endDate`/`times` carrying the span its
+  // flights give — a 23:30 New York departure is the evening of the 20th.
+  const flightOnly = {
+    ...trip,
+    name: "NYC 2020",
+    startDate: "2020-11-20T00:00:00.000Z",
+    endDate: "2020-11-28T00:00:00.000Z",
+    startDay: null,
+    endDay: null,
+    times: {
+      start: { date: "2020-11-20", zone: "America/New_York", precision: "day" },
+      end: { date: "2020-11-28", zone: "America/New_York", precision: "day" },
+    },
+    flights: [
+      {
+        id: "f1",
+        status: "flown",
+        departureTime: "2020-11-21T04:30:00Z",
+        arrivalTime: "2020-11-21T12:00:00Z",
+      },
+    ],
+  } as unknown as Trip;
+
+  it("prefills the inputs from the served span, and an untouched save makes it the journey's own", async () => {
+    mocks.getById.mockResolvedValue(flightOnly);
+    renderPage();
+
+    await screen.findByDisplayValue("NYC 2020");
+    await waitFor(() => expect(dateInputs()[0].value).toBe("2020-11-20"));
+    expect(dateInputs()[1].value).toBe("2020-11-28");
+
+    // The trip editor's rule, mirrored (commit 571736068): saving the
+    // untouched, pre-filled form persists those dates as the journey's own.
+    save();
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenCalledWith(
+        "t1",
+        expect.objectContaining({ startDate: "2020-11-20", endDate: "2020-11-28" })
+      )
+    );
+  });
+
+  it("keeps a stored day on its own side, the flights' day answering the other", async () => {
+    mocks.getById.mockResolvedValue({
+      ...flightOnly,
+      startDate: "2020-11-19T00:00:00.000Z",
+      startDay: "2020-11-19T00:00:00.000Z",
+      times: {
+        ...flightOnly.times,
+        start: { date: "2020-11-19", zone: null, precision: "day" },
+      },
+    } as unknown as Trip);
+    renderPage();
+
+    await screen.findByDisplayValue("NYC 2020");
+    await waitFor(() => expect(dateInputs()[0].value).toBe("2020-11-19"));
+    expect(dateInputs()[1].value).toBe("2020-11-28");
+  });
+});
+
 describe("TripEditPage — the two sections the header loses", () => {
   beforeEach(() => {
     mocks.getById.mockReset().mockResolvedValue(trip);

@@ -561,7 +561,14 @@ ${request.prompt}`;
       expect(calls[0].prompt).toMatch(/Hotel Chelsea/);
       expect(calls[0].prompt).toMatch(/Kölner Dom/);
 
-      expect(result.summary).toBe("Two nights at Hotel Chelsea, one afternoon at the cathedral.");
+      // The closing line is back since the brief reads the trip's EFFECTIVE
+      // span (owner 2026-10-13): this fixture's dates come from its stay
+      // (10–12 May, two nights), so `nights` is known and `routeLine` states
+      // the city and the length — the brief used to abstain because the TRIP
+      // ROW stores no dates. See tripSummaryJourneySpan.test.ts.
+      expect(result.summary).toBe(
+        "Two nights at Hotel Chelsea, one afternoon at the cathedral.\n\nRoute: Köln. 2 nights."
+      );
       expect(result.language).toBe("en");
       expect(result.model).toBe("fake-model");
 

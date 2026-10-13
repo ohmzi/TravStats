@@ -109,6 +109,13 @@ export const TRIPS_LIST_INCLUDE = {
       // with the flights table by the whole UTC offset.
       depTimeSemantics: true,
       arrTimeSemantics: true,
+      // The zones and the status feed the journey's effective span on the
+      // list (services/trips/journeySpan.ts): a flight's day is the clock at
+      // its airport, and a cancelled leg never widens the trip. The detail
+      // route loads whole rows, so only the list's narrow select needs them.
+      depTimezone: true,
+      arrTimezone: true,
+      status: true,
       // A flight that carries its own price (no booking) belongs in the
       // trip total — a hand-entered price used to vanish from it.
       price: true,

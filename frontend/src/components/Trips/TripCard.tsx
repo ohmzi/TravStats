@@ -5,8 +5,7 @@ import { useRentalVisible } from "../../hooks/useRentalVisible";
 import { tripEntryCounts, tripEntryTotal } from "../../lib/tripEntryCount";
 import { useTranslation } from "../../hooks/useTranslation";
 import { formatLocalDate } from "../../lib/displayFormat";
-import { flightArrival, flightDeparture, tripEnd, tripStart } from "../../lib/entityTimes";
-import { dayOf } from "../../shared/time";
+import { tripEnd, tripStart } from "../../lib/entityTimes";
 import { statusPillStyle } from "../table/statusPillStyle";
 import { Icon, type IconName } from "../ui/Icon";
 import { bannerFlags, knownCountries } from "../../lib/tripFlags";
@@ -26,13 +25,16 @@ const STATUS_TONE: Record<Trip["status"], string> = {
 
 /**
  * When a trip starts and ends, as `YYYY-MM-DD` days at the places (ADR 0002):
- * its own days, else its first departure's and last arrival's day at their
- * airports. The list groups by the start year, so this is shared.
+ * the trip's own days, else its entries' — the EFFECTIVE span, which the trip
+ * endpoints serve (`times.start`/`times.end`, `services/trips/journeySpan.ts`).
+ * The card reads the server's answer and nothing of its own: a flight-only
+ * journey used to be dated here by a second, frontend-only flight rule that
+ * read UTC days, while the detail showed the airports' days.
  */
 export function tripSpan(trip: Trip): { start: string | null; end: string | null } {
   return {
-    start: tripStart(trip)?.date ?? firstFlightDay(trip),
-    end: tripEnd(trip)?.date ?? lastFlightDay(trip),
+    start: tripStart(trip)?.date ?? null,
+    end: tripEnd(trip)?.date ?? null,
   };
 }
 
@@ -230,24 +232,6 @@ export default function TripCard({ trip, onOpen }: TripCardProps): JSX.Element {
       </div>
     </div>
   );
-}
-
-/** The earliest departure (by instant) and its day at the airport. */
-function firstFlightDay(trip: Trip): string | null {
-  const departures = (trip.flights ?? [])
-    .map((f) => flightDeparture(f))
-    .filter((v): v is NonNullable<typeof v> => v !== null)
-    .sort((a, b) => Date.parse(a.utc) - Date.parse(b.utc));
-  return departures[0] ? dayOf(departures[0]) : null;
-}
-
-/** The latest arrival (by instant) and its day at the airport. */
-function lastFlightDay(trip: Trip): string | null {
-  const arrivals = (trip.flights ?? [])
-    .map((f) => flightArrival(f))
-    .filter((v): v is NonNullable<typeof v> => v !== null)
-    .sort((a, b) => Date.parse(b.utc) - Date.parse(a.utc));
-  return arrivals[0] ? dayOf(arrivals[0]) : null;
 }
 
 /**

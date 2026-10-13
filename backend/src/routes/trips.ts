@@ -54,6 +54,7 @@ import { editedTripDays } from "../services/timeModel/tripColumns";
 import { enrichFlightsForClients } from "../services/flightAirportFacts";
 import { withTripTimes } from "../services/trips/timesDto";
 import { withTripDetailTimes } from "../services/trips/tripDetailTimes";
+import { withJourneySpan } from "../services/trips/journeySpan";
 import { roadtripStationsForTrip } from "../services/trips/tripRoadtripStations";
 
 // Re-exported for the Immich trip routers, which import it from here.
@@ -172,7 +173,7 @@ router.get(
       const mostExpensive = includeInsights ? await mostExpensiveTrip(userId) : undefined;
       res.json({
         trips: trips.map((t) => ({
-          ...withTripTimes(t),
+          ...withJourneySpan(withTripTimes(t)),
           cruises: t.cruises.map((c) => ({
             ...c,
             distanceKm: Math.round(distanceByCruise.get(c.id) ?? 0),
@@ -439,7 +440,9 @@ router.get(
       }));
       // The stations of the trip's roadtrips; [] while roadtrips are off.
       const roadtripStations = await roadtripStationsForTrip(userId, trip.id);
-      const detail = withTripDetailTimes({ ...trip, photos, flights, countries, journalEntries });
+      const detail = withJourneySpan(
+        withTripDetailTimes({ ...trip, photos, flights, countries, journalEntries })
+      );
       res.json({ trip: { ...detail, roadtripStations } });
     } catch (error) {
       next(error);

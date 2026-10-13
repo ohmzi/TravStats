@@ -10,6 +10,7 @@ import { isStation } from "../shared/tour/roadtrip";
 import { now } from "../shared/time/clock";
 import { profileZoneOf } from "../shared/time/profileZone";
 import { STATION_LLM_SELECT, nightsOf, spanOf } from "./roadtrip/roadtripSummary";
+import { journeySpanBrief } from "./trips/journeySpan";
 
 /**
  * LLM-generated trip summaries.
@@ -341,12 +342,10 @@ const TRIP_NOTES_MAX = 1000;
 const DAY_MS = 86_400_000;
 /** Whole nights between two calendar days, or null when either is unknown. */
 const nightsBetween = (
-  from: Date | null | undefined,
-  to: Date | null | undefined
+  from: string | null | undefined,
+  to: string | null | undefined
 ): number | null =>
-  from && to
-    ? Math.max(0, Math.round((Date.parse(isoDate(to)!) - Date.parse(isoDate(from)!)) / DAY_MS))
-    : null;
+  from && to ? Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS)) : null;
 
 const isoDate = (d: Date | null | undefined): string | null =>
   d ? d.toISOString().slice(0, 10) : null;
@@ -365,10 +364,11 @@ export function briefFromTrip(trip: TripForBrief): SummaryBrief {
   return {
     name: trip.name,
     status: trip.status,
-    nights: nightsBetween(trip.startDate, trip.endDate),
+    // The journey's EFFECTIVE span (owner 2026-10-13) — the one rule the
+    // pages, the band and the scan window read (`journeySpanBrief`); a
+    // flight-only trip used to brief the model no dates at all.
+    ...journeySpanBrief(trip),
     category: trip.category ?? null,
-    startDate: isoDate(trip.startDate),
-    endDate: isoDate(trip.endDate),
     origin: trip.originLabel ?? null,
     destination: trip.destinationLabel ?? null,
     countries: trip.countries ?? [],
@@ -387,7 +387,7 @@ export function briefFromTrip(trip: TripForBrief): SummaryBrief {
     })),
     stays: trip.lodgingStays.map((s) => ({
       lodging: s.lodging.name,
-      nights: nightsBetween(s.checkIn, s.checkOut),
+      nights: nightsBetween(isoDate(s.checkIn), isoDate(s.checkOut)),
       city: s.lodging.city ?? null,
       country: s.lodging.country ?? null,
       checkIn: isoDate(s.checkIn),
@@ -636,7 +636,7 @@ function staysOf(stations: TripRouteForBrief["stops"]): SummaryBrief["stays"] {
       ? [
           {
             lodging: s.lodgingStay.lodging.name,
-            nights: nightsBetween(s.lodgingStay.checkIn, s.lodgingStay.checkOut),
+            nights: nightsBetween(isoDate(s.lodgingStay.checkIn), isoDate(s.lodgingStay.checkOut)),
             city: s.lodgingStay.lodging.city ?? null,
             country: s.lodgingStay.lodging.country ?? null,
             checkIn: isoDate(s.lodgingStay.checkIn),
