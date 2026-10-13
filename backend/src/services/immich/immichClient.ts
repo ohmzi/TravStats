@@ -200,6 +200,24 @@ function mapAsset(raw: unknown): ImmichAsset | null {
     sizeBytes: asNumberOrNull(exif?.fileSizeInByte),
     lat: asNumberOrNull(exif?.latitude),
     lon: asNumberOrNull(exif?.longitude),
+    // The gallery viewer's details facts (owner request 2026-10-13). Copied as
+    // Immich sent them, or null: an asset without an EXIF row, and a value in
+    // a shape this does not trust (the numeric `exposureTime` older servers
+    // sent), both stay null rather than becoming a display value.
+    make: nonEmptyString(exif?.make),
+    model: nonEmptyString(exif?.model),
+    lensModel: nonEmptyString(exif?.lensModel),
+    fNumber: asNumberOrNull(exif?.fNumber),
+    focalLength: asNumberOrNull(exif?.focalLength),
+    exposureTime: nonEmptyString(exif?.exposureTime),
+    iso: asNumberOrNull(exif?.iso),
+    // The EXIF pair is the camera's own; the asset-level pair exists even
+    // without an EXIF row, so it is the fallback rather than the source.
+    width: asNumberOrNull(exif?.exifImageWidth) ?? asNumberOrNull(raw.width),
+    height: asNumberOrNull(exif?.exifImageHeight) ?? asNumberOrNull(raw.height),
+    city: nonEmptyString(exif?.city),
+    state: nonEmptyString(exif?.state),
+    country: nonEmptyString(exif?.country),
   };
 }
 

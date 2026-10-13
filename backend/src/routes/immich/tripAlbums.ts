@@ -50,6 +50,12 @@ export interface LinkedAlbumDto {
   lastSyncedAt: string | null;
 }
 
+/**
+ * One gallery asset. The first six fields are the grid's own; the rest is what
+ * the viewer's Details panel shows (owner request 2026-10-13) — the asset's
+ * EXIF facts for a live asset, its own stored-file facts for an imported copy.
+ * Anything Immich does not send stays null and simply gets no row.
+ */
 export interface GalleryAssetDto {
   id: string;
   url: string;
@@ -57,6 +63,21 @@ export interface GalleryAssetDto {
   takenAt: string | null;
   lat: number | null;
   lon: number | null;
+  filename: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  width: number | null;
+  height: number | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  make: string | null;
+  model: string | null;
+  lensModel: string | null;
+  focalLength: number | null;
+  fNumber: number | null;
+  exposureTime: string | null;
+  iso: number | null;
 }
 
 /** Turn any Immich failure into a 502 + kind. Anything else bubbles as-is. */
@@ -308,7 +329,16 @@ router.get(
           // photo without an EXIF date has nothing to sort by, so it keeps its
           // link position at the end rather than leading the album.
           orderBy: [{ takenAt: { sort: "asc", nulls: "last" } }, { sortIdx: "asc" }],
-          select: { id: true, tripId: true, takenAt: true, lat: true, lon: true },
+          select: {
+            id: true,
+            tripId: true,
+            takenAt: true,
+            lat: true,
+            lon: true,
+            filename: true,
+            mimetype: true,
+            sizeBytes: true,
+          },
         });
         const fileUrl = (photoId: string): string =>
           `/api/v1/trips/${tripId}/photos/${photoId}/file`;
@@ -321,6 +351,24 @@ router.get(
             takenAt: p.takenAt?.toISOString() ?? null,
             lat: p.lat,
             lon: p.lon,
+            // A copy's own facts. It carries no EXIF block here — the import
+            // stores dates, coordinates and the file, nothing more — so the
+            // camera and place rows stay null rather than being guessed.
+            filename: p.filename,
+            mimeType: p.mimetype,
+            sizeBytes: p.sizeBytes,
+            width: null,
+            height: null,
+            city: null,
+            state: null,
+            country: null,
+            make: null,
+            model: null,
+            lensModel: null,
+            focalLength: null,
+            fNumber: null,
+            exposureTime: null,
+            iso: null,
           })),
         });
         return;
@@ -348,6 +396,23 @@ router.get(
             takenAt: a.fileCreatedAt,
             lat: a.lat,
             lon: a.lon,
+            // The viewer's details. `?? null` guards assets cached before the
+            // mapper learned these fields (the cache keeps them for a minute).
+            filename: a.originalFileName,
+            mimeType: a.mimeType,
+            sizeBytes: a.sizeBytes,
+            width: a.width ?? null,
+            height: a.height ?? null,
+            city: a.city ?? null,
+            state: a.state ?? null,
+            country: a.country ?? null,
+            make: a.make ?? null,
+            model: a.model ?? null,
+            lensModel: a.lensModel ?? null,
+            focalLength: a.focalLength ?? null,
+            fNumber: a.fNumber ?? null,
+            exposureTime: a.exposureTime ?? null,
+            iso: a.iso ?? null,
           })),
       });
     } catch (error) {

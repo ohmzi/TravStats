@@ -408,6 +408,19 @@ describe("GET /trips/:id/immich/albums/:linkId/assets", () => {
         sizeBytes: 1,
         lat: 1,
         lon: 2,
+        // What the viewer's Details panel renders (owner request 2026-10-13).
+        make: "Kestrel",
+        model: "K1 Pro",
+        lensModel: "Kestrel 24-70mm",
+        fNumber: 2.8,
+        focalLength: 35,
+        exposureTime: "1/250",
+        iso: 200,
+        width: 4032,
+        height: 3024,
+        city: "Northvale",
+        state: "Westshire",
+        country: "New Zealand",
       },
     ]);
 
@@ -421,6 +434,21 @@ describe("GET /trips/:id/immich/albums/:linkId/assets", () => {
       takenAt: "2026-05-01T00:00:00.000Z",
       lat: 1,
       lon: 2,
+      filename: "p1.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 1,
+      width: 4032,
+      height: 3024,
+      city: "Northvale",
+      state: "Westshire",
+      country: "New Zealand",
+      make: "Kestrel",
+      model: "K1 Pro",
+      lensModel: "Kestrel 24-70mm",
+      focalLength: 35,
+      fNumber: 2.8,
+      exposureTime: "1/250",
+      iso: 200,
     });
   });
 
@@ -528,12 +556,17 @@ describe("GET /trips/:id/immich/albums/:linkId/assets", () => {
         takenAt: new Date("2026-05-01T00:00:00.000Z"),
         lat: 1,
         lon: 2,
+        filename: "stored-1.jpg",
+        mimetype: "image/jpeg",
+        sizeBytes: 4096,
       },
     ]);
 
     const res = await request(makeApp()).get("/api/v1/trips/trip-1/immich/albums/link-1/assets");
 
     expect(listAlbumAssets).not.toHaveBeenCalled();
+    // A copy has its own facts (the stored file) and no EXIF block — the
+    // camera and place fields stay null, never invented.
     expect(res.body.assets[0]).toEqual({
       id: "photo-1",
       url: "/api/v1/trips/trip-1/photos/photo-1/file",
@@ -541,6 +574,21 @@ describe("GET /trips/:id/immich/albums/:linkId/assets", () => {
       takenAt: "2026-05-01T00:00:00.000Z",
       lat: 1,
       lon: 2,
+      filename: "stored-1.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 4096,
+      width: null,
+      height: null,
+      city: null,
+      state: null,
+      country: null,
+      make: null,
+      model: null,
+      lensModel: null,
+      focalLength: null,
+      fNumber: null,
+      exposureTime: null,
+      iso: null,
     });
   });
 });

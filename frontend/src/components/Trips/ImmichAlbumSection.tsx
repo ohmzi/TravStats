@@ -208,6 +208,31 @@ export default function ImmichAlbumSection({ tripId, album, onChanged }: Props):
     id: a.id,
     previewUrl: a.previewUrl,
     source: album.mode === "import" ? { kind: "photo" } : { kind: "immich", linkId: album.id },
+    details: {
+      albumName: album.albumName,
+      // Only a live asset can be opened in Immich: an imported copy's item id
+      // is the local photo's, not an Immich asset id, and its bytes are not
+      // (necessarily) in the album any more.
+      albumId: album.mode === "import" ? null : album.immichAlbumId,
+      filename: a.filename,
+      mimeType: a.mimeType,
+      sizeBytes: a.sizeBytes,
+      takenAt: a.takenAt,
+      lat: a.lat,
+      lon: a.lon,
+      city: a.city,
+      state: a.state,
+      country: a.country,
+      make: a.make,
+      model: a.model,
+      lensModel: a.lensModel,
+      focalLength: a.focalLength,
+      fNumber: a.fNumber,
+      exposureTime: a.exposureTime,
+      iso: a.iso,
+      width: a.width,
+      height: a.height,
+    },
   }));
 
   // The backend hands these over chronologically; grouping only cuts where the

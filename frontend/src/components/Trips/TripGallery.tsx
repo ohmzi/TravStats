@@ -20,6 +20,18 @@ interface TripGalleryProps {
 const ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 
 /**
+ * Where an uploaded photo was taken.
+ *
+ * `GET /trips/:id` sends `lat`/`lon` on every photo (see the backend's
+ * `PhotoDto`), but the shared `TripPhoto` type does not declare them yet —
+ * read them here rather than widening a type three other workstreams share.
+ */
+function photoGeo(photo: TripPhoto): { lat: number | null; lon: number | null } {
+  const { lat, lon } = photo as TripPhoto & { lat?: number | null; lon?: number | null };
+  return { lat: lat ?? null, lon: lon ?? null };
+}
+
+/**
  * Gallery tab content (Phase-1 iteration 7). Multi-image upload, grid
  * preview, click-to-enlarge lightbox, hover delete + caption edit — plus
  * one section per linked Immich album (Phase-A Immich integration).
@@ -43,6 +55,14 @@ export default function TripGallery({
     previewUrl: p.url,
     caption: p.caption,
     source: { kind: "photo" },
+    details: {
+      mimeType: p.mimetype,
+      sizeBytes: p.sizeBytes,
+      takenAt: p.takenAt,
+      ...photoGeo(p),
+      // No albumName/albumId: an upload belongs to the trip, not to an Immich
+      // album, so the viewer shows no album row and no "Open in Immich" link.
+    },
   }));
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {

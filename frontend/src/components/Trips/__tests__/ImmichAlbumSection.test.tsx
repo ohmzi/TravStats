@@ -33,7 +33,19 @@ vi.mock("../../../hooks/useTranslation", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: {}, ready: true }),
 }));
 
-vi.mock("../PhotoLightbox", () => ({ default: () => <div data-testid="lightbox" /> }));
+/** The viewer is a stub here; what matters is the items it is handed. */
+type CapturedItem = {
+  id: string;
+  source: { kind: string; linkId?: string };
+  details?: Record<string, unknown> | undefined;
+};
+const lightbox = vi.hoisted(() => ({ items: [] as CapturedItem[] }));
+vi.mock("../PhotoLightbox", () => ({
+  default: ({ items }: { items: CapturedItem[] }) => {
+    lightbox.items = items;
+    return <div data-testid="lightbox" />;
+  },
+}));
 
 import ImmichAlbumSection from "../ImmichAlbumSection";
 import type { LinkedAlbum } from "../../../types/immich";
@@ -160,6 +172,77 @@ describe("ImmichAlbumSection", () => {
 
     await waitFor(() => expect(screen.getAllByRole("img")).toHaveLength(2));
     expect(screen.queryByRole("switch", { name: "albums.groupByDay" })).not.toBeInTheDocument();
+  });
+
+  /* ── What the viewer's Details panel is handed (2026-10-13) ───────────── */
+
+  const DETAILED_ASSET = {
+    id: "p1",
+    url: "/t1.jpg",
+    previewUrl: "/p1.jpg",
+    takenAt: "2031-05-03T10:07:09.000Z",
+    lat: 41.9,
+    lon: 12.5,
+    filename: "IMG_0412.jpg",
+    mimeType: "image/jpeg",
+    sizeBytes: 2048,
+    width: 4032,
+    height: 3024,
+    city: "Northvale",
+    state: "Westshire",
+    country: "New Zealand",
+    make: "Kestrel",
+    model: "K1 Pro",
+    lensModel: "Kestrel 24-70mm",
+    focalLength: 35,
+    fNumber: 2.8,
+    exposureTime: "1/250",
+    iso: 200,
+  };
+
+  it("hands the served asset facts to the viewer, including the album's Immich id", async () => {
+    getAlbumAssets.mockResolvedValue({ assets: [DETAILED_ASSET] });
+    const user = userEvent.setup();
+    render(<ImmichAlbumSection tripId="trip-1" album={LINK_ALBUM} onChanged={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getAllByRole("img")).toHaveLength(1));
+    await user.click(screen.getAllByRole("img")[0]);
+
+    expect(lightbox.items).toHaveLength(1);
+    expect(lightbox.items[0].details).toMatchObject({
+      albumName: "Rome",
+      albumId: "a1",
+      filename: "IMG_0412.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 2048,
+      width: 4032,
+      height: 3024,
+      city: "Northvale",
+      state: "Westshire",
+      country: "New Zealand",
+      make: "Kestrel",
+      model: "K1 Pro",
+      lensModel: "Kestrel 24-70mm",
+      focalLength: 35,
+      fNumber: 2.8,
+      exposureTime: "1/250",
+      iso: 200,
+      takenAt: "2031-05-03T10:07:09.000Z",
+      lat: 41.9,
+      lon: 12.5,
+    });
+  });
+
+  it("names the album but no Immich id for an imported copy — its item id is not an asset id", async () => {
+    getAlbumAssets.mockResolvedValue({ assets: [DETAILED_ASSET] });
+    const user = userEvent.setup();
+    render(<ImmichAlbumSection tripId="trip-1" album={IMPORT_ALBUM} onChanged={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getAllByRole("img")).toHaveLength(1));
+    await user.click(screen.getAllByRole("img")[0]);
+
+    expect(lightbox.items[0].details?.albumName).toBe("Rome");
+    expect(lightbox.items[0].details?.albumId).toBeNull();
   });
 
   it("shows a copy badge and a re-sync button for import mode", async () => {

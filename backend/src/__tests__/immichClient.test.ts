@@ -144,7 +144,25 @@ describe("listAlbumAssets", () => {
     fileCreatedAt: "2026-05-01T10:00:00.000Z",
     originalFileName: `${id}.jpg`,
     originalMimeType: "image/jpeg",
-    exifInfo: { latitude: 41.9, longitude: 12.5, fileSizeInByte: 2048 },
+    exifInfo: {
+      latitude: 41.9,
+      longitude: 12.5,
+      fileSizeInByte: 2048,
+      // The camera facts the gallery's Details panel shows (Immich v3.3
+      // `exifInfo`). Synthetic values, like the rest of this fixture.
+      make: "Kestrel",
+      model: "K1 Pro",
+      lensModel: "Kestrel 24-70mm",
+      fNumber: 2.8,
+      focalLength: 35,
+      exposureTime: "1/250",
+      iso: 200,
+      exifImageWidth: 4032,
+      exifImageHeight: 3024,
+      city: "Northvale",
+      state: "Westshire",
+      country: "New Zealand",
+    },
   });
 
   it("POSTs /api/search/metadata with albumIds + withExif and follows pagination", async () => {
@@ -169,7 +187,7 @@ describe("listAlbumAssets", () => {
     expect(assets.map((a) => a.id)).toEqual(["p1", "p2"]);
   });
 
-  it("maps exifInfo onto flat sizeBytes/lat/lon and tolerates a missing exifInfo", async () => {
+  it("maps exifInfo onto the gallery's facts and tolerates a missing exifInfo", async () => {
     mockedAxios.post.mockResolvedValueOnce({
       data: {
         assets: {
@@ -192,9 +210,67 @@ describe("listAlbumAssets", () => {
       sizeBytes: 2048,
       lat: 41.9,
       lon: 12.5,
+      // What the viewer's Details panel renders (owner request 2026-10-13).
+      make: "Kestrel",
+      model: "K1 Pro",
+      lensModel: "Kestrel 24-70mm",
+      fNumber: 2.8,
+      focalLength: 35,
+      exposureTime: "1/250",
+      iso: 200,
+      width: 4032,
+      height: 3024,
+      city: "Northvale",
+      state: "Westshire",
+      country: "New Zealand",
     });
-    expect(p2).toMatchObject({ sizeBytes: null, lat: null, lon: null });
-    expect(p3).toMatchObject({ sizeBytes: null, lat: null, lon: null });
+    expect(p2).toMatchObject({
+      sizeBytes: null,
+      lat: null,
+      lon: null,
+      make: null,
+      lensModel: null,
+      width: null,
+      height: null,
+    });
+    expect(p3).toMatchObject({ sizeBytes: null, lat: null, lon: null, make: null, iso: null });
+  });
+
+  it("falls back to the asset's own width/height, and never invents a camera fact", async () => {
+    // Immich sends `exifInfo` only when an asset has an EXIF row; the
+    // asset-level width/height exist even then. A number-shaped
+    // `exposureTime` (older Immich sent seconds as a number) is not
+    // stringified into a display value — it is dropped.
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        assets: {
+          items: [
+            {
+              id: "p1",
+              type: "IMAGE",
+              fileCreatedAt: "2026-05-01T10:00:00.000Z",
+              originalFileName: "p1.jpg",
+              originalMimeType: "image/jpeg",
+              width: 1920,
+              height: 1080,
+              exifInfo: { exposureTime: 0.008, fNumber: null, focalLength: null, iso: null },
+            },
+          ],
+          nextPage: null,
+        },
+      },
+    });
+    const [p1] = await createImmichClient(CONN).listAlbumAssets("album-1");
+    expect(p1).toMatchObject({
+      width: 1920,
+      height: 1080,
+      exposureTime: null,
+      fNumber: null,
+      focalLength: null,
+      iso: null,
+      make: null,
+      model: null,
+    });
   });
 
   it("stops after MAX_PAGES to avoid an unbounded loop on a misbehaving server", async () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import TripGallery from "../TripGallery";
 import type { TripPhoto } from "../../../types";
@@ -17,7 +18,16 @@ vi.mock("../../../lib/api", () => ({
 }));
 
 vi.mock("../JourneyPhotosSection", () => ({ default: () => null }));
-vi.mock("../PhotoLightbox", () => ({ default: () => <div data-testid="lightbox" /> }));
+
+/** The viewer is a stub here; what matters is the items it is handed. */
+type CapturedItem = { id: string; details?: Record<string, unknown> | undefined };
+const lightbox = vi.hoisted(() => ({ items: [] as CapturedItem[] }));
+vi.mock("../PhotoLightbox", () => ({
+  default: ({ items }: { items: CapturedItem[] }) => {
+    lightbox.items = items;
+    return <div data-testid="lightbox" />;
+  },
+}));
 vi.mock("../ImmichAlbumPicker", () => ({ default: () => <div data-testid="picker" /> }));
 vi.mock("../ImmichAlbumSection", () => ({
   default: ({ album }: { album: LinkedAlbum }) => (
@@ -102,6 +112,28 @@ describe("TripGallery — uploaded-photos section visibility (#179)", () => {
       expect(screen.getByText("immich:albums.link")).toBeInTheDocument();
     }
   );
+
+  it("hands an upload's own facts to the viewer — file format, size and where it was taken", async () => {
+    // `lat`/`lon` arrive on every photo from `GET /trips/:id`; the shared
+    // TripPhoto type does not declare them, and the cast keeps that honest.
+    const located = { ...PHOTO, lat: 41.9, lon: 12.5 } as TripPhoto;
+    const user = userEvent.setup();
+    render(<TripGallery tripId="trip-1" photos={[located]} immichAlbums={[]} onChange={vi.fn()} />);
+
+    await user.click(screen.getByRole("presentation"));
+
+    expect(lightbox.items).toHaveLength(1);
+    expect(lightbox.items[0].details).toMatchObject({
+      mimeType: "image/jpeg",
+      sizeBytes: 1234,
+      takenAt: null,
+      lat: 41.9,
+      lon: 12.5,
+    });
+    // An upload is not an Immich album asset, so the viewer offers no album
+    // row and no "Open in Immich" link.
+    expect(lightbox.items[0].details?.albumId).toBeUndefined();
+  });
 
   it("shows one section per linked album — the journey's Gallery carries them all (template spec §3)", () => {
     const second: LinkedAlbum = {

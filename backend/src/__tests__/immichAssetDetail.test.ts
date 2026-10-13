@@ -63,6 +63,15 @@ describe("mapAssetDetail", () => {
       duplicateId: null,
       make: "Kestrel",
       model: "K1 Pro",
+      // The gallery's details facts ride along on the base asset now; Immich
+      // sent none of them in this fixture, so they are null.
+      lensModel: null,
+      fNumber: null,
+      focalLength: null,
+      exposureTime: null,
+      iso: null,
+      width: null,
+      height: null,
       isFavorite: true,
     });
   });
@@ -91,6 +100,13 @@ describe("mapAssetDetail", () => {
       duplicateId: null,
       make: null,
       model: null,
+      lensModel: null,
+      fNumber: null,
+      focalLength: null,
+      exposureTime: null,
+      iso: null,
+      width: null,
+      height: null,
       isFavorite: false,
     });
   });

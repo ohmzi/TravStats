@@ -9,6 +9,17 @@ export interface ImmichConnectionStatus {
   source: ImmichConnectionSource | null;
   isShared: boolean;
   hasAccess: boolean;
+  /**
+   * The Immich address a BROWSER can reach, for "Open in Immich" links —
+   * `baseUrl` above is the connection's own address (often the internal
+   * container one) and is deliberately never emitted into a link.
+   *
+   * Optional: the setting does not exist on the backend yet, so today's
+   * `GET /settings/immich` never sends it and the link stays hidden. An owner
+   * who wants the link needs this value configured (controller decision,
+   * 2026-10-13).
+   */
+  webUrl?: string | null;
 }
 
 /**
@@ -54,6 +65,13 @@ export interface LinkedAlbum {
   lastSyncedAt: string | null;
 }
 
+/**
+ * One asset of a linked album as the gallery serves it. The first six fields
+ * are the gallery's own (grid + day grouping); the rest is what the viewer's
+ * Details panel can show, copied from Immich's EXIF block or null — the album
+ * route serves them since 2026-10-13. An imported copy has no EXIF block, so
+ * only its own row facts (file name, size, dates) come back filled.
+ */
 export interface ImmichGalleryAsset {
   id: string;
   url: string;
@@ -61,6 +79,21 @@ export interface ImmichGalleryAsset {
   takenAt: string | null;
   lat: number | null;
   lon: number | null;
+  filename: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  width: number | null;
+  height: number | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  make: string | null;
+  model: string | null;
+  lensModel: string | null;
+  focalLength: number | null;
+  fNumber: number | null;
+  exposureTime: string | null;
+  iso: number | null;
 }
 
 export interface ImportJob {

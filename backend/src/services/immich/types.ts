@@ -80,6 +80,30 @@ export interface ImmichAsset {
   sizeBytes: number | null;
   lat: number | null;
   lon: number | null;
+
+  /**
+   * What the gallery viewer's Details panel shows (owner request 2026-10-13),
+   * copied from Immich's `exifInfo` as sent — null when Immich has none, and
+   * never invented. Drop-in optional so a hand-built `ImmichAsset` (tests,
+   * fixtures) need not name them; `mapAsset` fills every one from the payload.
+   *
+   * `width`/`height` prefer the EXIF pair and fall back to the asset-level
+   * ones, which Immich sends even without an EXIF row. `exposureTime` is a
+   * string like `"1/250"`; the numeric shape older servers sent is refused
+   * rather than stringified into a value nothing can label.
+   */
+  make?: string | null;
+  model?: string | null;
+  lensModel?: string | null;
+  fNumber?: number | null;
+  focalLength?: number | null;
+  exposureTime?: string | null;
+  iso?: number | null;
+  width?: number | null;
+  height?: number | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
 }
 
 /**
