@@ -69,6 +69,7 @@ export default function RoutingProviderSection({
   const [loadStatus, setLoadStatus] = useState<LoadStatus>("loading");
   const [provider, setProvider] = useState<ProviderChoice>("");
   const [customUrl, setCustomUrl] = useState("");
+  const [autoFetchUrl, setAutoFetchUrl] = useState("");
   const [orsKey, setOrsKey] = useState("");
   const [ghKey, setGhKey] = useState("");
   const [saving, setSaving] = useState(false);
@@ -84,6 +85,7 @@ export default function RoutingProviderSection({
       const keys = await adminApi.getGlobalApiKeys();
       setProvider(keys.routingProvider ?? "");
       setCustomUrl(keys.routingCustomUrl ?? "");
+      setAutoFetchUrl(keys.routingAutoFetchUrl ?? "");
       setOrsKey(keys.globalOpenrouteserviceApiKey ?? "");
       setGhKey(keys.globalGraphhopperApiKey ?? "");
       setLoadStatus("ready");
@@ -108,6 +110,7 @@ export default function RoutingProviderSection({
       const result = await adminApi.updateGlobalApiKeys({
         routingProvider: provider === "" ? null : provider,
         routingCustomUrl: customUrl.trim() || null,
+        routingAutoFetchUrl: autoFetchUrl.trim() || null,
         globalOpenrouteserviceApiKey: orsKey,
         globalGraphhopperApiKey: ghKey,
       });
@@ -235,6 +238,26 @@ export default function RoutingProviderSection({
               </p>
             </div>
           )}
+
+          {/* Instance-wide, whichever provider answers: a refusal far from
+              BOTH places asks this service to fetch the missing map region
+              (spec 2026-10-13-osrm-autofetch-design). */}
+          <div>
+            <label className="label" htmlFor="routing-auto-fetch-url">
+              {t("settings:routing.autoFetchLabel")}
+            </label>
+            <input
+              id="routing-auto-fetch-url"
+              type="url"
+              className="input"
+              value={autoFetchUrl}
+              onChange={(e) => setAutoFetchUrl(e.target.value)}
+              placeholder="http://192.168.80.1:5013"
+            />
+            <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+              {t("settings:routing.autoFetchHint")}
+            </p>
+          </div>
 
           <div className="flex items-center gap-3">
             <button

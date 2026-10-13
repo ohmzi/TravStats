@@ -63,6 +63,7 @@ describe("Tour routing provider settings (Phase 3)", () => {
         globalGraphhopperApiKey: null,
         routingProvider: null,
         routingCustomUrl: null,
+        routingAutoFetchUrl: null,
       },
     });
     await prisma.userSettings.updateMany({
@@ -229,6 +230,50 @@ describe("Tour routing provider settings (Phase 3)", () => {
         .set("Cookie", adminCookie)
         .send({ routingProvider: "not-a-real-provider" });
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe("PUT /api/v1/admin/api-keys — routingAutoFetchUrl", () => {
+    it("rejects a value that is not a URL and leaves the column untouched", async () => {
+      const res = await request(app)
+        .put("/api/v1/admin/api-keys")
+        .set("Cookie", adminCookie)
+        .send({ routingAutoFetchUrl: "not a url" });
+      expect(res.status).toBe(400);
+      const row = await prisma.adminSettings.findFirst();
+      expect(row?.routingAutoFetchUrl ?? null).toBeNull();
+    });
+
+    it("accepts an http LAN URL, strips the trailing slash, and echoes it on GET", async () => {
+      const putRes = await request(app)
+        .put("/api/v1/admin/api-keys")
+        .set("Cookie", adminCookie)
+        .send({ routingAutoFetchUrl: "http://192.168.80.1:5013/" });
+      expect(putRes.status).toBe(200);
+      expect(putRes.body.settings.routingAutoFetchUrl).toBe("http://192.168.80.1:5013");
+
+      const getRes = await request(app).get("/api/v1/admin/api-keys").set("Cookie", adminCookie);
+      expect(getRes.body.routingAutoFetchUrl).toBe("http://192.168.80.1:5013");
+
+      const row = await prisma.adminSettings.findFirst();
+      expect(row?.routingAutoFetchUrl).toBe("http://192.168.80.1:5013");
+    });
+
+    it("clears it back to null with an explicit null", async () => {
+      await request(app)
+        .put("/api/v1/admin/api-keys")
+        .set("Cookie", adminCookie)
+        .send({ routingAutoFetchUrl: "http://10.0.0.2:5013" })
+        .expect(200);
+
+      const clearRes = await request(app)
+        .put("/api/v1/admin/api-keys")
+        .set("Cookie", adminCookie)
+        .send({ routingAutoFetchUrl: null });
+      expect(clearRes.status).toBe(200);
+      expect(clearRes.body.settings.routingAutoFetchUrl).toBeNull();
+      const row = await prisma.adminSettings.findFirst();
+      expect(row?.routingAutoFetchUrl).toBeNull();
     });
   });
 

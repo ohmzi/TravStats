@@ -606,6 +606,8 @@
     "noneHint": "Ohne Anbieter bleibt „Berechnet“ in der Touren-Ansicht deaktiviert — jede Etappe bleibt eine Luftlinie, bis hier einer eingerichtet wird.",
     "customUrlLabel": "Basis-URL",
     "customUrlHint": "Adresse eines selbst gehosteten OSRM-Servers, z. B. https://osrm.example.com.",
+    "autoFetchLabel": "Karten-Auto-Abruf-URL",
+    "autoFetchHint": "Der osrm-autofetch-Dienst, z. B. http://192.168.80.1:5013. Leer lässt das automatische Nachladen von Karten aus.",
     "loadError": "Routing-Einstellungen konnten nicht geladen werden",
     "retry": "Erneut versuchen",
     "saveSuccess": "Routing-Einstellungen gespeichert",

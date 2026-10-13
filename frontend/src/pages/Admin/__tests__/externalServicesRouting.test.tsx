@@ -53,6 +53,7 @@ describe("Administration → Externe Dienste — the routing provider", () => {
     adminApi.getGlobalApiKeys.mockResolvedValue({
       routingProvider: "openrouteservice",
       routingCustomUrl: null,
+      routingAutoFetchUrl: null,
       globalOpenrouteserviceApiKey: "abcd****wxyz",
     });
   });

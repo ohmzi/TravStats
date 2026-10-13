@@ -35,6 +35,7 @@ interface GlobalApiKeysUpdateData {
   allowUserFlightApiKeys?: boolean;
   routingProvider?: string | null;
   routingCustomUrl?: string | null;
+  routingAutoFetchUrl?: string | null;
 }
 
 const globalApiKeysSchema = z
@@ -132,6 +133,7 @@ router.get("/api-keys", async (req: AuthRequest, res: Response, next: NextFuncti
         allowUserFlightApiKeys: true,
         routingProvider: null,
         routingCustomUrl: null,
+        routingAutoFetchUrl: null,
       });
     }
 
@@ -151,6 +153,7 @@ router.get("/api-keys", async (req: AuthRequest, res: Response, next: NextFuncti
       allowUserFlightApiKeys: adminSettings.allowUserFlightApiKeys ?? true,
       routingProvider: adminSettings.routingProvider ?? null,
       routingCustomUrl: adminSettings.routingCustomUrl ?? null,
+      routingAutoFetchUrl: adminSettings.routingAutoFetchUrl ?? null,
     });
   } catch (error) {
     logger.error({
@@ -259,6 +262,9 @@ router.put("/api-keys", async (req: AuthRequest, res: Response, next: NextFuncti
     if (payload.routingCustomUrl !== undefined) {
       updateData.routingCustomUrl = payload.routingCustomUrl;
     }
+    if (payload.routingAutoFetchUrl !== undefined) {
+      updateData.routingAutoFetchUrl = payload.routingAutoFetchUrl;
+    }
 
     // One row, created under a lock if the instance has none — the branch
     // that used to sit here could insert a SECOND settings row.
@@ -284,6 +290,7 @@ router.put("/api-keys", async (req: AuthRequest, res: Response, next: NextFuncti
         allowUserFlightApiKeys: adminSettings.allowUserFlightApiKeys,
         routingProvider: adminSettings.routingProvider ?? null,
         routingCustomUrl: adminSettings.routingCustomUrl ?? null,
+        routingAutoFetchUrl: adminSettings.routingAutoFetchUrl ?? null,
       },
     });
   } catch (error) {

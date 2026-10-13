@@ -31,6 +31,7 @@ vi.mock("../../../hooks/useTranslation", () => ({
 const NONE_FIXTURE = {
   routingProvider: null,
   routingCustomUrl: null,
+  routingAutoFetchUrl: null,
   allowUserFlightApiKeys: true,
 };
 
@@ -168,6 +169,43 @@ describe("RoutingProviderSection", () => {
       )
     );
     expect(await screen.findByText("Global API keys updated successfully")).toBeInTheDocument();
+  });
+
+  it("renders the map auto-fetch URL field with the stored value, provider-agnostically", async () => {
+    vi.mocked(adminApi.getGlobalApiKeys).mockResolvedValue({
+      ...NONE_FIXTURE,
+      routingAutoFetchUrl: "http://192.168.80.1:5013",
+    });
+
+    render(<RoutingProviderSection isAdmin={true} />);
+
+    const input = await screen.findByLabelText("settings:routing.autoFetchLabel");
+    expect((input as HTMLInputElement).value).toBe("http://192.168.80.1:5013");
+    expect(screen.getByText("settings:routing.autoFetchHint")).toBeInTheDocument();
+  });
+
+  it("saves the auto-fetch URL via PUT, as null when cleared", async () => {
+    const user = userEvent.setup();
+    vi.mocked(adminApi.getGlobalApiKeys).mockResolvedValue({
+      ...NONE_FIXTURE,
+      routingAutoFetchUrl: "http://192.168.80.1:5013",
+    });
+    vi.mocked(adminApi.updateGlobalApiKeys).mockResolvedValue({
+      message: "Global API keys updated successfully",
+    });
+
+    render(<RoutingProviderSection isAdmin={true} />);
+
+    const input = await screen.findByLabelText("settings:routing.autoFetchLabel");
+    await user.clear(input);
+
+    await user.click(screen.getByText("common:buttons.save"));
+
+    await waitFor(() =>
+      expect(adminApi.updateGlobalApiKeys).toHaveBeenCalledWith(
+        expect.objectContaining({ routingAutoFetchUrl: null })
+      )
+    );
   });
 
   it("shows a translated failure message (and logs) when the save fails", async () => {

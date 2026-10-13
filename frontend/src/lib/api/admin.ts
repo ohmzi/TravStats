@@ -497,6 +497,7 @@ export const adminApi = {
     globalGraphhopperApiKey?: string;
     routingProvider: RoutingProviderId | null;
     routingCustomUrl: string | null;
+    routingAutoFetchUrl: string | null;
     allowUserFlightApiKeys: boolean;
   }> => {
     const { data } = await api.get<{
@@ -513,6 +514,7 @@ export const adminApi = {
       globalGraphhopperApiKey?: string;
       routingProvider: RoutingProviderId | null;
       routingCustomUrl: string | null;
+      routingAutoFetchUrl: string | null;
       allowUserFlightApiKeys: boolean;
     }>("/admin/api-keys");
     return data;
@@ -532,6 +534,7 @@ export const adminApi = {
     globalGraphhopperApiKey?: string | null;
     routingProvider?: RoutingProviderId | null;
     routingCustomUrl?: string | null;
+    routingAutoFetchUrl?: string | null;
     allowUserFlightApiKeys?: boolean;
   }): Promise<MessageResponse> => {
     const { data } = await api.put<MessageResponse>("/admin/api-keys", keys);

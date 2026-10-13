@@ -903,6 +903,8 @@ model AdminSettings {
   /// is admin-supplied, not attacker-chosen, in the single-tenant deployment
   /// this targets. Do not re-flag without changing that threat model.
   routingCustomUrl String? @map("routing_custom_url")
+  /// The osrm-autofetch service's URL (spec 2026-10-13); null = on-demand map fetching off.
+  routingAutoFetchUrl String? @map("routing_auto_fetch_url")
 
   // Which geo-tz dataset last derived the airport catalogue's time zones.
   // Until 2026-09-24 the default import was geo-tz's "now" dataset, which
