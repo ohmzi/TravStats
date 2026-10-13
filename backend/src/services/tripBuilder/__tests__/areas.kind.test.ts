@@ -1,7 +1,7 @@
 import { roadtripAreaNames } from "../../../shared/tour/builderNightPlan";
 import { decideAreaKind, mainCityOf } from "../areas";
 import type { AreaHome, NightEntry } from "../types";
-import { noHome, station } from "./planFixtures";
+import { groundArea, noHome, station } from "./planFixtures";
 
 const portCarrow = (key: string, extra = {}) =>
   station(key, { title: "Port Carrow", photoCount: 5, ...extra });
@@ -18,23 +18,36 @@ const entry = (assign: string): NightEntry => ({
   suggestedStationKeys: [],
 });
 
+/**
+ * These pins read the city and home-leg rules over an area with nothing
+ * happening in it: one day, so no multi-night stay can make it a roadtrip.
+ * The stay rule's own pins live in `areas.stay.test.ts`.
+ */
+const quietDay = () => groundArea({ startDay: "2031-05-02", endDay: "2031-05-02" });
+
 describe("decideAreaKind", () => {
   it("is one timeline stop for one city with no home leg, however often it was visited", () => {
     const stations = [station("n1"), station("n2", { title: " northvale " })];
-    expect(decideAreaKind({ stations, home: noHome() }, true)).toBe("stops");
+    expect(decideAreaKind({ stations, home: noHome(), area: quietDay() }, true)).toBe("stops");
   });
 
   it("is a roadtrip for two cities, but a stop when roadtrips are hidden", () => {
     const stations = [station("n1"), portCarrow("p1")];
-    expect(decideAreaKind({ stations, home: noHome() }, true)).toBe("roadtrip");
-    expect(decideAreaKind({ stations, home: noHome() }, false)).toBe("stops");
+    expect(decideAreaKind({ stations, home: noHome(), area: quietDay() }, true)).toBe("roadtrip");
+    expect(decideAreaKind({ stations, home: noHome(), area: quietDay() }, false)).toBe("stops");
   });
 
   it("is a roadtrip for one city when a home leg is switched on", () => {
     const stations = [station("h1", { kind: "home", title: "Kelmore" }), station("n1")];
-    expect(decideAreaKind({ stations, home: homeLegs(true) }, true)).toBe("roadtrip");
-    expect(decideAreaKind({ stations, home: homeLegs(false, true) }, true)).toBe("roadtrip");
-    expect(decideAreaKind({ stations, home: homeLegs(true) }, false)).toBe("stops");
+    expect(decideAreaKind({ stations, home: homeLegs(true), area: quietDay() }, true)).toBe(
+      "roadtrip"
+    );
+    expect(decideAreaKind({ stations, home: homeLegs(false, true), area: quietDay() }, true)).toBe(
+      "roadtrip"
+    );
+    expect(decideAreaKind({ stations, home: homeLegs(true), area: quietDay() }, false)).toBe(
+      "stops"
+    );
   });
 
   it("does not count a home or an airport station as a city", () => {
@@ -43,17 +56,21 @@ describe("decideAreaKind", () => {
       station("n1"),
       station("h1", { kind: "home", title: "Kelmore" }),
     ];
-    expect(decideAreaKind({ stations, home: homeLegs(false) }, true)).toBe("stops");
+    expect(decideAreaKind({ stations, home: homeLegs(false), area: quietDay() }, true)).toBe(
+      "stops"
+    );
   });
 
   it("counts a day trip's city: a base and its excursion are two cities", () => {
     const stations = [station("n1"), portCarrow("p1", { kind: "dayTrip" }), station("n2")];
-    expect(decideAreaKind({ stations, home: noHome() }, true)).toBe("roadtrip");
+    expect(decideAreaKind({ stations, home: noHome(), area: quietDay() }, true)).toBe("roadtrip");
   });
 
   it("is a stop for an area that is only the way home, home legs or not", () => {
     const stations = [station("h1", { kind: "home", title: "Kelmore" })];
-    expect(decideAreaKind({ stations, home: homeLegs(true, true) }, true)).toBe("stops");
+    expect(decideAreaKind({ stations, home: homeLegs(true, true), area: quietDay() }, true)).toBe(
+      "stops"
+    );
   });
 });
 

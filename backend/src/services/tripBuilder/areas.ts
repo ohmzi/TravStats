@@ -7,6 +7,7 @@
  * (shared/tour/builderNightPlan.ts), fed with `mainCityOf` and each area's start day.
  */
 import { daysBetween } from "../../shared/time/localDate";
+import { isMultiNightStay } from "../../shared/tour/builderNightPlan";
 import type {
   AreaKind,
   AreaPlan,
@@ -44,18 +45,24 @@ const cityIdOf = (station: PlanStation): string => station.title.trim().toLowerC
 
 /**
  * One distinct city, with no home leg switched on, is a single timeline stop
- * over the area's first to last day; anything more is a roadtrip, if roadtrips
- * are visible to the user. Home and airport stations are not cities, and an
- * area with no city at all (only the way home) is a stop too — it has nothing
- * to drive between.
+ * over the area's first to last day — UNLESS the area is a multi-night stay
+ * (owner ruling 2026-10-13): a city the traveller stayed in for two nights or
+ * more with photos on more than one day is a trip of its own, one station and
+ * all, because "clearly istanbul first stay and karachi stay should prompt
+ * trip creation suggestion". Anything more than one city is a roadtrip too,
+ * if roadtrips are visible to the user. Home and airport stations are not
+ * cities, and an area with no city at all (only the way home) is a stop — it
+ * has nothing to drive between.
  */
 export function decideAreaKind(
-  plan: Pick<AreaPlan, "stations" | "home">,
+  plan: Pick<AreaPlan, "stations" | "home" | "area">,
   roadtripsVisible: boolean
 ): AreaKind {
   const cities = new Set(plan.stations.filter(isCity).map(cityIdOf));
   const homeLegs = plan.home.start.defaultOn || plan.home.end.defaultOn;
-  if (cities.size === 0 || (cities.size === 1 && !homeLegs)) return "stops";
+  if (cities.size === 0) return "stops";
+  const stay = isMultiNightStay(plan.area.startDay, plan.area.endDay, plan.stations);
+  if (cities.size === 1 && !homeLegs && !stay) return "stops";
   return roadtripsVisible ? "roadtrip" : "stops";
 }
 

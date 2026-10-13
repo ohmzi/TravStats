@@ -360,12 +360,49 @@ describe("prepareCommit", () => {
     });
   });
 
-  it("refuses 400 STATIONS_INVALID when a roadtrip would have fewer than two stations", async () => {
+  it("lets a multi-night stay of one city commit as a one-station roadtrip", async () => {
+    // The owner's ruling (2026-10-13): a stay of thirteen nights in one city
+    // is a trip, and the one station IS the stay — zero legs are fine.
     const body = fixtureBody([flightId]);
     body.areas[0].stations = [body.areas[0].stations[0]];
     body.areas[0].legModes = [];
-    body.nights = { "2031-05-02": K_NV, "2031-05-03": K_NV };
-    const error = await refusal(plan(body));
+    body.nights = { "2031-05-02": K_NV, "2031-05-03": K_NV, "2031-05-04": K_NV };
+    const result = await plan(body);
+
+    expect(result.roadtrips).toHaveLength(1);
+    expect(
+      result.roadtrips[0].stations.map((s) => [s.title, s.startDate?.toISOString(), s.night.kind])
+    ).toEqual([["Northvale", "2031-05-02T00:00:00.000Z", "free"]]);
+    expect(result.roadtrips[0].nights).toBe(3);
+  });
+
+  it("refuses 400 STATIONS_INVALID for one station on a same-day area", async () => {
+    // One station and nothing happening on it: not a stay, so the row still
+    // needs a second station (the pin moved from the stay-shaped fixture when
+    // the stay rule landed).
+    const sameDay = fixtureDraft(userId, [flightId]);
+    const first = sameDay.dto.areas[0];
+    const body = fixtureBody([flightId]);
+    body.areas[0].stations = [body.areas[0].stations[0]];
+    body.areas[0].legModes = [];
+    body.nights = { "2031-05-02": K_NV };
+    const draft = {
+      ...sameDay,
+      dto: {
+        ...sameDay.dto,
+        areas: [
+          {
+            ...first,
+            endDay: first.startDay,
+            stations: first.stations.map((station) => ({
+              ...station,
+              lastDay: station.firstDay,
+            })),
+          },
+        ],
+      },
+    };
+    const error = await refusal(plan(body, draft));
     expect([error.statusCode, error.code]).toEqual([400, "STATIONS_INVALID"]);
     expect(K_PC).toBeDefined();
   });

@@ -628,9 +628,17 @@ describe("extendPlanForExisting", () => {
 
     it("still needs two rows for a roadtrip that would be new", async () => {
       const single = northvaleOnly();
+      // The offer says one day: no stay, so the one row is still too few for a
+      // roadtrip that would be new (a multi-night stay of one city may be new:
+      // the stay rule's own pin, owner ruling 2026-10-13).
+      const seen = derivedStations().slice(0, 1);
+      const oneDay = await storedDraft(seen, {
+        areas: [area({ stations: seen, endDay: "2031-05-02" })],
+      });
       const [onlyArea] = single.areas;
       const created: CommitBody = {
         ...single,
+        nights: { "2031-05-02": K.northvale },
         areas: [
           {
             ...onlyArea,
@@ -640,9 +648,7 @@ describe("extendPlanForExisting", () => {
           },
         ],
       };
-      await expect(
-        prepareCommit(fx.userId, await storedDraft(derivedStations().slice(0, 1)), created)
-      ).rejects.toMatchObject({
+      await expect(prepareCommit(fx.userId, oneDay, created)).rejects.toMatchObject({
         statusCode: 400,
         code: "STATIONS_INVALID",
         field: "areas.0",

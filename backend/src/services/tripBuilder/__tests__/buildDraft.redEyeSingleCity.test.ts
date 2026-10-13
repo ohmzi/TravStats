@@ -117,12 +117,15 @@ describe("buildDraftWith: a red-eye, one city, a layover and a flight home", () 
     );
   }
 
-  it("keeps the one city as a timeline stop and drops the area after the return home", async () => {
+  it("offers the one city as a trip of its own — eight nights are a stay — and drops the area after the return home", async () => {
     const { dto } = await build();
 
     expect(dto.areas).toHaveLength(1);
     const area = dto.areas[0];
-    expect(area).toMatchObject({ defaultAs: "stops", afterFlightId: F1, beforeFlightId: F2 });
+    // The pin moved with the stay rule (owner ruling 2026-10-13): one city,
+    // eight nights, photos on eight days is a stay, so it opens as a roadtrip
+    // and prompts trip creation instead of folding into timeline stops.
+    expect(area).toMatchObject({ defaultAs: "roadtrip", afterFlightId: F1, beforeFlightId: F2 });
     expect(area.stations.map((s) => [s.title, s.kind])).toEqual([["Northcote Bay", "visit"]]);
     expect(area.home.start.offered).toBe(false);
     expect(area.home.end.offered).toBe(false);

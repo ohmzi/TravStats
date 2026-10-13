@@ -96,6 +96,34 @@ export function addDays(day: string, n: number): string {
   return new Date(Date.parse(`${day}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
 }
 
+/**
+ * The least nights a stay needs to be a trip of its own (owner ruling
+ * 2026-10-13, "Sumayya's wedding"): "clearly istanbul first stay and karachi
+ * stay should prompt trip creation suggestion … not the 5 hrs stay as nothing
+ * much happened in there evident by pictures". One night is still a mere stop.
+ */
+export const STAY_MIN_NIGHTS = 2;
+
+/**
+ * Whether an area is a multi-night stay: the days it spans hold at least
+ * `STAY_MIN_NIGHTS` nights (an area holding days S…E holds the nights S…E−1)
+ * and its photos stand on more than one day — a station whose own photo days
+ * span two days. A same-day transit and a one-night stop are no stay; a long
+ * window whose every photo sits on one day is no stay either: nothing much
+ * happened, and the stop already carries that day.
+ */
+export function isMultiNightStay(
+  startDay: string,
+  endDay: string,
+  stations: ReadonlyArray<{ firstDay: string; lastDay: string }>
+): boolean {
+  const nights = Math.round(
+    (Date.parse(`${endDay}T00:00:00Z`) - Date.parse(`${startDay}T00:00:00Z`)) / DAY_MS
+  );
+  if (nights < STAY_MIN_NIGHTS) return false;
+  return stations.some((station) => station.firstDay < station.lastDay);
+}
+
 /** The window's nights, S … E−1; none for a one-day window. */
 export function nightsOf(window: NightPlanWindow): string[] {
   const nights: string[] = [];

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { NightEntry } from "../../../types/tripBuilder";
 import { applyEdit, initialReviewState, type DraftEdit } from "../draftEdits";
 import {
   areaDays,
@@ -179,6 +180,72 @@ describe("reviewProblems", () => {
       as: "skip",
     });
     expect(reviewProblems(draft, skipped)).toEqual([{ code: "nightPlanInvalid" }]);
+  });
+
+  it("offers a multi-night stay of one city as a trip, one station and all", () => {
+    // The Sumayya shape (owner ruling 2026-10-13): thirteen nights in one
+    // city hold one station, and the trip is exactly the stay.
+    const nights: Record<string, NightEntry> = {};
+    for (let i = 0; i < 13; i++) {
+      const day = new Date(Date.parse("2031-05-02T00:00:00Z") + i * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
+      nights[day] = { assign: KEY.northvale, reason: "lastPhoto", suggestedStationKeys: [] };
+    }
+    const stay = reviewDraft({
+      window: { ...draft.window, endDay: "2031-05-15" },
+      nights,
+      areas: [
+        {
+          key: "2031-05-02#1",
+          defaultAs: "roadtrip",
+          suggestedName: "Southern loop",
+          mainCity: "Northvale",
+          startDay: "2031-05-02",
+          endDay: "2031-05-15",
+          home: {
+            start: { offered: false, defaultOn: false },
+            end: { offered: false, defaultOn: false },
+            unconfirmed: false,
+          },
+          stations: [station(KEY.northvale, "Northvale", "2031-05-02", "2031-05-14")],
+          legs: [],
+        },
+      ],
+      flights: [],
+      days: [],
+    });
+
+    expect(reviewProblems(stay, initialReviewState(stay))).toEqual([]);
+  });
+
+  it("still holds a same-day area of one station to two rows", () => {
+    const transit = reviewDraft({
+      nights: {},
+      areas: [
+        {
+          key: "2031-05-02#1",
+          defaultAs: "roadtrip",
+          suggestedName: "Southern loop",
+          mainCity: "Northvale",
+          startDay: "2031-05-02",
+          endDay: "2031-05-02",
+          home: {
+            start: { offered: false, defaultOn: false },
+            end: { offered: false, defaultOn: false },
+            unconfirmed: false,
+          },
+          stations: [station(KEY.northvale, "Northvale", "2031-05-02", "2031-05-02")],
+          legs: [],
+        },
+      ],
+      flights: [],
+      days: [],
+    });
+
+    expect(reviewProblems(transit, initialReviewState(transit))).toEqual([
+      { code: "roadtripTooShort", areaKey: "2031-05-02#1" },
+    ]);
   });
 
   it("holds the trip until a night nothing may hold is answered, and lets it go after", () => {

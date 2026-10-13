@@ -9,6 +9,7 @@ import {
   NIGHT_HOME,
   NIGHT_UNKNOWN,
   addDays,
+  isMultiNightStay,
   type NightAssign,
 } from "../../shared/tour/builderNightPlan";
 import type {
@@ -168,7 +169,9 @@ export type ReviewProblem =
  * Why the trip cannot be created yet. Each is something the commit would
  * refuse; the page says so first. For an existing trip a roadtrip that is
  * shorter than two rows may be one that is only updated, which the server
- * judges, so only a new trip is held to it here.
+ * judges, so only a new trip is held to it here — and a multi-night stay of
+ * one city is no refusal at all (owner ruling 2026-10-13): the one row IS the
+ * stay, and the commit writes it as the trip the review offered.
  *
  * The night plan is read as the commit will read it (every open night resolved
  * to the app's default), so a night the app can answer never holds the trip
@@ -182,7 +185,7 @@ export function reviewProblems(draft: TripBuilderDraft, state: ReviewState): Rev
   if (isNew && state.tripName.trim() === "") problems.push({ code: "blankTripName" });
   const nights = resolvedNights(draft, state);
   for (const area of state.areas) {
-    if (isNew && area.as === "roadtrip" && roadtripRowCount(area, nights) < 2) {
+    if (isNew && area.as === "roadtrip" && roadtripRowsRefused(draft, area, nights)) {
       problems.push({ code: "roadtripTooShort", areaKey: area.key });
     }
   }
@@ -190,6 +193,25 @@ export function reviewProblems(draft: TripBuilderDraft, state: ReviewState): Rev
     problems.push({ code: "nightPlanInvalid" });
   }
   return problems;
+}
+
+/**
+ * Whether the area's roadtrip wants another row: fewer than two rows, and not
+ * the one-row stay the commit writes (the offer's own shape decides — the
+ * same `isMultiNightStay` the review's default and the server read, so the
+ * page can never offer a trip the commit refuses nor refuse one it would
+ * write). An area the draft does not know keeps the old answer.
+ */
+function roadtripRowsRefused(
+  draft: TripBuilderDraft,
+  area: ReviewArea,
+  nights: Readonly<Record<Day, NightAssign>>
+): boolean {
+  if (roadtripRowCount(area, nights) >= 2) return false;
+  const offered = draft.areas.find((candidate) => candidate.key === area.key);
+  return (
+    offered === undefined || !isMultiNightStay(offered.startDay, offered.endDay, offered.stations)
+  );
 }
 
 // ─── The map preview ─────────────────────────────────────────────────────────

@@ -158,11 +158,12 @@ const RE_SYNC_STATE: ExistingTripState = {
     {
       linkId: "l-dunholme",
       immichAlbumId: "al-dunholme",
-      // The only trip of this journey is the stay's pitstop, so its album
-      // carries the journey's own name (owner ruling 2026-10-12: a one-trip
-      // journey's trip takes the journey's name) — the name the commit's
-      // add-only write resolves by.
-      albumName: "Southern loop",
+      // The journey holds two trips — the stay's pitstop and the destination,
+      // which is a multi-night stay of one city and therefore a roadtrip of its
+      // own (owner ruling 2026-10-13) — so both take the `·` form of the one
+      // naming pass (owner ruling 2026-10-12), the name the commit's add-only
+      // write resolves by.
+      albumName: "Southern loop · Northvale",
       assetCount: 7,
       ownedByUser: true,
       travstatsMarker: true,

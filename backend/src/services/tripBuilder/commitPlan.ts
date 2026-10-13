@@ -21,6 +21,7 @@ import { daysBetween } from "../../shared/time/localDate";
 import {
   NIGHT_UNKNOWN,
   deriveStationRows,
+  isMultiNightStay,
   nightsOf,
   roadtripAreaNames,
   rowLegModes,
@@ -206,7 +207,12 @@ function assertNightPlan(
   });
 }
 
-function roadtripPlan(area: CommitArea, index: number, nights: CommitBody["nights"]): RoadtripPlan {
+function roadtripPlan(
+  area: CommitArea,
+  offered: DraftArea,
+  index: number,
+  nights: CommitBody["nights"]
+): RoadtripPlan {
   const rows = deriveStationRows(
     area.stations.map((s) => ({
       key: s.key,
@@ -230,8 +236,18 @@ function roadtripPlan(area: CommitArea, index: number, nights: CommitBody["night
       night: row.slept ? { kind: "free" } : { kind: "pass" },
     })),
   });
+  // A stay of one station is a trip of its own (owner ruling 2026-10-13): the
+  // one row IS the stay, zero legs and all. The row must still exist — a
+  // stay-shaped area the user emptied writes nothing.
+  const stayRow =
+    parsed.success &&
+    parsed.data.stations.length === 1 &&
+    isMultiNightStay(offered.startDay, offered.endDay, offered.stations);
   // An area that updates a stored roadtrip keeps its other stations, which are not rows here.
-  if (!parsed.success || (parsed.data.stations.length < 2 && area.roadtripId === undefined)) {
+  if (
+    !parsed.success ||
+    (parsed.data.stations.length < 2 && area.roadtripId === undefined && !stayRow)
+  ) {
     throw new AppError(
       "A roadtrip needs at least two valid stations",
       400,
@@ -466,7 +482,7 @@ export async function prepareCommit(
     .map(({ area, index }) => {
       const offered = known.get(area.key) as DraftArea;
       const album = pitstopAlbum(draft, offered, area);
-      const planned = roadtripPlan(area, index, body.nights);
+      const planned = roadtripPlan(area, offered, index, body.nights);
       return album === undefined ? planned : { ...planned, album };
     });
   const stops = body.areas.filter((a) => a.as === "stops").flatMap(stopPlans);
