@@ -154,6 +154,22 @@ describe("TripRouteEditorPage — the trip's edit page sections", () => {
     expect(link).toHaveAttribute("href", "/roadtrips/r1/resync");
   });
 
+  it("gives a roadtrip the Dates section, prefilled from the route's own days", async () => {
+    vi.mocked(toursApi.get).mockResolvedValue({
+      route: { ...ROUTE, startDay: "2031-06-01", endDay: "2031-06-09" },
+      stops: [],
+      legs: [],
+      routingAvailable: false,
+    });
+    renderAt("/tours/:routeId", "/tours/r1");
+
+    expect(
+      await screen.findByRole("heading", { name: "roadtrips:dates.heading" })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("trips:modal.startDateLabel")).toHaveValue("2031-06-01");
+    expect(screen.getByLabelText("trips:modal.endDateLabel")).toHaveValue("2031-06-09");
+  });
+
   it("leaves a day tour's editor without either section", async () => {
     vi.mocked(toursApi.get).mockResolvedValue({
       route: { ...ROUTE, kind: "tour", vehicle: null, activity: "hike" } as TourRoute,
@@ -165,6 +181,7 @@ describe("TripRouteEditorPage — the trip's edit page sections", () => {
 
     expect(await screen.findByRole("heading", { name: "Fjorde 2031" })).toBeInTheDocument();
     expect(screen.queryByText("tripBuilder:edit.deleteHeading")).not.toBeInTheDocument();
+    expect(screen.queryByText("roadtrips:dates.heading")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "tripBuilder:resync.action" })
     ).not.toBeInTheDocument();

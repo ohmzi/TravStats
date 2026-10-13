@@ -85,6 +85,14 @@ export interface TourRoute {
   date?: string | null;
   /** Tour only: when on that day it started, local "HH:MM". */
   startTime?: string | null;
+  /**
+   * Roadtrip only: the trip's OWN start and end day, "YYYY-MM-DD" (owner
+   * 2026-10-13) — written by the editor's Dates section and by a re-sync
+   * commit's chosen window. Optional so a locally built row need not invent
+   * them; the server always sends both, null where unset.
+   */
+  startDay?: string | null;
+  endDay?: string | null;
 }
 
 export interface TourStop {

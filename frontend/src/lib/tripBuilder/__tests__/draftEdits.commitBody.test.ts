@@ -226,7 +226,7 @@ describe("buildCommitBody for an existing trip", () => {
     });
   });
 
-  it("names the route and writes neither the dates nor the countries for a trip-scoped draft", () => {
+  it("names the route, and writes neither the journey's countries nor its dates", () => {
     const scoped = reviewDraft({
       target: {
         kind: "existing",
@@ -236,20 +236,39 @@ describe("buildCommitBody for an existing trip", () => {
         routeName: "Northvale loop",
       },
     });
-    const body = bodyAfter([], scoped, {
+    // The form's dates EQUAL the draft's window (the trip's saved days a
+    // scoped scan started from): nothing moved, so the commit writes no date
+    // at all — a re-sync that re-dated nothing stores what it stored before.
+    const same = bodyAfter([], scoped, {
       name: "Northvale loop",
-      startDate: "2031-05-03",
-      endDate: "2031-05-06",
+      startDate: "2031-05-02",
+      endDate: "2031-05-07",
     });
-    expect(body.target).toEqual({
+    expect(same.target).toEqual({
       kind: "existing",
       tripId: "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c",
       routeId: "b4c1d2e3-f4a5-4b6c-8d7e-9f0a1b2c3d4e",
       applyWindow: false,
     });
+
+    // Dates the review changed travel as `applyWindow` — the journey flow's
+    // `moved`, one level down, and the server writes them onto the TRIP's own
+    // days (owner 2026-10-13). The journey's countries still never go.
+    const moved = bodyAfter([], scoped, {
+      name: "Northvale loop",
+      startDate: "2031-05-03",
+      endDate: "2031-05-06",
+    });
+    expect(moved.target).toEqual({
+      kind: "existing",
+      tripId: "3f1c2a4e-8b7d-4c1e-9a2b-1d3e5f7a9b0c",
+      routeId: "b4c1d2e3-f4a5-4b6c-8d7e-9f0a1b2c3d4e",
+      applyWindow: true,
+    });
+
     // The trip-scoped commit writes the trip alone: no flight moves.
-    expect(body.flightIds).toEqual([]);
-    expect(body.photoJourneyIds).toEqual([]);
+    expect(moved.flightIds).toEqual([]);
+    expect(moved.photoJourneyIds).toEqual([]);
   });
 
   it("keeps the stopover switches through the re-sync fields", () => {

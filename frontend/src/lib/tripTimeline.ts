@@ -80,6 +80,12 @@ function dayRank(ev: SortableEvent): number {
   if (hasExplicitTime(ev.when)) return 1;
   if (ev.kind === "lodging-checkout") return 0; // you leave before you travel
   if (ev.kind === "lodging-checkin") return 2; // you arrive before you settle
+  // A trip's station is the same shape: its day's first station is a place you
+  // REACH, and the flight (or drive) that brought you there is the travelling.
+  // Without this, a time-less station sorted at midnight, ABOVE the timed
+  // flight that landed that morning — the owner's "my flight to muscat is
+  // showing up after the trip of muscat starts" (2026-10-13).
+  if (ev.kind === "roadtrip-station") return 2;
   return 1;
 }
 

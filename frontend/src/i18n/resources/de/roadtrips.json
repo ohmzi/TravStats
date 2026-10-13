@@ -482,5 +482,12 @@
     "message_one": "„{{name}}“ hat {{count}} erfasste Ausgabe und gehört zu keiner Reise, die sie übernehmen könnte. Beim Löschen geht sie mit.",
     "message_other": "„{{name}}“ hat {{count}} erfasste Ausgaben und gehört zu keiner Reise, die sie übernehmen könnte. Beim Löschen gehen sie mit.",
     "confirm": "Mit Kosten löschen"
+  },
+  "dates": {
+    "heading": "Zeitraum",
+    "hint": "Start und Ende des Trips. Ohne Daten entscheiden die Stationen; ein geleertes Feld gibt diese Seite an sie zurück.",
+    "save": "Zeitraum speichern",
+    "saved": "Zeitraum gespeichert.",
+    "saveError": "Der Zeitraum konnte nicht gespeichert werden."
   }
 }

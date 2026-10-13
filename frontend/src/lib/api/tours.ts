@@ -55,6 +55,13 @@ export interface UpdateTourRouteInput {
   /** Tour only: its day (null clears it and the start time) and start time (D2). */
   date?: string | null;
   startTime?: string | null;
+  /**
+   * Roadtrip only: the trip's OWN start and end day, "YYYY-MM-DD" (owner
+   * 2026-10-13). An explicit null clears that side — the stations' span
+   * answers it again — while `undefined` leaves the stored day. Judged on the
+   * span the PATCH leaves behind. */
+  startDay?: string | null;
+  endDay?: string | null;
 }
 
 // `drivingMinutes` is nullable AND optional: sending `null` clears the field

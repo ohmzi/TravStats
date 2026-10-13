@@ -282,14 +282,16 @@ function commitTarget(
     const moved =
       (form.startDate !== undefined && form.startDate !== draft.window.startDay) ||
       (form.endDate !== undefined && form.endDate !== draft.window.endDay);
-    // A route-scoped commit names its route (owner request 2026-10-12); the
-    // server ignores the window and country fields for it, so neither is sent.
+    // A route-scoped commit names its route (owner request 2026-10-12). The
+    // window travels as `applyWindow` here too, and the server writes it onto
+    // the TRIP's own days (owner 2026-10-13) — never the journey's, whose
+    // country field is therefore still not sent.
     if (draft.target.routeId !== undefined) {
       return {
         kind: "existing",
         tripId: draft.target.tripId,
         routeId: draft.target.routeId,
-        applyWindow: false,
+        applyWindow: moved,
         countries: undefined,
       };
     }

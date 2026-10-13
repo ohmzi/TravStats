@@ -17,7 +17,7 @@ import {
   hasExplicitTime,
   isSupersededByPlaceVisit,
 } from "./tripTimeline";
-import { readsAsUtc, timeValueAtZone, type TimeValue } from "../shared/time";
+import { dayOf, readsAsUtc, timeValueAtZone, type TimeValue } from "../shared/time";
 import type { Trip, TripJournalEntry, TripStop } from "../types";
 import type { Place, PlaceVisit } from "../types/place";
 import type { TripRailJourney } from "../types/rail";
@@ -212,20 +212,51 @@ function stopEvents(trip: Trip): TimelineEvent[] {
 }
 
 /**
+ * The day a roadtrip station's entry is DRAWN on (owner 2026-10-13): the
+ * trip's own days place the trip, so an entry the trip's effective span
+ * (`routeStartDate`/`routeEndDate` — its stored days where set) leaves outside
+ * is drawn at the bound, and an entry inside keeps its own day. The span the
+ * server sends is the SAME `spanOf` answer the roadtrip's pages, the chain
+ * and the figures band read, so the timeline cannot place the trip somewhere
+ * the trip's own page contradicts. The report behind this: a flight arriving
+ * day D rendered after the trip it brought the traveller to, because the
+ * trip's first station was dated before D and nothing let the trip start
+ * later. Without a stored day the span is derived from the stations
+ * themselves, so this clips nothing on an undated trip.
+ */
+function placedWhen(station: TripRoadtripStationDto, when: TimeValue): TimeValue {
+  const day = dayOf(when);
+  const start = station.routeStartDate?.slice(0, 10) ?? null;
+  const end = station.routeEndDate?.slice(0, 10) ?? null;
+  if (start !== null && day < start) {
+    return dayAsTimeValue({ date: start, zone: when.zone, precision: "day" });
+  }
+  if (end !== null && day > end) {
+    return dayAsTimeValue({ date: end, zone: when.zone, precision: "day" });
+  }
+  return when;
+}
+
+/**
  * A roadtrip's stations as entries (photo trip builder, spec 2026-10-09 §E).
  * `GET /trips/:id` lists the stations of the trip's roadtrips that are NOT
  * timeline stops of the trip: a station adopted onto the trip is already in
  * `trip.stops`, and drawing it twice is the defect the id check guards
  * against. The server answers `[]` while roadtrips are off, so no gate is
  * needed here. A station with no day has no place on a chronology.
+ *
+ * Each entry is placed by the trip's own days (`placedWhen`); a time-less one
+ * sorts after the flights of its day (`dayRank` in `tripTimeline.ts`), so an
+ * arriving flight precedes the trip it brought the traveller to.
  */
 function roadtripStationEvents(trip: Trip): TimelineEvent[] {
   const onTimeline = new Set((trip.stops ?? []).map((stop) => stop.id));
   const out: TimelineEvent[] = [];
   for (const station of trip.roadtripStations ?? []) {
     if (onTimeline.has(station.id)) continue;
-    const when = tripStopStart(station);
-    if (!when) continue;
+    const own = tripStopStart(station);
+    if (!own) continue;
+    const when = placedWhen(station, own);
     const id = `roadtrip-station-${station.id}`;
     out.push({ id, kind: "roadtrip-station", date: when.utc, when, station });
   }

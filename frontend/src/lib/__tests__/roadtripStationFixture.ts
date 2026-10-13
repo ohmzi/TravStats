@@ -22,6 +22,11 @@ export function stationDto(over: Partial<TripRoadtripStationDto> = {}): TripRoad
     notes: null,
     routeId: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
     routeName: "Northvale loop",
+    // The trip's effective span, matching this station's own days (the
+    // derived answer): the timeline's clipping is a no-op until a stored day
+    // moves the span (owner 2026-10-13).
+    routeStartDate: "2031-05-02T00:00:00.000Z",
+    routeEndDate: "2031-05-04T00:00:00.000Z",
     routeOrderIdx: 0,
     state: "free",
     nights: 2,

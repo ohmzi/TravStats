@@ -17,6 +17,7 @@ import TourStopAssigner from "../components/Trips/TourStopAssigner";
 import TourPointEditor from "../components/Trips/TourPointEditor";
 import TourDayEditor from "../components/Trips/TourDayEditor";
 import { editsOwnPoints, tourPointsSaveErrorKey } from "../components/Trips/tourPointsSave";
+import RoadtripDatesSection from "../components/Roadtrips/RoadtripDatesSection";
 import RoadtripEditSections from "../components/Roadtrips/RoadtripEditSections";
 import TourLegList from "../components/Trips/TourLegList";
 import TourTrackList from "../components/Trips/TourTrackList";
@@ -546,6 +547,11 @@ export default function TripRouteEditorPage(): JSX.Element {
             accent={TOUR_COLOR}
           />
         )}
+
+        {/* The trip's own start and end (owner 2026-10-13): the primary way
+            its span is set, beside the re-sync window that writes the same
+            fields. A day tour renders nothing here. */}
+        <RoadtripDatesSection route={route} tripId={id} onSaved={setRoute} />
 
         {/* A trip's section draws the whole trip around it; a standalone
             tour or a roadtrip draws its own points (see `mapContent`). */}

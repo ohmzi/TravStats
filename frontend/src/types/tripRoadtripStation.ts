@@ -22,6 +22,14 @@ export interface TripRoadtripStationDto {
   notes: string | null;
   routeId: string;
   routeName: string;
+  /**
+   * The trip's effective span (owner 2026-10-13): its own stored days where
+   * set, its stations' earliest/latest on the sides where not — the SAME
+   * answer the roadtrip's pages, the chain and the band read. The journey's
+   * timeline places the trip's entries inside it.
+   */
+  routeStartDate?: string | null;
+  routeEndDate?: string | null;
   routeOrderIdx: number | null;
   state: "stay" | "free" | "pass";
   /** This station's own nights (`countRoadtripNights`); 0 for a pass. */

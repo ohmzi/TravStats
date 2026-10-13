@@ -482,5 +482,12 @@
     "message_one": "“{{name}}” has {{count}} recorded cost and belongs to no journey that could take it over. Deleting removes it too.",
     "message_other": "“{{name}}” has {{count}} recorded costs and belongs to no journey that could take them over. Deleting removes them too.",
     "confirm": "Delete with costs"
+  },
+  "dates": {
+    "heading": "Dates",
+    "hint": "The trip's own start and end. Without dates the stations decide; clearing one side hands it back to them.",
+    "save": "Save dates",
+    "saved": "Dates saved.",
+    "saveError": "The dates could not be saved."
   }
 }
