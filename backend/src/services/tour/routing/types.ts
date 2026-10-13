@@ -80,6 +80,39 @@ export type RouteFallbackDetail =
   | { kind: "anchors"; headOffKm: number; tailOffKm: number }
   | { kind: "distance"; distanceKm: number; chordKm: number };
 
+/**
+ * What the host's `osrm-autofetch` service answers `POST /ensure` with
+ * (spec 2026-10-13 §2.4), when a refusal looks like a wrong-region one and
+ * the app asks it to fetch the missing map data. Carried as `autofetch`
+ * BESIDE `fallbackReason`/`fallbackDetail` on the same leg's response — the
+ * field is absent (never null) when the feature is off or the service is
+ * silent, so a response without an answer is byte-identical to today's.
+ *
+ *  - `covered` — the built graph already has this leg's area.
+ *  - `started` — a build job was accepted and is about to run; `region` and
+ *    `etaMinutes` say what is downloading and roughly how long.
+ *  - `running` — a build job is already running; the request joined nothing.
+ *  - `no_map_data` — no extract covers this area at all (ocean, or an area
+ *    Geofabrik has nothing for); nothing will download.
+ *  - `blocked` — a cap refuses the job (disk floor, region count); a human
+ *    has to look.
+ *  - `unavailable` — the service itself cannot serve right now.
+ */
+export const AUTOFETCH_STATUSES = [
+  "covered",
+  "started",
+  "running",
+  "no_map_data",
+  "blocked",
+  "unavailable",
+] as const;
+
+export interface AutoFetchStatus {
+  status: (typeof AUTOFETCH_STATUSES)[number];
+  region?: string | null;
+  etaMinutes?: number | null;
+}
+
 /** A provider's "could not route this", with the cause it could identify. */
 export interface RouteFailure {
   failure: RouteFallbackReason;

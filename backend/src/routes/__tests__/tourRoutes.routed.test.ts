@@ -16,6 +16,7 @@ import type {
   RouteRequest,
   RouteResult,
 } from "../../services/tour/routing/types";
+import { AUTOFETCH_MIN_OFF_KM } from "../../services/tour/routing/autoFetch";
 import { haversineKm } from "../../shared/geo/haversine";
 
 const mockResolveProvider = resolveRouteProvider as jest.Mock<Promise<RouteProvider | null>>;
@@ -429,5 +430,254 @@ describe("Tour route sections — provider routing", () => {
     expect(persisted.source).toBe("straight");
     expect(persisted.waypoints).toBeNull();
     expect(persisted.distanceKm).toBeCloseTo(original.distanceKm, 6);
+  });
+
+  /**
+   * Task 6 of the osrm-autofetch plan (2026-10-13): when a refusal is a
+   * wrong-region one (the provider's line snapped hundreds of km away — what
+   * a road graph with no data for that area does), the endpoint asks the
+   * host's `osrm-autofetch` service to fetch and build the missing map, and
+   * carries its answer as `autofetch` beside `fallbackReason`/`fallbackDetail`
+   * on the SAME body, so the client can say a download is running. The admin
+   * setting `routingAutoFetchUrl` is the switch: unset, no call is made and
+   * the response is exactly the pre-feature shape.
+   */
+  describe("on-demand map fetching (osrm-autofetch)", () => {
+    const AUTOFETCH_URL = "http://10.86.15.1:5013";
+    let fetchSpy: jest.SpyInstance;
+
+    /** A refusal whose answer snapped ~750 km away — the wrong-region case. */
+    function farOffProvider(): jest.Mock<Promise<RouteResult | RouteFailure | null>> {
+      return jest.fn().mockImplementation(async (req: RouteRequest) => ({
+        waypoints: [
+          [req.from.lon + 6, req.from.lat + 6],
+          [req.to.lon + 6, req.to.lat + 6],
+        ],
+        distanceKm: 900,
+        drivingMinutes: 600,
+      }));
+    }
+
+    async function setAutoFetchUrl(url: string | null): Promise<void> {
+      const row = await prisma.adminSettings.findFirstOrThrow({ orderBy: { id: "asc" } });
+      await prisma.adminSettings.update({
+        where: { id: row.id },
+        data: { routingAutoFetchUrl: url },
+      });
+    }
+
+    beforeEach(async () => {
+      await setAutoFetchUrl(null);
+      // Default to a refusing stub so a test that does not expect a call can
+      // never reach a real service (or the network) by accident.
+      fetchSpy = jest.spyOn(globalThis, "fetch").mockImplementation(async () => {
+        throw new Error("fetch is stubbed in tests — no test may call the network");
+      });
+    });
+
+    afterEach(async () => {
+      fetchSpy.mockRestore();
+      await setAutoFetchUrl(null);
+    });
+
+    afterAll(async () => {
+      await setAutoFetchUrl(null);
+    });
+
+    it("a wrong-region refusal asks /ensure with that leg's two points and carries the answer", async () => {
+      await setAutoFetchUrl(AUTOFETCH_URL);
+      fetchSpy.mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: "started", region: "Tennessee", etaMinutes: 25 }),
+      } as Response);
+      mockResolveProvider.mockResolvedValue(fakeProvider(farOffProvider()));
+
+      const res = await request(app)
+        .post(routeLegUrl(osloId, kristiansandId))
+        .set("Cookie", cookie)
+        .send();
+
+      expect(res.status).toBe(200);
+      expect(res.body.fallbackReason).toBe("untrustworthy");
+      expect(res.body.fallbackDetail.kind).toBe("anchors");
+      expect(res.body.fallbackDetail.headOffKm).toBeGreaterThan(AUTOFETCH_MIN_OFF_KM);
+      // The service's answer rides beside the reason it belongs to.
+      expect(res.body.autofetch).toEqual({
+        status: "started",
+        region: "Tennessee",
+        etaMinutes: 25,
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe(`${AUTOFETCH_URL}/ensure`);
+      expect(init.method).toBe("POST");
+      // THAT leg's points, as [lat, lon] pairs the service expects.
+      expect(JSON.parse(String(init.body))).toEqual({
+        points: [
+          [OSLO.lat, OSLO.lon],
+          [KRISTIANSAND.lat, KRISTIANSAND.lon],
+        ],
+      });
+    });
+
+    it("a pin-sized anchor offset is refused but never triggers a download", async () => {
+      await setAutoFetchUrl(AUTOFETCH_URL);
+      // ~2 km off at both ends: past the 1 km anchor tolerance (the line IS
+      // refused), far below the 20 km wrong-region threshold (no download).
+      const routeImpl = jest.fn().mockImplementation(async (req: RouteRequest) => ({
+        waypoints: [
+          [req.from.lon, req.from.lat + 0.02],
+          [req.to.lon, req.to.lat + 0.02],
+        ],
+        distanceKm: 300,
+        drivingMinutes: 200,
+      }));
+      mockResolveProvider.mockResolvedValue(fakeProvider(routeImpl));
+
+      const res = await request(app)
+        .post(routeLegUrl(osloId, kristiansandId))
+        .set("Cookie", cookie)
+        .send();
+
+      expect(res.body.fallbackReason).toBe("untrustworthy");
+      expect(res.body.fallbackDetail.kind).toBe("anchors");
+      expect(res.body.fallbackDetail.headOffKm).toBeGreaterThan(1);
+      expect(res.body.fallbackDetail.headOffKm).toBeLessThan(AUTOFETCH_MIN_OFF_KM);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(res.body.autofetch).toBeUndefined();
+    });
+
+    it("a genuine distance mismatch never triggers a download, however implausible the number", async () => {
+      await setAutoFetchUrl(AUTOFETCH_URL);
+      // Anchored exactly at both stops, reporting 20x+ the chord: a broken
+      // answer (kind "distance"), which carries no wrong-region signal.
+      const routeImpl = jest.fn().mockImplementation(async (req: RouteRequest) => ({
+        waypoints: [
+          [req.from.lon, req.from.lat],
+          [req.to.lon, req.to.lat],
+        ],
+        distanceKm: 9000,
+        drivingMinutes: 600,
+      }));
+      mockResolveProvider.mockResolvedValue(fakeProvider(routeImpl));
+
+      const res = await request(app)
+        .post(routeLegUrl(osloId, kristiansandId))
+        .set("Cookie", cookie)
+        .send();
+
+      expect(res.body.fallbackReason).toBe("untrustworthy");
+      expect(res.body.fallbackDetail.kind).toBe("distance");
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(res.body.autofetch).toBeUndefined();
+    });
+
+    it("an unset setting leaves the response exactly as it was — no field, no call", async () => {
+      await setAutoFetchUrl(null);
+      mockResolveProvider.mockResolvedValue(fakeProvider(farOffProvider()));
+
+      const res = await request(app)
+        .post(routeLegUrl(osloId, kristiansandId))
+        .set("Cookie", cookie)
+        .send();
+
+      expect(res.body.fallbackDetail.kind).toBe("anchors");
+      expect(res.body.fallbackDetail.headOffKm).toBeGreaterThan(AUTOFETCH_MIN_OFF_KM);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      // Byte-identical includes the key set: the field is ABSENT, not null.
+      expect(Object.keys(res.body).sort()).toEqual(["fallbackDetail", "fallbackReason", "leg"]);
+    });
+
+    it("an empty-string setting is off too — a blank field cannot produce a request", async () => {
+      // The admin UI saves a cleared field as null, but a blank written
+      // straight into the column must read the same way: "off".
+      await setAutoFetchUrl("");
+      mockResolveProvider.mockResolvedValue(fakeProvider(farOffProvider()));
+
+      const res = await request(app)
+        .post(routeLegUrl(osloId, kristiansandId))
+        .set("Cookie", cookie)
+        .send();
+
+      expect(res.body.fallbackDetail.kind).toBe("anchors");
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(Object.keys(res.body).sort()).toEqual(["fallbackDetail", "fallbackReason", "leg"]);
+    });
+
+    it("an auto-fetch service that refuses the connection leaves the response exactly as it was", async () => {
+      await setAutoFetchUrl(AUTOFETCH_URL); // the rejecting stub above answers
+      mockResolveProvider.mockResolvedValue(fakeProvider(farOffProvider()));
+
+      const res = await request(app)
+        .post(routeLegUrl(osloId, kristiansandId))
+        .set("Cookie", cookie)
+        .send();
+
+      // It WAS asked (the refusal qualifies) — and the answer simply did not
+      // arrive, which must leave the response as today's (Review Focus 4).
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(res.body.fallbackReason).toBe("untrustworthy");
+      expect(res.body.fallbackDetail.kind).toBe("anchors");
+      expect(Object.keys(res.body).sort()).toEqual(["fallbackDetail", "fallbackReason", "leg"]);
+    });
+
+    it("route-all asks once, with the FIRST fallback leg's points, and carries the answer there", async () => {
+      await setAutoFetchUrl(AUTOFETCH_URL);
+      fetchSpy.mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: "running", region: "Norway", etaMinutes: 30 }),
+      } as Response);
+      mockResolveProvider.mockResolvedValue(fakeProvider(farOffProvider()));
+
+      const res = await request(app).post(routeAllUrl()).set("Cookie", cookie).send();
+
+      expect(res.status).toBe(200);
+      expect(res.body.fallbackReason).toBe("untrustworthy");
+      expect(res.body.fallbackDetail.kind).toBe("anchors");
+      // The first fallback is Oslo → Kristiansand (route order); its numbers
+      // and the ensure call must describe that same leg, never a later one.
+      expect(res.body.fallbackDetail.headOffKm).toBeCloseTo(
+        haversineKm(OSLO, { lat: OSLO.lat + 6, lon: OSLO.lon + 6 }),
+        6
+      );
+      expect(res.body.autofetch).toEqual({ status: "running", region: "Norway", etaMinutes: 30 });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({
+        points: [
+          [OSLO.lat, OSLO.lon],
+          [KRISTIANSAND.lat, KRISTIANSAND.lon],
+        ],
+      });
+    });
+
+    it("route-all never triggers on a LATER leg's big offsets — the first fallback decides", async () => {
+      await setAutoFetchUrl(AUTOFETCH_URL);
+      const routeImpl = jest.fn().mockImplementation(async (req: RouteRequest) => {
+        // Oslo → Kristiansand (first) is ~2 km off; Kristiansand → Bergen
+        // (later) is hundreds of km off. The batch keeps only the FIRST
+        // fallback's numbers, so only those may decide the download.
+        const first = req.from.lat === OSLO.lat;
+        const shift = first ? 0.02 : 6;
+        return {
+          waypoints: [
+            [req.from.lon, req.from.lat + shift],
+            [req.to.lon, req.to.lat + shift],
+          ],
+          distanceKm: 900,
+          drivingMinutes: 600,
+        };
+      });
+      mockResolveProvider.mockResolvedValue(fakeProvider(routeImpl));
+
+      const res = await request(app).post(routeAllUrl()).set("Cookie", cookie).send();
+
+      expect(res.body.fallbackReason).toBe("untrustworthy");
+      expect(res.body.fallbackDetail.kind).toBe("anchors");
+      expect(res.body.fallbackDetail.headOffKm).toBeLessThan(AUTOFETCH_MIN_OFF_KM);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(res.body.autofetch).toBeUndefined();
+    });
   });
 });

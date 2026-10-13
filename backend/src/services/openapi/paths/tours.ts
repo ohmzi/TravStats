@@ -36,7 +36,7 @@ import {
 } from "../../../schemas/tour";
 import { LEG_MODES, LEG_SOURCES } from "../../../services/tour/tourDistance";
 import { kindFieldsSchema } from "../../../schemas/roadtrip";
-import { ROUTE_FALLBACK_REASONS } from "../../../services/tour/routing/types";
+import { ROUTE_FALLBACK_REASONS, AUTOFETCH_STATUSES } from "../../../services/tour/routing/types";
 import {
   STORED_ROADTRIP_VEHICLES,
   ROUTE_KINDS,
@@ -87,6 +87,37 @@ const fallbackDetail = z
     "The numbers behind an 'untrustworthy' fallback, in kilometres — how far " +
       "off the discarded answer was; null for every other reason (a 'no_route' " +
       "or 'auth' refusal carries no geometry to measure)."
+  );
+const autofetch = z
+  .object({
+    status: z
+      .enum(AUTOFETCH_STATUSES)
+      .describe(
+        "The auto-fetch service's answer: 'covered' — the map already covers " +
+          "this leg; 'started' — a build was accepted and is fetching the " +
+          "region; 'running' — a build is already running; 'no_map_data' — no " +
+          "extract covers this area; 'blocked' — a cap (disk floor, built-region " +
+          "count) refuses the job; 'unavailable' — the service cannot serve now."
+      ),
+    region: z
+      .string()
+      .nullable()
+      .optional()
+      .describe("The human region label a 'started'/'running' build covers"),
+    etaMinutes: z
+      .number()
+      .nullable()
+      .optional()
+      .describe("The service's rough estimate, to the nearest 5 minutes"),
+  })
+  .nullable()
+  .optional()
+  .describe(
+    "Present only beside a wrong-region refusal (an 'anchors' fallbackDetail " +
+      "beyond the 20 km threshold) when the admin-configured osrm-autofetch " +
+      "service answered (spec 2026-10-13). Absent — never null in practice — " +
+      "when the feature is off or the service is silent, leaving the response " +
+      "exactly as it was before the feature."
   );
 
 const tourRoute = registry.register(
@@ -667,7 +698,10 @@ registerSectionPath({
     "looks implausible, still comes back 200 — a straight leg stays its " +
     'straight chord with `confidence: "low"`, a drawn, adopted or routed ' +
     "leg is left as it was, and `fallbackReason` names the cause — an " +
-    "honest result rather than an error. Only a genuinely unconfigured instance (no provider at " +
+    "honest result rather than an error. When that cause is a wrong-region " +
+    "one, `autofetch` carries the osrm-autofetch service's answer (spec " +
+    "2026-10-13): the client can then say a map download is running instead " +
+    "of the dead-end refusal. Only a genuinely unconfigured instance (no provider at " +
     "all) is refused, and with 409 rather than 400 — the request itself is " +
     "fine, the instance just cannot answer it.",
   tags: ["Tours"],
@@ -677,7 +711,7 @@ registerSectionPath({
       description: "Leg routed (or honestly left as a straight chord)",
       content: {
         "application/json": {
-          schema: z.object({ leg: tourLeg, fallbackReason, fallbackDetail }),
+          schema: z.object({ leg: tourLeg, fallbackReason, fallbackDetail, autofetch }),
         },
       },
     },
@@ -702,7 +736,9 @@ registerSectionPath({
     "the response says so honestly via `routedCount` (legs the provider " +
     "routed), `fallbackCount` (legs left a straight chord, with the first " +
     "cause in `fallbackReason`) and `skippedCount` (legs left alone because " +
-    "their mode is not routable). This always answers 200: " +
+    "their mode is not routable). `autofetch` appears beside those numbers " +
+    "when the first fallback is a wrong-region one and the osrm-autofetch " +
+    "service answered (spec 2026-10-13). This always answers 200: " +
     "routing that did not produce a route is not a request error.",
   tags: ["Tours"],
   request: { params: routeIdParams },
@@ -721,6 +757,7 @@ registerSectionPath({
               .describe("Legs sent to the provider that stayed a straight chord"),
             fallbackReason,
             fallbackDetail,
+            autofetch,
             skippedCount: z.number().int().describe("Legs left alone — ferry/rail, not routable"),
           }),
         },
