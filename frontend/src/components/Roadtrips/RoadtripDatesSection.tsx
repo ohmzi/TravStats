@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type JSX } from "react";
 
 import Button from "../ui/Button";
+import { Field, Input } from "../ui/Field";
 import { useTranslation } from "../../hooks/useTranslation";
 import { toursApi } from "../../lib/api/tours";
 import { logger } from "../../lib/logger";
@@ -100,34 +101,33 @@ export default function RoadtripDatesSection({
     }
   };
 
-  const inputClass = "rounded-lg px-3 py-2 text-sm";
-  const inputStyle = { border: "1px solid var(--ts-border)", background: "var(--ts-surface)" };
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3">{t("roadtrips:dates.heading")}</h2>
       <p className="text-sm text-(--text-muted) mb-3">{t("roadtrips:dates.hint")}</p>
       <div className="flex flex-wrap items-end" style={{ gap: 12 }}>
-        <label className="flex flex-col" style={{ gap: 4, fontSize: 12, color: "var(--ts-muted)" }}>
-          {t("trips:modal.startDateLabel")}
-          <input
+        {/* The shared Field/Input recipe — the same control the change-dates
+            dialog draws its own date boxes with — so these sit at the design
+            system's control height (44) beside the 46px Save, not the
+            hand-rolled ~38px they used to. */}
+        <Field label={t("trips:modal.startDateLabel")} htmlFor="trip-dates-start">
+          <Input
+            id="trip-dates-start"
             type="date"
             value={startDay}
             onChange={(e) => setStartDay(e.target.value)}
-            className={inputClass}
-            style={inputStyle}
           />
-        </label>
-        <label className="flex flex-col" style={{ gap: 4, fontSize: 12, color: "var(--ts-muted)" }}>
-          {t("trips:modal.endDateLabel")}
-          <input
+        </Field>
+        <Field label={t("trips:modal.endDateLabel")} htmlFor="trip-dates-end">
+          <Input
+            id="trip-dates-end"
             type="date"
             value={endDay}
+            invalid={outOfOrder}
             aria-invalid={outOfOrder || undefined}
             onChange={(e) => setEndDay(e.target.value)}
-            className={inputClass}
-            style={inputStyle}
           />
-        </label>
+        </Field>
         {/* `size="toolbar"`: the row it saves is the two date boxes beside it,
             so it joins the row's shared height (one control size, 2026-10-11;
             owner's 2026-10-13 screenshot named the tall amber Save). The

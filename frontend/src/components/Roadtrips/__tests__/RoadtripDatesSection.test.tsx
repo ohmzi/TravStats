@@ -252,4 +252,17 @@ describe("RoadtripDatesSection", () => {
     expect(save.style.padding).toBe("0 var(--ts-space-xl)");
     expect(save.style.fontSize).toBe("16px");
   });
+
+  it("draws the date boxes at the design system's control height", () => {
+    render(<RoadtripDatesSection route={route()} tripId={undefined} onSaved={vi.fn()} />);
+
+    // The boxes were hand-rolled (~38px) while the Save beside them joined the
+    // row's shared height; both sides now take the app's own control recipe
+    // (the change-dates dialog's shared Field/Input), so the row's controls
+    // sit at the design system's heights (DESIGN_SYSTEM.md §6: inputs 44).
+    for (const input of [startInput(), endInput()]) {
+      expect(input).toHaveClass("ts-control");
+      expect(input.style.minHeight).toBe("var(--ts-size-touch-min)");
+    }
+  });
 });
