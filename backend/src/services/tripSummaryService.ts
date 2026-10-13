@@ -663,7 +663,9 @@ function staysOf(stations: TripRouteForBrief["stops"]): SummaryBrief["stays"] {
  */
 export function briefFromRoadtrip(route: TripRouteForBrief, status: string): SummaryBrief {
   const nights = nightsOf(route.stops);
-  const span = spanOf(route.stops);
+  // The row's own days where it has them (owner 2026-10-13) — the brief covers
+  // the SAME span the page, the band and the timeline read.
+  const span = spanOf(route.stops, route);
   return {
     name: route.name,
     status,

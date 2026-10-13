@@ -119,4 +119,66 @@ describe("roadtrip achievements", () => {
       checkRoadtripAchievement({ requirementType: "flights_count", requirement: 1 }, stats)
     ).toBeNull();
   });
+
+  it("reads a trip's own stored days where it has them, not only its stations", async () => {
+    // Pushed into next year by its stored days: planned, although its stations
+    // lie in the past (owner 2026-10-13).
+    const rescheduled = await prisma.tripRoute.create({
+      data: {
+        userId,
+        name: "Verschoben",
+        mode: "road",
+        kind: "roadtrip",
+        startDay: d("2099-06-01"),
+        endDay: d("2099-06-05"),
+      },
+    });
+    await prisma.tripStop.create({
+      data: {
+        title: "Hamburg",
+        lat: 53.55,
+        lon: 9.99,
+        startDate: d("2024-07-12"),
+        endDate: d("2024-07-14"),
+        routeId: rescheduled.id,
+        routeOrderIdx: 0,
+      },
+    });
+    // …and the inverse: a stored start in the past counts although the
+    // stations read future — the same one span rule.
+    const pulledBack = await prisma.tripRoute.create({
+      data: {
+        userId,
+        name: "Zurückgeholt",
+        mode: "road",
+        kind: "roadtrip",
+        startDay: d("2024-07-12"),
+        endDay: d("2024-07-14"),
+      },
+    });
+    await prisma.tripStop.create({
+      data: {
+        title: "Salzburg",
+        lat: 47.8,
+        lon: 13.04,
+        startDate: d("2099-06-01"),
+        routeId: pulledBack.id,
+        routeOrderIdx: 0,
+      },
+    });
+
+    const stats = await calculateRoadtripAchievementStats(userId, new Date("2026-09-24T12:00:00Z"));
+    expect(stats).toEqual({
+      roadtripsCount: 2,
+      roadtripKm: 3200,
+      roadtripFreeNights: 1,
+      roadtripLongestKm: 3200,
+      roadtripCountriesMax: 3,
+    });
+
+    await prisma.tripStop.deleteMany({
+      where: { routeId: { in: [rescheduled.id, pulledBack.id] } },
+    });
+    await prisma.tripRoute.deleteMany({ where: { id: { in: [rescheduled.id, pulledBack.id] } } });
+  });
 });

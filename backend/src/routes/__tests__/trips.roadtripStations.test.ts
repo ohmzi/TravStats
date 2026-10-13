@@ -92,6 +92,42 @@ describe("GET /trips/:id roadtripStations", () => {
     expect(res.body.trip.roadtripStations[0].times.start.precision).toBe("day");
   });
 
+  it("carries the trip's effective span on every station — its own days where set (owner 2026-10-13)", async () => {
+    const route = await prisma.tripRoute.findFirstOrThrow({ where: { tripId } });
+    const spans = async (): Promise<Array<[string | null, string | null]>> => {
+      const res = await request(app).get(`/api/v1/trips/${tripId}`).set("Cookie", cookie);
+      return res.body.trip.roadtripStations.map(
+        (s: { routeStartDate: string | null; routeEndDate: string | null }) => [
+          s.routeStartDate,
+          s.routeEndDate,
+        ]
+      );
+    };
+
+    // Undated: the stations' own span, the SAME answer the roadtrip's pages
+    // read — every station of the trip carries it (the timeline places the
+    // trip's entries inside it).
+    expect(await spans()).toEqual([
+      ["2031-05-02T00:00:00.000Z", "2031-05-04T00:00:00.000Z"],
+      ["2031-05-02T00:00:00.000Z", "2031-05-04T00:00:00.000Z"],
+    ]);
+
+    // The row's own start wins — the day the flight arrived — while the
+    // derived end still answers the other side.
+    await prisma.tripRoute.update({
+      where: { id: route.id },
+      data: { startDay: new Date("2031-05-03T00:00:00Z") },
+    });
+    try {
+      expect(await spans()).toEqual([
+        ["2031-05-03T00:00:00.000Z", "2031-05-04T00:00:00.000Z"],
+        ["2031-05-03T00:00:00.000Z", "2031-05-04T00:00:00.000Z"],
+      ]);
+    } finally {
+      await prisma.tripRoute.update({ where: { id: route.id }, data: { startDay: null } });
+    }
+  });
+
   it("sends an empty list while roadtrips are off", async () => {
     mockVisible.mockResolvedValue(["flight"]);
 

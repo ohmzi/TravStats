@@ -58,8 +58,22 @@ const roadtripSummary = registry.register(
       vehicle: z.enum(STORED_ROADTRIP_VEHICLES).nullable(),
       vehicleName: z.string().nullable(),
       kindAssignedAutomatically: z.boolean(),
-      startDate: z.string().datetime().nullable(),
-      endDate: z.string().datetime().nullable(),
+      startDate: z
+        .string()
+        .datetime()
+        .nullable()
+        .describe(
+          "The trip's effective start: its own stored `startDay` where set (owner " +
+            "2026-10-13), else the earliest station start or linked check-in"
+        ),
+      endDate: z
+        .string()
+        .datetime()
+        .nullable()
+        .describe(
+          "The trip's effective end: its own stored `endDay` where set, else the latest " +
+            "station end or check-out. Each side falls back on its own"
+        ),
       distanceKm: z.number(),
       drivenKm: z.number().describe("Legs that are not a ferry"),
       startOdometerKm: z.number().int().nullable(),
@@ -174,8 +188,20 @@ const roadtripDetail = z.object({
   roadtrip: tourRoute,
   countries: z.array(z.string()),
   trip: z.object({ id: z.string().uuid(), name: z.string() }).nullable(),
-  startDate: z.string().datetime().nullable(),
-  endDate: z.string().datetime().nullable(),
+  startDate: z
+    .string()
+    .datetime()
+    .nullable()
+    .describe(
+      "The trip's effective start: `roadtrip.startDay` where set (owner 2026-10-13), " +
+        "else the earliest station start or linked check-in. The list, the chain, the " +
+        "figures band, the re-sync window and the timeline all read THIS answer"
+    ),
+  endDate: z
+    .string()
+    .datetime()
+    .nullable()
+    .describe("The trip's effective end: `roadtrip.endDay` where set, else the latest station end"),
   nights: roadtripNights,
   stations: z.array(station),
   legs: z.array(tourLeg),

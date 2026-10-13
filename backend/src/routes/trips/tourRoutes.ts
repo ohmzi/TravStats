@@ -10,6 +10,11 @@ import {
 } from "../../services/expenses/sectionRemoval";
 import { assignStopsSchema, createTripRouteSchema, updateRouteSchema } from "../../schemas/tour";
 import { kindFieldsSchema } from "../../schemas/roadtrip";
+import {
+  assertMergedRouteDays,
+  routeDaysColumns,
+  routeDaysDto,
+} from "../../services/roadtrip/routeDays";
 import { tourDayColumns, tourDayDto } from "../../services/tour/tourDay";
 import { drivenKm, travelledKm } from "../../services/tour/tourDistance";
 import { recomputeLegs } from "../../services/tour/legRecompute";
@@ -119,6 +124,9 @@ export function toDto(route: {
   kindAssignedAutomatically: boolean;
   tourDate: Date | null;
   tourStartMinute: number | null;
+  /** The trip's own days (owner 2026-10-13): roadtrip only, both nullable. */
+  startDay: Date | null;
+  endDay: Date | null;
   legs: LegRow[];
   _count: { stops: number };
 }): Record<string, unknown> {
@@ -139,6 +147,7 @@ export function toDto(route: {
     anchorStopId: route.anchorStopId,
     kindAssignedAutomatically: route.kindAssignedAutomatically,
     ...tourDayDto(route),
+    ...routeDaysDto(route),
     stopCount: route._count.stops,
     legCount: route.legs.length,
     distanceKm: travelledKm(route.legs),
@@ -312,15 +321,19 @@ router.patch(
     try {
       const userId = req.userId!;
       const routeId = await resolveRoute(userId, req.params.id, req.params.routeId);
-      const { date, startTime, detachStationPhotos, ...body } = updateRouteSchema
+      const { date, startTime, startDay, endDay, detachStationPhotos, ...body } = updateRouteSchema
         .merge(kindFieldsSchema)
         .parse(req.body);
       const detach = await assertKindFields(userId, routeId, { ...body, detachStationPhotos });
       const current = await prisma.tripRoute.findUniqueOrThrow({
         where: { id: routeId },
-        select: { kind: true, tourDate: true },
+        select: { kind: true, tourDate: true, startDay: true, endDay: true },
       });
       const day = tourDayColumns({ date, startTime }, current.kind, current);
+      // The trip's own days (owner 2026-10-13), judged on the span the PATCH
+      // leaves behind — the same rule the journey's PATCH follows.
+      const days = routeDaysColumns({ startDay, endDay }, current.kind);
+      assertMergedRouteDays(days, current);
 
       // The photos come off their stations in the same transaction as the
       // move: a move that failed must not leave them unlinked.
@@ -328,7 +341,7 @@ router.patch(
         const detached = detach ? await detach(tx) : 0;
         const updated = await tx.tripRoute.update({
           where: { id: routeId },
-          data: { ...body, ...day },
+          data: { ...body, ...day, ...days },
           include: ROUTE_SELECT,
         });
         return [updated, detached] as const;

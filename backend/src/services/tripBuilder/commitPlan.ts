@@ -146,15 +146,18 @@ async function resolveTarget(
     where: { id },
     select: { countries: true },
   });
-  // A route-scoped commit writes the roadtrip alone: the journey's own fields —
-  // its dates and its countries — stay byte-identical (owner request 2026-10-12).
+  // A route-scoped commit writes the roadtrip alone: the JOURNEY's own fields —
+  // its dates and its countries — stay byte-identical (owner request
+  // 2026-10-12). The chosen window travels through `applyWindow` as on the
+  // journey flow, but lands on the ROUTE's own days (owner 2026-10-13): a
+  // re-sync launched with chosen dates writes the trip's start and end.
   if (body.target.routeId !== undefined) {
     return {
       kind: "existing",
       tripId: id,
       tripName: name,
       routeId: body.target.routeId,
-      applyWindow: false,
+      applyWindow: body.target.applyWindow,
       countries: stored.countries,
     };
   }

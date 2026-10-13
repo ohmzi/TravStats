@@ -46,13 +46,21 @@ interface OwnedRoadtrip {
 async function ownedRoadtrips(userId: string): Promise<OwnedRoadtrip[]> {
   const rows = await prisma.tripRoute.findMany({
     where: { userId, kind: "roadtrip" },
-    select: { id: true, name: true, stops: { select: STATION_SELECT } },
+    // The row's own days travel with the stations: the natural key's start day
+    // is the SAME span the pages read (owner 2026-10-13).
+    select: {
+      id: true,
+      name: true,
+      startDay: true,
+      endDay: true,
+      stops: { select: STATION_SELECT },
+    },
     orderBy: { createdAt: "asc" },
   });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
-    start: spanOf(r.stops).startDate?.slice(0, 10) ?? null,
+    start: spanOf(r.stops, r).startDate?.slice(0, 10) ?? null,
   }));
 }
 

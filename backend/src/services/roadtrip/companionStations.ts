@@ -54,20 +54,24 @@ export async function findActiveRoadtrip(
 ): Promise<{ routeId: string; stations: StationDtoRow[]; todayStationId: string | null } | null> {
   const routes = await prisma.tripRoute.findMany({
     where: { userId, kind: "roadtrip" },
-    select: { id: true },
+    // The row's own days decide "running" where they are set (owner
+    // 2026-10-13): a trip moved to next week by its editor is not running
+    // today, however its stations read.
+    select: { id: true, startDay: true, endDay: true },
   });
   const graceEnd = (end: string): string =>
     dayOf(new Date(dayStart(end).getTime() + RUNNING_GRACE_DAYS * DAY_MS));
 
   let best: { routeId: string; start: string; stations: StationDtoRow[] } | null = null;
-  for (const { id } of routes) {
+  for (const route of routes) {
+    const { id } = route;
     // Stations only: the phone lists them, and a route correction is not one.
     const stations = await prisma.tripStop.findMany({
       where: { routeId: id, ...STATIONS_ONLY },
       orderBy: { routeOrderIdx: "asc" },
       select: STATION_DTO_SELECT,
     });
-    const span = spanOf(stations);
+    const span = spanOf(stations, route);
     if (!span.startDate || !span.endDate) continue;
     const start = span.startDate.slice(0, 10);
     const end = span.endDate.slice(0, 10);

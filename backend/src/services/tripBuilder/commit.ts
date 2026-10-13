@@ -59,7 +59,24 @@ async function writeTrip(
   // journey row untouched, its `updatedAt` included (owner request 2026-10-12).
   // Phase C's recompute of the journey's derived status is the one place a
   // scoped run reflects the trip back onto the journey.
-  if (plan.target.routeId !== undefined) return tripId;
+  //
+  // The trip's OWN days, though, follow the window the review chose (owner
+  // 2026-10-13, the second ask): the journey flow's `applyWindow` rule one
+  // level down, its start to the window's start and its end to the window's
+  // end. Written only when the dates moved (as there), so a re-sync of a
+  // trip nobody re-dated stores exactly what it stored before.
+  if (plan.target.routeId !== undefined) {
+    if (applyWindow) {
+      await tx.tripRoute.update({
+        where: { id: plan.target.routeId },
+        data: {
+          startDay: toDbDate(plan.window.startDay),
+          endDay: toDbDate(plan.window.endDay),
+        },
+      });
+    }
+    return tripId;
+  }
   const stored = await tx.trip.findFirstOrThrow({
     where: { id: tripId, userId: plan.userId },
     select: { startDate: true, endDate: true, startDay: true, endDay: true },

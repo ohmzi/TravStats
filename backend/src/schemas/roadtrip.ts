@@ -113,6 +113,14 @@ export const tourDayFields = {
 
 export const kindFieldsSchema = z.object({
   ...tourDayFields,
+  /**
+   * The trip's own days (owner 2026-10-13) — roadtrip only, `YYYY-MM-DD`; null
+   * clears that side, `undefined` leaves it. Judged on the span the PATCH
+   * leaves behind (a stored start with a moved end is still a wrong span), and
+   * a tour is refused at the service (`services/roadtrip/routeDays.ts`).
+   */
+  startDay: calendarDay.nullable().optional(),
+  endDay: calendarDay.nullable().optional(),
   activity: z.enum(TOUR_ACTIVITIES).nullable().optional(),
   vehicle: z.enum(ROADTRIP_VEHICLES).nullable().optional(),
   vehicleName: z.string().trim().min(1).max(120).nullable().optional(),

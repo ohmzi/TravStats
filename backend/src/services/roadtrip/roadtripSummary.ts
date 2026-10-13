@@ -160,10 +160,31 @@ export function nightsOf(stations: readonly StationRow[]): RoadtripNights {
 }
 
 /**
- * The span a roadtrip covers: earliest station start (or linked check-in)
- * to latest station end (or check-out). Null ends abstain.
+ * The trip's own stored days (owner 2026-10-13), the journey's
+ * `startDay`/`endDay` convention one level down. Either side may be null,
+ * and null means "derive this side from the stations".
  */
-export function spanOf(stations: readonly StationRow[]): {
+export interface StoredTripDays {
+  startDay: Date | null;
+  endDay: Date | null;
+}
+
+/**
+ * The span a roadtrip covers: earliest station start (or linked check-in)
+ * to latest station end (or check-out), with the trip's OWN stored days
+ * winning PER SIDE where it has them (owner 2026-10-13) — a stored start
+ * with no stored end still ends at the latest station, and the other way
+ * round. With neither day stored the derivation is exactly what every
+ * existing trip already showed. Null ends abstain.
+ *
+ * This is the ONE answer: the list/detail DTOs, the chain, the figures band,
+ * the scoped re-sync's window, the AI summary's brief and the timeline all
+ * read spans through here, so a trip's two levels cannot disagree.
+ */
+export function spanOf(
+  stations: readonly StationRow[],
+  days?: StoredTripDays | null
+): {
   startDate: string | null;
   endDate: string | null;
 } {
@@ -175,7 +196,12 @@ export function spanOf(stations: readonly StationRow[]): {
     if (from && (!start || from < start)) start = from;
     if (to && (!end || to > end)) end = to;
   }
-  return { startDate: start?.toISOString() ?? null, endDate: end?.toISOString() ?? null };
+  const storedStart = days?.startDay ?? null;
+  const storedEnd = days?.endDay ?? null;
+  return {
+    startDate: (storedStart ?? start)?.toISOString() ?? null,
+    endDate: (storedEnd ?? end)?.toISOString() ?? null,
+  };
 }
 
 export function toStationDto(s: StationDtoRow): Record<string, unknown> {
@@ -217,7 +243,7 @@ export function toStationDto(s: StationDtoRow): Record<string, unknown> {
   };
 }
 
-export interface RoadtripListRow {
+export interface RoadtripListRow extends StoredTripDays {
   id: string;
   tripId: string | null;
   name: string;
@@ -286,7 +312,9 @@ export function toRoadtripSummary(
     vehicle: row.vehicle,
     vehicleName: row.vehicleName,
     kindAssignedAutomatically: row.kindAssignedAutomatically,
-    ...spanOf(row.stops),
+    // The ONE span rule: the trip's own days where it has them, the stations
+    // on the sides where it does not (owner 2026-10-13).
+    ...spanOf(row.stops, row),
     distanceKm: travelledKm(row.legs),
     drivenKm: drivenKm(row.legs),
     startOdometerKm: row.startOdometerKm,

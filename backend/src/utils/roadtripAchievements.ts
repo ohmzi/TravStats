@@ -44,6 +44,10 @@ export async function calculateRoadtripAchievementStats(
   const rows = await prisma.tripRoute.findMany({
     where: { userId, kind: "roadtrip" },
     select: {
+      // The row's own days count here too (owner 2026-10-13): a trip whose
+      // stored start is in the future is planned, whatever its stations say.
+      startDay: true,
+      endDay: true,
       legs: { select: { distanceKm: true } },
       stops: { select: STATION_SELECT },
     },
@@ -53,7 +57,7 @@ export async function calculateRoadtripAchievementStats(
   const resolver = await getCountryResolver();
   const stats = { ...EMPTY_ROADTRIP_STATS };
   for (const row of rows) {
-    const { startDate } = spanOf(row.stops);
+    const { startDate } = spanOf(row.stops, row);
     if (startDate && Date.parse(startDate) > now.getTime()) continue;
     const km = travelledKm(row.legs);
     stats.roadtripsCount += 1;

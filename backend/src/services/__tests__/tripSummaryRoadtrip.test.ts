@@ -226,6 +226,24 @@ describe("the roadtrip summary", () => {
       expect(brief.startDate).toBeNull();
       expect(routeLine(brief, "de")).toBe("");
     });
+
+    it("covers the trip's OWN stored days where it has them (owner 2026-10-13)", async () => {
+      // The brief must retell the SAME span the page, the band and the
+      // timeline read — the stored days per side, the stations where unset.
+      await prisma.tripRoute.update({
+        where: { id: routeId },
+        data: { startDay: d("2031-04-30"), endDay: null },
+      });
+      try {
+        const brief = briefFromRoadtrip(await read(routeId), "completed");
+        expect(brief).toMatchObject({ startDate: "2031-04-30", endDate: "2031-05-05" });
+      } finally {
+        await prisma.tripRoute.update({
+          where: { id: routeId },
+          data: { startDay: null, endDay: null },
+        });
+      }
+    });
   });
 
   describe("summariseRoadtrip", () => {

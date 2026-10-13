@@ -32,6 +32,20 @@ export const tripRoadtripStationResponse = registry.register(
       notes: z.string().nullable(),
       routeId: z.string().uuid().describe("The roadtrip the station belongs to"),
       routeName: z.string(),
+      routeStartDate: z
+        .string()
+        .datetime()
+        .nullable()
+        .describe(
+          "The trip's effective start (its own stored day where set, else its stations' " +
+            "earliest) — the journey's timeline places the trip's entries inside this span " +
+            "(owner 2026-10-13)"
+        ),
+      routeEndDate: z
+        .string()
+        .datetime()
+        .nullable()
+        .describe("The trip's effective end, the same rule on the other side; null when undated"),
       routeOrderIdx: z.number().int().nullable(),
       state: z.enum(["stay", "free", "pass"]),
       nights: z

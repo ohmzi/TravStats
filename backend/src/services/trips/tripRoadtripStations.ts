@@ -3,7 +3,7 @@ import type { Prisma } from "../../prisma";
 import type { TripStopTimes } from "../../schemas/times";
 import { stationState } from "../../shared/tour/roadtrip";
 import { loadVisibleDomains } from "../domainVisibility";
-import { STATION_SELECT, nightsOf } from "../roadtrip/roadtripSummary";
+import { STATION_SELECT, nightsOf, spanOf } from "../roadtrip/roadtripSummary";
 import { withTripStopTimes, type TripStopTimeColumns } from "./timesDto";
 
 /**
@@ -20,16 +20,38 @@ export type TripRoadtripStationDto = TripStopTimeColumns & {
   routeId: string;
   routeOrderIdx: number | null;
   routeName: string;
+  /**
+   * The trip's own span (owner 2026-10-13), through the ONE `spanOf` rule: its
+   * stored days where it has them, its stations on the sides where it does
+   * not. The journey's timeline places the trip's entries inside it, so an
+   * arriving flight on the trip's stored start day precedes the trip.
+   */
+  routeStartDate: string | null;
+  routeEndDate: string | null;
   state: "stay" | "free" | "pass";
   /** `countRoadtripNights` over this station alone; 0 for a pass-through. */
   nights: number;
   times: TripStopTimes;
 };
 
+/**
+ * The route travels with its own stops so the span can be computed by the ONE
+ * rule: a station row's route is the same object for every station of it, and
+ * the derived fallback needs ALL of the route's stations (the adopted ones are
+ * `trip.stops`, not rows here, but their days belong to the span).
+ */
 const SELECT = {
   ...STATION_SELECT,
   precision: true,
-  route: { select: { id: true, name: true } },
+  route: {
+    select: {
+      id: true,
+      name: true,
+      startDay: true,
+      endDay: true,
+      stops: { select: STATION_SELECT },
+    },
+  },
 } satisfies Prisma.TripStopSelect;
 
 /**
@@ -61,9 +83,19 @@ export async function roadtripStationsForTrip(
     select: SELECT,
   });
 
+  // One span per route, computed once from every station of it — the same
+  // answer the roadtrip's own pages and the journey's chain read.
+  const spanByRoute = new Map<string, { startDate: string | null; endDate: string | null }>();
+  for (const row of rows) {
+    if (row.route !== null && !spanByRoute.has(row.route.id)) {
+      spanByRoute.set(row.route.id, spanOf(row.route.stops, row.route));
+    }
+  }
+
   return rows.flatMap((row) => {
     const state = stationState(row);
     if (state === "via" || row.route === null) return [];
+    const span = spanByRoute.get(row.route.id) ?? { startDate: null, endDate: null };
     const columns = withTripStopTimes({
       startDate: row.startDate,
       endDate: row.endDate,
@@ -83,6 +115,8 @@ export async function roadtripStationsForTrip(
         routeId: row.route.id,
         routeOrderIdx: row.routeOrderIdx,
         routeName: row.route.name,
+        routeStartDate: span.startDate,
+        routeEndDate: span.endDate,
         state,
         nights: nightsOf([row]).nights,
       },

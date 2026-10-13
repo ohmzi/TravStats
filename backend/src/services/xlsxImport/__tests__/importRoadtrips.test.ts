@@ -96,6 +96,55 @@ describe("spreadsheet import — roadtrips", () => {
     ).toBe(1);
   });
 
+  it("matches a row by the trip's OWN stored start day where it has one", async () => {
+    // The editor moved the trip to 09-01 while its one station still reads
+    // 07-12; the natural key's start is the ONE span, so the row with the
+    // stored day updates that trip (owner 2026-10-13).
+    const route = await prisma.tripRoute.create({
+      data: {
+        userId,
+        name: "Herbstfahrt",
+        mode: "road",
+        kind: "roadtrip",
+        startDay: new Date("2031-09-01T00:00:00Z"),
+        endDay: new Date("2031-09-05T00:00:00Z"),
+      },
+    });
+    await prisma.tripStop.create({
+      data: {
+        title: "Fernhollow",
+        lat: 61.1,
+        lon: 8.5,
+        startDate: new Date("2031-07-12T00:00:00Z"),
+        routeId: route.id,
+        routeOrderIdx: 0,
+      },
+    });
+
+    const [outcome] = await importSheets(
+      [
+        {
+          key: "roadtrips",
+          rows: [{ name: "Herbstfahrt", startDate: "2031-09-01", notes: "aus der Tabelle" }],
+        },
+      ],
+      ctx()
+    );
+    expect(outcome).toMatchObject({ updated: 1, created: 0, errors: 0 });
+    expect(outcome.rows[0]).toMatchObject({ action: "update", id: route.id });
+    expect(await prisma.tripRoute.findUniqueOrThrow({ where: { id: route.id } })).toMatchObject({
+      notes: "aus der Tabelle",
+    });
+
+    // The stations' own start is no longer the key: that row creates a new
+    // trip instead of silently updating the rescheduled one.
+    const [again] = await importSheets(
+      [{ key: "roadtrips", rows: [{ name: "Herbstfahrt", startDate: "2031-07-12" }] }],
+      ctx()
+    );
+    expect(again).toMatchObject({ created: 1, updated: 0 });
+  });
+
   // `rail` left the vehicles on 2026-09-25. An exported roadtrip by rail comes
   // back with that cell: the stored value is kept and the drop reported, and a
   // new row cannot become a roadtrip by rail.

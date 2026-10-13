@@ -64,6 +64,10 @@ const LIST_SELECT = {
   kindAssignedAutomatically: true,
   startOdometerKm: true,
   endOdometerKm: true,
+  // The trip's own days (owner 2026-10-13): the summary's span is `spanOf`,
+  // and these are its two inputs beside the stations.
+  startDay: true,
+  endDay: true,
   trip: { select: { name: true } },
   // The leg endpoints and geometry are for the card's route sketch, which
   // draws the travelled line rather than chords between the stations — see
@@ -250,7 +254,9 @@ router.get(
         countries: stationCountries(stations, resolver),
         roadtrip: toDto(route),
         trip: route.trip,
-        ...spanOf(stations),
+        // `route` carries every scalar (the include adds relations only), so
+        // its own days are the span's other input (owner 2026-10-13).
+        ...spanOf(stations, route),
         nights,
         stations: stations.map(toStationDto),
         legs: legs.map(toLegDto),

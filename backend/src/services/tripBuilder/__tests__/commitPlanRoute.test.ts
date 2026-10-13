@@ -745,4 +745,45 @@ describe("a route-scoped commit", () => {
     const albums = await prisma.tripImmichAlbum.findMany({ where: { tripId: fx.tripId } });
     expect(albums.map(strip)).toEqual(before.albums.map(strip));
   });
+
+  // The trip's own days (owner 2026-10-13, the second ask): the last cases
+  // because they WRITE the route (as the whole-job run above does), and every
+  // earlier case reads the fixture's original stations.
+  it("leaves the trip's own days alone while the review kept the window", async () => {
+    // `body()` sends applyWindow: false — a re-sync that re-dated nothing
+    // stores exactly what it stored before.
+    await writeCommit(await planFor());
+
+    const route = await prisma.tripRoute.findUniqueOrThrow({ where: { id: fx.roadtripId } });
+    expect(route.startDay).toBeNull();
+    expect(route.endDay).toBeNull();
+  });
+
+  it("writes the chosen window onto the trip's own days when the review moved them", async () => {
+    const before = await prisma.trip.findUniqueOrThrow({
+      where: { id: fx.tripId },
+      select: { startDate: true, endDate: true, startDay: true, endDay: true },
+    });
+    // The body's window is always the draft's own — the review's "Change
+    // dates…" is a re-scan, and the draft carries the new window — so
+    // `applyWindow` is the whole signal: the journey flow's `moved`, one
+    // level down.
+    const plan = await planFor({
+      target: { kind: "existing", tripId: fx.tripId, routeId: fx.roadtripId, applyWindow: true },
+    });
+    expect(plan.target).toMatchObject({ routeId: fx.roadtripId, applyWindow: true });
+
+    await writeCommit(plan);
+
+    const route = await prisma.tripRoute.findUniqueOrThrow({ where: { id: fx.roadtripId } });
+    expect(route.startDay?.toISOString()).toBe("2031-05-02T00:00:00.000Z");
+    expect(route.endDay?.toISOString()).toBe("2031-05-09T00:00:00.000Z");
+    // The journey's own dates stay byte-identical: a scoped run never writes
+    // them, however the trip moved.
+    const after = await prisma.trip.findUniqueOrThrow({
+      where: { id: fx.tripId },
+      select: { startDate: true, endDate: true, startDay: true, endDay: true },
+    });
+    expect(after).toEqual(before);
+  });
 });

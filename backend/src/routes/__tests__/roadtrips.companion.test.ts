@@ -332,6 +332,33 @@ describe("roadtrips from the phone", () => {
     });
   });
 
+  describe("a trip's own stored days (owner 2026-10-13)", () => {
+    it("places the running trip by them, not only by its stations' span", async () => {
+      await prisma.tripRoute.update({
+        where: { id: norwayId },
+        data: {
+          startDay: new Date("2025-09-01T00:00:00Z"),
+          endDay: new Date("2025-09-05T00:00:00Z"),
+        },
+      });
+      try {
+        // Inside the stored window, though no station is dated there: the
+        // phone is told the trip is running.
+        const inside = await active("2025-09-03");
+        expect(inside.status).toBe(200);
+        expect(inside.body.roadtrip?.id).toBe(norwayId);
+        // A day the stored start has moved past is no longer that trip's.
+        const before = await active("2025-07-16");
+        expect(before.body.roadtrip?.id).not.toBe(norwayId);
+      } finally {
+        await prisma.tripRoute.update({
+          where: { id: norwayId },
+          data: { startDay: null, endDay: null },
+        });
+      }
+    });
+  });
+
   describe("POST /tours with an anchor", () => {
     it("sets a day tour out from the caller's station, and refuses a stranger's", async () => {
       const stavanger = await prisma.tripStop.findFirstOrThrow({
