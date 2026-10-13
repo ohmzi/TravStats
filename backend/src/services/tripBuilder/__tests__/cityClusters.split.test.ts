@@ -128,4 +128,48 @@ describe("clusterCities: a chain that runs two cities together", () => {
       ["c3", "p1", 4],
     ]);
   });
+
+  it("does not let unnamed photos found a split of their own", () => {
+    // Immich's reverse-geocoding can be partial: photos with neither city nor
+    // state group together, and they used to count as a place that could
+    // stand alone — a pocket of them past CITY_LINK_KM split off into a
+    // station of its own. Four named photos and six unnamed chained to 38.9
+    // km end to end (one bridging photo 27.8 km out, five more 11.1 km
+    // beyond): one place, one cluster, the unnamed pocket joins the name.
+    const mixed = [
+      ...row("n", -45.0, 4, "Northvale", 6),
+      photo("u1", "2031-05-05 12:00", { lat: -45.25, lon: 168.7 }),
+      ...Array.from({ length: 5 }, (_, i) =>
+        photo(`u${i + 2}`, `2031-05-05 ${String(13 + i).padStart(2, "0")}:00`, {
+          lat: -45.35,
+          lon: 168.7,
+        })
+      ),
+    ];
+    const clusters = clusterCities(mixed);
+    expect(clusters).toHaveLength(1);
+    expect(clusters[0].photoIds).toHaveLength(10);
+  });
+
+  it("sends a pocket of unnamed photos with the nearest named place when two places do split", () => {
+    // The same principle when the split is genuine: Northvale and Port Carrow
+    // 33.4 km apart, with five unnamed photos 2.2 km from Carrow's median —
+    // the pocket joins the place it sits at, never a third station.
+    const twoPlaces = [
+      ...row("n", -45.0, 4, "Northvale", 6),
+      photo("u1", "2031-05-05 11:00", { lat: -45.25, lon: 168.7 }),
+      ...Array.from({ length: 4 }, (_, i) =>
+        photo(`u${i + 2}`, `2031-05-05 ${String(12 + i).padStart(2, "0")}:00`, {
+          lat: -45.28,
+          lon: 168.7,
+        })
+      ),
+      ...row("p", -45.3, 4, "Port Carrow", 16),
+    ];
+    const clusters = clusterCities(twoPlaces);
+    expect(clusters.map((c) => [c.immichCity, c.photoIds.length])).toEqual([
+      ["Northvale", 4],
+      ["Port Carrow", 9],
+    ]);
+  });
 });

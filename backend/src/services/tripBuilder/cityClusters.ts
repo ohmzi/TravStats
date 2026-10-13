@@ -186,6 +186,11 @@ function groupByCityAndState(members: readonly Placed[]): Placed[][] {
   return [...groups.values()];
 }
 
+/** Whether Immich named a group at all — neither city nor state is unnamed. */
+function isNamed(group: readonly Placed[]): boolean {
+  return group.some((member) => member.photo.city !== null || member.photo.state !== null);
+}
+
 function nearestIndex(from: Coord, centres: readonly Coord[]): number {
   let nearest = 0;
   let best = Infinity;
@@ -209,19 +214,24 @@ function nearestIndex(from: Coord, centres: readonly Coord[]): number {
  * and the by-name split never ran). A group of fewer than
  * `CLUSTER_SPLIT_MIN_PHOTOS` photos joins the nearest group, and groups whose
  * medians lie within `CITY_LINK_KM` merge again, so a metro area's neighbouring
- * names stay one place. When that leaves one group — Immich names it all one
- * place, or only one name has enough photos to stand alone — the cluster stays
- * whole.
+ * names stay one place. Only a NAMED group can stand alone: photos Immich
+ * gives neither city nor state (partial reverse-geocoding) group together
+ * under the bare "|" key and join their nearest named group as strays, so a
+ * pocket of unnamed photos can never become a station of its own. When that
+ * leaves one group — Immich names it all one place, or only one name has
+ * enough photos to stand alone — the cluster stays whole.
  */
 function splitByNames(members: readonly Placed[]): Placed[][] {
   const groups = groupByCityAndState(members);
-  const large = groups.filter((group) => group.length >= CLUSTER_SPLIT_MIN_PHOTOS);
+  const large = groups.filter(
+    (group) => group.length >= CLUSTER_SPLIT_MIN_PHOTOS && isNamed(group)
+  );
   if (large.length < 2) return [inOrder(members)];
 
   const largeCentres = large.map(medianPoint);
   const joined = large.map((group) => [...group]);
-  for (const small of groups.filter((group) => group.length < CLUSTER_SPLIT_MIN_PHOTOS)) {
-    joined[nearestIndex(medianPoint(small), largeCentres)].push(...small);
+  for (const stray of groups.filter((group) => !large.includes(group))) {
+    joined[nearestIndex(medianPoint(stray), largeCentres)].push(...stray);
   }
 
   const centres = joined.map(medianPoint);
