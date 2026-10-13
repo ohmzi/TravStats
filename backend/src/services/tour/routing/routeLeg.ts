@@ -49,10 +49,12 @@ export interface RoutedLeg {
  * discarded.
  *
  * Relationship to `AUTOFETCH_MIN_OFF_KM` in `autoFetch.ts` (20 km): the
- * auto-fetch trigger fires when `min(headOffKm, tailOffKm) > 20`, and every
- * refusal from this check is > 25 km on BOTH ends by construction — so the
- * trigger still fires on every anchor refusal. The 20 km threshold sits
- * below the 25 km bound by design; `autoFetch.ts` is unchanged.
+ * auto-fetch trigger fires when `max(headOffKm, tailOffKm) > 20`. This check
+ * refuses a line only when one end sits > 25 km from its stop — so EVERY anchor
+ * refusal has at least one offset beyond the (lower) 20 km threshold and the
+ * fetch fires on all of them, including a one-sided refusal where the other end
+ * anchored close (the live Toronto→Reykjavik leg: 0.037 km / 2,287.6 km). The
+ * 20 km threshold sits below the 25 km bound by design.
  */
 const AUTO_SNAP_MAX_KM = 25;
 

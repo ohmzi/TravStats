@@ -48,7 +48,7 @@ Reuses `build.sh`'s steps but **stages** them so the live graph keeps serving un
 ### 2.4 TravStats side (the fork change)
 
 - New admin setting **`routingAutoFetchUrl`** (empty = off = today's behaviour), served and edited exactly like `routing_custom_url`.
-- In the routing refusal path (`routes/trips/tourRouting.ts`, single-leg and route-all): when the refusal detail is `kind:"anchors"` and `min(headOffKm, tailOffKm) > 20`, the backend POSTs `/ensure` with THAT leg's two coordinates (2.5 s timeout) and merges the answer into the leg's response as `autofetch: {status, region?, etaMinutes?}`. Route-all attaches it to the same leg that carries `fallbackReason`/`fallbackDetail` (its first fallback), so the numbers and the message always describe one leg. A real pin error (≤1.3 km) and a genuine distance mismatch never trigger it.
+- In the routing refusal path (`routes/trips/tourRouting.ts`, single-leg and route-all): when the refusal detail is `kind:"anchors"` and `max(headOffKm, tailOffKm) > 20`, the backend POSTs `/ensure` with THAT leg's two coordinates (2.5 s timeout) and merges the answer into the leg's response as `autofetch: {status, region?, etaMinutes?}`. Route-all attaches it to the same leg that carries `fallbackReason`/`fallbackDetail` (its first fallback), so the numbers and the message always describe one leg. A genuine distance mismatch never triggers it; a real pin error (≤1.3 km on both ends) cannot reach this path because the snap bound accepts any line whose ends are ≤ 25 km, so every `anchors` refusal that does fire has one end beyond 20 km.
 - OpenAPI updated for the response addition.
 - Frontend copy (`lib/routeFallbackCopy.ts`, one composer for both the editor toasts and the LegDialog):
   - `started` / `running` → " Map data for <region> is downloading (~<eta> min) — try again after."
@@ -60,7 +60,7 @@ Reuses `build.sh`'s steps but **stages** them so the live graph keeps serving un
 ## 3. Caps, thresholds, constants (v1)
 
 - Trigger threshold: `AUTOFETCH_MIN_OFF_KM = 20` (wrong-region offsets are ≥ hundreds of km; a pin error is ~1.3 km).
-- Acceptance bound: `AUTO_SNAP_MAX_KM = 25` in `routeLeg.ts` — the provider's snapped line is accepted when the larger anchor offset is ≤ 25 km (owner ruling 2026-10-13: a beach/hike pin routes to its nearest road); above that the refusal stands and, by construction, always triggers the auto-fetch (every refusal is > 25 km on both ends, which is > 20 km).
+- Acceptance bound: `AUTO_SNAP_MAX_KM = 25` in `routeLeg.ts` — the provider's snapped line is accepted when the larger anchor offset is ≤ 25 km (owner ruling 2026-10-13: a beach/hike pin routes to its nearest road); above that the refusal stands and always triggers the auto-fetch, because the snap bound refuses only when one end is > 25 km — so every anchor refusal has at least one offset beyond the (lower) 20 km threshold.
 - ≤4 new extracts per job; ≤40 built regions total (beyond → `blocked`, i.e. talk to a human); ≥100 GB free disk required; ONE job at a time.
 - Negative cache: a 1° grid cell with no containing extract → `no_map_data` for 24 h.
 - ETA heuristic: ~3 min per 100 MB downloaded + ~12–20 min for the merge/extract/partition/customize, rounded to the nearest 5, reported as `etaMinutes`.

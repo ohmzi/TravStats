@@ -71,8 +71,10 @@ function reasonAndDetail(
   const headline = t(`trips:tours.routing.reason.${reason}`);
   if (detail === null) return headline;
 
-  // One decimal: a genuine off-road stop sits just past the 1 km tolerance
-  // (1.3 km), a wrong-region answer thousands of km away — both read right.
+  // One decimal: an `anchors` refusal now only arises when a snapped end sits
+  // past the 25 km acceptance bound (routeLeg.ts's AUTO_SNAP_MAX_KM), so these
+  // are large numbers — a wrong-region answer thousands of km away — and one
+  // decimal keeps them readable without implying false precision.
   const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
   if (detail.kind === "anchors") {
     return `${headline} ${t("trips:tours.routing.detail.anchors", {

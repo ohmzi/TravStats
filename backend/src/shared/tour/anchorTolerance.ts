@@ -17,8 +17,9 @@
  * Deliberately NOT the cruise tolerance (`CRUISE_TRACK_ANCHOR_KM`): a tour
  * stop is where the traveller stood, a cruise port is a catalogue point a
  * ship may anchor kilometres off. Also NOT shared with
- * `services/tour/routing/routeLeg.ts`'s own `ANCHOR_TOLERANCE_KM` (it
- * validates a routing provider's line — see its doc comment) nor with
+ * `services/tour/routing/routeLeg.ts`'s own `AUTO_SNAP_MAX_KM = 25` (it
+ * accepts a routing provider's snapped line whose ends sit ≤ 25 km from the
+ * stops — see its doc comment) nor with
  * `routes/cruises/routeOverride.ts`'s `ROUTE_ANCHOR_TOLERANCE_KM`.
  */
 export const ANCHOR_TOLERANCE_KM = 1;

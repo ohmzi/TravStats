@@ -106,7 +106,7 @@ describe("maybeAutoFetch", () => {
 });
 
 describe("shouldAutoFetch", () => {
-  it("fires only when the refusal is an anchors one and its smallest offset is beyond the threshold", () => {
+  it("fires only when the refusal is an anchors one and its LARGEST offset is beyond the threshold", () => {
     // The owner's Muscat roadtrip: a graph with no data for the region snapped
     // both stops ~500-700 km away. A pin-sized error is ~1.3 km, and a
     // genuine distance mismatch carries no wrong-region signal at all — only
@@ -117,10 +117,12 @@ describe("shouldAutoFetch", () => {
     expect(shouldAutoFetch(null)).toBe(false);
   });
 
-  it("takes the SMALLEST of the two offsets, strictly above the threshold", () => {
-    // One end near its stop means the line did anchor there — not a
-    // wrong-region refusal, however far the other end drifted.
-    expect(shouldAutoFetch({ kind: "anchors", headOffKm: 671.3, tailOffKm: 0.4 })).toBe(false);
+  it("takes the LARGEST of the two offsets, strictly above the threshold", () => {
+    // One end near its stop but the other far off is STILL a wrong-region
+    // refusal (the live Toronto→Reykjavik leg: 0.037 km / 2,287.6 km) — the
+    // snap bound refuses it because one end is > 25 km, so the fetch must fire.
+    expect(shouldAutoFetch({ kind: "anchors", headOffKm: 671.3, tailOffKm: 0.4 })).toBe(true);
+    expect(shouldAutoFetch({ kind: "anchors", headOffKm: 0.037, tailOffKm: 2287.6 })).toBe(true);
     // The threshold is exclusive: exactly AUTOFETCH_MIN_OFF_KM does not fire.
     expect(
       shouldAutoFetch({

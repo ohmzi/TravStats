@@ -56,16 +56,21 @@ export async function readAutoFetchUrl(): Promise<string | null> {
  *
  * Only an `anchors` detail can be one: a `distance` mismatch means the line
  * DID anchor at both stops (the road is just implausibly long), so the graph
- * covered the area — downloading another region would not help. `min` of the
- * two offsets, strictly `>` the threshold: one end near its stop means the
- * line anchored there, however far the other end drifted.
+ * covered the area — downloading another region would not help. `max` of the
+ * two offsets, strictly `>` the threshold: the snap bound in `routeLeg.ts`
+ * refuses a line only when one end sits > 25 km from its stop, so EVERY anchor
+ * refusal has at least one offset beyond this (lower) threshold and the fetch
+ * fires on all of them. A one-sided refusal — the live Toronto→Reykjavik leg,
+ * 0.037 km / 2,287.6 km — is refused by the snap bound for exactly that reason
+ * and must still trigger the fetch; the service's `covered` answer suppresses
+ * the copy when the region actually is present.
  */
 export function shouldAutoFetch(
   detail: { kind: string; headOffKm?: number; tailOffKm?: number } | null
 ): boolean {
   return (
     detail?.kind === "anchors" &&
-    Math.min(detail.headOffKm ?? Infinity, detail.tailOffKm ?? Infinity) > AUTOFETCH_MIN_OFF_KM
+    Math.max(detail.headOffKm ?? Infinity, detail.tailOffKm ?? Infinity) > AUTOFETCH_MIN_OFF_KM
   );
 }
 

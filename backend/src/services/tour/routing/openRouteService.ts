@@ -57,10 +57,17 @@ export function orsProfileFor(mode: RoutableMode, vehicle?: string | null): stri
  * How far (metres) ORS may look for a routable point around each stop. Its
  * default is 350 m, and a campsite or a car park at the end of a track is
  * often further than that from the nearest mapped road — ORS then answers
- * 2010 and the leg stays a straight line. 1000 m is the ceiling that is
- * still useful: `routeLeg.ts` discards any line whose ends lie more than
- * 1 km (`ANCHOR_TOLERANCE_KM`) from its stops, so a wider snap would only
- * buy a route that is thrown away afterwards.
+ * 2010 and the leg stays a straight line.
+ *
+ * HONEST NOTE (2026-10-13): this 1000 m ceiling was chosen under the OLD rule,
+ * when `routeLeg.ts` discarded any provider line whose ends sat more than 1 km
+ * (`ANCHOR_TOLERANCE_KM`) from the stops — so a wider snap "would only buy a
+ * route that is thrown away afterwards". That premise no longer holds: the
+ * acceptance bound is now `AUTO_SNAP_MAX_KM = 25`, so a line snapped up to 25 km
+ * away is ACCEPTED. A wider ORS snap radius would therefore no longer be wasted
+ * — but changing it is a provider-policy decision (it trades latency and
+ * answer quality for reach), and that call belongs to the owner, not this
+ * constant. The value stays at 1000 m until then.
  */
 export const ORS_SNAP_RADIUS_M = 1000;
 

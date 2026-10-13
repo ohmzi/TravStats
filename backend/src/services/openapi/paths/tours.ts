@@ -28,6 +28,7 @@ import { registry } from "../registry";
 import { expenseSchema } from "../../../schemas/expense";
 import { errorContent, errorResponse } from "./shared";
 import {
+  autofetchStatusSchema,
   createRouteSchema,
   createTourSchema,
   updateRouteSchema,
@@ -36,7 +37,7 @@ import {
 } from "../../../schemas/tour";
 import { LEG_MODES, LEG_SOURCES } from "../../../services/tour/tourDistance";
 import { kindFieldsSchema } from "../../../schemas/roadtrip";
-import { ROUTE_FALLBACK_REASONS, AUTOFETCH_STATUSES } from "../../../services/tour/routing/types";
+import { ROUTE_FALLBACK_REASONS } from "../../../services/tour/routing/types";
 import {
   STORED_ROADTRIP_VEHICLES,
   ROUTE_KINDS,
@@ -88,37 +89,10 @@ const fallbackDetail = z
       "off the discarded answer was; null for every other reason (a 'no_route' " +
       "or 'auth' refusal carries no geometry to measure)."
   );
-const autofetch = z
-  .object({
-    status: z
-      .enum(AUTOFETCH_STATUSES)
-      .describe(
-        "The auto-fetch service's answer: 'covered' — the map already covers " +
-          "this leg; 'started' — a build was accepted and is fetching the " +
-          "region; 'running' — a build is already running; 'no_map_data' — no " +
-          "extract covers this area; 'blocked' — a cap (disk floor, built-region " +
-          "count) refuses the job; 'unavailable' — the service cannot serve now."
-      ),
-    region: z
-      .string()
-      .nullable()
-      .optional()
-      .describe("The human region label a 'started'/'running' build covers"),
-    etaMinutes: z
-      .number()
-      .nullable()
-      .optional()
-      .describe("The service's rough estimate, to the nearest 5 minutes"),
-  })
-  .nullable()
-  .optional()
-  .describe(
-    "Present only beside a wrong-region refusal (an 'anchors' fallbackDetail " +
-      "beyond the 20 km threshold) when the admin-configured osrm-autofetch " +
-      "service answered (spec 2026-10-13). Absent — never null in practice — " +
-      "when the feature is off or the service is silent, leaving the response " +
-      "exactly as it was before the feature."
-  );
+// The `autofetch` response field lives in `schemas/tour.ts` (imported above)
+// so this file stays under the 800-line ratchet; the OpenAPI output is the
+// same either way — see `autofetchStatusSchema` there for its description.
+const autofetch = autofetchStatusSchema;
 
 const tourRoute = registry.register(
   "TourRoute",

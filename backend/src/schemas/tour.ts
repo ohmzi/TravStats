@@ -3,7 +3,7 @@ import { isCurrencyCode } from "../shared/currencies";
 import { instantFieldSchema } from "../shared/time/timeInput";
 
 import { LEG_MODES } from "../services/tour/tourDistance";
-import { ROUTING_PROVIDER_IDS } from "../services/tour/routing/types";
+import { AUTOFETCH_STATUSES, ROUTING_PROVIDER_IDS } from "../services/tour/routing/types";
 import { TOUR_ACTIVITIES } from "../shared/tour/roadtrip";
 import { tourDayFields } from "./roadtrip";
 
@@ -389,6 +389,51 @@ export function normalizeRoutingCustomUrl(raw: string): string {
 export function normalizeRoutingAutoFetchUrl(raw: string): string {
   return normalizeHttpServiceUrl(raw, "Auto-fetch URL");
 }
+
+/**
+ * The `autofetch` field that rides beside a wrong-region routing refusal —
+ * the osrm-autofetch service's answer (spec 2026-10-13). Lives here rather
+ * than in the OpenAPI path module (`services/openapi/paths/tours.ts`) so that
+ * file stays under the 800-line ratchet: it is a response shape, not request
+ * validation, and `tours.ts` already imports its siblings from this file.
+ *
+ * The `status` enum comes from the shared `AUTOFETCH_STATUSES` const (not a
+ * re-typed list) so the OpenAPI description and the runtime type cannot
+ * drift apart. Optional and nullable exactly as the response carries it:
+ * absent when the feature is off or the service is silent, never null in
+ * practice when present.
+ */
+export const autofetchStatusSchema = z
+  .object({
+    status: z
+      .enum(AUTOFETCH_STATUSES)
+      .describe(
+        "The auto-fetch service's answer: 'covered' — the map already covers " +
+          "this leg; 'started' — a build was accepted and is fetching the " +
+          "region; 'running' — a build is already running; 'no_map_data' — no " +
+          "extract covers this area; 'blocked' — a cap (disk floor, built-region " +
+          "count) refuses the job; 'unavailable' — the service cannot serve now."
+      ),
+    region: z
+      .string()
+      .nullable()
+      .optional()
+      .describe("The human region label a 'started'/'running' build covers"),
+    etaMinutes: z
+      .number()
+      .nullable()
+      .optional()
+      .describe("The service's rough estimate, to the nearest 5 minutes"),
+  })
+  .nullable()
+  .optional()
+  .describe(
+    "Present only beside a wrong-region refusal (an 'anchors' fallbackDetail " +
+      "beyond the 20 km threshold) when the admin-configured osrm-autofetch " +
+      "service answered (spec 2026-10-13). Absent — never null in practice — " +
+      "when the feature is off or the service is silent, leaving the response " +
+      "exactly as it was before the feature."
+  );
 
 /** Zod wrapper around {@link normalizeRoutingCustomUrl} for use at a request boundary. */
 const routingCustomUrlSchema = z
