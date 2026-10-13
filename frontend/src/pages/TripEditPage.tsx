@@ -10,6 +10,8 @@ import TripDeleteConfirm from "../components/Trips/TripDeleteConfirm";
 import ResyncFromImmich from "../components/Trips/tripBuilder/ResyncFromImmich";
 import { CoverPreview, Field } from "../components/Trips/tripFormParts";
 import { useTripForm } from "../components/Trips/useTripForm";
+import { phoneBottomOffset } from "../components/map/phoneChrome";
+import { useIsPhoneViewport } from "../hooks/useIsPhoneViewport";
 import { useTranslation } from "../hooks/useTranslation";
 import { useTripEntrySuggestions } from "../hooks/useTripEntrySuggestions";
 import { tripsApi } from "../lib/api/trips";
@@ -52,6 +54,12 @@ export default function TripEditPage(): JSX.Element {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const phone = useIsPhoneViewport();
+
+  // The span the journey's entries cover, for the form's date boxes to open
+  // at (and for the "Use the span of the entries" offer below) — the same
+  // number both read.
+  const entrySpan = trip ? tripEntrySpan(trip) : null;
 
   const {
     name,
@@ -87,10 +95,9 @@ export default function TripEditPage(): JSX.Element {
     showNameMissing,
     datesOutOfOrder,
     save,
-  } = useTripForm(trip);
+  } = useTripForm(trip, entrySpan);
 
   const placeSuggestions = useTripEntrySuggestions(trip?.id ?? null);
-  const entrySpan = trip ? tripEntrySpan(trip) : null;
   const offerEntrySpan =
     entrySpan !== null && (entrySpan.start !== startDate || entrySpan.end !== endDate);
 
@@ -381,7 +388,33 @@ export default function TripEditPage(): JSX.Element {
           </Field>
         </section>
 
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        {/* On a phone the row is pinned to the bottom edge (owner report
+            2026-10-12): the form runs 2131px tall and the Save sat at y≈1691,
+            ~850px below the fold, so the one control the page exists for
+            could not be found from the date fields at the top. `sticky
+            bottom-0` keeps it in reach while its own place is below the fold,
+            and releases it into the flow once the reader scrolls down to it.
+            The surface background and the top border are what let the form
+            scroll UNDER the row, and the pad carries the safe-area inset so
+            it clears a phone's home bar. A desktop is untouched: the row
+            stays where it is, at the end of the form. */}
+        <div
+          className={
+            phone
+              ? "sticky bottom-0 z-30 flex flex-wrap items-center justify-end gap-2"
+              : "flex flex-wrap items-center justify-end gap-2"
+          }
+          style={
+            phone
+              ? {
+                  background: "var(--ts-bg)",
+                  borderTop: "1px solid var(--ts-border)",
+                  paddingTop: 12,
+                  paddingBottom: phoneBottomOffset(12),
+                }
+              : undefined
+          }
+        >
           <button
             onClick={() => navigate(`/trips/${trip.id}`)}
             type="button"

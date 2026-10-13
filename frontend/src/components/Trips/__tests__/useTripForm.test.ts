@@ -72,6 +72,25 @@ describe("useTripForm — the shared journey form core", () => {
     expect(result.current.companions).toEqual([]);
   });
 
+  it("opens its date boxes at the entries' span where the journey stores no day", () => {
+    const undated = { ...trip, startDate: null, endDate: null } as Trip;
+    const { result } = renderHook(() =>
+      useTripForm(undated, { start: "2031-04-30", end: "2031-05-07" })
+    );
+
+    expect(result.current.startDate).toBe("2031-04-30");
+    expect(result.current.endDate).toBe("2031-05-07");
+  });
+
+  it("lets a stored day win on its own side of the span", () => {
+    const { result } = renderHook(() =>
+      useTripForm(trip, { start: "2031-01-01", end: "2031-01-09" })
+    );
+
+    expect(result.current.startDate).toBe("2031-05-02");
+    expect(result.current.endDate).toBe("2031-05-09");
+  });
+
   it("sends the edited fields, uploads a picked cover and hands the saved trip back", async () => {
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:cover");
     vi.spyOn(URL, "revokeObjectURL").mockReturnValue(undefined);

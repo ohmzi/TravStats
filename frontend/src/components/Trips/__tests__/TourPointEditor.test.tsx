@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 import TourPointEditor from "../TourPointEditor";
@@ -143,5 +143,60 @@ describe("the standalone tour's point editor", () => {
     // `hasNight` is the server's answer, not a field this form writes: the
     // save payload is the same one it was before the flag existed.
     expect(sent[2]).not.toHaveProperty("hasNight");
+  });
+});
+
+/** The tree's phone band (`useIsPhoneViewport`, `max-width: 639px`). */
+function setViewport(phone: boolean): void {
+  window.matchMedia = ((query: string) => ({
+    matches: phone && query.includes("max-width: 639px"),
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+}
+
+/**
+ * The row's own band on a phone (owner report 2026-10-12, the journey edit
+ * page's Save): on `/tours/:id` and `/roadtrips/:id/edit` the points sit
+ * under a 540px map, and a dozen rows of point editing put Save well below
+ * the fold with nothing sticky to reach it. The row the reader reaches is
+ * cancelled by the same surface, border and safe-area pad as the journey
+ * page's. jsdom has no layout engine: this pins the classes and style hooks
+ * the layout reads, not the geometry.
+ */
+describe("the point editor's action row on a phone", () => {
+  const saveRow = (): HTMLElement =>
+    screen.getByText("trips:tours.points.save").parentElement as HTMLElement;
+
+  afterEach(() => setViewport(false));
+
+  it("pins the row to the bottom edge, on the surface, ringed by a top border", () => {
+    setViewport(true);
+    render(<TourPointEditor points={POINTS} saving={false} onSave={vi.fn()} />);
+
+    const row = saveRow();
+    expect(row.className).toContain("sticky");
+    expect(row.className).toContain("bottom-0");
+    expect(row.style.background).toBe("var(--ts-bg)");
+    expect(row.style.borderTop).toContain("var(--ts-border)");
+    expect(row.style.paddingBottom).toContain("safe-area-inset-bottom");
+    // Add and Save still live in the row, and Add is not orphaned from it.
+    expect(screen.getByText("trips:tours.points.add").parentElement).toBe(row);
+    expect(screen.getByText("trips:tours.points.save").parentElement).toBe(row);
+  });
+
+  it("leaves the row in the editor's flow on a desktop", () => {
+    setViewport(false);
+    render(<TourPointEditor points={POINTS} saving={false} onSave={vi.fn()} />);
+
+    const row = saveRow();
+    expect(row.className).not.toContain("sticky");
+    expect(row.style.background).toBe("");
+    expect(row.style.paddingBottom).toBe("");
   });
 });

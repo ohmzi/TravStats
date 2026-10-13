@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
@@ -230,5 +230,142 @@ describe("TripEditPage — the two sections the header loses", () => {
     await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith("t1"));
     expect(mocks.addToast).toHaveBeenCalledWith("success", "trips:toasts.deleted");
     await waitFor(() => expect(screen.getByTestId("where")).toHaveTextContent(/^\/trips$/));
+  });
+});
+
+describe("TripEditPage — the dates open at the entries' span", () => {
+  // A journey that stores no day of its own but whose entries give one — a
+  // 2031-05-01 → 2031-05-07 stay (the shape `tripEntrySpan` reads, and the
+  // shape the modal's own "Use the span of the entries" offer is built
+  // from). The boxes opened empty for exactly this journey until now.
+  const entrySpanTrip = {
+    ...trip,
+    name: "Entry-span journey",
+    startDate: null,
+    endDate: null,
+    lodgingStays: [
+      {
+        id: "s1",
+        status: "completed",
+        checkIn: "2031-05-01T00:00:00Z",
+        checkOut: "2031-05-07T00:00:00Z",
+      },
+    ],
+  } as unknown as Trip;
+
+  beforeEach(() => {
+    mocks.getById.mockReset().mockResolvedValue(entrySpanTrip);
+    mocks.update.mockReset().mockResolvedValue(entrySpanTrip);
+    mocks.uploadCover.mockReset();
+    mocks.remove.mockReset().mockResolvedValue(undefined);
+    mocks.addToast.mockReset();
+  });
+
+  it("pre-fills both boxes from the entries' span when no day is stored", async () => {
+    renderPage();
+
+    await screen.findByDisplayValue("Entry-span journey");
+    await waitFor(() => expect(dateInputs()[0].value).toBe("2031-05-01"));
+    expect(dateInputs()[1].value).toBe("2031-05-07");
+    // The numbers are in the boxes now, so the offer that would copy them in
+    // is gone — the fields already hold what it was offering.
+    expect(screen.queryByText("trips:modal.useEntrySpan")).toBeNull();
+  });
+
+  it("keeps a stored day on its own side, the entries' span answering the other", async () => {
+    mocks.getById.mockResolvedValue({
+      ...entrySpanTrip,
+      startDate: "2031-04-30T00:00:00.000Z",
+    } as unknown as Trip);
+    renderPage();
+
+    await screen.findByDisplayValue("Entry-span journey");
+    await waitFor(() => expect(dateInputs()[0].value).toBe("2031-04-30"));
+    expect(dateInputs()[1].value).toBe("2031-05-07");
+  });
+
+  it("sends null for a pre-filled side the reader clears, whatever it opened with", async () => {
+    // One side opened from a stored day, the other from the entries' span:
+    // clearing either hands that side back to the entries — the payload
+    // carries null, never the day the box was pre-filled with.
+    mocks.getById.mockResolvedValue({
+      ...entrySpanTrip,
+      startDate: "2031-04-30T00:00:00.000Z",
+    } as unknown as Trip);
+    renderPage();
+
+    await screen.findByDisplayValue("Entry-span journey");
+    await waitFor(() => expect(dateInputs()[0].value).toBe("2031-04-30"));
+
+    fireEvent.change(dateInputs()[0], { target: { value: "" } });
+    fireEvent.change(dateInputs()[1], { target: { value: "" } });
+    save();
+
+    await waitFor(() => expect(mocks.update).toHaveBeenCalled());
+    expect(mocks.update).toHaveBeenCalledWith(
+      "t1",
+      expect.objectContaining({ startDate: null, endDate: null })
+    );
+  });
+});
+
+/** The tree's phone band (`useIsPhoneViewport`, `max-width: 639px`). */
+function setViewport(phone: boolean): void {
+  window.matchMedia = ((query: string) => ({
+    matches: phone && query.includes("max-width: 639px"),
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+}
+
+describe("TripEditPage — the action row on a phone", () => {
+  beforeEach(() => {
+    mocks.getById.mockReset().mockResolvedValue(trip);
+    mocks.update.mockReset().mockResolvedValue(trip);
+    mocks.uploadCover.mockReset();
+    mocks.remove.mockReset().mockResolvedValue(undefined);
+    mocks.addToast.mockReset();
+  });
+
+  afterEach(() => setViewport(false));
+
+  it("pins the row to the bottom edge, on the surface, ringed by a top border", async () => {
+    // Measured live at 390×844 (owner report 2026-10-12): the row sat at
+    // y≈1691 of a 2131px page — ~850px below the fold, with nothing sticky
+    // to reach it. jsdom has no layout engine, so this pins the classes and
+    // style hooks the layout reads, not the geometry; the pixels come from
+    // the browser look.
+    setViewport(true);
+    renderPage();
+
+    await screen.findByDisplayValue("Northvale loop");
+    const row = saveRow();
+    expect(row.className).toContain("sticky");
+    expect(row.className).toContain("bottom-0");
+    // The surface colour and the border, so the form scrolls UNDER the row…
+    expect(row.style.background).toBe("var(--ts-bg)");
+    expect(row.style.borderTop).toContain("var(--ts-border)");
+    // …and the pad keeps its distance from a phone's home bar.
+    expect(row.style.paddingBottom).toContain("safe-area-inset-bottom");
+    // The row the reader reaches is the row with Cancel, the reason line and Save.
+    expect(within(row).getByText("trips:modal.cancel")).toBeInTheDocument();
+    expect(within(row).getByText("trips:modal.save")).toBeInTheDocument();
+  });
+
+  it("leaves the row in the form's flow on a desktop", async () => {
+    setViewport(false);
+    renderPage();
+
+    await screen.findByDisplayValue("Northvale loop");
+    const row = saveRow();
+    expect(row.className).not.toContain("sticky");
+    expect(row.className).not.toContain("bottom-0");
+    expect(row.style.background).toBe("");
+    expect(row.style.paddingBottom).toBe("");
   });
 });

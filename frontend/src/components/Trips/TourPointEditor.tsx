@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { JSX } from "react";
 
 import { LocationInput } from "../location/LocationInput";
+import { phoneBottomOffset } from "../map/phoneChrome";
+import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 import { useTranslation } from "../../hooks/useTranslation";
 import type { TourPointInput } from "../../lib/api/tours";
 
@@ -36,6 +38,7 @@ export default function TourPointEditor({
   error = null,
 }: TourPointEditorProps): JSX.Element {
   const { t } = useTranslation(["trips", "common"]);
+  const phone = useIsPhoneViewport();
   const [draft, setDraft] = useState<TourPointInput[]>(points);
 
   const update = (index: number, patch: Partial<TourPointInput>): void => {
@@ -173,7 +176,31 @@ export default function TourPointEditor({
         ))}
       </ul>
 
-      <div className="flex flex-wrap items-center gap-2">
+      {/* On a phone the row is pinned to the bottom edge, the journey edit
+          page's Save row's own treatment (owner report 2026-10-12): the
+          points sit under a 540px map, so the Save was further below the fold
+          than the row it saves — unreachable from the first point being
+          edited. `sticky bottom-0` holds it in reach while its own place is
+          below the fold; the surface, the top border and the safe-area pad
+          let the list scroll under it and keep it off a home bar. A desktop
+          keeps the row in the flow. */}
+      <div
+        className={
+          phone
+            ? "sticky bottom-0 z-30 flex flex-wrap items-center gap-2"
+            : "flex flex-wrap items-center gap-2"
+        }
+        style={
+          phone
+            ? {
+                background: "var(--ts-bg)",
+                borderTop: "1px solid var(--ts-border)",
+                paddingTop: 8,
+                paddingBottom: phoneBottomOffset(8),
+              }
+            : undefined
+        }
+      >
         <button
           type="button"
           onClick={() => setDraft((prev) => [...prev, { title: "", lat: NaN, lon: NaN }])}

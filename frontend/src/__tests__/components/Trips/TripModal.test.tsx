@@ -222,4 +222,31 @@ describe("TripModal", () => {
     render(<TripModal trip={existingTrip} onClose={vi.fn()} onSaved={vi.fn()} />);
     expect(screen.queryByText("trips:modal.useEntrySpan")).not.toBeInTheDocument();
   });
+
+  it("opens the date boxes at the entries' span when the journey stores no day", () => {
+    // The same rule as the edit page's, from the same core (`useTripForm`,
+    // commit 571736068's mirrored rule): the boxes open at the days the
+    // journey already shows — the stored day where a side has one, the
+    // entries' span otherwise.
+    const undated = {
+      ...existingTrip,
+      startDate: null,
+      endDate: null,
+      lodgingStays: [
+        {
+          id: "s1",
+          status: "completed",
+          checkIn: "2025-05-01T00:00:00Z",
+          checkOut: "2025-05-07T00:00:00Z",
+        },
+      ],
+    } as unknown as Trip;
+    render(<TripModal trip={undated} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    const dates = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="date"]'));
+    expect(dates[0].value).toBe("2025-05-01");
+    expect(dates[1].value).toBe("2025-05-07");
+    // Both boxes hold the span, so the offer to copy it in is gone.
+    expect(screen.queryByText("trips:modal.useEntrySpan")).not.toBeInTheDocument();
+  });
 });
