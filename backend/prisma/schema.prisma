@@ -1854,6 +1854,17 @@ model TripRoute {
   startOdometerKm Int? @map("start_odometer_km")
   endOdometerKm   Int? @map("end_odometer_km")
 
+  /// The trip's OWN days (owner 2026-10-13), the journey's convention one
+  /// level down (`Trip.startDay`/`endDay`, ADR 0002): nullable calendar days,
+  /// "YYYY-MM-DD" across every boundary. The editor's Dates section writes
+  /// them, and a re-sync commit writes the review's chosen window. NULL on a
+  /// side = that side derives from the stations, as it always did, so every
+  /// pre-existing trip is untouched (`spanOf`). No zones: a roadtrip's days
+  /// place its stations, whose own zones anchor their times — nothing in the
+  /// roadtrip code reads a trip-level zone the way the journey's timeline does.
+  startDay DateTime? @map("start_day") @db.Date
+  endDay   DateTime? @map("end_day") @db.Date
+
   /// "tour" | "roadtrip" (design 2026-09-24). Decides which page owns the
   /// row and which of the fields below mean anything; every leg, track and
   /// routing feature is kind-agnostic, which is the point of one engine.
