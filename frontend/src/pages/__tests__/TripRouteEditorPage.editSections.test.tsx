@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
+import type { RoadtripDetail } from "../../types/roadtrip";
 import type { TourRoute } from "../../types/tour";
 
 /**
@@ -59,8 +60,14 @@ vi.mock("../../lib/api/tours", async (importOriginal) => {
     },
   };
 });
+// The Dates section's prefill: the editor asks the roadtrip detail for the
+// span the trip already shows (`spanOf`), never the journey's or the list's.
+vi.mock("../../lib/api/roadtrips", () => ({
+  roadtripsApi: { get: vi.fn() },
+}));
 
 import TripRouteEditorPage from "../TripRouteEditorPage";
+import { roadtripsApi } from "../../lib/api/roadtrips";
 import { toursApi } from "../../lib/api/tours";
 
 const ROUTE = {
@@ -84,6 +91,13 @@ const ROUTE = {
   anchorStopId: null,
   kindAssignedAutomatically: false,
 } as TourRoute;
+
+/** The span the roadtrip detail serves — deliberately NOT the route's stored days,
+ *  so the prefill tests tell "stored wins" and "the span answers" apart. */
+const DETAIL = {
+  startDate: "2031-05-01T00:00:00.000Z",
+  endDate: "2031-05-09T00:00:00.000Z",
+} as RoadtripDetail;
 
 function Where(): JSX.Element {
   const location = useLocation();
@@ -119,6 +133,7 @@ describe("TripRouteEditorPage — the trip's edit page sections", () => {
       .mockReset()
       .mockResolvedValue({ type: "FeatureCollection", features: [] });
     vi.mocked(toursApi.removeStandalone).mockReset().mockResolvedValue(undefined);
+    vi.mocked(roadtripsApi.get).mockReset().mockResolvedValue(DETAIL);
   });
 
   it("carries the Re-sync from Immich section for a trip filed on a journey", async () => {
@@ -166,8 +181,20 @@ describe("TripRouteEditorPage — the trip's edit page sections", () => {
     expect(
       await screen.findByRole("heading", { name: "roadtrips:dates.heading" })
     ).toBeInTheDocument();
+    // Stored days win over the detail's span (`DETAIL` says May).
     expect(screen.getByLabelText("trips:modal.startDateLabel")).toHaveValue("2031-06-01");
     expect(screen.getByLabelText("trips:modal.endDateLabel")).toHaveValue("2031-06-09");
+  });
+
+  it("prefills a trip with no stored days from the span it already shows", async () => {
+    renderAt("/roadtrips/:routeId/edit", "/roadtrips/r1/edit");
+
+    expect(
+      await screen.findByRole("heading", { name: "roadtrips:dates.heading" })
+    ).toBeInTheDocument();
+    expect(roadtripsApi.get).toHaveBeenCalledWith("r1");
+    expect(screen.getByLabelText("trips:modal.startDateLabel")).toHaveValue("2031-05-01");
+    expect(screen.getByLabelText("trips:modal.endDateLabel")).toHaveValue("2031-05-09");
   });
 
   it("leaves a day tour's editor without either section", async () => {

@@ -21,9 +21,11 @@ import type { TourRoute } from "../../../types/tour";
 /**
  * The trip's own start and end day (owner 2026-10-13, the primary ask): the
  * trip edit page's Dates section. Both sides go through the kind-agnostic
- * route PATCH on Save; clearing an input returns that side to the stations'
- * span; an end before the start is refused in the app's own words, before any
- * request. Synthetic values only.
+ * route PATCH on Save; a side opens at its stored day, else at the span the
+ * trip already shows (`span`); clearing an input returns that side to the
+ * stations' span — with an explicit null, whatever the box opened at; an end
+ * before the start is refused in the app's own words, before any request.
+ * Synthetic values only.
  */
 function route(over: Partial<TourRoute> = {}): TourRoute {
   return {
@@ -51,6 +53,9 @@ function route(over: Partial<TourRoute> = {}): TourRoute {
     ...over,
   };
 }
+
+/** The span the trip already shows, as the roadtrip detail serves it. */
+const SPAN = { startDate: "2031-06-01T00:00:00.000Z", endDate: "2031-06-09T00:00:00.000Z" };
 
 const save = () => fireEvent.click(screen.getByText("roadtrips:dates.save"));
 const startInput = () => screen.getByLabelText("trips:modal.startDateLabel") as HTMLInputElement;
@@ -108,6 +113,91 @@ describe("RoadtripDatesSection", () => {
         endDay: "2031-06-09",
       })
     );
+  });
+
+  it("opens a trip with no stored days at the span it already shows", () => {
+    render(
+      <RoadtripDatesSection route={route()} tripId={undefined} span={SPAN} onSaved={vi.fn()} />
+    );
+
+    expect(startInput().value).toBe("2031-06-01");
+    expect(endInput().value).toBe("2031-06-09");
+  });
+
+  it("keeps a stored day on its own side, the span on the other", () => {
+    render(
+      <RoadtripDatesSection
+        route={route({ startDay: "2031-06-03" })}
+        tripId={undefined}
+        span={SPAN}
+        onSaved={vi.fn()}
+      />
+    );
+
+    expect(startInput().value).toBe("2031-06-03");
+    expect(endInput().value).toBe("2031-06-09");
+  });
+
+  it("saves the whole pre-filled span as the trip's own days", async () => {
+    render(
+      <RoadtripDatesSection route={route()} tripId={undefined} span={SPAN} onSaved={vi.fn()} />
+    );
+
+    save();
+
+    await waitFor(() =>
+      expect(update).toHaveBeenCalledWith(undefined, route().id, {
+        startDay: "2031-06-01",
+        endDay: "2031-06-09",
+      })
+    );
+  });
+
+  it("clears a span-prefilled side with an explicit null, never the span's day", async () => {
+    render(
+      <RoadtripDatesSection route={route()} tripId={undefined} span={SPAN} onSaved={vi.fn()} />
+    );
+
+    fireEvent.change(startInput(), { target: { value: "" } });
+    save();
+
+    await waitFor(() =>
+      expect(update).toHaveBeenCalledWith(undefined, route().id, {
+        startDay: null,
+        endDay: "2031-06-09",
+      })
+    );
+  });
+
+  it("hands a cleared side back to the stations and leaves its box empty", async () => {
+    // The page answers the save by replacing `route` with the server's row —
+    // the same `onSaved={setRoute}` the editor wires. The cleared side came
+    // back null, and its box must read empty (the side is the stations'
+    // again), never refill from the span the form opened with.
+    const { rerender } = render(
+      <RoadtripDatesSection
+        route={route({ startDay: "2031-06-01", endDay: "2031-06-09" })}
+        tripId={undefined}
+        span={SPAN}
+        onSaved={vi.fn()}
+      />
+    );
+
+    fireEvent.change(startInput(), { target: { value: "" } });
+    save();
+    await waitFor(() => expect(update).toHaveBeenCalled());
+
+    rerender(
+      <RoadtripDatesSection
+        route={route({ startDay: null, endDay: "2031-06-09" })}
+        tripId={undefined}
+        span={SPAN}
+        onSaved={vi.fn()}
+      />
+    );
+
+    expect(startInput().value).toBe("");
+    expect(endInput().value).toBe("2031-06-09");
   });
 
   it("refuses an end before the start in the app's words, before any request", () => {

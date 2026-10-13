@@ -17,7 +17,9 @@ import TourStopAssigner from "../components/Trips/TourStopAssigner";
 import TourPointEditor from "../components/Trips/TourPointEditor";
 import TourDayEditor from "../components/Trips/TourDayEditor";
 import { editsOwnPoints, tourPointsSaveErrorKey } from "../components/Trips/tourPointsSave";
-import RoadtripDatesSection from "../components/Roadtrips/RoadtripDatesSection";
+import RoadtripDatesSection, {
+  type TripDatesSpan,
+} from "../components/Roadtrips/RoadtripDatesSection";
 import RoadtripEditSections from "../components/Roadtrips/RoadtripEditSections";
 import TourLegList from "../components/Trips/TourLegList";
 import TourTrackList from "../components/Trips/TourTrackList";
@@ -26,6 +28,7 @@ import { useTourTracks } from "../hooks/useTourTracks";
 import { useTourTrackCoverage } from "../hooks/useTourTrackCoverage";
 import { useTourLegActions } from "../hooks/useTourLegActions";
 import { tripsApi } from "../lib/api";
+import { roadtripsApi } from "../lib/api/roadtrips";
 import { toursApi, type TourPointInput } from "../lib/api/tours";
 import { trackArchiveApi } from "../lib/api/trackArchive";
 import { downloadBlob } from "../lib/export";
@@ -82,6 +85,9 @@ export default function TripRouteEditorPage(): JSX.Element {
 
   const [trip, setTrip] = useState<Trip | null>(null);
   const [route, setRoute] = useState<TourRoute | null>(null);
+  /* The span the trip already shows, for the Dates section's prefill; null
+     until the detail answers (or when there is none to ask). */
+  const [span, setSpan] = useState<TripDatesSpan | null>(null);
   const [legs, setLegs] = useState<TourLeg[]>([]);
   /* The section's OWN points, as the endpoint returns them. For a tour on
      a trip they are a subset of `trip.stops` and the assigner works from
@@ -127,6 +133,23 @@ export default function TripRouteEditorPage(): JSX.Element {
       ]);
       if (!mountedRef.current) return;
 
+      /* The Dates section prefills from the span the trip already shows — its
+         stored day where a side has one, the stations otherwise. That span is
+         the roadtrip detail's (`spanOf` on the server), so the editor asks the
+         endpoint the trip's own page asks; a failed read costs the prefill
+         only, never the editor, and a day tour has no span to ask for. */
+      let spanData: TripDatesSpan | null = null;
+      if (sectionData.route.kind === "roadtrip") {
+        try {
+          const detail = await roadtripsApi.get(sectionData.route.id);
+          spanData = { startDate: detail.startDate, endDate: detail.endDate };
+        } catch (err) {
+          logger.warn("TripRouteEditorPage: failed to load the trip's span", err);
+        }
+      }
+      if (!mountedRef.current) return;
+
+      setSpan(spanData);
       setTrip(tripData);
       setRoute(sectionData.route);
       setLegs(sectionData.legs);
@@ -550,8 +573,10 @@ export default function TripRouteEditorPage(): JSX.Element {
 
         {/* The trip's own start and end (owner 2026-10-13): the primary way
             its span is set, beside the re-sync window that writes the same
-            fields. A day tour renders nothing here. */}
-        <RoadtripDatesSection route={route} tripId={id} onSaved={setRoute} />
+            fields. It opens pre-filled with what the trip already shows, so
+            an untouched save keeps those dates as the trip's own. A day tour
+            renders nothing here. */}
+        <RoadtripDatesSection route={route} tripId={id} span={span} onSaved={setRoute} />
 
         {/* A trip's section draws the whole trip around it; a standalone
             tour or a roadtrip draws its own points (see `mapContent`). */}
