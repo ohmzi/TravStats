@@ -376,6 +376,11 @@ export type BuilderWarning =
   | { code: "noRouting"; params: NoParams }
   | { code: "cannotSnap"; params: NoParams }
   | { code: "noRoadData"; params: { stations: string[] } }
+  /**
+   * Photos that sat far from their area's stay and were ignored (owner ruling
+   * 2026-10-13, the outlier rule): a handful in another city, not a stop.
+   */
+  | { code: "photosFarFromStay"; params: { count: number } }
   | { code: "roadtripsHidden"; params: NoParams }
   | {
       code: "overlappingTrip";

@@ -34,6 +34,7 @@ const QUIET: WarningInput = {
   roads: { available: true, canProbe: true },
   hasLegs: true,
   noRoadData: [],
+  farFromStay: 0,
   roadtripsHidden: false,
   overlapping: [],
   flights: [],
@@ -324,6 +325,13 @@ describe("assembleWarnings", () => {
       stats: { ...STATS, located: 0 },
     });
     expect(warnings).toEqual([]);
+  });
+
+  it("notes the photos the outlier rule ignored, and only when there are any", () => {
+    expect(assembleWarnings(QUIET)).toEqual([]);
+    expect(assembleWarnings({ ...QUIET, farFromStay: 3 })).toEqual([
+      { code: "photosFarFromStay", params: { count: 3 } },
+    ]);
   });
 });
 

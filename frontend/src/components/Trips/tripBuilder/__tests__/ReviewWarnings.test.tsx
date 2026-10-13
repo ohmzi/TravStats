@@ -52,6 +52,7 @@ describe("ReviewWarnings", () => {
         },
       },
       { code: "noRoadData", params: { stations: ["a", "b"] } },
+      { code: "photosFarFromStay", params: { count: 3 } },
       { code: "pendingPhotoJourneys", params: { ids: ["j1"] } },
       {
         code: "overlappingTrip",
@@ -69,6 +70,9 @@ describe("ReviewWarnings", () => {
       )
     ).toBeInTheDocument();
     expect(screen.getByText('tripBuilder:warnings.noRoadData {"count":2}')).toBeInTheDocument();
+    expect(
+      screen.getByText('tripBuilder:warnings.photosFarFromStay {"count":3}')
+    ).toBeInTheDocument();
     expect(
       screen.getByText('tripBuilder:warnings.pendingPhotoJourneys {"count":1}')
     ).toBeInTheDocument();

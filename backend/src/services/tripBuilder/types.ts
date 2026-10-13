@@ -533,6 +533,11 @@ export type BuilderWarning =
   | { code: "cannotSnap"; params: NoParams }
   /** Station keys with no route, or a snap beyond SNAP_MAX_KM. */
   | { code: "noRoadData"; params: { stations: string[] } }
+  /**
+   * Photos that sat far from their area's stay and were ignored (owner ruling
+   * 2026-10-13, the outlier rule): a handful in another city, not a stop.
+   */
+  | { code: "photosFarFromStay"; params: { count: number } }
   | { code: "roadtripsHidden"; params: NoParams }
   | {
       code: "overlappingTrip";

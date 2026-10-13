@@ -120,6 +120,8 @@
     "overlappingTrip": "“{{name}}” ({{start}} – {{end}}) overlaps these dates.",
     "pendingPhotoJourneys_one": "{{count}} photo suggestion covers these dates.",
     "pendingPhotoJourneys_other": "{{count}} photo suggestions cover these dates.",
+    "photosFarFromStay_one": "{{count}} photo sat far from the stay and was ignored.",
+    "photosFarFromStay_other": "{{count}} photos sat far from the stay and were ignored.",
     "possibleUnrecordedFlight": "Between {{from}} and {{to}} you moved far and fast, but no flight is logged ({{fromAirport}} and {{toAirport}} are the nearest airports).",
     "roadtripsHidden": "Trips are switched off, so areas are saved as timeline stops. If your instance offers them, turn them on under Settings › Modules.",
     "suspiciouslyLong": "That journey lasts over 60 days. Check its dates; a typo in the year would swallow this one.",

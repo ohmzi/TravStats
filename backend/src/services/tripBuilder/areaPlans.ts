@@ -19,6 +19,7 @@ import { clusterCities, clusterOfPhoto } from "./cityClusters";
 import type { CollectedWindow } from "./collect";
 import { isPostReturnArea, planAreaHome } from "./home";
 import { bboxOf, nameClusters } from "./nameClusters";
+import { dropFarOutliers } from "./outliers";
 import { probeLegs, snapStations, stationsWithoutRoute } from "./probe";
 import { buildSegments, classifySegments } from "./segments";
 import { buildStations } from "./stations";
@@ -66,6 +67,8 @@ export interface MovementPhase {
   parts: KeyedPart[];
   gaps: ImplicitGap[];
   photosById: ReadonlyMap<string, PhotoPoint>;
+  /** Photos the outlier rule ignored (owner ruling 2026-10-13): no station, no night, no split — counted for the review's note. */
+  farFromStay: number;
 }
 
 export function emptyMovement(photos: readonly PhotoPoint[]): MovementPhase {
@@ -74,6 +77,20 @@ export function emptyMovement(photos: readonly PhotoPoint[]): MovementPhase {
     parts: [],
     gaps: [],
     photosById: new Map(photos.map((p) => [p.id, p] as const)),
+    farFromStay: 0,
+  };
+}
+
+/** The area's own span, read again from the photos its derivation keeps. */
+function spannedBy(area: GroundArea, members: readonly PhotoPoint[]): GroundArea {
+  const first = members[0];
+  const last = members[members.length - 1];
+  return {
+    ...area,
+    startMs: first.tMs,
+    endMs: last.tMs,
+    startDay: first.day,
+    endDay: last.day,
   };
 }
 
@@ -85,15 +102,23 @@ export function movementPhase(photos: readonly PhotoPoint[], split: AreaSplit): 
   const clusterById = new Map(clusters.map((c) => [c.id, c] as const));
   const gaps: ImplicitGap[] = [];
   const parts: Array<{ area: GroundArea; segments: Segment[] }> = [];
+  let farFromStay = 0;
 
   for (const area of split.areas) {
-    const members = area.photoIds.flatMap((id) => {
+    const members0 = area.photoIds.flatMap((id) => {
       const photo = photosById.get(id);
       return photo ? [photo] : [];
     });
+    if (members0.length === 0) continue;
+    // A handful of photos in a place far from the area's bulk is not the
+    // trip's ground travel (owner ruling 2026-10-13): it leaves before any
+    // segment is built, so it can neither split the area nor claim a night.
+    const { kept: members, dropped } = dropFarOutliers(members0, clusterOf, clusterById);
+    farFromStay += dropped.length;
     if (members.length === 0) continue;
+    const kept = dropped.length === 0 ? area : spannedBy(area, members);
     const implicit = splitImplicitFlights(
-      { area, segments: buildSegments(members, clusterOf) },
+      { area: kept, segments: buildSegments(members, clusterOf) },
       clusterById
     );
     gaps.push(...implicit.gaps);
@@ -102,7 +127,7 @@ export function movementPhase(photos: readonly PhotoPoint[], split: AreaSplit): 
       parts.push({ area: part.area, segments: classifySegments(part.segments, photosById) });
     }
   }
-  return { clusters, parts: keyAreas(parts), gaps, photosById };
+  return { clusters, parts: keyAreas(parts), gaps, photosById, farFromStay };
 }
 
 export interface BuiltArea {

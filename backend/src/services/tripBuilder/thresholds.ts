@@ -110,6 +110,24 @@ export const IMPLICIT_FLIGHT_MIN_KM = 400;
 /** … at this speed or faster were flown, recorded or not. */
 export const IMPLICIT_FLIGHT_MIN_KMH = 200;
 
+// ─── Outliers (§C.5) ─────────────────────────────────────────────────────────
+
+/**
+ * The outlier rule (owner ruling 2026-10-13, "Sumayya's wedding": "some
+ * pictures are from another city … logic is to ignore them"). Inside one area,
+ * a cluster of photos this far from the area's main cluster is a place the
+ * ground travel never stood at — the distance is the app's own "this jump was
+ * flown, not driven" scale, so a drive's second stop is never this far off …
+ */
+export const OUTLIER_MIN_KM = IMPLICIT_FLIGHT_MIN_KM;
+/**
+ * … and only a cluster holding LESS than this share of the area's located
+ * photos is a handful in another city rather than a stop. A real drive's
+ * second stop is a place the traveller stopped at and photographed — a sized
+ * share of the area's photos, well over a twentieth — and stays untouched.
+ */
+export const OUTLIER_MAX_SHARE = 0.05;
+
 // ─── Home and nights (§C.8, §C.9) ────────────────────────────────────────────
 
 /** A cluster, airport or photo this close to the residence is home (also `movementOutsideDates`). */

@@ -15,6 +15,7 @@ const WARNING_KEY: Record<WarningCode, string> = {
   noRouting: "tripBuilder:warnings.noRouting",
   cannotSnap: "tripBuilder:warnings.cannotSnap",
   noRoadData: "tripBuilder:warnings.noRoadData",
+  photosFarFromStay: "tripBuilder:warnings.photosFarFromStay",
   roadtripsHidden: "tripBuilder:warnings.roadtripsHidden",
   overlappingTrip: "tripBuilder:warnings.overlappingTrip",
   flightOutsideDates: "tripBuilder:warnings.flightOutsideDates",
@@ -29,7 +30,12 @@ const WARNING_KEY: Record<WarningCode, string> = {
 /** Said elsewhere on the page: the empty-window screen, and the album section. */
 const SAID_ELSEWHERE: ReadonlySet<WarningCode> = new Set(["emptyWindow", "albumLinkedElsewhere"]);
 /** Notes rather than cautions: nothing the user must act on. */
-const NOTES: ReadonlySet<WarningCode> = new Set(["noRouting", "cannotSnap", "noLocatedPhotos"]);
+const NOTES: ReadonlySet<WarningCode> = new Set([
+  "noRouting",
+  "cannotSnap",
+  "noLocatedPhotos",
+  "photosFarFromStay",
+]);
 
 function paramsOf(warning: BuilderWarning, fmt: DisplayFormatter): Record<string, unknown> {
   switch (warning.code) {
@@ -46,6 +52,8 @@ function paramsOf(warning: BuilderWarning, fmt: DisplayFormatter): Record<string
       };
     case "noRoadData":
       return { count: warning.params.stations.length };
+    case "photosFarFromStay":
+      return { count: warning.params.count };
     case "overlappingTrip":
       return {
         name: warning.params.name,

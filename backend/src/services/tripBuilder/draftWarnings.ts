@@ -43,6 +43,8 @@ export interface WarningInput {
   /** Some area has at least one leg, so routing matters at all. */
   hasLegs: boolean;
   noRoadData: readonly string[];
+  /** Photos the outlier rule ignored (owner ruling 2026-10-13): the review says so. */
+  farFromStay: number;
   roadtripsHidden: boolean;
   overlapping: ReadonlyArray<{ name: string; startDay: Day; endDay: Day }>;
   flights: readonly FlightAnchor[];
@@ -126,6 +128,11 @@ export function assembleWarnings(input: WarningInput): BuilderWarning[] {
     }
     if (input.noRoadData.length > 0) {
       warnings.push({ code: "noRoadData", params: { stations: [...input.noRoadData] } });
+    }
+    // The outlier rule's own answer, said rather than silently done (owner
+    // ruling 2026-10-13): the photos stay the trip's, so the review names them.
+    if (input.farFromStay > 0) {
+      warnings.push({ code: "photosFarFromStay", params: { count: input.farFromStay } });
     }
     if (input.roadtripsHidden) warnings.push({ code: "roadtripsHidden", params: {} });
   }

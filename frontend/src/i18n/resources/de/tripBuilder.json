@@ -120,6 +120,8 @@
     "overlappingTrip": "„{{name}}“ ({{start}} – {{end}}) überschneidet sich mit diesen Daten.",
     "pendingPhotoJourneys_one": "{{count}} Foto-Vorschlag deckt diese Daten ab.",
     "pendingPhotoJourneys_other": "{{count}} Foto-Vorschläge decken diese Daten ab.",
+    "photosFarFromStay_one": "{{count}} Foto lag weit entfernt vom Aufenthalt und wurde ignoriert.",
+    "photosFarFromStay_other": "{{count}} Fotos lagen weit entfernt vom Aufenthalt und wurden ignoriert.",
     "possibleUnrecordedFlight": "Zwischen {{from}} und {{to}} bist du weit und schnell gereist, aber es ist kein Flug eingetragen (die nächsten Flughäfen sind {{fromAirport}} und {{toAirport}}).",
     "roadtripsHidden": "Trips sind ausgeschaltet, deshalb werden Gebiete als Zeitleisten-Stopps gespeichert. Bietet deine Instanz sie an, schalte sie unter Einstellungen › Bereiche ein.",
     "suspiciouslyLong": "Diese Reise dauert über 60 Tage. Prüfe ihre Daten; ein Tippfehler im Jahr würde diese Reise verschlucken.",

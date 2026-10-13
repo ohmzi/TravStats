@@ -625,6 +625,7 @@ export async function buildDraftWith(
     roads: { available: deps.roads.available, canProbe: deps.roads.canProbe },
     hasLegs: keptPlans.some((plan) => plan.legs.length > 0),
     noRoadData: roaded.noRoadData,
+    farFromStay: movement.farFromStay,
     roadtripsHidden:
       !deps.roadtripsVisible &&
       // A route-scoped area IS a roadtrip the account cannot make.
