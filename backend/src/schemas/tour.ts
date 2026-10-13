@@ -361,20 +361,33 @@ export type { LegMode, LegSource } from "../services/tour/tourDistance";
  * instance MUST restrict egress at the network layer instead. Do not
  * re-flag this without changing that threat model.
  */
-export function normalizeRoutingCustomUrl(raw: string): string {
+function normalizeHttpServiceUrl(raw: string, label: string): string {
   let parsed: URL;
   try {
     parsed = new URL(raw.trim());
   } catch {
-    throw new Error("Custom routing URL is not a valid URL");
+    throw new Error(`${label} is not a valid URL`);
   }
 
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error("Custom routing URL must use http:// or https://");
+    throw new Error(`${label} must use http:// or https://`);
   }
 
   const path = parsed.pathname.replace(/\/+$/, "");
   return `${parsed.protocol}//${parsed.host}${path}`;
+}
+
+export function normalizeRoutingCustomUrl(raw: string): string {
+  return normalizeHttpServiceUrl(raw, "Custom routing URL");
+}
+
+/**
+ * Same shape and the same deliberate non-restriction (see the doc comment
+ * above `normalizeRoutingCustomUrl`) for the osrm-autofetch service's URL —
+ * a host-local address on the docker bridge by design.
+ */
+export function normalizeRoutingAutoFetchUrl(raw: string): string {
+  return normalizeHttpServiceUrl(raw, "Auto-fetch URL");
 }
 
 /** Zod wrapper around {@link normalizeRoutingCustomUrl} for use at a request boundary. */
@@ -394,6 +407,23 @@ const routingCustomUrlSchema = z
     }
   });
 
+/** Zod wrapper around {@link normalizeRoutingAutoFetchUrl} for use at a request boundary. */
+const routingAutoFetchUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((raw, ctx) => {
+    try {
+      return normalizeRoutingAutoFetchUrl(raw);
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : "Invalid auto-fetch URL",
+      });
+      return z.NEVER;
+    }
+  });
+
 /**
  * Admin-only routing configuration (Phase 3): which provider is active, and
  * — only meaningful when `routingProvider === "custom"` — the self-hosted
@@ -405,6 +435,7 @@ export const routingSettingsSchema = z
   .object({
     routingProvider: z.enum(ROUTING_PROVIDER_IDS).nullable().optional(),
     routingCustomUrl: routingCustomUrlSchema.nullable().optional(),
+    routingAutoFetchUrl: routingAutoFetchUrlSchema.nullable().optional(),
   })
   .partial();
 
