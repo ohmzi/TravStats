@@ -58,6 +58,40 @@ export function formatTimelineDate(value: TimeValue): string {
 export interface SortableEvent {
   when: TimeValue;
   kind: string;
+  /**
+   * Flights only: the local day the flight ARRIVED (the caller computes it
+   * from the arrival value), so the comparator can put the flight ahead of the
+   * place entries it moved the traveller to. Absent on every other kind, and
+   * null when the arrival is not known.
+   */
+  arrivalDay?: string | null;
+}
+
+/**
+ * The kinds that stand for the traveller BEING somewhere — a place reached,
+ * not the travel that reached it. `lodging-checkin` is not among them: its
+ * own rank already places it after that day's travelling.
+ */
+const PLACE_KINDS: ReadonlySet<string> = new Set(["stop", "roadtrip-station", "place-visit"]);
+
+/**
+ * Whether `a` is the flight that moved the traveller to the place entry `b`
+ * (owner ruling 2026-10-13, "Sumayya's wedding"): they share a day, `a` is a
+ * flight whose own arrival day is that day, and `b` is a time-less place
+ * entry. Only a MISSING clock is settled this way — a place entry that carries
+ * a time keeps its place in the clock order, exactly as every rank here does.
+ * Returns -1 when `a` goes first, 1 when `b` does, 0 when neither is such a
+ * pair.
+ */
+function flightFirst(a: SortableEvent, b: SortableEvent, day: string): number {
+  const movedBy = (flight: SortableEvent, place: SortableEvent): boolean =>
+    flight.kind === "flight" &&
+    PLACE_KINDS.has(place.kind) &&
+    flight.arrivalDay === day &&
+    !hasExplicitTime(place.when);
+  if (movedBy(a, b)) return -1;
+  if (movedBy(b, a)) return 1;
+  return 0;
 }
 
 /**
@@ -91,13 +125,17 @@ function dayRank(ev: SortableEvent): number {
 
 /**
  * Chronological order: by the day AT THE PLACE first, then within a day by
- * three deliberate tie-breaks.
+ * four deliberate tie-breaks.
  *
- * 1. A DIARY entry sorts after everything else on the same day — Alex's
+ * 1. The flight that brought the traveller to a place sorts BEFORE the
+ *    time-less place entries of its arrival day (`flightFirst`, owner ruling
+ *    2026-10-13): the presence in Istanbul is not drawn before the flight from
+ *    Karachi.
+ * 2. A DIARY entry sorts after everything else on the same day — Alex's
  *    request (#175): "Diary entries should always be the last entry of a day".
- * 2. A time-less check-in or check-out is placed by `dayRank` rather than by
+ * 3. A time-less check-in or check-out is placed by `dayRank` rather than by
  *    a made-up midnight — see there for why.
- * 3. Otherwise the instants decide (`utc` is the one thing that orders two
+ * 4. Otherwise the instants decide (`utc` is the one thing that orders two
  *    clocks in different zones), and ties keep their original relative order
  *    (the comparator returns 0 and Array.prototype.sort is stable), so two
  *    stops entered for the same time stay in the order the backend returned.
@@ -110,6 +148,8 @@ export function compareTimelineEvents(a: SortableEvent, b: SortableEvent): numbe
   const da = dayOf(a.when);
   const db = dayOf(b.when);
   if (da !== db) return da < db ? -1 : 1;
+  const moved = flightFirst(a, b, da);
+  if (moved !== 0) return moved;
   const ra = dayRank(a);
   const rb = dayRank(b);
   if (ra !== rb) return ra - rb;

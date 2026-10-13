@@ -105,4 +105,52 @@ describe("roadtrip stations on the trip timeline", () => {
 
     expect(events.map((e) => e.kind)).toEqual(["roadtrip-station", "journal"]);
   });
+
+  it("puts the flight before the stations and stops of the day it arrived on", () => {
+    // Owner report 2026-10-13 ("Sumayya's wedding"): the journey's timeline
+    // showed a transit's stop before the flight that carried the traveller
+    // there. Synthetic fixture only (public repository).
+    const arrival = {
+      id: "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      depIata: "ZPC",
+      arrIata: "ZEP",
+      departureTime: "2031-05-17T01:10:00.000Z",
+      arrivalTime: "2031-05-17T07:25:00.000Z",
+      depTimezone: "Pacific/Auckland",
+      arrTimezone: "Pacific/Auckland",
+      depTimeSemantics: "UTC",
+      arrTimeSemantics: "UTC",
+    } as NonNullable<Trip["flights"]>[number];
+    const transitStop = {
+      id: "c3d4e5f6-a7b8-4c9d-8e1f-2a3b4c5d6e7f",
+      tripId: "t1",
+      orderIdx: 0,
+      domain: null,
+      sourceId: null,
+      title: "Port Carrow",
+      description: null,
+      startDate: "2031-05-17T00:00:00.000Z",
+      endDate: null,
+      lat: 41.0,
+      lon: 28.8,
+      notes: null,
+      createdAt: "2031-05-01T00:00:00.000Z",
+      updatedAt: "2031-05-01T00:00:00.000Z",
+    } satisfies TripStop;
+    const transitStation = stationDto({
+      id: "d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f70",
+      startDate: "2031-05-17T00:00:00.000Z",
+      endDate: "2031-05-17T00:00:00.000Z",
+      routeStartDate: "2031-05-17T00:00:00.000Z",
+      routeEndDate: "2031-05-17T00:00:00.000Z",
+      times: { start: dayAt("2031-05-17"), end: dayAt("2031-05-17") },
+    });
+
+    const events = buildTimelineEvents(
+      trip({ flights: [arrival], stops: [transitStop], roadtripStations: [transitStation] }),
+      []
+    );
+
+    expect(events.map((e) => e.kind)).toEqual(["flight", "stop", "roadtrip-station"]);
+  });
 });

@@ -41,6 +41,12 @@ export type TimelineEvent =
       /** `when.utc` — kept for callers that only need an instant to compare. */
       date: string;
       when: TimeValue;
+      /**
+       * The local day the flight ARRIVED, or null when the arrival is not
+       * known: the comparator sorts the flight ahead of the time-less place
+       * entries of that day (owner ruling 2026-10-13).
+       */
+      arrivalDay: string | null;
       title: string;
       subtitle: string | null;
       /** The row itself, so the entry can open in place. It is already on the
@@ -160,6 +166,9 @@ function flightEvents(trip: Trip): TimelineEvent[] {
       kind: "flight",
       date: when.utc,
       when,
+      // The arrival's own day, so the comparator sorts this flight ahead of
+      // the place entries it moved the traveller to (owner 2026-10-13).
+      arrivalDay: arrival === null ? null : dayOf(arrival),
       title: `${f.depIata ?? "???"} → ${f.arrIata ?? "???"}`,
       // Each end on its own airport's clock (the server's `local`), never the
       // viewer's: `toLocaleString()` once put a JFK arrival six hours off the
