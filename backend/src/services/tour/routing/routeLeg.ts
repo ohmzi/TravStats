@@ -36,16 +36,25 @@ export interface RoutedLeg {
 }
 
 /**
- * Same 1 km anchor tolerance the hand-drawn override path enforces in
- * `routes/trips/tourLegs.ts` (`ANCHOR_TOLERANCE_KM`). Kept as a separate
- * constant rather than a shared import because the two call sites answer
- * different questions with the same number: that route validates a HUMAN's
- * drawn line against the stops it claims to connect; this one validates a
- * PROVIDER's returned line the same way. Duplicating a single small
- * constant is cheaper than coupling an HTTP route module to a routing
- * service module for one shared literal.
+ * How far the provider's snapped ends may sit from the requested stops and
+ * still be accepted.
+ *
+ * DECISION (owner ruling, 2026-10-13, asked and answered): a photo pin on a
+ * beach or a mountain hike legitimately sits kilometres from the nearest
+ * road, and the provider's own nearest-road snap for it is the right answer
+ * — accept the snapped line when the larger of the two anchor offsets is ≤
+ * 25 km (the live Smokey report: snaps of 0.4–1.7 km were being refused).
+ * Above that, keep today's refusal: a wrong-region snap (a road graph with
+ * no data for the area) lands hundreds of km away and must still be
+ * discarded.
+ *
+ * Relationship to `AUTOFETCH_MIN_OFF_KM` in `autoFetch.ts` (20 km): the
+ * auto-fetch trigger fires when `min(headOffKm, tailOffKm) > 20`, and every
+ * refusal from this check is > 25 km on BOTH ends by construction — so the
+ * trigger still fires on every anchor refusal. The 20 km threshold sits
+ * below the 25 km bound by design; `autoFetch.ts` is unchanged.
  */
-const ANCHOR_TOLERANCE_KM = 1;
+const AUTO_SNAP_MAX_KM = 25;
 
 /**
  * How much longer than the straight-line chord a routed distance is allowed
@@ -127,7 +136,7 @@ type TrustCheck = { trusted: true } | { trusted: false; detail: RouteFallbackDet
  * wrong-magnitude, or outright malformed response.
  *
  * The finiteness check MUST run before the anchor/sanity comparisons below,
- * not alongside them. `NaN > ANCHOR_TOLERANCE_KM` and
+ * not alongside them. `NaN > AUTO_SNAP_MAX_KM` and
  * `NaN > chordKm * SANITY_RATIO` are both `false` — a comparison against a
  * NaN silently loses, so a line carrying one would otherwise sail through
  * both guards and be persisted as `source: "routed"`. Every `drivenKm` /
@@ -176,9 +185,17 @@ function checkTrustworthy(
   const tail = toCoord(line[line.length - 1]);
   const headOff = haversineKm(head, from);
   const tailOff = haversineKm(tail, to);
-  if (headOff > ANCHOR_TOLERANCE_KM || tailOff > ANCHOR_TOLERANCE_KM) {
+  // The provider snaps each stop to its nearest road; a pin on a beach or a
+  // hike can sit up to AUTO_SNAP_MAX_KM from that road and the line is still
+  // the right answer (owner ruling 2026-10-13). Only a snap beyond the bound
+  // — a wrong-region answer — is refused. The hand-drawn override path keeps
+  // its own 1 km bound (`shared/tour/anchorTolerance.ts`): a human's drawn
+  // line must connect the stops it claims to, a provider's snapped line may
+  // start at the nearest road instead.
+  const off = Math.max(headOff, tailOff);
+  if (off > AUTO_SNAP_MAX_KM) {
     logger.warn(
-      { providerId, headOffKm: headOff, tailOffKm: tailOff, toleranceKm: ANCHOR_TOLERANCE_KM },
+      { providerId, headOffKm: headOff, tailOffKm: tailOff, maxSnapKm: AUTO_SNAP_MAX_KM },
       "routing provider's line does not anchor at the requested stops; falling back to straight line"
     );
     return { trusted: false, detail: { kind: "anchors", headOffKm: headOff, tailOffKm: tailOff } };

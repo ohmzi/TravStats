@@ -60,6 +60,7 @@ Reuses `build.sh`'s steps but **stages** them so the live graph keeps serving un
 ## 3. Caps, thresholds, constants (v1)
 
 - Trigger threshold: `AUTOFETCH_MIN_OFF_KM = 20` (wrong-region offsets are ≥ hundreds of km; a pin error is ~1.3 km).
+- Acceptance bound: `AUTO_SNAP_MAX_KM = 25` in `routeLeg.ts` — the provider's snapped line is accepted when the larger anchor offset is ≤ 25 km (owner ruling 2026-10-13: a beach/hike pin routes to its nearest road); above that the refusal stands and, by construction, always triggers the auto-fetch (every refusal is > 25 km on both ends, which is > 20 km).
 - ≤4 new extracts per job; ≤40 built regions total (beyond → `blocked`, i.e. talk to a human); ≥100 GB free disk required; ONE job at a time.
 - Negative cache: a 1° grid cell with no containing extract → `no_map_data` for 24 h.
 - ETA heuristic: ~3 min per 100 MB downloaded + ~12–20 min for the merge/extract/partition/customize, rounded to the nearest 5, reported as `etaMinutes`.

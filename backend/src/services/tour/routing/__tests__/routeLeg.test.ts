@@ -196,20 +196,18 @@ describe("routeLegGeometry", () => {
     expect(result.distanceKm).toBeCloseTo(CHORD_KM, 6);
   });
 
-  it("case 5d: an off-anchor answer comes back with the two offsets that refused it", async () => {
-    // 2026-10-13 (owner's Muscat roadtrip): the bare reason "the answer did
-    // not fit the two places" was all the client got, and it cannot tell a
-    // stop 1.3 km off the road apart from a provider answering from ~10,000
-    // km away (a road graph with no data for the region, its whole line
-    // snapped to the far side of an ocean). The fallback must carry the
-    // distances — head and tail separately — so the message can say how far
-    // off the answer actually was.
+  it("case 5d: a pin-sized snap (~1.35 km off) is ACCEPTED — a beach/hike pin routes to its nearest road (owner ruling 2026-10-13)", async () => {
+    // 2026-10-13 (owner's live Smokey report): stops whose photo pins sit on
+    // a beach or a mountain hike were refused by the 1 km anchor guard even
+    // though the provider's own nearest-road snap was 0.4–1.7 km away. The
+    // owner ruled: accept the provider's snapped line when the snap is ≤ 25
+    // km, keep the refusal above that. This fixture — a ~1.35 km head snap —
+    // is exactly the case that used to be refused and must now be trusted.
     const head = { lat: FROM.lat, lon: FROM.lon + 0.02 }; // ~1.35 km east of FROM
-    const tail = { lat: TO.lat + 0.03, lon: TO.lon }; // ~3.3 km north of TO
     const offAnchor: RouteResult = {
       waypoints: [
         [head.lon, head.lat],
-        [tail.lon, tail.lat],
+        [TO.lon, TO.lat],
       ],
       distanceKm: 5,
       drivingMinutes: 10,
@@ -218,12 +216,61 @@ describe("routeLegGeometry", () => {
 
     const result = await routeLegGeometry(provider, { from: FROM, to: TO, mode: "road" });
 
+    expect(result.source).toBe("routed");
+    expect(result.confidence).toBe("high");
+    expect(result.waypoints).toEqual(offAnchor.waypoints);
+    expect(result.fallbackReason).toBeNull();
+    expect(result.fallbackDetail).toBeNull();
+  });
+
+  it("case 5d-24.9: a snap just under the 25 km bound is still accepted (strictly-greater-than)", async () => {
+    // Boundary below the bound: 0.369° of longitude at this latitude is
+    // ~24.97 km — inside the acceptance band, so the line is trusted even
+    // though it is far past the old 1 km tolerance.
+    const head = { lat: FROM.lat, lon: FROM.lon + 0.369 };
+    const nearBound: RouteResult = {
+      waypoints: [
+        [head.lon, head.lat],
+        [TO.lon, TO.lat],
+      ],
+      // A plausible road distance for a ~25 km snap; kept under
+      // SANITY_RATIO (20x the chord) so only the anchor bound decides.
+      distanceKm: CHORD_KM * 19,
+      drivingMinutes: 40,
+    };
+    const { provider } = makeProvider(async () => nearBound);
+
+    const result = await routeLegGeometry(provider, { from: FROM, to: TO, mode: "road" });
+
+    expect(result.source).toBe("routed");
+    expect(result.confidence).toBe("high");
+    expect(result.fallbackDetail).toBeNull();
+  });
+
+  it("case 5d-25.1: a snap just over the 25 km bound is refused with the two offsets that refused it", async () => {
+    // Boundary above the bound: 0.37° of longitude at this latitude is
+    // ~25.04 km — outside the acceptance band, so the line is discarded and
+    // the fallback carries the head/tail offsets (the same detail shape a
+    // wrong-region refusal has; the auto-fetch trigger reads it).
+    const head = { lat: FROM.lat, lon: FROM.lon + 0.37 };
+    const overBound: RouteResult = {
+      waypoints: [
+        [head.lon, head.lat],
+        [TO.lon, TO.lat],
+      ],
+      distanceKm: CHORD_KM * 19,
+      drivingMinutes: 40,
+    };
+    const { provider } = makeProvider(async () => overBound);
+
+    const result = await routeLegGeometry(provider, { from: FROM, to: TO, mode: "road" });
+
     expect(result.source).toBe("straight");
     expect(result.fallbackReason).toBe("untrustworthy");
     expect(result.fallbackDetail).toEqual({
       kind: "anchors",
       headOffKm: haversineKm(FROM, head),
-      tailOffKm: haversineKm(TO, tail),
+      tailOffKm: 0,
     });
   });
 
@@ -298,7 +345,7 @@ describe("routeLegGeometry", () => {
   });
 
   it("rejects a route with a NaN waypoint coordinate — NaN > tolerance and NaN > chord*ratio are both false", async () => {
-    // Both the anchor check (`headOff > ANCHOR_TOLERANCE_KM`) and the
+    // Both the anchor check (`off > AUTO_SNAP_MAX_KM`) and the
     // sanity check (`distanceKm > chordKm * SANITY_RATIO`) are comparisons
     // that a NaN silently loses, so a line carrying one would otherwise
     // sail through both and be persisted as `source: "routed"` — after
@@ -412,7 +459,7 @@ describe("routeLegGeometry", () => {
 
   it("boundary: exactly 20x the chord is still accepted (the check is strictly-greater-than)", async () => {
     // Mirrors SANITY_RATIO in routeLeg.ts (not exported, so duplicated here
-    // the same way ANCHOR_TOLERANCE_KM is duplicated across the two
+    // the same way AUTO_SNAP_MAX_KM was kept as a local constant of
     // call-site modules — see that constant's own comment for why).
     const exactlyAtBound: RouteResult = {
       waypoints: [

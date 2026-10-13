@@ -521,14 +521,22 @@ describe("Tour route sections — provider routing", () => {
       });
     });
 
-    it("a pin-sized anchor offset is refused but never triggers a download", async () => {
+    it("a mid-sized anchor offset is refused and triggers the download", async () => {
       await setAutoFetchUrl(AUTOFETCH_URL);
-      // ~2 km off at both ends: past the 1 km anchor tolerance (the line IS
-      // refused), far below the 20 km wrong-region threshold (no download).
+      // ~27 km off at both ends: past the 25 km snap bound (the line IS
+      // refused — owner ruling 2026-10-13) AND past the 20 km wrong-region
+      // threshold, so the refusal carries the anchors detail and the
+      // auto-fetch fires. This is the new band: refused, but no longer a
+      // "pin-sized" refusal that would have been accepted under the old 1 km
+      // bound.
+      fetchSpy.mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: "started", region: "Oslo", etaMinutes: 5 }),
+      } as Response);
       const routeImpl = jest.fn().mockImplementation(async (req: RouteRequest) => ({
         waypoints: [
-          [req.from.lon, req.from.lat + 0.02],
-          [req.to.lon, req.to.lat + 0.02],
+          [req.from.lon, req.from.lat + 0.24],
+          [req.to.lon, req.to.lat + 0.24],
         ],
         distanceKm: 300,
         drivingMinutes: 200,
@@ -542,10 +550,9 @@ describe("Tour route sections — provider routing", () => {
 
       expect(res.body.fallbackReason).toBe("untrustworthy");
       expect(res.body.fallbackDetail.kind).toBe("anchors");
-      expect(res.body.fallbackDetail.headOffKm).toBeGreaterThan(1);
-      expect(res.body.fallbackDetail.headOffKm).toBeLessThan(AUTOFETCH_MIN_OFF_KM);
-      expect(fetchSpy).not.toHaveBeenCalled();
-      expect(res.body.autofetch).toBeUndefined();
+      expect(res.body.fallbackDetail.headOffKm).toBeGreaterThan(25);
+      expect(res.body.autofetch).toEqual({ status: "started", region: "Oslo", etaMinutes: 5 });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
     });
 
     it("a genuine distance mismatch never triggers a download, however implausible the number", async () => {
@@ -655,11 +662,12 @@ describe("Tour route sections — provider routing", () => {
     it("route-all never triggers on a LATER leg's big offsets — the first fallback decides", async () => {
       await setAutoFetchUrl(AUTOFETCH_URL);
       const routeImpl = jest.fn().mockImplementation(async (req: RouteRequest) => {
-        // Oslo → Kristiansand (first) is ~2 km off; Kristiansand → Bergen
-        // (later) is hundreds of km off. The batch keeps only the FIRST
-        // fallback's numbers, so only those may decide the download.
+        // Oslo → Kristiansand (first) is ~27 km off (refused, below the
+        // wrong-region threshold); Kristiansand → Bergen (later) is hundreds
+        // of km off. The batch keeps only the FIRST fallback's numbers, so
+        // only those may decide the download.
         const first = req.from.lat === OSLO.lat;
-        const shift = first ? 0.02 : 6;
+        const shift = first ? 0.24 : 6;
         return {
           waypoints: [
             [req.from.lon, req.from.lat + shift],
@@ -675,9 +683,19 @@ describe("Tour route sections — provider routing", () => {
 
       expect(res.body.fallbackReason).toBe("untrustworthy");
       expect(res.body.fallbackDetail.kind).toBe("anchors");
-      expect(res.body.fallbackDetail.headOffKm).toBeLessThan(AUTOFETCH_MIN_OFF_KM);
-      expect(fetchSpy).not.toHaveBeenCalled();
-      expect(res.body.autofetch).toBeUndefined();
+      // The first fallback's offsets are ~27 km — past both the 25 km snap
+      // bound and the 20 km wrong-region threshold, so the auto-fetch fires.
+      // The LATER leg's hundreds-of-km offsets must not be what decided it:
+      // the ensure call carries the FIRST leg's points.
+      expect(res.body.fallbackDetail.headOffKm).toBeGreaterThan(25);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({
+        points: [
+          [OSLO.lat, OSLO.lon],
+          [KRISTIANSAND.lat, KRISTIANSAND.lon],
+        ],
+      });
     });
   });
 });
