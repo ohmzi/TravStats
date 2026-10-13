@@ -200,6 +200,7 @@ export function draft(
         unlocated: 4,
         locationCarried: 0,
         dayGuessed: 0,
+        otherTrip: 0,
       },
       truncated: false,
     },

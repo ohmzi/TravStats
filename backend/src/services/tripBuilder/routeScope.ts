@@ -25,6 +25,7 @@
 import { distanceKm } from "../photoJourneys/cluster";
 import type {
   AreaPlan,
+  Day,
   DraftArea,
   DraftLeg,
   PassedThrough,
@@ -32,6 +33,42 @@ import type {
   PlanStation,
   ScanInput,
 } from "./types";
+
+/**
+ * A scanned stop the update leaves out because it also stands on another
+ * roadtrip of the journey (overlapping days within `CITY_LINK_KM`). Its photos
+ * stay where they belong; the review shows the skip and its reason, so the
+ * trip-side re-sync never has to refuse as a whole.
+ *
+ * The scoped left-out DTO shapes live here, with the scoped words they belong
+ * to, because `types.ts` sits at its 800-line cap; that file re-exports both,
+ * so every consumer keeps importing them from `./types`.
+ */
+export interface DraftLeftOutStop {
+  key: string;
+  title: string;
+  firstDay: Day;
+  lastDay: Day;
+  /** The other roadtrip of the journey the stop also stands on. */
+  routeId: string;
+  routeName: string;
+}
+
+/**
+ * The window's PHOTOS whose (day, place) stands on another roadtrip of the
+ * journey (the same cross-row rule at photo granularity). They are dropped
+ * from the scan before any stop is derived — a neighbouring trip's day must
+ * not colour this trip's clusters — and the review shows the exclusion the way
+ * it shows the stop skip: the trip they belong to, the days and how many. One
+ * entry per other trip.
+ */
+export interface DraftLeftOutPhoto {
+  routeId: string;
+  routeName: string;
+  firstDay: Day;
+  lastDay: Day;
+  count: number;
+}
 
 /** The journey and the one roadtrip a route-scoped re-sync names. */
 export interface RouteScope {

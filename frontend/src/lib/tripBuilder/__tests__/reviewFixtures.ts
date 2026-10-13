@@ -356,6 +356,7 @@ export function reviewDraft(over: Partial<TripBuilderDraft> = {}): TripBuilderDr
         unlocated: 2,
         locationCarried: 0,
         dayGuessed: 0,
+        otherTrip: 0,
       },
       truncated: false,
     },

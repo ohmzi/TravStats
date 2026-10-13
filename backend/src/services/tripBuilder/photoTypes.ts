@@ -118,6 +118,13 @@ export interface ExcludedCounts {
   locationCarried: number;
   /** In-window photos whose zone was borrowed. */
   dayGuessed: number;
+  /**
+   * Route-scoped only (2026-10-12): in-window photos whose (day, place) stands
+   * on ANOTHER roadtrip of the journey, kept out of this scan's derivation —
+   * they colour no area, no station and no night — while still counting as the
+   * window's own and staying in its album, exactly like the other exclusions.
+   */
+  otherTrip: number;
 }
 
 export interface CleanResult {

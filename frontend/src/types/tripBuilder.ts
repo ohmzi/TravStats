@@ -161,6 +161,21 @@ export interface DraftLeftOutStop {
   routeName: string;
 }
 
+/**
+ * Route-scoped only: the window's PHOTOS whose (day, place) stands on another
+ * roadtrip of the journey (the same cross-row rule at photo granularity). The
+ * scan drops them before any stop is derived — a neighbouring trip's day must
+ * not colour this trip's clusters — and the review shows the exclusion the way
+ * it shows the stop skip. One entry per other trip.
+ */
+export interface DraftLeftOutPhoto {
+  routeId: string;
+  routeName: string;
+  firstDay: Day;
+  lastDay: Day;
+  count: number;
+}
+
 export interface DraftArea {
   key: string;
   defaultAs: AreaKind;
@@ -184,6 +199,12 @@ export interface DraftArea {
    * its own row alone — and shown in the review.
    */
   leftOut?: DraftLeftOutStop[];
+  /**
+   * Route-scoped only: the window's photos that stand on ANOTHER roadtrip of
+   * the journey, dropped before any station was derived. The review shows the
+   * exclusion and the trip it belongs to.
+   */
+  leftOutPhotos?: DraftLeftOutPhoto[];
   /** A pitstop: the area gets its own album, named here (spec 2026-10-11 pitstops §2). Absent on an ordinary area. */
   pitstop?: DraftPitstop;
 }
@@ -269,8 +290,13 @@ export interface DraftDay {
   passedThrough: PassedThrough[];
 }
 
+/**
+ * Where a night's answer came from. `stored` is the trip-scoped re-sync's own
+ * reader: the night came off the TARGET trip's stored station, not off the
+ * window's photos (owner request 2026-10-12).
+ */
 export type NightReason =
-  "flight" | "afterLanding" | "unknown" | "ferry" | "home" | "nightDrive" | "lastPhoto";
+  "flight" | "afterLanding" | "unknown" | "ferry" | "home" | "nightDrive" | "lastPhoto" | "stored";
 
 export interface NightEntry {
   assign: NightAssign;
@@ -312,6 +338,12 @@ export interface ExcludedCounts {
   /** Photos that took the most recent located photo's location (owner ruling 2026-10-12). */
   locationCarried: number;
   dayGuessed: number;
+  /**
+   * Route-scoped only: photos whose (day, place) stands on another trip of the
+   * journey, kept out of this scan's route while still counting as the
+   * window's own (they stay in the album, like every other exclusion).
+   */
+  otherTrip: number;
 }
 
 export interface DraftStats {

@@ -17,6 +17,7 @@
  */
 import {
   NIGHT_UNKNOWN,
+  addDays,
   deriveStationRows,
   type NightPlanStation,
 } from "../../shared/tour/builderNightPlan";
@@ -31,6 +32,7 @@ import {
   type StoredRoadtripOffer,
   type StoredStopoverOffer,
 } from "./existingTypes";
+import { storedSpanNights } from "./nights";
 import {
   crossRowMatches,
   derivedStopOf,
@@ -234,6 +236,27 @@ function nightsWithoutLeftOut(
 }
 
 /**
+ * The night answers with the target trip's own stored spans seeded in (owner
+ * request 2026-10-12, the scoped night drift): a night a stored station covers
+ * names that station — by the DRAFT key the scan gave it — and says where the
+ * answer came from. Every other answer, and every suggestion, is kept; nothing
+ * is locked, the review can still answer any night itself.
+ */
+function nightsWithStored(
+  nights: TripBuilderDraft["nights"],
+  seeds: ReadonlyMap<Day, string>
+): TripBuilderDraft["nights"] {
+  if (seeds.size === 0) return nights;
+  const seeded: TripBuilderDraft["nights"] = { ...nights };
+  for (const [day, stationKey] of seeds) {
+    const entry = seeded[day];
+    if (entry === undefined) continue;
+    seeded[day] = { ...entry, assign: stationKey, reason: "stored" };
+  }
+  return seeded;
+}
+
+/**
  * The route-scoped annotation (owner request 2026-10-12): a trip-side Re-sync
  * updates exactly one stored roadtrip.
  *
@@ -252,6 +275,14 @@ function nightsWithoutLeftOut(
  * leaves `stations`/`legs` and is reported in `leftOut`, which the review
  * shows; the commit's own refusal (`assertNoCrossRowWrite`) stays the floor
  * under a body that names one anyway.
+ *
+ * The night plan starts from the TARGET trip's own stored spans (owner case
+ * 2026-10-12, the night drift): a scanned night the stored trip's station
+ * covers comes back as that station — the stored trip is the truth, exactly as
+ * it is one level up at the journey — while a night outside the stored spans
+ * keeps the scan's own answer. Only nights the draft station (and its area)
+ * could legally hold are seeded, so the plan the review submits still
+ * validates; nothing is locked, every night stays editable.
  */
 function annotateDraftForRoute(
   dto: TripBuilderDraft,
@@ -275,6 +306,8 @@ function annotateDraftForRoute(
   const matchedIds = new Set<string>();
   const notSeenIds = new Set<string>();
   const leftOutKeys = new Set<string>();
+  /** A night the stored trip's own span covers → the draft station key it names. */
+  const seededNights = new Map<Day, string>();
   const areas = dto.areas.map((area): DraftArea => {
     const derived = derivedStationsOf(area, assigns);
     const crosses = crossRowMatches(area.stations, otherRoutes, window);
@@ -305,6 +338,24 @@ function annotateDraftForRoute(
       if (rec.existing) matchedIds.add(rec.existing.id);
     }
     for (const n of reconciled.notSeen) notSeenIds.add(n.stored.id);
+    // The target trip's own stored spans seed the review's night answers: a
+    // stored station that matched a kept station answers each night its span
+    // holds (`storedSpanNights` — the owner's 11-26..28 → the nights of 26/27
+    // and 27/28), so a re-sync starts from the trip's own overnights and not
+    // from the scan's photo-based guesses. A night outside the stored spans
+    // keeps the scan's answer; one the draft station or its area could not
+    // legally hold is not seeded, so the submitted plan still validates. The
+    // first stored station of the trip wins a night two of them both cover.
+    reconciled.derived.forEach((rec, index) => {
+      const station = keptArea.stations[index];
+      if (rec.existing === undefined || station === undefined) return;
+      for (const night of storedSpanNights(rec.existing)) {
+        if (dto.nights[night] === undefined) continue;
+        if (night < addDays(keptArea.startDay, -1) || night > keptArea.endDay) continue;
+        if (night < addDays(station.firstDay, -1) || night > addDays(station.lastDay, 1)) continue;
+        if (!seededNights.has(night)) seededNights.set(night, station.key);
+      }
+    });
     return {
       ...keptArea,
       // The area IS that stored roadtrip: show its own name, never a re-minted
@@ -317,6 +368,13 @@ function annotateDraftForRoute(
       ...(leftOut.length === 0 ? {} : { leftOut }),
     };
   });
+  // The left-out stops' answers first (a night naming one is unknown again),
+  // then the target trip's own stored spans on top: a seeded night can only
+  // name a kept station, so the two never collide.
+  const nights = nightsWithStored(
+    leftOutKeys.size === 0 ? dto.nights : nightsWithoutLeftOut(dto.nights, leftOutKeys),
+    seededNights
+  );
   return {
     dto: {
       ...dto,
@@ -324,12 +382,12 @@ function annotateDraftForRoute(
       flights: dto.flights.map((f) =>
         state.flightIds.includes(f.id) ? { ...f, locked: true, defaultAssign: true } : f
       ),
-      // A left-out stop is gone from the area, so no night answer and no day
-      // row may still name it: the review is submitted from these two.
+      // Only when they differ: an untouched night plan is not copied.
+      ...(nights === dto.nights ? {} : { nights }),
+      // A left-out stop is gone from the area, so no day row may still name it.
       ...(leftOutKeys.size === 0
         ? {}
         : {
-            nights: nightsWithoutLeftOut(dto.nights, leftOutKeys),
             days: dto.days.map((day) => ({
               ...day,
               stationKeys: day.stationKeys.filter((key) => !leftOutKeys.has(key)),

@@ -832,6 +832,7 @@ describe("a window with nothing in it", () => {
           unlocated: 0,
           locationCarried: 0,
           dayGuessed: 0,
+          otherTrip: 0,
         },
         truncated: false,
       },

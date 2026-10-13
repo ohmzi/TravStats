@@ -2,6 +2,7 @@ import type { ExistingRoadtrip, ExistingStation, ExistingStop } from "../existin
 import {
   claimStopovers,
   crossRowMatches,
+  crossRowPhotoMatches,
   derivedStopOf,
   interleaveKept,
   isCoordinateTitle,
@@ -836,5 +837,79 @@ describe("crossRowMatches", () => {
         WINDOW
       )
     ).toEqual([{ index: 0, routeId: "r8", routeName: "First camp" }]);
+  });
+});
+
+describe("crossRowPhotoMatches", () => {
+  const route = (id: string, name: string, stations: ExistingStation[]): ExistingRoadtrip => ({
+    id,
+    name,
+    legs: [],
+    stations,
+  });
+
+  /** A scanned photo as the cross-row check reads one: where it was taken and when. */
+  const photo = (id: string, at: { lat: number; lon: number }, day: string) => ({
+    id,
+    lat: at.lat as number | null,
+    lon: at.lon as number | null,
+    day,
+  });
+
+  const other = (): ExistingRoadtrip =>
+    route("r9", "Selby Bay stay", [
+      stored({
+        id: "o1",
+        title: "Camp Nine",
+        ...PORT_CARROW,
+        startDate: "2031-05-04",
+        endDate: "2031-05-06",
+      }),
+    ]);
+
+  it("names the other trip a photo stands on, day and place both", () => {
+    // The owner's shape at photo granularity: a photo taken at the other
+    // trip's own stop, on one of the days its span holds.
+    const matches = crossRowPhotoMatches(
+      [
+        photo("p1", NORTHVALE, "2031-05-02"),
+        photo("p2", PORT_CARROW, "2031-05-04"),
+        photo("p3", PORT_CARROW, "2031-05-05"),
+      ],
+      [other()]
+    );
+    expect(matches.map((m) => [m.photo.id, m.routeId, m.routeName])).toEqual([
+      ["p2", "r9", "Selby Bay stay"],
+      ["p3", "r9", "Selby Bay stay"],
+    ]);
+  });
+
+  it("counts the span's edge days, one shared day included", () => {
+    const matches = crossRowPhotoMatches(
+      [photo("p1", PORT_CARROW, "2031-05-06"), photo("p2", PORT_CARROW, "2031-05-07")],
+      [other()]
+    );
+    expect(matches.map((m) => m.photo.id)).toEqual(["p1"]);
+  });
+
+  it("ignores a photo beyond the link distance, however its day reads", () => {
+    expect(crossRowPhotoMatches([photo("p1", TARNSIDE, "2031-05-04")], [other()])).toEqual([]);
+  });
+
+  it("ignores an unlocated photo: with no place of its own it cannot stand on a stored span", () => {
+    expect(
+      crossRowPhotoMatches(
+        [
+          photo("p1", PORT_CARROW, "2031-05-04"),
+          { id: "p2", lat: null, lon: null, day: "2031-05-04" },
+        ],
+        [
+          route("r9", "Selby Bay stay", [
+            stored({ id: "o1", title: "Camp Nine", startDate: null, endDate: null }),
+          ]),
+          other(),
+        ]
+      ).map((m) => m.photo.id)
+    ).toEqual(["p1"]);
   });
 });

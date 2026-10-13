@@ -204,6 +204,15 @@ describe("a route-scoped area with a stop left out", () => {
                   routeName: "Selby Bay stay",
                 },
               ],
+              leftOutPhotos: [
+                {
+                  routeId: "9c8b7a65-4321-4fed-8cba-0987654321ab",
+                  routeName: "Selby Bay stay",
+                  firstDay: "2031-05-05",
+                  lastDay: "2031-05-05",
+                  count: 3,
+                },
+              ],
             }
           : area
       ),
@@ -235,6 +244,23 @@ describe("a route-scoped area with a stop left out", () => {
     expect(
       within(section).getByText(
         'tripBuilder:review.area.leftOut.otherTrip {"trip":"Selby Bay stay"}'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("shows the photos left out with the trip they stand on and how many", () => {
+    // The stop skip's second arm, one level down (owner request 2026-10-12):
+    // the photos themselves stood on another trip, so no stop was ever derived
+    // from them — the review says so, the way it shows a left-out stop.
+    renderLeftOut();
+    const section = screen
+      .getByRole("heading", { name: "tripBuilder:review.area.leftOut.photosTitle" })
+      .closest("section") as HTMLElement;
+    expect(within(section).getByText("tripBuilder:review.area.leftOut.pill")).toBeInTheDocument();
+    expect(within(section).getByText("05.05.2031")).toBeInTheDocument();
+    expect(
+      within(section).getByText(
+        'tripBuilder:review.area.leftOut.otherTripPhotos {"count":3,"trip":"Selby Bay stay"}'
       )
     ).toBeInTheDocument();
   });

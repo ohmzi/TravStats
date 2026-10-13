@@ -23,6 +23,7 @@ import {
   nightsOf,
 } from "../../shared/tour/builderNightPlan";
 import { distanceKm } from "../photoJourneys/cluster";
+import { isSleptNight, type StoredNight } from "./existingTypes";
 import {
   HOME_RADIUS_KM,
   NIGHT_BOUNDARY_H,
@@ -406,4 +407,36 @@ export function applyDayPulls(plans: readonly AreaPlan[], pulls: readonly DayPul
     );
     return { ...plan, stations, area: { ...plan.area, startDay } };
   });
+}
+
+/** What `storedSpanNights` needs of a stored station: its dates and its night (`ExistingStation` fits). */
+export interface StoredNightStation {
+  startDate: Day | null;
+  endDate: Day | null;
+  night: StoredNight;
+}
+
+/**
+ * The nights a STORED station's span covers (owner request 2026-10-12, the
+ * trip-scoped re-sync's night seeding): the inverse reading of what a slept
+ * station was written from — `deriveStationRows` writes a run of nights as
+ * `startDate` (the first night) to `endDate` (the morning after the last) — and
+ * the span `countRoadtripNights` counts for a free station. So a slept station
+ * dated 11-26 … 11-28 holds the nights of 11-26 and 11-27, the owner's Jebel
+ * Shams shape.
+ *
+ * A slept station dated at one end only holds the one night at the day it
+ * names (the reading `daysOverlap` gives such a span); a same-day span holds
+ * that one night, never none. A pass-through and a route correction hold no
+ * night, and a slept station with no dates holds one no day can name, so none
+ * is returned.
+ */
+export function storedSpanNights(station: StoredNightStation): Day[] {
+  if (!isSleptNight(station.night)) return [];
+  const first = station.startDate ?? station.endDate;
+  const last = station.endDate ?? station.startDate;
+  if (first === null || last === null) return [];
+  const nights: Day[] = [];
+  for (let day = first; day < last; day = addDays(day, 1)) nights.push(day);
+  return nights.length === 0 ? [first] : nights;
 }

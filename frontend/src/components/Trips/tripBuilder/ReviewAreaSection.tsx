@@ -270,6 +270,39 @@ export default function ReviewAreaSection({
               </ul>
             </section>
           )}
+          {/* Route-scoped only, the stop skip's second arm: the window's PHOTOS
+              whose (day, place) stands on another trip of the journey, dropped
+              before any stop was derived. The exclusion is shown the same way,
+              with the trip they belong to. */}
+          {offered?.leftOutPhotos !== undefined && offered.leftOutPhotos.length > 0 && (
+            <section style={{ marginTop: "var(--ts-space-md)" }}>
+              <h4 className="t-caption" style={{ fontWeight: 700 }}>
+                {t("tripBuilder:review.area.leftOut.photosTitle")}
+              </h4>
+              <ul className="flex flex-col" style={{ gap: "var(--ts-space-sm)" }}>
+                {offered.leftOutPhotos.map((photos) => (
+                  <li key={photos.routeId} className="flex flex-col" style={{ gap: 4 }}>
+                    <div className="flex items-center" style={{ gap: 8 }}>
+                      <Pill color="var(--ts-warn)">
+                        {t("tripBuilder:review.area.leftOut.pill")}
+                      </Pill>
+                      <span className="t-caption">
+                        {photos.firstDay === photos.lastDay
+                          ? fmt.localDate(photos.firstDay)
+                          : `${fmt.localDate(photos.firstDay)} – ${fmt.localDate(photos.lastDay)}`}
+                      </span>
+                    </div>
+                    <span className="t-caption">
+                      {t("tripBuilder:review.area.leftOut.otherTripPhotos", {
+                        count: photos.count,
+                        trip: photos.routeName,
+                      })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
       )}
     </Card>

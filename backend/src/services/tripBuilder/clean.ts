@@ -149,6 +149,7 @@ export function cleanAssets(
     unlocated: 0,
     locationCarried: 0,
     dayGuessed: 0,
+    otherTrip: 0,
   };
   const inside: PhotoPoint[] = [];
   const context: PhotoPoint[] = [];

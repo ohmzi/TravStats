@@ -51,6 +51,20 @@ export const existingAreaFields = (station: z.ZodType) => ({
     .describe(
       "Route-scoped only: stops of the window's photos that also stand on another roadtrip of the journey. The scan leaves them out of the route and the review shows the skip"
     ),
+  leftOutPhotos: z
+    .array(
+      z.object({
+        routeId: z.string().uuid(),
+        routeName: z.string(),
+        firstDay: day,
+        lastDay: day,
+        count: z.number().int(),
+      })
+    )
+    .optional()
+    .describe(
+      "Route-scoped only: the window's photos whose (day, place) also stands on another roadtrip of the journey, dropped before any stop is derived; one entry per other trip"
+    ),
 });
 
 /** Extends the draft stopover schema. */

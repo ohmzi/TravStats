@@ -27,6 +27,7 @@ jest.mock("../../tour/routing/resolveProvider", () => ({
 
 import { prisma } from "../../../db";
 import type { CommitBody } from "../../../schemas/tripBuilder";
+import { toDbDate } from "../../../shared/time/localDate";
 import { setClockForTests } from "../../../shared/time/clock";
 import { loadVisibleDomains } from "../../domainVisibility";
 import { resolveRouteProvider } from "../../tour/routing/resolveProvider";
@@ -462,6 +463,37 @@ describe("a route-scoped commit", () => {
         expect(await prisma.tripImmichAlbum.count({ where: { tripId: fx.tripId } })).toBe(1);
       }
     );
+  });
+
+  it("keeps the trip's own stored nights: the seeded night plan survives into the write", async () => {
+    // Owner case (2026-10-12, the scoped night drift): the review starts from
+    // the stored trip's own spans, so the trip's nights come back — Northvale's
+    // free 05-02..05-04 gives the nights of 05-02 and 05-03, and Tarnside
+    // Lodge's stay 05-07..05-09 gives 05-07 and 05-08 where the scan alone knew
+    // nothing. The write carries exactly those spans, and the stored stay keeps
+    // owning its nights.
+    const draftForPlan = await scopedDraft();
+    expect(draftForPlan.dto.nights["2031-05-02"]).toMatchObject({
+      assign: K.northvale,
+      reason: "stored",
+    });
+    expect(draftForPlan.dto.nights["2031-05-08"]).toMatchObject({
+      assign: K.tarnside,
+      reason: "stored",
+    });
+
+    const plan = await prepareCommit(fx.userId, draftForPlan, draftBody(draftForPlan));
+    const [write] = plan.existing?.roadtrips ?? [];
+    expect(write?.stations.find((station) => station.title === "Northvale")).toMatchObject({
+      startDate: toDbDate("2031-05-02"),
+      endDate: toDbDate("2031-05-04"),
+      night: { kind: "free" },
+    });
+    expect(write?.stations.find((station) => station.title === "Tarnside Lodge")).toMatchObject({
+      startDate: toDbDate("2031-05-07"),
+      endDate: toDbDate("2031-05-09"),
+      night: { kind: "stay", lodgingStayId: fx.stayId },
+    });
   });
 
   it("syncs when another trip of the journey repeats a city's title on other dates", async () => {

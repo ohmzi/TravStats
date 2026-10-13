@@ -289,6 +289,62 @@ export function crossRowMatches(
   return [...found.values()].sort((a, b) => a.index - b.index);
 }
 
+/** What the photo-level cross-row check needs of a photo: where it was taken and when. */
+export interface CrossRowPhoto {
+  id: string;
+  lat: number | null;
+  lon: number | null;
+  day: Day;
+}
+
+/** A photo that also stands on another roadtrip of the journey: its (day, place) reconciles. */
+export interface CrossRowPhotoMatch {
+  photo: CrossRowPhoto;
+  /** The other roadtrip of the journey whose stored station it stands on. */
+  routeId: string;
+  routeName: string;
+}
+
+/**
+ * The scanned PHOTOS that also stand on ANOTHER roadtrip of the journey
+ * (owner request 2026-10-12, the scoped scan's photo filter): the same rule
+ * `crossRowMatches` reads, one level down. A photo is a one-day, untitled stop
+ * at its own coordinates, so `reconcileStations` can only pair it through the
+ * DAYS OVERLAP arm (`daysOverlap` against a stored station's span) and
+ * `crossRowMatches`'s own check is that same overlap — which is why this reads
+ * the two shared pieces directly (`CITY_LINK_KM` and `daysOverlap`, route
+ * corrections excluded as everywhere) instead of the station bookkeeping:
+ * photos do not pair one-to-one with stored stations the way scanned stops do,
+ * and every photo at one station belongs to it.
+ *
+ * Only located photos can stand anywhere; a photo with no place of its own is
+ * never reported. Each photo is reported once, the first roadtrip of the list
+ * winning, as in `crossRowMatches`. No window is read: the window only shapes
+ * a station's not-seen list, and a photo has no such list.
+ */
+export function crossRowPhotoMatches(
+  photos: readonly CrossRowPhoto[],
+  roadtrips: readonly ExistingRoadtrip[]
+): CrossRowPhotoMatch[] {
+  const matches: CrossRowPhotoMatch[] = [];
+  for (const photo of photos) {
+    const { lat, lon } = photo;
+    if (lat === null || lon === null) continue;
+    const found = roadtrips.find((roadtrip) =>
+      roadtrip.stations.some(
+        (station) =>
+          station.night !== "via" &&
+          distanceKm({ lat, lon }, station) <= CITY_LINK_KM &&
+          daysOverlap(photo.day, photo.day, station.startDate, station.endDate)
+      )
+    );
+    if (found !== undefined) {
+      matches.push({ photo, routeId: found.id, routeName: found.name });
+    }
+  }
+  return matches;
+}
+
 export type FinalEntry =
   { kind: "derived"; index: number } | { kind: "kept"; stored: ExistingStation };
 

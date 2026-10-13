@@ -97,6 +97,7 @@ export function fixtureDraft(
         unlocated: 0,
         locationCarried: 0,
         dayGuessed: 0,
+        otherTrip: 0,
       },
       truncated: false,
     },

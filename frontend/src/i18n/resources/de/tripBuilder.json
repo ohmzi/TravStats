@@ -164,6 +164,9 @@
       },
       "leftOut": {
         "otherTrip": "Gehört zu einem anderen Trip dieser Reise: {{trip}}. Die Fotos bleiben dort.",
+        "otherTripPhotos_one": "{{count}} Foto gehört zu einem anderen Trip dieser Reise: {{trip}}",
+        "otherTripPhotos_other": "{{count}} Fotos gehören zu einem anderen Trip dieser Reise: {{trip}}",
+        "photosTitle": "Fotos aus diesem Trip ausgelassen",
         "pill": "Anderer Trip",
         "title": "Aus diesem Trip ausgelassen"
       },
@@ -239,6 +242,8 @@
       "locationCarried_other": "{{count}} Fotos ohne GPS übernahmen den Ort des letzten georteten Fotos",
       "misdated_one": "{{count}} Foto mit falschem Datum",
       "misdated_other": "{{count}} Fotos mit falschem Datum",
+      "otherTrip_one": "{{count}} Foto gehört zu einem anderen Trip dieser Reise",
+      "otherTrip_other": "{{count}} Fotos gehören zu einem anderen Trip dieser Reise",
       "partner_one": "{{count}} Foto aus einer Partner-Bibliothek",
       "partner_other": "{{count}} Fotos aus einer Partner-Bibliothek",
       "title": "Nicht in der Route",

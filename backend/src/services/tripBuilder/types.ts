@@ -38,6 +38,7 @@ import type {
 } from "./existingTypes";
 import type { ExcludedCounts, PhotoPoint, RawSegment, ScanWindow, Segment } from "./photoTypes";
 import type { DraftPitstop, StoredPitstop } from "./pitstops";
+import type { DraftLeftOutPhoto, DraftLeftOutStop } from "./routeScope";
 
 export {
   NIGHT_FLIGHT,
@@ -343,8 +344,9 @@ export interface AreaHome {
 
 // ─── Nights (nights.ts) ──────────────────────────────────────────────────────
 
+// `stored`: a trip-scoped re-sync seeded it from the TARGET trip's stored span.
 export type NightReason =
-  "flight" | "afterLanding" | "unknown" | "ferry" | "home" | "nightDrive" | "lastPhoto";
+  "flight" | "afterLanding" | "unknown" | "ferry" | "home" | "nightDrive" | "lastPhoto" | "stored";
 
 export interface NightEntry {
   assign: NightAssign;
@@ -388,22 +390,6 @@ export interface NightInputs {
 
 // ─── The draft DTO (GET /trip-builder/drafts/:id) ────────────────────────────
 
-/**
- * Route-scoped only: a scanned stop the update leaves out because it also
- * stands on another roadtrip of the journey (overlapping days within
- * `CITY_LINK_KM`). Its photos stay where they belong; the review shows the
- * skip and its reason, so the trip-side re-sync never has to refuse as a whole.
- */
-export interface DraftLeftOutStop {
-  key: string;
-  title: string;
-  firstDay: Day;
-  lastDay: Day;
-  /** The other roadtrip of the journey the stop also stands on. */
-  routeId: string;
-  routeName: string;
-}
-
 export interface DraftArea {
   key: string;
   defaultAs: AreaKind;
@@ -431,9 +417,21 @@ export interface DraftArea {
    * this write updates its own row alone — and the review shows the skip.
    */
   leftOut?: DraftLeftOutStop[];
+  /**
+   * Route-scoped only: the window's photos that stand on ANOTHER roadtrip of
+   * the journey, dropped before any station was derived (the stop skip's
+   * second arm, one level down). The review shows the exclusion and the trip
+   * it belongs to.
+   */
+  leftOutPhotos?: DraftLeftOutPhoto[];
   /** A pitstop: the area gets its own album, named here (spec 2026-10-11 pitstops §2). Absent on an ordinary area. */
   pitstop?: DraftPitstop;
 }
+
+// The route-scoped left-out shapes are declared in `routeScope.ts`, with the
+// scoped words they belong to, because this file sits at the 800-line cap;
+// they are re-exported here, so consumers keep importing them from `./types`.
+export type { DraftLeftOutPhoto, DraftLeftOutStop };
 
 // The stopover DTO shapes (spec 2026-10-11 §2.3, §6) are declared in
 // `draftStopover.ts`, in their own module because this file sits at the

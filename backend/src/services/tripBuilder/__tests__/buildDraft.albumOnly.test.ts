@@ -71,6 +71,7 @@ describe("buildDraftWith, album only", () => {
         unlocated: 0,
         locationCarried: 1,
         dayGuessed: 0,
+        otherTrip: 0,
       },
       truncated: false,
     });

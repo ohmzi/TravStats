@@ -39,6 +39,7 @@ import { assembleWarnings, movementOutsideDates, type UnrecordedFlight } from ".
 import { applyExistingTarget, type ExistingDeps } from "./existingDraft";
 import { indexPreviews } from "./stations";
 import { namedPitstops, pitstopAreas, storedPitstops, type PitstopPass } from "./pitstops";
+import { crossRowPhotoMatches, type CrossRowPhotoMatch } from "./reconcile";
 import { mergeAreaPlans, routeScopeOf } from "./routeScope";
 import type { RoadAccess } from "./probe";
 import {
@@ -61,6 +62,7 @@ import {
   type DraftArea,
   type DraftDay,
   type DraftFlight,
+  type DraftLeftOutPhoto,
   type DraftPhotoJourney,
   type DraftStation,
   type ExcludedCounts,
@@ -304,6 +306,36 @@ const homeTitleOf = (home: HomeAtDay | null): string | null =>
   home ? home.name.split(",")[0].trim() || null : null;
 
 /**
+ * The photos of a route-scoped scan that stand on ANOTHER roadtrip of the
+ * journey, grouped by that trip for the review (owner request 2026-10-12, the
+ * photo-level squatter): the scan drops the photos themselves before any stop
+ * is derived, and each group carries the other trip's name, the days and the
+ * count — the way the stop skip is shown (`DraftArea.leftOut`), one level
+ * down. One entry per other trip, in the order they first matched.
+ */
+function groupedLeftOutPhotos(matches: readonly CrossRowPhotoMatch[]): DraftLeftOutPhoto[] {
+  const byRoute = new Map<string, DraftLeftOutPhoto>();
+  for (const match of matches) {
+    const { day } = match.photo;
+    const found = byRoute.get(match.routeId);
+    if (found === undefined) {
+      byRoute.set(match.routeId, {
+        routeId: match.routeId,
+        routeName: match.routeName,
+        firstDay: day,
+        lastDay: day,
+        count: 1,
+      });
+      continue;
+    }
+    found.count += 1;
+    if (day < found.firstDay) found.firstDay = day;
+    if (day > found.lastDay) found.lastDay = day;
+  }
+  return [...byRoute.values()];
+}
+
+/**
  * The first `max` entries of a scan-ordered list (flights by departure, areas
  * and findings by day), and how many were left out. The commit refuses a body
  * over its maxima (`schemas/tripBuilder.ts`), and the review page sends what
@@ -350,6 +382,23 @@ export async function buildDraftWith(
   let excluded = collected.clean.excluded;
   if (input.inspect) ({ photos, excluded } = await cleanPhase(deps, collected));
 
+  // A route-scoped scan's derivation set drops the photos that stand on
+  // ANOTHER roadtrip of the journey (owner request 2026-10-12, the photo-level
+  // squatter): their (day, place) reconciles by the same `crossRowMatches`
+  // rule the stop skip reads (`crossRowPhotoMatches`), and letting them colour
+  // this trip's clusters would be the other trip's day shaping this one before
+  // any stop is derived. They stay among the window's own — the counts, the
+  // day rows and the album keep them, like every other kept-out photo — and
+  // the exclusion is reported honestly (`stats.excluded.otherTrip`, and the
+  // area's `leftOutPhotos` for the review).
+  const otherRoutes =
+    scope === null
+      ? []
+      : (deps.existing?.state.roadtrips ?? []).filter((route) => route.id !== scope.routeId);
+  const foreignPhotos = otherRoutes.length === 0 ? [] : crossRowPhotoMatches(photos, otherRoutes);
+  const foreignIds = new Set(foreignPhotos.map((match) => match.photo.id));
+  if (foreignIds.size > 0) excluded = { ...excluded, otherTrip: foreignIds.size };
+
   report("flights");
   let split: AreaSplit = { areas: [], layovers: [] };
   if (input.inspect) {
@@ -358,9 +407,12 @@ export async function buildDraftWith(
     split = flown.split;
     excluded = { ...excluded, inFlight: flown.inFlight };
   }
+  // Built from the flagged list: the flights phase's own marks must reach the
+  // derivation, and the foreign photos just leave it.
+  const derivation = foreignIds.size === 0 ? photos : photos.filter((p) => !foreignIds.has(p.id));
 
   report("movement");
-  const movement = input.inspect ? movementPhase(photos, split) : emptyMovement(photos);
+  const movement = input.inspect ? movementPhase(derivation, split) : emptyMovement(derivation);
   report("names");
   // One key set for the whole scan: an area station and a stopover station can never take one key.
   const taken = new Set<string>();
@@ -660,6 +712,17 @@ export async function buildDraftWith(
     new Map(storedPitstopRecords.map((pitstop) => [pitstop.key, pitstop.assetIds.length] as const)),
     scope
   );
+  // The photos kept out of the derivation are shown on the area the review
+  // draws (a route-scoped scan merges the window into the one area), with the
+  // trip they belong to — the same leftOut-style block the stop skip uses.
+  const leftOutPhotos = groupedLeftOutPhotos(foreignPhotos);
+  const reviewDto =
+    leftOutPhotos.length === 0
+      ? applied.dto
+      : {
+          ...applied.dto,
+          areas: applied.dto.areas.map((area) => ({ ...area, leftOutPhotos })),
+        };
 
   return {
     id,
@@ -670,7 +733,7 @@ export async function buildDraftWith(
     input,
     immichUserId: deps.immichUserId,
     connSource: deps.connSource,
-    dto: applied.dto,
+    dto: reviewDto,
     existing: applied.existing,
     previewAssetIds: previews.previewAssetIds,
     albumAssetIds: photos.map((p) => p.id),

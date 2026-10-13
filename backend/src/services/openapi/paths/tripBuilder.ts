@@ -318,6 +318,7 @@ export const draftSchema = registry.register(
           unlocated: z.number().int(),
           locationCarried: z.number().int(),
           dayGuessed: z.number().int(),
+          otherTrip: z.number().int(),
         }),
         truncated: z.boolean(),
       }),

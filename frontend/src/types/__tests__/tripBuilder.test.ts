@@ -58,6 +58,7 @@ describe("trip builder wire vocabulary", () => {
           unlocated: 12,
           locationCarried: 0,
           dayGuessed: 0,
+          otherTrip: 0,
         },
         truncated: false,
       },
