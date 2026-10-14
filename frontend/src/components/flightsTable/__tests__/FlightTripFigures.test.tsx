@@ -71,6 +71,33 @@ function valueOf(dl: HTMLElement, label: string): string {
   return cellOf(dl, label).querySelector("dd")?.textContent ?? "";
 }
 
+/** The anchor a cell's figure wraps, or null when the cell is not an entry point. */
+function cellLinkOf(dl: HTMLElement, label: string): HTMLAnchorElement | null {
+  return cellOf(dl, label).querySelector("a");
+}
+
+/**
+ * One roadtrip station on the journey's trip, as `GET /trips/:id` serves it —
+ * the shape the band reads the associated roadtrips off (`routeId`). A
+ * synthetic place like every other fixture here (public repo).
+ */
+function station(routeId: string): Record<string, unknown> {
+  return {
+    id: `s-${routeId}`,
+    title: "Somewhere",
+    lat: null,
+    lon: null,
+    startDate: null,
+    endDate: null,
+    notes: null,
+    routeId,
+    routeName: "Somewhere loop",
+    routeOrderIdx: 0,
+    state: "stay",
+    nights: 1,
+  };
+}
+
 /**
  * The span rule as DAYS (owner, 2026-10-11): the journey's nights + 1, both
  * ends inclusive. The headline was "nights" until then; nights stay the data,
@@ -164,5 +191,44 @@ describe("FlightTripFigures band shape", () => {
     // row at xl — the exact difference the owner would see.
     expect(last.className).toContain("col-span-2");
     expect(last.className).toContain("xl:col-span-1");
+  });
+});
+
+/**
+ * The band as navigation (owner request 2026-10-14). Ruling 4: there is no
+ * airport page, so Distance, Cities and Airports all return to the flight-trip
+ * page's OWN Route view (a bare `/flights/journeys/:id`, the `?view=` param
+ * dropped) — from the table view that is genuinely useful. Ruling 2: the Days
+ * cell opens the one associated roadtrip's timeline when there is exactly one,
+ * and the journey's Trips tab otherwise (none or several).
+ */
+describe("FlightTripFigures band as navigation (owner request 2026-10-14)", () => {
+  it("links Distance, Cities and Airports back to the route view", () => {
+    const dl = bandGrid(trip());
+    for (const label of ["Zurückgelegt", "Städte", "Flughäfen"]) {
+      expect(cellLinkOf(dl, label)).toHaveAttribute("href", "/flights/journeys/t1");
+    }
+  });
+
+  it("links the Days cell to the single associated roadtrip's timeline", () => {
+    const dl = bandGrid(trip({ roadtripStations: [station("rt-1")] }));
+    expect(cellLinkOf(dl, "Tage")).toHaveAttribute("href", "/roadtrips/rt-1?tab=timeline");
+  });
+
+  it("falls back to the journey's Trips tab when several roadtrips are associated", () => {
+    const dl = bandGrid(trip({ roadtripStations: [station("rt-1"), station("rt-2")] }));
+    expect(cellLinkOf(dl, "Tage")).toHaveAttribute("href", "/trips/t1?tab=trips");
+  });
+
+  it("falls back to the journey's Trips tab when no roadtrip is associated", () => {
+    const dl = bandGrid(trip());
+    expect(cellLinkOf(dl, "Tage")).toHaveAttribute("href", "/trips/t1?tab=trips");
+  });
+
+  it("keeps the Flights cell a button — it swaps the body in place, it does not navigate", () => {
+    const dl = bandGrid(trip());
+    const cell = cellOf(dl, "Flug");
+    expect(cell.querySelector("a")).toBeNull();
+    expect(cell.querySelector("button")).not.toBeNull();
   });
 });

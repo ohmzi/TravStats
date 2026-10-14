@@ -44,6 +44,16 @@ import type { Trip } from "../../types";
  * `onShowFlights` is the owner's "tap the flights number": the flights cell is
  * a button, not a link, because it swaps the page's BODY in place rather than
  * navigating (`?view=table`, the same word the logbook already uses).
+ *
+ * THE BAND IS NAVIGATION NOW (owner request 2026-10-14): Distance, Cities and
+ * Airports are links back to this page's own Route view (Ruling 4 — there is no
+ * airport page, so a bare `/flights/journeys/:id` with `?view=` cleared is the
+ * route/airport surface, and from the table view it returns the reader to the
+ * map and the airports list); Days opens the journey's associated roadtrip's
+ * timeline when there is exactly one, and its Trips tab otherwise (Ruling 2).
+ * The journey and album cells already linked; the Flights cell keeps its
+ * button. A linked figure's text is the figure, so its accessible name does not
+ * change.
  */
 export default function FlightTripFigures({
   trip,
@@ -64,6 +74,22 @@ export default function FlightTripFigures({
   const airports = distinctAirports(flights);
   const days = journeyDays(flights);
   const knownLegs = distance.liveLegs + distance.derivedLegs;
+
+  // The journey's associated roadtrips (owner request 2026-10-14, Ruling 2),
+  // folded off the trip the page already holds: a station's `routeId` is the
+  // roadtrip it belongs to, so the DISTINCT routeIds are how many roadtrips
+  // this journey has. No fetch is added — the payload the page loaded carries
+  // them. None, or several, is not ONE roadtrip to open, so the Days cell then
+  // falls back to the journey's Trips tab rather than guess.
+  const associatedRoadtripIds = [...new Set((trip.roadtripStations ?? []).map((s) => s.routeId))];
+  // Ruling 4: there is no airport page, so the route/airport surface is this
+  // page's own default view — the bare path, the `?view=` param dropped, which
+  // from the table view returns the reader to the map and the airports list.
+  const routeView = `/flights/journeys/${trip.id}`;
+  const daysTarget =
+    associatedRoadtripIds.length === 1
+      ? `/roadtrips/${associatedRoadtripIds[0]}?tab=timeline`
+      : `/trips/${trip.id}?tab=trips`;
 
   // The band owns the MARKER, not the number: `distancePrefix` is shared with
   // the journey card, so `~` (derived) and `≈` (lower bound) mean the same on
@@ -98,21 +124,37 @@ export default function FlightTripFigures({
       // to stay distinct from the roadtrip's measured/planned one — the reason
       // is on the caption and on hover (owner, 2026-10-08). The roadtrip's own
       // neutral word is "Distance" (`roadtrips:detail.figRoute`), the candidate
-      // if one word is ever wanted for both.
+      // if one word is ever wanted for both. It opens the route view.
       label: t("flights:journeyPage.figDistance"),
-      value: distanceValue,
+      value: (
+        <Link to={routeView} className="hover:underline">
+          {distanceValue}
+        </Link>
+      ),
       title: distanceTitle,
     },
     {
       key: "days",
       label: t("flights:journeyPage.figDays"),
-      value: daysValue,
+      // Days open the one associated roadtrip's timeline, or the journey's
+      // Trips tab when there is not exactly one (Ruling 2).
+      value: (
+        <Link to={daysTarget} className="hover:underline">
+          {daysValue}
+        </Link>
+      ),
       title: days === null ? t("flights:journeyPage.figDaysNone") : undefined,
     },
     {
       key: "cities",
       label: t("flights:journeyPage.figCities"),
-      value: citiesValue,
+      // Cities and airports open the route view too — its airports list is the
+      // only airport surface in the app (Ruling 4).
+      value: (
+        <Link to={routeView} className="hover:underline">
+          {citiesValue}
+        </Link>
+      ),
       title: cities.count === 0 ? t("flights:journeyPage.figCitiesNone") : undefined,
     },
     {
@@ -123,7 +165,11 @@ export default function FlightTripFigures({
       // an empty journey really has none — while the derived figures above are
       // dashes with a reason, because "we cannot work it out" is not "none".
       label: t("common:summary.airports", { count: airports }),
-      value: nf.format(airports),
+      value: (
+        <Link to={routeView} className="hover:underline">
+          {nf.format(airports)}
+        </Link>
+      ),
     },
     {
       key: "flights",
@@ -154,7 +200,9 @@ export default function FlightTripFigures({
       // `common:` key set, so the two bands cannot label the same thing twice.
       label: t("common:summary.journey"),
       value: trip.name ? (
-        <Link to={`/trips/${trip.id}`}>{trip.name}</Link>
+        <Link to={`/trips/${trip.id}`} className="hover:underline">
+          {trip.name}
+        </Link>
       ) : (
         t("common:labels.notAvailable")
       ),
@@ -163,7 +211,9 @@ export default function FlightTripFigures({
       key: "album",
       label: t("common:summary.album"),
       value: album ? (
-        <Link to={`/trips/${trip.id}?tab=gallery`}>{album.albumName}</Link>
+        <Link to={`/trips/${trip.id}?tab=gallery`} className="hover:underline">
+          {album.albumName}
+        </Link>
       ) : (
         t("common:labels.notAvailable")
       ),

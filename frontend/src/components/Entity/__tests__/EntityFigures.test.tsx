@@ -100,7 +100,7 @@ function trip(over: TripFixture = {}): RoadtripDetail {
 
 function renderJourney(
   t: Trip,
-  roadtrips: readonly { drivenKm: number }[] = [],
+  roadtrips: readonly { drivenKm: number; id?: string }[] = [],
   flights: readonly JourneyFlight[] = []
 ) {
   return render(
@@ -116,6 +116,18 @@ function renderTrip(detail: RoadtripDetail, today = "2031-05-03") {
       <EntityFigures level="trip" detail={detail} today={today} />
     </MemoryRouter>
   );
+}
+
+/** The cell whose mono label is `label` — the band draws `dt` then `dd`. */
+function cellOf(container: HTMLElement, label: string): HTMLElement {
+  const dt = [...container.querySelectorAll("dt")].find((d) => d.textContent === label);
+  if (!dt) throw new Error(`the band drew no ${label} cell`);
+  return dt.parentElement as HTMLElement;
+}
+
+/** The anchor a cell's figure wraps, or null when the cell is not an entry point. */
+function cellLink(container: HTMLElement, label: string): HTMLAnchorElement | null {
+  return cellOf(container, label).querySelector("a");
 }
 
 describe("the journey's figures row (design §2)", () => {
@@ -423,5 +435,137 @@ describe("the trip's figures row (design §2)", () => {
     expect(
       screen.getByText("Ohne Routing-Anbieter erscheinen neue Etappen als gerade Linien.")
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * The band as navigation (owner request 2026-10-14): the figures stop being
+ * read-only sums and become the page's entry points. Each case asserts the
+ * EXACT href, and each "unchanged" case asserts the absence of an anchor — the
+ * owner's rule is that a link to nowhere useful is worse than no link.
+ */
+describe("the journey band's cells are entry points (owner request 2026-10-14)", () => {
+  it("links Days to the timeline, Countries to the map, Trips to the trips and Albums to the gallery", () => {
+    const { container } = renderJourney(
+      journey({
+        id: "t1",
+        startDate: "2031-05-02",
+        endDate: "2031-05-07",
+        countries: ["DE"],
+        immichAlbums: [album("l1", "Eastport loop", 12)],
+      }),
+      [{ id: "rt-1", drivenKm: 812 }],
+      []
+    );
+    expect(cellLink(container, "Tage")).toHaveAttribute("href", "/trips/t1?tab=timeline");
+    expect(cellLink(container, "Länder")).toHaveAttribute("href", "/trips/t1?tab=map");
+    expect(cellLink(container, "Trip")).toHaveAttribute("href", "/trips/t1?tab=trips");
+    expect(cellLink(container, "Alben")).toHaveAttribute("href", "/trips/t1?tab=gallery");
+  });
+
+  it("links Km flown to the journey's flight-trip page", () => {
+    const { container } = renderJourney(
+      journey({ id: "t1" }),
+      [],
+      [flight({ routeDistance: 2000, routeSource: "live_tracking" })]
+    );
+    expect(cellLink(container, "Geflogene km")).toHaveAttribute("href", "/flights/journeys/t1");
+  });
+
+  it("keeps the Dates cell plain text — the owner named no target for it", () => {
+    const { container } = renderJourney(
+      journey({ id: "t1", startDate: "2031-05-02", endDate: "2031-05-07" })
+    );
+    expect(cellOf(container, "Zeitraum").querySelector("a")).toBeNull();
+  });
+
+  it("keeps the Albums cell a plain count when the journey links no album", () => {
+    const { container } = renderJourney(journey({ id: "t1", immichAlbums: [] }));
+    expect(cellLink(container, "Alben")).toBeNull();
+    expect(cellOf(container, "Alben").textContent).toBe("Alben0");
+  });
+});
+
+/**
+ * Ruling 1 (controller, 2026-10-14): the journey's Km is a SUM over its
+ * roadtrips, so there is no single roadtrip page to open. Exactly one roadtrip
+ * opens it; two or more open the journey's Trips tab, where they are listed;
+ * with NO roadtrip the cell keeps today's plain "0 km" — the Trips tab would
+ * have nothing of the journey's own to show, and a link there is a link to
+ * nowhere useful.
+ */
+describe("the journey's km-driven cell (Ruling 1)", () => {
+  it("opens the single roadtrip it sums", () => {
+    const { container } = renderJourney(journey({ id: "t1" }), [{ id: "rt-7", drivenKm: 812 }]);
+    expect(cellLink(container, "Gefahrene km")).toHaveAttribute("href", "/roadtrips/rt-7");
+  });
+
+  it("falls back to the journey's Trips tab when the sum spans several roadtrips", () => {
+    const { container } = renderJourney(journey({ id: "t1" }), [
+      { id: "rt-7", drivenKm: 812 },
+      { id: "rt-8", drivenKm: 254 },
+    ]);
+    expect(cellLink(container, "Gefahrene km")).toHaveAttribute("href", "/trips/t1?tab=trips");
+  });
+
+  it("keeps today's plain figure — no anchor — when the journey has no roadtrip", () => {
+    const { container } = renderJourney(journey({ id: "t1" }));
+    expect(cellLink(container, "Gefahrene km")).toBeNull();
+    expect(cellOf(container, "Gefahrene km").textContent).toBe("Gefahrene km0 km");
+  });
+});
+
+describe("the trip band's cells are entry points (owner request 2026-10-14)", () => {
+  it("links Driven and Countries to the map, Days and Places to the timeline", () => {
+    const { container } = renderTrip(
+      trip({
+        roadtrip: {
+          id: "rt-9",
+          name: "Northvale loop",
+          drivenKm: 812,
+          distanceKm: 812,
+          startOdometerKm: null,
+          endOdometerKm: null,
+        },
+        countries: ["DE", "FR"],
+        startDate: "2031-05-02T00:00:00.000Z",
+        endDate: "2031-05-04T00:00:00.000Z",
+      })
+    );
+    expect(cellLink(container, "Strecke")).toHaveAttribute("href", "/roadtrips/rt-9?tab=map");
+    expect(cellLink(container, "Tage")).toHaveAttribute("href", "/roadtrips/rt-9?tab=timeline");
+    expect(cellLink(container, "Geschlafen in")).toHaveAttribute(
+      "href",
+      "/roadtrips/rt-9?tab=timeline"
+    );
+    expect(cellLink(container, "Länder")).toHaveAttribute("href", "/roadtrips/rt-9?tab=map");
+  });
+
+  it("drives the map link off the finished roadtrip's own word (Gefahren)", () => {
+    const { container } = renderTrip(
+      trip({
+        roadtrip: {
+          id: "rt-9",
+          name: "Northvale loop",
+          drivenKm: 812,
+          distanceKm: 812,
+          startOdometerKm: null,
+          endOdometerKm: null,
+        },
+        startDate: "2031-05-01T00:00:00.000Z",
+        endDate: "2031-05-02T00:00:00.000Z",
+      })
+    );
+    expect(cellLink(container, "Gefahren")).toHaveAttribute("href", "/roadtrips/rt-9?tab=map");
+  });
+
+  it("keeps the Dates cell plain text — the owner named no target for it", () => {
+    const { container } = renderTrip(
+      trip({
+        startDate: "2031-05-02T00:00:00.000Z",
+        endDate: "2031-05-04T00:00:00.000Z",
+      })
+    );
+    expect(cellOf(container, "Zeitraum").querySelector("a")).toBeNull();
   });
 });

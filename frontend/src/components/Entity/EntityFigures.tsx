@@ -28,10 +28,14 @@ interface JourneyFiguresProps {
   level: "journey";
   trip: Trip;
   /**
-   * The journey's trips — `useTripRoadtrips` today. Narrow on purpose (the
-   * km and the count are all this band reads), so any roadtrip row shape fits.
+   * The journey's trips — `useTripRoadtrips` today. Narrow on purpose (the km
+   * and the count are the figures this band reads), so any roadtrip row shape
+   * fits; `id` is the one addition, and optional — it is what turns the Km cell
+   * into a link when the journey holds EXACTLY ONE roadtrip (`journeyKmTarget`).
+   * A caller that hands rows of bare kms still fits and the cell then falls
+   * back to the journey's Trips tab rather than guess a target.
    */
-  roadtrips: readonly DrivenKms[];
+  roadtrips: readonly (DrivenKms & { id?: string })[];
   /**
    * The journey's flights, as `trip.flights` carries them — narrow on purpose
    * like `roadtrips`, so the band reads only the fields the flights fold needs
@@ -98,6 +102,16 @@ function datesText(
  * page's own facts, not copy); the "Re-sync from Immich" link that used to
  * ride here moved to the trip's edit page (design §4: the headers lose their
  * standalone Edit/Delete/Re-sync, and the edit page carries them).
+ *
+ * THE BAND IS NAVIGATION NOW (owner request 2026-10-14): each figure that names
+ * a surface is a `Link` to it — Days→Timeline, Countries→Map, Trips→Trips,
+ * Albums→Gallery on the journey; Driven/Countries→Map, Days/Places→Timeline on
+ * the trip. A cell with no sensible target keeps today's plain rendering rather
+ * than link to nowhere: the journey's Km falls back to its Trips tab only when
+ * the sum spans several roadtrips (Ruling 1), and the Albums cell stays a plain
+ * count with no album linked. The link's TEXT stays the figure the cell already
+ * showed, so the accessible name is unchanged and the band's `title` (on the
+ * wrapper) still carries the reason on hover.
  */
 export default function EntityFigures(props: EntityFiguresProps): JSX.Element {
   return props.level === "journey" ? (
@@ -108,6 +122,30 @@ export default function EntityFigures(props: EntityFiguresProps): JSX.Element {
 }
 
 /* ─────────── The journey's cells ─────────── */
+
+/**
+ * Where the journey's Km cell points (owner request 2026-10-14, controller
+ * Ruling 1). The journey's Km is a SUM over its roadtrips
+ * (`roadtripsDrivenKm`), so there is rarely one "road trip page" it names:
+ *
+ *  - EXACTLY ONE roadtrip with an id → that roadtrip's page;
+ *  - several → the journey's own Trips tab, where every roadtrip is listed;
+ *  - NONE (or a lone row with no id) → `null`, and the cell keeps today's plain
+ *    figure. With no roadtrip the Trips tab holds nothing of the journey's own
+ *    to show, and the owner's rule is that a link to nowhere useful is worse
+ *    than no link. Never a dead link, never a guess.
+ */
+function journeyKmTarget(
+  trip: Trip,
+  roadtrips: readonly (DrivenKms & { id?: string })[]
+): string | null {
+  if (roadtrips.length === 0) return null;
+  if (roadtrips.length === 1) {
+    const id = roadtrips[0].id;
+    return id ? `/roadtrips/${id}` : `/trips/${trip.id}?tab=trips`;
+  }
+  return `/trips/${trip.id}?tab=trips`;
+}
 
 function JourneyFigures({
   trip,
@@ -133,6 +171,9 @@ function JourneyFigures({
   // (`TripCard.estimateTripDistanceKm` + the journey's route km — untouched);
   // the band's two Km cells are that total's roadtrip and flight halves.
   const tripCount = roadtrips.length + (flights.length > 0 ? 1 : 0);
+  // The Km cell's one-or-many rule (Ruling 1); null means "keep today's plain
+  // figure", the journey with no roadtrip of its own.
+  const kmTarget = journeyKmTarget(trip, roadtrips);
 
   const figures: FigureBandCell[] = [
     ...(start !== null && end !== null
@@ -149,7 +190,13 @@ function JourneyFigures({
           {
             key: "days",
             label: t("common:summary.cardDays", { count: days.days }),
-            value: `${days.approximate ? "≈ " : ""}${nf.format(days.days)}`,
+            // The days open the journey's Timeline tab — the band is
+            // navigation now (owner request 2026-10-14).
+            value: (
+              <Link to={`/trips/${trip.id}?tab=timeline`} className="hover:underline">
+                {`${days.approximate ? "≈ " : ""}${nf.format(days.days)}`}
+              </Link>
+            ),
             title: days.approximate ? t("trips:figures.daysApprox") : undefined,
           },
         ]
@@ -157,7 +204,11 @@ function JourneyFigures({
     {
       key: "km",
       label: t("trips:figures.km"),
-      value: `${nf.format(km)} km`,
+      value: kmTarget ? (
+        <Link to={kmTarget} className="hover:underline">{`${nf.format(km)} km`}</Link>
+      ) : (
+        `${nf.format(km)} km`
+      ),
       sub: roadtrips.length > 0 ? t("trips:figures.kmSub", { count: roadtrips.length }) : undefined,
     },
     {
@@ -166,8 +217,13 @@ function JourneyFigures({
       // The flights band's own honesty rule, reused whole (`FlightTripFigures`):
       // `distancePrefix` marks a derived sum `~` and a sum missing a leg `≈`,
       // and a journey with no leg distance at all is a dash with its reason —
-      // never a zero, and never a bare sum that would read as measured.
-      value: knownLegs === 0 ? "—" : `${distancePrefix(flown)}${nf.format(flown.km)} km`,
+      // never a zero, and never a bare sum that would read as measured. The
+      // figure opens the journey's flight-trip page whoever the sum is made of.
+      value: (
+        <Link to={`/flights/journeys/${trip.id}`} className="hover:underline">
+          {knownLegs === 0 ? "—" : `${distancePrefix(flown)}${nf.format(flown.km)} km`}
+        </Link>
+      ),
       title:
         knownLegs === 0
           ? t("flights:journeyPage.figDistanceNone")
@@ -181,7 +237,11 @@ function JourneyFigures({
     {
       key: "countries",
       label: t("trips:detail.stats.countries"),
-      value: nf.format(countries.length),
+      value: (
+        <Link to={`/trips/${trip.id}?tab=map`} className="hover:underline">
+          {nf.format(countries.length)}
+        </Link>
+      ),
       sub: countries.join(" · ") || undefined,
     },
     {
@@ -190,12 +250,26 @@ function JourneyFigures({
       // the count carries it too — a count the tab contradicts is worse than
       // no count (owner, 2026-10-12: the stats must reflect the flights).
       label: t("trips:figures.trips", { count: tripCount }),
-      value: nf.format(tripCount),
+      value: (
+        <Link to={`/trips/${trip.id}?tab=trips`} className="hover:underline">
+          {nf.format(tripCount)}
+        </Link>
+      ),
     },
     {
       key: "albums",
       label: t("trips:detail.stats.albums"),
-      value: nf.format(albums.length),
+      // The gallery is where the linked albums live; with none it is an empty
+      // page, so the cell keeps today's plain count rather than lead there (the
+      // owner's "a link to nowhere useful is worse than no link").
+      value:
+        albums.length > 0 ? (
+          <Link to={`/trips/${trip.id}?tab=gallery`} className="hover:underline">
+            {nf.format(albums.length)}
+          </Link>
+        ) : (
+          nf.format(albums.length)
+        ),
     },
   ];
 
@@ -246,7 +320,13 @@ function TripFigures({ detail, today }: Omit<TripFiguresProps, "level">): JSX.El
     {
       key: "driven",
       label: over ? t("roadtrips:detail.figDriven") : t("roadtrips:detail.figRoute"),
-      value: `${nf.format(r.drivenKm)} km`,
+      // The distance opens the trip's Map tab (owner request 2026-10-14).
+      value: (
+        <Link
+          to={`/roadtrips/${r.id}?tab=map`}
+          className="hover:underline"
+        >{`${nf.format(r.drivenKm)} km`}</Link>
+      ),
       sub: over
         ? ferryNote
         : [t("roadtrips:detail.figRoutePlanned"), ferryNote].filter(Boolean).join(" · "),
@@ -254,26 +334,42 @@ function TripFigures({ detail, today }: Omit<TripFiguresProps, "level">): JSX.El
     {
       key: "days",
       label: t("roadtrips:detail.figDays"),
-      value: `${days.approximate ? "≈ " : ""}${nf.format(days.days)}`,
+      // Days and the places slept in both open the trip's Timeline tab.
+      value: (
+        <Link to={`/roadtrips/${r.id}?tab=timeline`} className="hover:underline">
+          {`${days.approximate ? "≈ " : ""}${nf.format(days.days)}`}
+        </Link>
+      ),
       sub: ahead !== null ? t("roadtrips:detail.figDaysAhead", { count: ahead }) : undefined,
       title: days.approximate ? t("roadtrips:list.nightsApprox") : undefined,
     },
     {
       key: "places",
       label: t("roadtrips:detail.figPlaces"),
-      value: t("roadtrips:detail.figPlacesValue", { count: n.placesSlept }),
+      value: (
+        <Link to={`/roadtrips/${r.id}?tab=timeline`} className="hover:underline">
+          {t("roadtrips:detail.figPlacesValue", { count: n.placesSlept })}
+        </Link>
+      ),
     },
     {
       key: "countries",
       label: t("roadtrips:detail.figCountries"),
-      value: nf.format(detail.countries.length),
+      // The countries open the trip's Map tab (owner request 2026-10-14).
+      value: (
+        <Link to={`/roadtrips/${r.id}?tab=map`} className="hover:underline">
+          {nf.format(detail.countries.length)}
+        </Link>
+      ),
       sub: detail.countries.join(" · ") || undefined,
     },
     {
       key: "journey",
       label: t("common:summary.journey"),
       value: journey ? (
-        <Link to={`/trips/${journey.id}`}>{journey.name}</Link>
+        <Link to={`/trips/${journey.id}`} className="hover:underline">
+          {journey.name}
+        </Link>
       ) : (
         t("common:labels.notAvailable")
       ),
@@ -286,7 +382,9 @@ function TripFigures({ detail, today }: Omit<TripFiguresProps, "level">): JSX.El
           // The TRIP's gallery: its tab resolves the same album
           // (`RoadtripGallery` → `albumForRoadtrip`, journey fallback and all),
           // so the link lands on the page that shows what the cell names.
-          <Link to={`/roadtrips/${r.id}?tab=gallery`}>{album.albumName}</Link>
+          <Link to={`/roadtrips/${r.id}?tab=gallery`} className="hover:underline">
+            {album.albumName}
+          </Link>
         ) : (
           t("common:labels.notAvailable")
         ),

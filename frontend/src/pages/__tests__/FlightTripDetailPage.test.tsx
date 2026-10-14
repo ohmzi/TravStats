@@ -134,6 +134,28 @@ function makeTrip(over: Record<string, unknown> = {}): Trip {
   } as unknown as Trip;
 }
 
+/**
+ * One roadtrip station on the journey's trip, as `GET /trips/:id` serves it —
+ * the band reads the associated roadtrips off `routeId`. A synthetic place
+ * like every other fixture here (public repo).
+ */
+function stationDto(routeId: string): Record<string, unknown> {
+  return {
+    id: `s-${routeId}`,
+    title: "Somewhere",
+    lat: null,
+    lon: null,
+    startDate: null,
+    endDate: null,
+    notes: null,
+    routeId,
+    routeName: "Somewhere loop",
+    routeOrderIdx: 0,
+    state: "stay",
+    nights: 1,
+  };
+}
+
 function renderAt(path: string): void {
   render(
     <MemoryRouter initialEntries={[path]}>
@@ -223,6 +245,24 @@ describe("FlightTripDetailPage", () => {
     const row = await screen.findByTestId("row-f1");
     fireEvent.click(row.querySelector("button") as HTMLElement);
     expect(await screen.findByTestId("flight-page")).toBeInTheDocument();
+  });
+
+  it("swaps the body for the table when the band's Flights number is tapped (unchanged)", async () => {
+    renderAt("/flights/journeys/t1");
+    await screen.findAllByText("Baltic 2026");
+    // Two legs, so the band's Flights cell reads "2" — the only button with
+    // that exact accessible name (the count tab is spelled "2 <flights key>").
+    fireEvent.click(screen.getByRole("button", { name: "2" }));
+    expect(await screen.findByTestId("row-f1")).toBeInTheDocument();
+  });
+
+  it("sends the band's Days cell to the associated roadtrip's timeline", async () => {
+    getById.mockResolvedValue(makeTrip({ roadtripStations: [stationDto("rt-9")] }));
+    renderAt("/flights/journeys/t1");
+    await screen.findAllByText("Baltic 2026");
+    // The band reads the association off the trip it already holds, so the
+    // page needs no extra fetch and passes nothing down for it.
+    expect(document.querySelector('a[href="/roadtrips/rt-9?tab=timeline"]')).not.toBeNull();
   });
 
   it("keeps the Logbook back label, as the four sibling detail pages do", async () => {
