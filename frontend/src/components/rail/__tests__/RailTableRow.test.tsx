@@ -94,7 +94,10 @@ describe("RailTableRow operator tile", () => {
     const tile = within(cellOf(row, "operator")).getByTestId("operator-tile");
     expect(tile).toHaveAttribute("title", "DB Fernverkehr");
     expect(tile.textContent).toBe("DB Fernverkehr");
-    expect(within(tile).getByTestId("operator-logo")).toHaveAttribute("src", "/api/v1/rail/operators/logo?name=DB%20Fernverkehr");
+    expect(within(tile).getByTestId("operator-logo")).toHaveAttribute(
+      "src",
+      "/api/v1/rail/operators/logo?name=DB%20Fernverkehr"
+    );
   });
 
   it("names a grouped ride after the operator of its longest stretch", () => {

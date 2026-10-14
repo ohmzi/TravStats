@@ -51,7 +51,7 @@ export function flownCountries(
   facts: AirportCountry
 ): string[] {
   const countryAt = (code: string | null): string | null =>
-    code ? facts.get(code)?.country ?? null : null;
+    code ? (facts.get(code)?.country ?? null) : null;
 
   // Only the START needs an order, and the caller's is not guaranteed. An
   // undated leg keeps its place rather than being moved to one end: "somewhere

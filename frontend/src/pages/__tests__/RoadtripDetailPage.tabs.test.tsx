@@ -104,12 +104,12 @@ const DETAIL: RoadtripDetail = {
   routingAvailable: true,
   expenses: [],
   costs: {
-      total: {},
-      totalBase: { currency: "EUR", amount: 0, unconverted: {} },
-      byStation: [],
-      byLeg: [],
-      unpinned: {},
-    },
+    total: {},
+    totalBase: { currency: "EUR", amount: 0, unconverted: {} },
+    byStation: [],
+    byLeg: [],
+    unpinned: {},
+  },
 };
 
 function LocationProbe(): JSX.Element {

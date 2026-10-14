@@ -5,11 +5,7 @@ import { authenticate, requireWriteScope, AuthRequest } from "../middleware/auth
 import { rejectDemo } from "../middleware/demoGuard";
 import { AppError } from "../middleware/errorHandler";
 import { linkDocuments, takeDocumentIds } from "../services/documents/documentService";
-import {
-  createTripSchema,
-  updateTripSchema,
-  assignFlightsSchema,
-} from "../schemas/trip";
+import { createTripSchema, updateTripSchema, assignFlightsSchema } from "../schemas/trip";
 import { assertMergedTripDates } from "../services/trip/tripDateOrder";
 import logger from "../utils/logger";
 import { resolveCompanions, linkRowsFor } from "../services/companionService";

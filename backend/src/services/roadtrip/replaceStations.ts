@@ -223,7 +223,9 @@ export async function replaceStationsInTx(
     // coordinate (only legacy rows — every writer refuses to create one)
     // is in no editor's list, and counting it made every write 409 for
     // good (review M2). It is dropped by this write, as it always was.
-    const placed = new Set(existing.flatMap((s) => (s.lat !== null && s.lon !== null ? [s.id] : [])));
+    const placed = new Set(
+      existing.flatMap((s) => (s.lat !== null && s.lon !== null ? [s.id] : []))
+    );
     const expected = new Set(opts.expectedStationIds);
     const same = expected.size === placed.size && [...placed].every((id) => expected.has(id));
     if (!same) {
