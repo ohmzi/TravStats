@@ -1,10 +1,11 @@
 /**
  * The final review's finding B5-1: single linkage at 30 km joins the
- * residence's photos with a place 24 km away, and the one cluster then holds
- * two named places. Each station of that cluster is titled from its own
- * segment — the day trip by the cove's own city, the two home ends by the
- * residence's town — instead of every station wearing whichever place the
- * cluster's photo count happens to favour.
+ * residence's photos with a place 24 km away into one cluster. The by-name
+ * split (owner ruling 2026-10-14) then gives each named place its own stop, so
+ * the residence and the nearby cove stand apart, each station titled by its own
+ * place — the day trip by the cove's own city, the two ends by the residence's
+ * town — instead of every station wearing whichever place the cluster's photo
+ * count happens to favour.
  *
  * The loop parks at a base (Ostwick) away from both home and the cove: the
  * day trip out of it is what makes a station at the cove at all. Fixtures are
@@ -55,7 +56,7 @@ function loopAssets(coastLocals: readonly string[]) {
   ];
 }
 
-describe("buildDraftWith: a home cluster merged with a nearby day trip", () => {
+describe("buildDraftWith: a residence and a nearby day trip stand apart", () => {
   async function stationsOf(coastLocals: readonly string[]) {
     const { dto } = await buildDraftWith(
       builderDeps(loopAssets(coastLocals), {
@@ -70,9 +71,9 @@ describe("buildDraftWith: a home cluster merged with a nearby day trip", () => {
     return dto.areas[0].stations;
   }
 
-  /** Three coast photos: the home photos outnumber them and name the merged cluster. */
+  /** Three coast photos — the split's own minimum, so the cove reaches its own stop. */
   const COAST_FEW = ["2031-05-03T11:00", "2031-05-03T12:00", "2031-05-03T13:00"];
-  /** Seven coast photos: the cove outnumbers home and names the merged cluster. */
+  /** Seven coast photos: the cove outnumbers home and still stands apart. */
   const COAST_MANY = [
     "2031-05-03T11:00",
     "2031-05-03T11:30",
@@ -83,7 +84,7 @@ describe("buildDraftWith: a home cluster merged with a nearby day trip", () => {
     "2031-05-03T14:00",
   ];
 
-  it("titles the day trip by the cove's own city when home names the merged cluster", async () => {
+  it("titles the day trip by the cove's own city and the ends by the residence's town", async () => {
     const stations = await stationsOf(COAST_FEW);
     expect(stations.map((s) => [s.title, s.kind, s.titleSource])).toEqual([
       ["Kelmore", "home", "immich"],
@@ -94,14 +95,14 @@ describe("buildDraftWith: a home cluster merged with a nearby day trip", () => {
     ]);
   });
 
-  it("keeps the residence's town on the home ends when the cove names the merged cluster", async () => {
+  it("keeps the two places apart even when the cove outnumbers the residence", async () => {
     const stations = await stationsOf(COAST_MANY);
     expect(stations.map((s) => [s.title, s.kind, s.titleSource])).toEqual([
-      ["Kelmore", "home", "home"],
+      ["Kelmore", "home", "immich"],
       ["Ostwick", "brief", "immich"],
       ["Selby Cove", "dayTrip", "immich"],
       ["Ostwick", "brief", "immich"],
-      ["Kelmore", "home", "home"],
+      ["Kelmore", "home", "immich"],
     ]);
   });
 });

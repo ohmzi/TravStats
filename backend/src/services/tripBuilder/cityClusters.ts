@@ -10,11 +10,10 @@
  * latitude instead of staying a 3×3 block.
  *
  * A chain can run one city into the next — and a chain need not sprawl to do
- * it (2026-10-13, the "Sumayya's wedding" stay: the drive's photos chain a
+ * it (2026-10-13, one stay: the drive's photos chain a
  * place 33 km out into the city's cluster, which stays 37 km wide) — so a
  * cluster holding several named places is split again by the names Immich
- * gave its photos, and only the places whose own medians lie farther apart
- * than `CITY_LINK_KM` stand apart.
+ * gave its photos, and each named place stands apart.
  */
 import { distanceKm } from "../photoJourneys/cluster";
 import type { Coord } from "../tour/tourDistance";
@@ -205,21 +204,29 @@ function nearestIndex(from: Coord, centres: readonly Coord[]): number {
 }
 
 /**
- * A cluster is split by Immich's `city|state` wherever two of its named places
- * lie farther apart than one place's own link distance (`CITY_LINK_KM`): the
- * chain that joined them is what single linkage cannot see, and how wide that
- * chain made the cluster says nothing about whether it joined two places —
- * a compact city cluster whose drive-by photos reach a place 33 km out is two
- * named places, not one (the live 2026-10-13 shape; the cluster was 37 km wide
- * and the by-name split never ran). A group of fewer than
- * `CLUSTER_SPLIT_MIN_PHOTOS` photos joins the nearest group, and groups whose
- * medians lie within `CITY_LINK_KM` merge again, so a metro area's neighbouring
- * names stay one place. Only a NAMED group can stand alone: photos Immich
- * gives neither city nor state (partial reverse-geocoding) group together
- * under the bare "|" key and join their nearest named group as strays, so a
- * pocket of unnamed photos can never become a station of its own. When that
- * leaves one group — Immich names it all one place, or only one name has
- * enough photos to stand alone — the cluster stays whole.
+ * A cluster is split by Immich's `city|state`: each named place of at least
+ * `CLUSTER_SPLIT_MIN_PHOTOS` photos stands as its own, however close its
+ * median lies to a neighbour's. The chain that joined them is what single
+ * linkage cannot see, and how wide that chain made the cluster says nothing
+ * about whether it joined two places — a compact city cluster whose drive-by
+ * photos reach a place 33 km out is two named places, not one (the live
+ * 2026-10-13 shape; the cluster was 37 km wide and the by-name split never
+ * ran).
+ *
+ * The owner's 2026-10-14 ruling dropped the step that used to merge named
+ * groups whose medians lay within `CITY_LINK_KM`: on a small island's roadtrip
+ * every district name sat within 25.7 km of every other, inside that link
+ * distance, so the whole week collapsed into one station and no day could
+ * read its own place. Named places now stand apart there too; a metro area's
+ * neighbouring district names may split as well, and merge again in the review.
+ *
+ * A group of fewer than `CLUSTER_SPLIT_MIN_PHOTOS` photos joins the nearest
+ * kept group, and only a NAMED group can stand alone: photos Immich gives
+ * neither city nor state (partial reverse-geocoding) group together under the
+ * bare "|" key and join their nearest named group as strays, so a pocket of
+ * unnamed photos can never become a station of its own. When fewer than two
+ * named groups are large enough to stand alone — Immich names it all one
+ * place, or only one name has enough photos — the cluster stays whole.
  */
 function splitByNames(members: readonly Placed[]): Placed[][] {
   const groups = groupByCityAndState(members);
@@ -228,25 +235,12 @@ function splitByNames(members: readonly Placed[]): Placed[][] {
   );
   if (large.length < 2) return [inOrder(members)];
 
-  const largeCentres = large.map(medianPoint);
-  const joined = large.map((group) => [...group]);
+  const centres = large.map(medianPoint);
+  const split = large.map((group) => [...group]);
   for (const stray of groups.filter((group) => !large.includes(group))) {
-    joined[nearestIndex(medianPoint(stray), largeCentres)].push(...stray);
+    split[nearestIndex(medianPoint(stray), centres)].push(...stray);
   }
-
-  const centres = joined.map(medianPoint);
-  const sets = new DisjointSet(joined.length);
-  for (let a = 0; a < joined.length; a++) {
-    for (let b = a + 1; b < joined.length; b++) {
-      if (distanceKm(centres[a], centres[b]) <= CITY_LINK_KM) sets.union(a, b);
-    }
-  }
-  const merged = new Map<number, Placed[]>();
-  joined.forEach((group, index) => {
-    const root = sets.find(index);
-    merged.set(root, [...(merged.get(root) ?? []), ...group]);
-  });
-  return merged.size < 2 ? [inOrder(members)] : [...merged.values()].map(inOrder);
+  return split.map(inOrder);
 }
 
 function toCluster(members: readonly Placed[], id: string): CityCluster {
