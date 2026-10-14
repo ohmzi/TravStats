@@ -1,41 +1,38 @@
 /**
- * Which countries a trip's FLIGHTS show it was actually in.
+ * Which countries a trip's FLIGHTS show it went to.
  *
- * WHY THIS IS NOT "EVERY AIRPORT A LEG TOUCHES". The old derivation took both
- * ends of every leg, so a trip that flew out of Canada and changed planes twice
- * read as five countries when it had been to one — the country it left from
- * counted as visited, and so did every country it crossed a tarmac in (owner,
- * 2026-10-09: "it actually shouldnt even have canada because we only flew out
- * of there"). A country is somewhere the trip was, not somewhere a flight
- * touched.
+ * THE RULE, in the owner's words (2026-10-09): "the start of journey country
+ * shouldnt count. and if start and end are the same then again it shouldnt
+ * count. but if end is different then it should count. and if any other country
+ * is in the middle of trip and considered layover then it should count."
  *
- * THE RULE, and it is about TIME because that is what the owner named: a
- * country counts when the trip spent a NIGHT in it. Walk the legs in order and
- * close a segment each time a leg arrives somewhere new; a segment that started
- * on one day and ended on a later one is a night away. "look at the cities
- * details where the flight landed and took the flight out of where most of the
- * time was spent" — landing and later leaving the same country is the segment,
- * and the night is what separates a stay from a plane change.
+ * So: every country a leg touches counts — BOTH ends, and a layover is a
+ * country the trip was in, not a tarmac to be argued away ("take example of
+ * karachi 2025 trip. Istanbul shoild count"). The one exclusion is where the
+ * trip STARTED, which is why a trip out of Canada and back into Canada no longer
+ * reads as five countries (owner: "it actually shouldnt even have canada because
+ * we only flew out of there"). Excluding the start covers the return leg too:
+ * when start and end are the same country there is nothing to add back.
  *
- * WHAT THAT DOES TO THE CASES THAT ASKED FOR IT. A country the trip only flew
- * out of, and flew back into at the end, never gets a segment that starts and
- * ends a day apart — it is the origin, not a visit — so it drops. A country
- * where a plane was changed between two legs on one day gets a segment of zero
- * nights, so it drops too. A trip that never leaves one country still collects
- * its own segment and keeps it, because the whole trip was spent there.
+ * THAT LAST SENTENCE IS WHY THIS IS NOT SIMPLY "DROP THE ORIGIN". A trip that
+ * never leaves its own country touches exactly one country, and it is the origin
+ * — dropping it would leave the card with no countries and therefore no flags
+ * at all, erasing a trip rather than correcting it. So the origin is dropped
+ * only when something else remains; when it is all the trip has, it is what the
+ * trip has. (The alternative — a literal reading that blanks such a card — is a
+ * one-line change if the owner ever wants it.)
  *
- * WHEN THE TIMES ARE MISSING. Imported legs often carry no times; a segment
- * with no leftAt to measure is counted rather than dropped, because "arrived
- * and later left" is evidence on its own and the alternative would silently
- * erase a country. The only segment that never counts without times is the one
- * the trip ENDS in when that country is also where it started — the origin
- * again. A trip that ends somewhere else counts that country: it ended there.
+ * WHY THIS IS NOT THE NIGHT COUNT IT FIRST WAS. An earlier draft counted only
+ * countries where a night was spent, which correctly killed the departure
+ * country but also killed every layover — and the owner counts layovers. The
+ * distinction he draws is start versus everywhere-else, not stay versus
+ * plane change, so the walk over times is gone and this is a set.
  */
 
 /** The airport facts a leg needs: the country its IATA code stands in. */
 export type AirportCountry = Map<string, { country: string | null }>;
 
-/** The shape of a flight this rule reads. Dates are nullable, as stored. */
+/** The shape of a flight this rule reads. Only the ends and the clock matter. */
 export interface VisitableFlight {
   depIata: string | null;
   arrIata: string | null;
@@ -43,16 +40,8 @@ export interface VisitableFlight {
   arrivalTime?: Date | null;
 }
 
-/** Whole days between two instants, in UTC. Null when either end is unknown. */
-function nightsBetween(from: Date | null, to: Date | null): number | null {
-  if (!from || !to) return null;
-  const a = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate());
-  const b = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
-  return Math.round((b - a) / 86_400_000);
-}
-
 /**
- * The countries the flights show a night spent in, sorted.
+ * The countries the flights show the trip in, sorted — the start excluded.
  *
  * Pure: no request, no database, no clock. `facts` is the caller's airport
  * catalogue, so this can be tested with a handful of literals.
@@ -64,16 +53,15 @@ export function flownCountries(
   const countryAt = (code: string | null): string | null =>
     code ? facts.get(code)?.country ?? null : null;
 
-  // The walk is only meaningful in chronological order, and the caller's order
-  // is not guaranteed. An undated leg keeps its place rather than being moved
-  // to one end, because "somewhere in the itinerary" beats "after everything".
+  // Only the START needs an order, and the caller's is not guaranteed. An
+  // undated leg keeps its place rather than being moved to one end: "somewhere
+  // in the itinerary" beats "after everything".
   const legs = flights
     .map((f, index) => ({
       index,
       dep: countryAt(f.depIata),
       arr: countryAt(f.arrIata),
       depAt: f.departureTime ?? null,
-      arrAt: f.arrivalTime ?? f.departureTime ?? null,
     }))
     .filter((l) => l.dep || l.arr)
     .sort((a, b) => {
@@ -83,38 +71,15 @@ export function flownCountries(
     });
 
   const origin = legs[0]?.dep ?? null;
-  const visited = new Set<string>();
 
-  let open: { country: string; arrivedAt: Date | null; leftAt: Date | null } | null = null;
-
-  /** A segment that ended: counted when it spanned a night, or when we cannot
-   *  measure it and the itinerary says the trip was there at all. */
-  const closeSegment = (segment: { country: string; arrivedAt: Date | null; leftAt: Date | null }): void => {
-    const nights = nightsBetween(segment.arrivedAt, segment.leftAt);
-    if (nights === null || nights >= 1) visited.add(segment.country);
-  };
-
+  const touched = new Set<string>();
   for (const leg of legs) {
-    if (open && leg.dep && leg.dep === open.country) {
-      open.leftAt = leg.depAt ?? open.leftAt;
-    }
-    if (open && leg.arr && leg.arr !== open.country) {
-      closeSegment(open);
-      open = null;
-    }
-    if (!open && leg.arr) {
-      open = { country: leg.arr, arrivedAt: leg.arrAt, leftAt: null };
-    }
+    if (leg.dep) touched.add(leg.dep);
+    if (leg.arr) touched.add(leg.arr);
   }
 
-  // The last segment. If the trip LEFT it, the night rule decides like any
-  // other — and that is the case of a trip that never leaves its own country,
-  // whose one segment is also its origin, so skipping it here would erase the
-  // whole trip. If the trip never left it, the trip ended there: that counts
-  // when it is not home, because the origin is where the trip started rather
-  // than somewhere it went.
-  if (open && open.leftAt) closeSegment(open);
-  else if (open && open.country !== origin) visited.add(open.country);
+  if (origin && touched.size > 1) touched.delete(origin);
+  // A trip that never left its own country is that country; see the note above.
 
-  return [...visited].sort();
+  return [...touched].sort();
 }

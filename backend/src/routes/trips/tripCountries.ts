@@ -66,11 +66,12 @@ export async function airportFactsFor(
  * detail page showing five. Both call this now; a third caller must too.
  *
  * WHAT A COUNTRY HAS TO BE TRUE OF, which is the part that changed: the flights
- * contribute the countries the trip spent a NIGHT in, not every airport a leg
- * touches (`services/trip/flightVisits.ts`). Both ends of every leg used to
- * count, so a trip that flew out of Canada and changed planes twice read as five
- * countries when it had been to one (owner, 2026-10-09). The other three
- * sources are already time-bearing evidence rather than airport touches and are
+ * contribute EVERY country a leg touches — both ends, layovers included — less
+ * the one the trip STARTED in (`services/trip/flightVisits.ts`). Counting both
+ * ends with no exclusion made a trip out of Canada read as five countries when
+ * it had been to two (owner, 2026-10-09: "we only flew out of there"); and a
+ * rule that dropped every plane change was wrong too, because a layover is a
+ * country he counts ("Istanbul shoild count"). The other three sources are already time-bearing evidence rather than airport touches and are
  * taken at face value: a stay is nights by definition, a cruise's ports are the
  * itinerary the traveller typed, and a roadtrip reaches every country its
  * stations stand in by the one rule the roadtrip page uses.
