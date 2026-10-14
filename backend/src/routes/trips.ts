@@ -28,6 +28,7 @@ import {
 import { emailParseLimiter } from "../middleware/rateLimit";
 import { assertLlmCloudConsent, assertLlmEnabled } from "../services/llm/llmGate";
 import { tripPageCost, tripsPageCosts } from "../services/trip/tripCostSuperlative";
+import { tripsPageTotalLoggedKm } from "../services/trip/tripDistanceTotal";
 import {
   TRIPS_LIST_INCLUDE,
   TRIP_BUS_SELECT,
@@ -166,7 +167,12 @@ router.get(
         legSums.map((row) => [row.cruiseId, row._sum.distanceKm ?? 0])
       );
       // Every card's cost and the superlative: one load, one rule (forgejo#274).
-      const insights = includeInsights ? await tripsPageCosts(userId) : undefined;
+      // The lifetime distance total rides the same opt-in (owner 2026-10-14):
+      // it too runs its own uncapped query over every flight, cruise leg and
+      // roadtrip drive, so it is served only when the page asks for insights.
+      const [insights, totalLoggedKm] = includeInsights
+        ? await Promise.all([tripsPageCosts(userId), tripsPageTotalLoggedKm(userId)])
+        : [undefined, undefined];
       res.json({
         trips: trips.map((t) => {
           // A trip's car stops, read once and used by both country lists.
@@ -194,6 +200,7 @@ router.get(
           };
         }),
         ...(insights && { mostExpensiveTrip: insights.mostExpensiveTrip }),
+        ...(totalLoggedKm !== undefined && { totalLoggedKm }),
       });
     } catch (error) {
       next(error);

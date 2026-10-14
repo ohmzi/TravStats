@@ -68,13 +68,27 @@ export type { RecordId, RecordUnit, TravelRecord } from "../../schemas/statsDoma
 import type { TravelRecord } from "../../schemas/statsDomains";
 
 /**
+ * The five fields a flight's distance needs: the stamped route distance, else
+ * the two endpoints. Narrower than `RecordFlightInput` so a caller that holds
+ * nothing but these (the lifetime distance total) reads the SAME rule — one
+ * flight, one length, whichever surface asks.
+ */
+export interface FlightDistanceInput {
+  routeDistance: number | null;
+  depLat: number | null;
+  depLon: number | null;
+  arrLat: number | null;
+  arrLon: number | null;
+}
+
+/**
  * Stored distance first, great-circle second, nothing third.
  *
  * Most real rows carry no stored `routeDistance`, and judging only over the few
  * that do misses the actual longest leg — the Companion found that against a
  * real account. A row with neither a distance nor two endpoints abstains.
  */
-function distanceKm(flight: RecordFlightInput): number | null {
+export function distanceKm(flight: FlightDistanceInput): number | null {
   if (typeof flight.routeDistance === "number" && flight.routeDistance > 0) {
     return flight.routeDistance;
   }

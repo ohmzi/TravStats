@@ -3,26 +3,41 @@ import { useNavigate } from "react-router-dom";
 import type { Trip } from "../../types";
 import type { TripCostSuperlative } from "../../lib/api/trips";
 import { useTranslation } from "../../hooks/useTranslation";
-import { computeTripInsights, type TripInsightWinner } from "../../lib/stats/tripInsights";
+import {
+  computeTripInsights,
+  formatLoggedKm,
+  type TripInsightWinner,
+} from "../../lib/stats/tripInsights";
 import { TRIP_GRID_CLASS } from "./tripGrid";
 
 /**
  * Trip-level insights (#3): the standout trips across the whole logbook —
- * longest, most expensive, most countries. The trip is the cross-domain
- * bracket, but it was only ever shown as a per-trip sum; this answers "which
- * trip was the biggest" at a glance. Reuses the same cost model as the cards.
+ * longest, most expensive, most countries — plus the lifetime "Total logged km"
+ * (owner request 2026-10-14). The trip is the cross-domain bracket, but it was
+ * only ever shown as a per-trip sum; this answers "which trip was the biggest"
+ * at a glance. Reuses the same cost model as the cards.
  *
- * Renders nothing until at least one metric has a winner, so a fresh or
+ * The total is not a WINNER: it names no trip and navigates nowhere, so it
+ * renders as a plain tile (label + value) and does not join the clickable
+ * three. It also does not widen the grid — `lg:grid-cols-3` is shared with the
+ * trip cards below for edge alignment, so a fourth tile wraps to a second row.
+ *
+ * Renders nothing until at least one METRIC has a winner, so a fresh or
  * single-trivial-trip account never shows an empty strip.
  */
 export function TripInsightsBar({
   trips,
   mostExpensiveTrip,
+  totalLoggedKm = null,
 }: {
   trips: Trip[];
   /** From `tripsApi.getAllWithInsights()` — the uncapped, FX-ranked winner.
    *  `null` means no started trip has a convertible cost yet. */
   mostExpensiveTrip: TripCostSuperlative | null;
+  /** From the same response: the lifetime km the server summed over every
+   *  flight, cruise leg and driven roadtrip leg. `null` when it was not
+   *  requested; the tile then shows a dash rather than inventing a 0. */
+  totalLoggedKm?: number | null;
 }): JSX.Element | null {
   const { t, i18n } = useTranslation(["trips"]);
   const navigate = useNavigate();
@@ -108,6 +123,23 @@ export function TripInsightsBar({
             </div>
           )
         )}
+        {/* The lifetime total (owner 2026-10-14): never a winner, so a plain
+            tile — label + value, no trip name, no navigation — and it does not
+            join the dashed non-winner placeholders above. */}
+        <div
+          className="rounded-xl p-4"
+          style={{ background: "var(--bg-surface)", border: "1px solid var(--color-border)" }}
+        >
+          <div
+            className="text-[11px] font-semibold uppercase tracking-wider"
+            style={{ color: "var(--text-muted)" }}
+          >
+            {t("trips:insights.totalLoggedKm")}
+          </div>
+          <div className="text-lg font-semibold mt-1" style={{ color: "var(--accent)" }}>
+            {totalLoggedKm === null ? "—" : formatLoggedKm(totalLoggedKm, i18n.language ?? "de")}
+          </div>
+        </div>
       </div>
     </div>
   );

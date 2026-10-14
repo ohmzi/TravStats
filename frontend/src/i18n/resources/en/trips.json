@@ -438,6 +438,7 @@
     "longest": "Longest journey",
     "mostExpensive": "Most expensive journey",
     "mostCountries": "Most countries",
+    "totalLoggedKm": "Total logged km",
     "mostExpensiveExcluded_one": "{{count}} journey left out: no conversion",
     "mostExpensiveExcluded_other": "{{count}} journeys left out: no conversion"
   },

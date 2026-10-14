@@ -177,14 +177,19 @@ registry.registerPath({
     "`cost`, both from one rule and one load — not derivable " +
     "from the (capped) `trips` array above, so callers that need the true " +
     "cross-trip superlative ask for it explicitly rather than every caller of " +
-    "this endpoint paying for it.",
+    "this endpoint paying for it. The same flag adds `totalLoggedKm`: the " +
+    "lifetime sum of every flight, cruise leg and driven roadtrip leg, " +
+    "computed uncapped so a trip beyond the 500-trip cap and a row attached to " +
+    "no trip both still count.",
   tags: ["Trips"],
   request: {
     query: z.object({
       includeInsights: z
         .enum(["true", "false"])
         .optional()
-        .describe("Adds `mostExpensiveTrip` and each trip's `cost`. Default false."),
+        .describe(
+          "Adds `mostExpensiveTrip`, each trip's `cost`, and `totalLoggedKm`. Default false."
+        ),
     }),
   },
   responses: {
@@ -198,6 +203,13 @@ registry.registerPath({
               .nullable()
               .optional()
               .describe("Present only when `includeInsights=true` was passed."),
+            totalLoggedKm: z
+              .number()
+              .optional()
+              .describe(
+                "Lifetime km across every flight, cruise leg and driven roadtrip " +
+                  "leg. Present only when `includeInsights=true` was passed."
+              ),
           }),
         },
       },

@@ -56,6 +56,18 @@ export function tripDistanceKm(trip: Trip): number {
   return km;
 }
 
+/**
+ * The value of the journeys page's "Total logged km" tile (owner request
+ * 2026-10-14). The number itself is a lifetime figure the SERVER computed,
+ * uncapped, over every flight, cruise leg and driven roadtrip leg — never a
+ * fold of this page's capped `trips` array, which would miss a trip beyond the
+ * cap and every row attached to no trip. Formatting is the only thing done
+ * here, deliberately matching the `longest` tile: whole km, locale-aware.
+ */
+export function formatLoggedKm(km: number, language: string): string {
+  return `${new Intl.NumberFormat(language).format(Math.round(km))} km`;
+}
+
 /** Picks the trip maximising `amount`, formatting its headline via `format`. */
 function winner(
   trips: Trip[],

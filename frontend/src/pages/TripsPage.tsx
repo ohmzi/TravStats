@@ -19,16 +19,19 @@ export default function TripsPage(): JSX.Element {
   const { t } = useTranslation(["trips"]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [mostExpensiveTrip, setMostExpensiveTrip] = useState<TripCostSuperlative | null>(null);
+  const [totalLoggedKm, setTotalLoggedKm] = useState<number | null>(null);
 
   // `getAllWithInsights`, not `getAll` — this is the ONE screen that shows
-  // the cross-trip cost superlative, and it must come from the backend's
-  // uncapped ranking (evidence spec "The most expensive trip"), never
-  // recomputed from this page's own (capped) `trips` array.
+  // the cross-trip cost superlative and the lifetime distance total, and both
+  // must come from the backend's uncapped figures (evidence spec "The most
+  // expensive trip"; owner request 2026-10-14), never recomputed from this
+  // page's own (capped) `trips` array.
   const loadTrips = async (): Promise<void> => {
     try {
       const data = await tripsApi.getAllWithInsights();
       setTrips(data.trips);
       setMostExpensiveTrip(data.mostExpensiveTrip);
+      setTotalLoggedKm(data.totalLoggedKm);
     } catch (err) {
       logger.warn("Failed to load trips", err);
     }
@@ -44,7 +47,13 @@ export default function TripsPage(): JSX.Element {
         trips={trips}
         onTripsChange={() => void loadTrips()}
         header={{ title: t("trips:tab"), meta: t("trips:count", { count: trips.length }) }}
-        insights={<TripInsightsBar trips={trips} mostExpensiveTrip={mostExpensiveTrip} />}
+        insights={
+          <TripInsightsBar
+            trips={trips}
+            mostExpensiveTrip={mostExpensiveTrip}
+            totalLoggedKm={totalLoggedKm}
+          />
+        }
       />
     </AppShell>
   );

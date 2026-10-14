@@ -135,19 +135,22 @@ export const tripsApi = {
   },
 
   /**
-   * Same list, plus the uncapped cross-trip cost superlative
-   * (`mostExpensiveTrip`). A SEPARATE call from `getAll` on purpose: every
+   * Same list, plus the uncapped cross-trip insights: the cost superlative
+   * (`mostExpensiveTrip`) and the lifetime `totalLoggedKm` (the journeys page's
+   * "Total logged km" tile). A SEPARATE call from `getAll` on purpose: every
    * other caller of `/trips` (StayEditor, PlaceDetailPage, FlightsTablePage,
-   * the Cruise modal, …) has no use for it, and `includeInsights=true` is
-   * what keeps the extra uncapped query from running on their behalf.
+   * the Cruise modal, …) has no use for them, and `includeInsights=true` is
+   * what keeps the extra uncapped queries from running on their behalf.
    */
   getAllWithInsights: async (): Promise<{
     trips: Trip[];
     mostExpensiveTrip: TripCostSuperlative | null;
+    totalLoggedKm: number;
   }> => {
     const { data } = await api.get<{
       trips: Trip[];
       mostExpensiveTrip: TripCostSuperlative | null;
+      totalLoggedKm: number;
     }>("/trips", { params: { includeInsights: true } });
     return data;
   },
