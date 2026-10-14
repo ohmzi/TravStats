@@ -117,17 +117,16 @@ export default function TripCard({ trip, onOpen }: TripCardProps): JSX.Element {
   const mono = { fontFamily: "var(--ts-font-mono)" } as const;
   const figure = { color: "var(--ts-text-bright)" } as const;
 
-  // The header band names the places the JOURNEY went (owner ruling
-  // 2026-10-13): not the counted country SET (which is sorted, keeps home and
-  // reads nothing of the route's order) but the destinations the server
-  // ordered by travel and dropped home from (`destinationCountries`, the same
-  // airport/roadtrip derivation as `countries`). This card IS the journey card
-  // — the nested trips and tours are `RoadtripCard`s, never this one — so the
-  // field applies here; a plain trip that went nowhere by flight or car (stays
-  // or cruises only) keeps the countries it always drew. `bannerFlags` still
-  // drops any country this repo ships no flag for, and when NO flag is
-  // drawable the band keeps its exact old gradient — the trip's own colour is
-  // an honest fallback where an invented flag would not be.
+  // The header band names the ONE place the JOURNEY was mostly spent (owner
+  // ruling 2026-10-14): the server's `destinationCountries` is the single
+  // country the journey spent the most days in — not the counted country SET
+  // (`countries`, which is sorted and keeps every country it holds). This card
+  // IS the journey card — the nested trips and tours are `RoadtripCard`s, never
+  // this one — so the field applies here; a plain trip that went nowhere by
+  // flight or car (stays or cruises only) keeps the countries it always drew.
+  // `bannerFlags` still drops any country this repo ships no flag for, and when
+  // the field is empty the band keeps its exact old gradient — the trip's own
+  // colour is an honest fallback where an invented flag would not be.
   const journey = (trip.flights?.length ?? 0) > 0 || (trip._count?.roadtrips ?? 0) > 0;
   const bandCountries = journey ? (trip.destinationCountries ?? []) : trip.countries;
   const flags = bannerFlags(bandCountries);

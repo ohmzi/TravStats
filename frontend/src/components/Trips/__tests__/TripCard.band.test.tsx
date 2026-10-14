@@ -272,13 +272,13 @@ describe("band legibility", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// The band names the places the JOURNEY went (owner ruling 2026-10-13): the
-// server's `destinationCountries` — travel-ordered, home dropped — not the
-// counted country SET. A trip that went nowhere by flight or car keeps the
-// countries it always drew. `flights`/`_count.roadtrips` are how the card
-// tells a journey from a plain trip (the nested trips and tours are
-// `RoadtripCard`s, never this one).
-describe("TripCard band names the journey's destinations", () => {
+// The band names the ONE place the JOURNEY was mostly spent (owner ruling
+// 2026-10-14): the server's `destinationCountries` is the single country the
+// journey spent the most days in, not the counted country SET. A trip that went
+// nowhere by flight or car keeps the countries it always drew.
+// `flights`/`_count.roadtrips` are how the card tells a journey from a plain
+// trip (the nested trips and tours are `RoadtripCard`s, never this one).
+describe("TripCard band names the journey's one place", () => {
   const base = (over: Record<string, unknown>): Trip =>
     ({
       id: "t1",
@@ -308,7 +308,7 @@ describe("TripCard band names the journey's destinations", () => {
     return container;
   };
 
-  it("paints exactly the journey's destinations, in travel order", () => {
+  it("paints exactly the `destinationCountries` list the server hands the band", () => {
     const layers = flagLayers(
       renderTrip(
         base({

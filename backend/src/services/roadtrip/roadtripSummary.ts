@@ -268,11 +268,36 @@ export interface RoadtripListRow extends StoredTripDays {
 }
 
 /**
- * The countries a roadtrip's stations stand in (ISO alpha-2). The land-only
- * boundary set answers null on the shore — measured at Hirtshals and
- * Stavanger, which is where campsites and ferry ports are — so a station's
- * linked stay speaks for its country there; with neither, it abstains. The
- * cross-domain overview asks the same question of the same rule.
+ * The country ONE station stands in (ISO alpha-2), by the one rule every
+ * station country is resolved with: its own coordinates when it has them, else
+ * its linked stay's ISO code. The land-only boundary set answers null on the
+ * shore — measured at Hirtshals and Stavanger, which is where campsites and
+ * ferry ports are — so the linked stay speaks there; with neither, it abstains.
+ *
+ * Split out of `stationCountries` (2026-10-14) so a reader that needs ONE
+ * station's country — the journey band's per-station days — asks the same
+ * rule rather than keeping a second copy. There is one way to resolve a
+ * station's country in this codebase, and this is it.
+ */
+export function stationCountry(
+  station: {
+    lat: number | null;
+    lon: number | null;
+    lodgingStay: { lodging: { isoCountryCode: string | null } } | null;
+  },
+  resolver: Pick<CountryResolver, "countryAt">
+): string | null {
+  const fromPoint =
+    station.lat !== null && station.lon !== null
+      ? resolver.countryAt(station.lat, station.lon)
+      : null;
+  return fromPoint ?? toCountryCode(station.lodgingStay?.lodging.isoCountryCode ?? null);
+}
+
+/**
+ * The countries a roadtrip's stations stand in (ISO alpha-2), each resolved by
+ * `stationCountry` and deduped, sorted. The cross-domain overview asks the
+ * same question of the same rule.
  */
 export function stationCountries(
   stations: ReadonlyArray<{
@@ -287,8 +312,7 @@ export function stationCountries(
   // A route correction's country is one driven through at most, never one
   // the traveller stopped in (tester 2026-09-26).
   for (const s of stations.filter(isStation)) {
-    const fromPoint = s.lat !== null && s.lon !== null ? resolver.countryAt(s.lat, s.lon) : null;
-    const code = fromPoint ?? toCountryCode(s.lodgingStay?.lodging.isoCountryCode ?? null);
+    const code = stationCountry(s, resolver);
     if (code) touched.add(code);
   }
   return [...touched].sort();

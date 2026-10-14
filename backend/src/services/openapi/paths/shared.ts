@@ -301,13 +301,14 @@ export const tripResponse = registry.register(
         .array(z.string())
         .optional()
         .describe(
-          "GET /trips and GET /trips/{id}: the places the journey went (owner ruling " +
-            "2026-10-13) — the country of every flight's ARRIVAL airport and of every " +
-            "car leg, in travel order, with the final element of the raw sequence " +
-            "dropped (the last arrival is home, and home never shows), deduped keeping " +
-            "first occurrence. A separate list from `countries`, which stays a counted " +
-            "SET (sorted, home included): this one orders the band's flags. Empty when " +
-            "no flag is drawable — the card keeps its gradient fallback."
+          "GET /trips and GET /trips/{id}: the journey band's ONE flag (owner ruling " +
+            "2026-10-14) — the single country the journey spent the most days in. Its " +
+            "roadtrip stations decide it: each station's inclusive days are summed per " +
+            "country, the most wins, and a tie goes to the earliest station. When no " +
+            "station resolves a country, the country most of its flights reached is the " +
+            "fallback. At most one entry, and empty when nothing could be resolved — the " +
+            "band then keeps its gradient. A separate list from `countries`, which stays " +
+            "a counted SET."
         ),
     })
     .openapi("Trip")

@@ -1,7 +1,8 @@
 import { prisma } from "../../db";
 import { toCountryCode } from "../../shared/countryEvidence";
+import { isStation } from "../../shared/tour/roadtrip";
 import { getCountryResolver } from "../../services/geo/countryFromCoordinates";
-import { STATION_SELECT, stationCountries } from "../../services/roadtrip/roadtripSummary";
+import { STATION_SELECT, stationCountry } from "../../services/roadtrip/roadtripSummary";
 import { flownCountries, type VisitableFlight } from "../../services/trip/flightVisits";
 
 /**
@@ -14,11 +15,11 @@ import { flownCountries, type VisitableFlight } from "../../services/trip/flight
  * response. Both the list and the detail endpoint call them — 2.5.0 fixed
  * only one of the two, which is the drift a shared module makes harder.
  *
- * `journeyDestinationCountries` is the band's list (owner ruling 2026-10-13),
- * a second reading of the same legs: where they went, in travel order, home
- * never shown (owner report 2026-10-14). It rides the SAME airport catalogue
- * and roadtrip rule as `tripCountries`, so nothing here resolves a country
- * two ways.
+ * `journeyPrimaryCountry` is the band's ONE flag (owner ruling 2026-10-14):
+ * the country the journey spent most of its days in, read off its roadtrip
+ * stations, with its flights the fallback when it has none. It rides the SAME
+ * airport catalogue and roadtrip rule as `tripCountries`, so nothing here
+ * resolves a country two ways.
  */
 
 /**
@@ -174,162 +175,184 @@ export async function lodgingCountriesByTrip(tripIds: string[]): Promise<Map<str
   return out;
 }
 
-/** One leg a journey's destinations are read from, and when it began. */
-export interface JourneyLeg {
-  /**
-   * When the leg started — a flight's departure, a roadtrip's own first day.
-   * Null when unknown, which sorts it after the dated legs (the same
-   * convention `services/trip/flightVisits.ts` keeps).
-   */
+/** One station of a journey's roadtrip: where it stood and for how many days. */
+export interface JourneyStop {
+  /** The station's country, by the one `stationCountries` rule; null when unknown. */
+  country: string | null;
+  /** Inclusive whole days there: the span plus one, or one when undated. */
+  days: number;
+  /** The station's start day, the ordering key. Null when undated. */
   at: Date | null;
-  /**
-   * The country the leg put the traveller in: a flight's ARRIVAL airport, a
-   * car leg's country (one per country its stations stand in).
-   */
-  countries: string[];
 }
 
-/** The earliest day any station of a roadtrip began. */
-function earliestStopDay(stops: ReadonlyArray<{ startDate: Date | null }>): Date | null {
-  let earliest: Date | null = null;
-  for (const s of stops) {
-    if (s.startDate && (earliest === null || s.startDate < earliest)) earliest = s.startDate;
-  }
-  return earliest;
+/** Whole days between two instants, in UTC — the roadtrip `daySpan` rule. */
+function wholeDaysBetween(from: Date, to: Date): number {
+  const start = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate());
+  const end = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
+  return Math.round((end - start) / 86_400_000);
 }
 
 /**
- * Countries reached by each trip's roadtrips, keyed by trip id, as travel
- * legs: each roadtrip's country — by the one station-country rule the
- * roadtrip page and the `countries` derivation both use (`stationCountries`),
- * so a trip and its roadtrip never disagree about where it went — and the day
- * it began, so the caller can place it among the trip's flights in travel
- * order (the `destinationCountries` rule).
- *
- * A roadtrip's OWN stored day wins over its stations' (`TripRoute.startDay`),
- * the `spanOf` rule one level up: a stored side travels as it was and only a
- * side nobody set reads the stations.
+ * The days a station counts as: its span INCLUSIVE, so a single-day stop is
+ * one day and a five-day stay is five. A station without both ends counts one
+ * — it is a place the journey was, and that is the floor a station can be.
  */
-export async function roadtripLegsByTrip(tripIds: string[]): Promise<Map<string, JourneyLeg[]>> {
-  const out = new Map<string, JourneyLeg[]>();
+function stationDays(station: { startDate: Date | null; endDate: Date | null }): number {
+  if (!station.startDate || !station.endDate) return 1;
+  return Math.max(1, wholeDaysBetween(station.startDate, station.endDate) + 1);
+}
+
+/** startDate first (undated last), stable — the itinerary order the band reads. */
+function byTravelOrder(a: JourneyStop, b: JourneyStop): number {
+  if (a.at && b.at) return a.at.getTime() - b.at.getTime();
+  if (a.at === b.at) return 0;
+  return a.at ? -1 : 1;
+}
+
+/**
+ * Every journey's roadtrip stations, in start-date order, keyed by trip id.
+ *
+ * This is the band's whole input (owner ruling 2026-10-14): the country the
+ * journey spent most of its days in is read off these stations. The country of
+ * a station comes from the ONE rule the roadtrip page uses (`stationCountry`),
+ * and a route correction (`isStation`) is not a station — it counts for
+ * nothing here exactly as it counts for nothing in every station count.
+ *
+ * The order is `startDate` first, then the route's own station order (the
+ * routes are read in their own order, their stops by `routeOrderIdx`), so a
+ * tie on days can be settled by the earliest station. A station without a
+ * start day keeps its place after the dated ones — the convention every
+ * itinerary walk in this codebase keeps.
+ */
+export async function journeyStopsByTrip(tripIds: string[]): Promise<Map<string, JourneyStop[]>> {
+  const out = new Map<string, JourneyStop[]>();
   if (tripIds.length === 0) return out;
 
-  const roadtrips = await prisma.tripRoute.findMany({
+  const routes = await prisma.tripRoute.findMany({
     where: { tripId: { in: tripIds }, kind: "roadtrip" },
-    select: { tripId: true, startDay: true, stops: { select: STATION_SELECT } },
+    select: {
+      tripId: true,
+      stops: { select: STATION_SELECT, orderBy: { routeOrderIdx: "asc" } },
+    },
   });
-  if (roadtrips.length === 0) return out;
+  if (routes.length === 0) return out;
 
   const resolver = await getCountryResolver();
-  for (const r of roadtrips) {
-    if (!r.tripId) continue;
-    const countries = stationCountries(r.stops, resolver);
-    const at = r.startDay ?? earliestStopDay(r.stops);
-    out.set(r.tripId, [...(out.get(r.tripId) ?? []), { at, countries }]);
+  for (const route of routes) {
+    if (!route.tripId) continue;
+    const stops: JourneyStop[] = route.stops.filter(isStation).map((stop) => ({
+      country: stationCountry(stop, resolver),
+      days: stationDays(stop),
+      at: stop.startDate,
+    }));
+    out.set(route.tripId, [...(out.get(route.tripId) ?? []), ...stops]);
   }
+
+  // A stable sort leaves the undated stations after the dated ones, in the
+  // order they arrived — route order, then the route's own station order.
+  for (const stops of out.values()) stops.sort(byTravelOrder);
   return out;
 }
 
 /**
- * The journey's home country (owner report 2026-10-14): the country of the
- * EARLIEST flight's DEPARTURE airport, read through the same `facts` airport
- * catalogue the arrivals are — so home is resolved one way in this module,
- * never two. Null when the journey has no flights, or the earliest departure's
- * country is not on the catalogue; the caller then excludes nothing, which is
- * the behaviour every trip had before this rule.
+ * The ONE flag the journey's card shows (owner ruling 2026-10-14): the country
+ * the journey spent the MOST time in — an array of at most one code, or an
+ * empty list when nothing can be resolved (the card keeps its gradient).
+ *
+ * The journey's STATIONS decide it, because that is where its own data holds
+ * real time. Each station contributes its inclusive days to its country; the
+ * country with the most days wins, and a tie goes to the earliest station —
+ * `stops` arrives in start-date order, so the first time a country appears is its
+ * earliest station's place in the journey.
+ *
+ * A journey whose stations resolve NO country falls back to its flights: the
+ * country with the most arrivals, a tie settled by the earliest flight. This
+ * keeps a journey whose places were never recorded from showing nothing. Both
+ * rules resolve a country through the same catalogues this module already
+ * reads — `facts` for a flight's arrival, `stationCountries`' rule for a
+ * station's land — so a country is never worked out two ways.
+ *
+ * The answer is folded to ISO alpha-2 like every other country this module
+ * emits, so a catalogue spelling ("Mexico") and a code ("MX") cannot disagree.
  */
-function homeCountryOf(
+export function journeyPrimaryCountry(
+  flights: readonly VisitableFlight[],
+  facts: Map<string, { country: string | null }>,
+  stops: readonly JourneyStop[] = []
+): string[] {
+  const winner = stationWinner(stops) ?? flightArrivalWinner(flights, facts);
+  return winner ? [toCountryCode(winner) ?? winner] : [];
+}
+
+/** The country with the most station-days; a tie goes to the earliest station. */
+function stationWinner(stops: readonly JourneyStop[]): string | null {
+  const days = new Map<string, number>();
+  const firstSeen = new Map<string, number>();
+  stops.forEach((stop, index) => {
+    if (!stop.country) return;
+    days.set(stop.country, (days.get(stop.country) ?? 0) + stop.days);
+    if (!firstSeen.has(stop.country)) firstSeen.set(stop.country, index);
+  });
+
+  let winner: string | null = null;
+  for (const country of days.keys()) {
+    if (winner === null) {
+      winner = country;
+      continue;
+    }
+    const leader = days.get(winner) as number;
+    const challenger = days.get(country) as number;
+    if (
+      challenger > leader ||
+      (challenger === leader &&
+        (firstSeen.get(country) as number) < (firstSeen.get(winner) as number))
+    ) {
+      winner = country;
+    }
+  }
+  return winner;
+}
+
+/** The country with the most flight arrivals; a tie goes to the earliest flight. */
+function flightArrivalWinner(
   flights: readonly VisitableFlight[],
   facts: Map<string, { country: string | null }>
 ): string | null {
-  // The same chronological convention the leg walk keeps below: dated flights
-  // first (earliest departure), undated ones after them in the order they came.
-  const earliest = [...flights].sort((a, b) => {
+  // Chronological, undated after the dated and stable — the convention every
+  // itinerary walk here keeps.
+  const ordered = [...flights].sort((a, b) => {
     const at = a.departureTime ?? null;
     const bt = b.departureTime ?? null;
     if (at && bt) return at.getTime() - bt.getTime();
     if (at === bt) return 0;
     return at ? -1 : 1;
-  })[0];
-  const code = earliest?.depIata ?? null;
-  return code ? (facts.get(code)?.country ?? null) : null;
-}
-
-/**
- * The places the journey went (owner ruling 2026-10-13): the country of every
- * flight's ARRIVAL airport and of every car leg, in travel order, with the
- * FINAL element of the raw sequence DROPPED and the journey's HOME country
- * excluded wherever it sits — home never shows — then deduped keeping first
- * occurrence.
- *
- * WHY A SECOND LIST. `countries` above is a SET a card's figures count; it is
- * sorted, keeps home, and reads nothing of the route's order. The band's flags
- * are the journey itself — where it went, in the order it went — so they read
- * the arrival of each flight and the ground of each car leg, and home leaves
- * the list. Karachi 2025 (arrivals `TR,PK,AE,OM,AE,TR,CA`) reads
- * `["TR","PK","AE","OM"]`.
- *
- * WHY THE DROP IS NOT ENOUGH ON ITS OWN. Dropping the final raw element removes
- * home only while home happens to sort last. The raw sequence merges the flight
- * arrivals with each car leg's countries in date order, and a car leg is placed
- * by its own first day — so a car leg that sorts at or after the final flight's
- * departure becomes the last element, the home arrival survives the drop, and a
- * country the traveller flew out of shows (owner report 2026-10-14: Canada on
- * the Smokey Mountains, Mexico-with-Bros and Karachi trips). So the country of
- * the first flight's departure airport — the same airport catalogue, resolved
- * by `homeCountryOf` — is excluded from the arrivals AND the car legs
- * outright: home never shows, whatever the ordering.
- *
- * SIMPLICITY CASES, all intended: a round trip abroad reads `[<the
- * destination>]` (arrivals MX, CA → the CA home leaves); a car-only journey in
- * one country reads `[]` (no flight means no home to infer, and its one leg is
- * the whole sequence, so the last element goes); no legs reads `[]`. An empty
- * list is not an error — the card keeps the gradient it drew when no flag was
- * drawable.
- *
- * PURE, and sharing one country lookup: `facts` is the same airport catalogue
- * `flownCountries` reads, so a flight's country is resolved one way in this
- * module, never two. The car legs come from `roadtripLegsByTrip`, whose
- * countries are already folded the same way.
- */
-export function journeyDestinationCountries(
-  flights: readonly VisitableFlight[],
-  facts: Map<string, { country: string | null }>,
-  roadtrips: readonly JourneyLeg[] = []
-): string[] {
-  const legs: JourneyLeg[] = [];
-  for (const f of flights) {
-    const country = f.arrIata ? (facts.get(f.arrIata)?.country ?? null) : null;
-    if (country) legs.push({ at: f.departureTime ?? null, countries: [country] });
-  }
-  for (const leg of roadtrips) {
-    if (leg.countries.length > 0) legs.push(leg);
-  }
-
-  // Travel order. Undated legs keep their place after the dated ones, in the
-  // order they arrived — "somewhere in the itinerary" beats "after
-  // everything", as in the walk above.
-  legs.sort((a, b) => {
-    if (a.at && b.at) return a.at.getTime() - b.at.getTime();
-    if (a.at === b.at) return 0;
-    return a.at ? -1 : 1;
   });
 
-  const raw = legs.flatMap((l) => l.countries);
-  // Drop the final element: the last arrival is home, and home never shows.
-  const trimmed = raw.slice(0, Math.max(0, raw.length - 1));
-  // The journey's home, folded like everything else so it compares on one
-  // vocabulary and a name in the catalogue ("Canada") still matches its code.
-  const homeRaw = homeCountryOf(flights, facts);
-  const home = homeRaw ? (toCountryCode(homeRaw) ?? homeRaw) : null;
-  // Fold to one vocabulary (airports store ISO, a stay's free text may not),
-  // drop home wherever it survived, and dedupe the FIRST occurrence so the
-  // order is the order travelled.
-  const out: string[] = [];
-  for (const c of trimmed) {
-    const code = toCountryCode(c) ?? c;
-    if (home !== null && code === home) continue;
-    if (!out.includes(code)) out.push(code);
+  const arrivals = new Map<string, number>();
+  const firstArrival = new Map<string, number>();
+  ordered.forEach((flight, index) => {
+    const place = flight.arrIata ? (facts.get(flight.arrIata)?.country ?? null) : null;
+    const code = place ? (toCountryCode(place) ?? place) : null;
+    if (!code) return;
+    arrivals.set(code, (arrivals.get(code) ?? 0) + 1);
+    if (!firstArrival.has(code)) firstArrival.set(code, index);
+  });
+
+  let winner: string | null = null;
+  for (const country of arrivals.keys()) {
+    if (winner === null) {
+      winner = country;
+      continue;
+    }
+    const leader = arrivals.get(winner) as number;
+    const challenger = arrivals.get(country) as number;
+    if (
+      challenger > leader ||
+      (challenger === leader &&
+        (firstArrival.get(country) as number) < (firstArrival.get(winner) as number))
+    ) {
+      winner = country;
+    }
   }
-  return out;
+  return winner;
 }

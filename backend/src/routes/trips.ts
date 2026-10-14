@@ -42,10 +42,10 @@ import { TRIP_DETAIL_RENTALS } from "../services/trip/tripsListInclude";
 import {
   airportFactsFor,
   tripCountries,
-  journeyDestinationCountries,
+  journeyPrimaryCountry,
   cruiseCountriesByTrip,
   lodgingCountriesByTrip,
-  roadtripLegsByTrip,
+  journeyStopsByTrip,
 } from "./trips/tripCountries";
 import { resolveTrip } from "./trips/resolveTrip";
 import { refusesCoverImage } from "./trips/refusesCoverImage";
@@ -151,11 +151,11 @@ router.get(
       // port-to-port hop. One grouped query over every cruise on the page keeps
       // this at a constant query count, like the airport lookup above.
       const cruiseIds = trips.flatMap((t) => t.cruises.map((c) => c.id));
-      const [facts, cruiseCountries, lodgingCountries, roadtripLegs, legSums] = await Promise.all([
+      const [facts, cruiseCountries, lodgingCountries, roadtripStops, legSums] = await Promise.all([
         airportFactsFor(trips.flatMap((t) => t.flights)),
         cruiseCountriesByTrip(trips.map((t) => t.id)),
         lodgingCountriesByTrip(trips.map((t) => t.id)),
-        roadtripLegsByTrip(trips.map((t) => t.id)),
+        journeyStopsByTrip(trips.map((t) => t.id)),
         cruiseIds.length > 0
           ? prisma.cruiseLeg.groupBy({
               by: ["cruiseId"],
@@ -173,8 +173,8 @@ router.get(
       const mostExpensive = includeInsights ? await mostExpensiveTrip(userId) : undefined;
       res.json({
         trips: trips.map((t) => {
-          // A trip's car legs, read once and used by both country lists.
-          const legs = roadtripLegs.get(t.id) ?? [];
+          // A trip's car stops, read once and used by both country lists.
+          const stops = roadtripStops.get(t.id) ?? [];
           return {
             ...withJourneySpan(withTripTimes(t)),
             cruises: t.cruises.map((c) => ({
@@ -187,12 +187,12 @@ router.get(
               facts,
               cruiseCountries.get(t.id) ?? [],
               lodgingCountries.get(t.id) ?? [],
-              legs.flatMap((l) => l.countries)
+              stops.flatMap((s) => (s.country ? [s.country] : []))
             ),
-            // The band's flags (owner ruling 2026-10-13): the journey's
-            // destinations in travel order, home dropped — a separate list
-            // from `countries` above, which stays a counted set.
-            destinationCountries: journeyDestinationCountries(t.flights, facts, legs),
+            // The band's ONE flag (owner ruling 2026-10-14): the country the
+            // journey was mostly spent in — a separate list from `countries`
+            // above, which stays a counted set.
+            destinationCountries: journeyPrimaryCountry(t.flights, facts, stops),
           };
         }),
         ...(includeInsights && { mostExpensiveTrip: mostExpensive }),
@@ -425,14 +425,14 @@ router.get(
       // off), and the countries tile stayed at 0 because `trips.countries` is a
       // stored column nobody derives and `overflownCountries` is empty for
       // manually created flights.
-      const [facts, cruiseCountries, lodgingCountries, roadtripLegs] = await Promise.all([
+      const [facts, cruiseCountries, lodgingCountries, roadtripStops] = await Promise.all([
         airportFactsFor(trip.flights),
         cruiseCountriesByTrip([trip.id]),
         lodgingCountriesByTrip([trip.id]),
-        roadtripLegsByTrip([trip.id]),
+        journeyStopsByTrip([trip.id]),
       ]);
-      // The trip's car legs, read once and used by both country lists.
-      const legs = roadtripLegs.get(trip.id) ?? [];
+      // The trip's car stops, read once and used by both country lists.
+      const stops = roadtripStops.get(trip.id) ?? [];
       // The stored zone first, then the catalogue — with `times` (ADR 0002).
       const flights = await enrichFlightsForClients(trip.flights);
       const countries = tripCountries(
@@ -441,11 +441,11 @@ router.get(
         facts,
         cruiseCountries.get(trip.id) ?? [],
         lodgingCountries.get(trip.id) ?? [],
-        legs.flatMap((l) => l.countries)
+        stops.flatMap((s) => (s.country ? [s.country] : []))
       );
-      // The band's flags (owner ruling 2026-10-13) — the detail surface, so a
-      // reader who opens the card sees the same list the card did.
-      const destinationCountries = journeyDestinationCountries(trip.flights, facts, legs);
+      // The band's ONE flag (owner ruling 2026-10-14) — the detail surface, so
+      // a reader who opens the card sees the same flag the card did.
+      const destinationCountries = journeyPrimaryCountry(trip.flights, facts, stops);
       // Each entry carries the photos it shows, in the gallery's own shape.
       const journalEntries = trip.journalEntries.map(({ photos: links, ...entry }) => ({
         ...entry,

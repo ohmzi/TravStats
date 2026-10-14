@@ -223,11 +223,11 @@ export interface Trip {
   icon: string | null;
   countries: string[];
   /**
-   * The places the journey went (owner ruling 2026-10-13), from `GET /trips`
-   * and `GET /trips/:id`: the country of every flight's arrival and of every
-   * car leg, in travel order, the final arrival (home) dropped, deduped. The
-   * band's flags read THIS; `countries` above stays the counted set. Absent on
-   * payloads that do not come through those endpoints.
+   * The ONE place the journey was mostly spent (owner ruling 2026-10-14), from
+   * `GET /trips` and `GET /trips/:id`: the single country the journey spent the
+   * most days in, empty when nothing could be resolved. The band's flags read
+   * THIS; `countries` above stays the counted set. Absent on payloads that do
+   * not come through those endpoints.
    */
   destinationCountries?: string[];
   times?: TripTimes;
