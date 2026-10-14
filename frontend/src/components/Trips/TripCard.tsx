@@ -117,23 +117,30 @@ export default function TripCard({ trip, onOpen }: TripCardProps): JSX.Element {
   const mono = { fontFamily: "var(--ts-font-mono)" } as const;
   const figure = { color: "var(--ts-text-bright)" } as const;
 
-  // The header band is painted from the trip's own countries: the flag or
-  // flags in place of the colour tint the card used to wear (owner,
-  // 2026-10-09). `bannerFlags` resolves names as well as codes and drops any
-  // country this repo ships no flag for, so an unbundled country is never
-  // guessed at. When NO flag is drawable the band keeps its exact old
-  // gradient — the trip's own colour is an honest fallback where an invented
-  // flag would not be.
-  const flags = bannerFlags(trip.countries);
-  const drawnCountries = knownCountries(trip.countries);
+  // The header band names the places the JOURNEY went (owner ruling
+  // 2026-10-13): not the counted country SET (which is sorted, keeps home and
+  // reads nothing of the route's order) but the destinations the server
+  // ordered by travel and dropped home from (`destinationCountries`, the same
+  // airport/roadtrip derivation as `countries`). This card IS the journey card
+  // — the nested trips and tours are `RoadtripCard`s, never this one — so the
+  // field applies here; a plain trip that went nowhere by flight or car (stays
+  // or cruises only) keeps the countries it always drew. `bannerFlags` still
+  // drops any country this repo ships no flag for, and when NO flag is
+  // drawable the band keeps its exact old gradient — the trip's own colour is
+  // an honest fallback where an invented flag would not be.
+  const journey = (trip.flights?.length ?? 0) > 0 || (trip._count?.roadtrips ?? 0) > 0;
+  const bandCountries = journey ? (trip.destinationCountries ?? []) : trip.countries;
+  const flags = bannerFlags(bandCountries);
+  const drawnCountries = knownCountries(bandCountries);
   const bandBackground =
     flags.length > 0
       ? "var(--ts-surface2)"
       : `linear-gradient(135deg, color-mix(in srgb, ${trip.color} 22%, var(--ts-surface2)), var(--ts-surface2))`;
   // Spoken, not drawn: when some recorded countries have no bundled flag the
   // band says how many were left out, so a missing flag reads as a reason
-  // rather than as a hole. The total is the trip's true country SET, not the
-  // raw array, so a duplicate cannot inflate it.
+  // rather than as a hole. The total is the true country SET behind the flags
+  // — whichever list feeds the band — not the raw array, so a duplicate cannot
+  // inflate it.
   const bandTitle =
     flags.length > 0 && drawnCountries.length > flags.length
       ? t("trips:card.flagsPartial", { shown: flags.length, total: drawnCountries.length })
@@ -163,7 +170,7 @@ export default function TripCard({ trip, onOpen }: TripCardProps): JSX.Element {
         title={bandTitle}
         style={{ background: bandBackground }}
       >
-        <TripBandFlags countries={trip.countries} />
+        <TripBandFlags countries={bandCountries} />
         {trip.coverImageUrl && (
           <div
             aria-hidden="true"

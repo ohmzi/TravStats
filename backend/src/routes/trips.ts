@@ -42,9 +42,10 @@ import { TRIP_DETAIL_RENTALS } from "../services/trip/tripsListInclude";
 import {
   airportFactsFor,
   tripCountries,
+  journeyDestinationCountries,
   cruiseCountriesByTrip,
   lodgingCountriesByTrip,
-  roadtripCountriesByTrip,
+  roadtripLegsByTrip,
 } from "./trips/tripCountries";
 import { resolveTrip } from "./trips/resolveTrip";
 import { refusesCoverImage } from "./trips/refusesCoverImage";
@@ -150,20 +151,19 @@ router.get(
       // port-to-port hop. One grouped query over every cruise on the page keeps
       // this at a constant query count, like the airport lookup above.
       const cruiseIds = trips.flatMap((t) => t.cruises.map((c) => c.id));
-      const [facts, cruiseCountries, lodgingCountries, roadtripCountries, legSums] =
-        await Promise.all([
-          airportFactsFor(trips.flatMap((t) => t.flights)),
-          cruiseCountriesByTrip(trips.map((t) => t.id)),
-          lodgingCountriesByTrip(trips.map((t) => t.id)),
-          roadtripCountriesByTrip(trips.map((t) => t.id)),
-          cruiseIds.length > 0
-            ? prisma.cruiseLeg.groupBy({
-                by: ["cruiseId"],
-                where: { cruiseId: { in: cruiseIds } },
-                _sum: { distanceKm: true },
-              })
-            : Promise.resolve([]),
-        ]);
+      const [facts, cruiseCountries, lodgingCountries, roadtripLegs, legSums] = await Promise.all([
+        airportFactsFor(trips.flatMap((t) => t.flights)),
+        cruiseCountriesByTrip(trips.map((t) => t.id)),
+        lodgingCountriesByTrip(trips.map((t) => t.id)),
+        roadtripLegsByTrip(trips.map((t) => t.id)),
+        cruiseIds.length > 0
+          ? prisma.cruiseLeg.groupBy({
+              by: ["cruiseId"],
+              where: { cruiseId: { in: cruiseIds } },
+              _sum: { distanceKm: true },
+            })
+          : Promise.resolve([]),
+      ]);
       const distanceByCruise = new Map(
         legSums.map((row) => [row.cruiseId, row._sum.distanceKm ?? 0])
       );
@@ -172,21 +172,29 @@ router.get(
       // caps this handler applies above.
       const mostExpensive = includeInsights ? await mostExpensiveTrip(userId) : undefined;
       res.json({
-        trips: trips.map((t) => ({
-          ...withJourneySpan(withTripTimes(t)),
-          cruises: t.cruises.map((c) => ({
-            ...c,
-            distanceKm: Math.round(distanceByCruise.get(c.id) ?? 0),
-          })),
-          countries: tripCountries(
-            t.countries,
-            t.flights,
-            facts,
-            cruiseCountries.get(t.id) ?? [],
-            lodgingCountries.get(t.id) ?? [],
-            roadtripCountries.get(t.id) ?? []
-          ),
-        })),
+        trips: trips.map((t) => {
+          // A trip's car legs, read once and used by both country lists.
+          const legs = roadtripLegs.get(t.id) ?? [];
+          return {
+            ...withJourneySpan(withTripTimes(t)),
+            cruises: t.cruises.map((c) => ({
+              ...c,
+              distanceKm: Math.round(distanceByCruise.get(c.id) ?? 0),
+            })),
+            countries: tripCountries(
+              t.countries,
+              t.flights,
+              facts,
+              cruiseCountries.get(t.id) ?? [],
+              lodgingCountries.get(t.id) ?? [],
+              legs.flatMap((l) => l.countries)
+            ),
+            // The band's flags (owner ruling 2026-10-13): the journey's
+            // destinations in travel order, home dropped — a separate list
+            // from `countries` above, which stays a counted set.
+            destinationCountries: journeyDestinationCountries(t.flights, facts, legs),
+          };
+        }),
         ...(includeInsights && { mostExpensiveTrip: mostExpensive }),
       });
     } catch (error) {
@@ -417,12 +425,14 @@ router.get(
       // off), and the countries tile stayed at 0 because `trips.countries` is a
       // stored column nobody derives and `overflownCountries` is empty for
       // manually created flights.
-      const [facts, cruiseCountries, lodgingCountries, roadtripCountries] = await Promise.all([
+      const [facts, cruiseCountries, lodgingCountries, roadtripLegs] = await Promise.all([
         airportFactsFor(trip.flights),
         cruiseCountriesByTrip([trip.id]),
         lodgingCountriesByTrip([trip.id]),
-        roadtripCountriesByTrip([trip.id]),
+        roadtripLegsByTrip([trip.id]),
       ]);
+      // The trip's car legs, read once and used by both country lists.
+      const legs = roadtripLegs.get(trip.id) ?? [];
       // The stored zone first, then the catalogue — with `times` (ADR 0002).
       const flights = await enrichFlightsForClients(trip.flights);
       const countries = tripCountries(
@@ -431,8 +441,11 @@ router.get(
         facts,
         cruiseCountries.get(trip.id) ?? [],
         lodgingCountries.get(trip.id) ?? [],
-        roadtripCountries.get(trip.id) ?? []
+        legs.flatMap((l) => l.countries)
       );
+      // The band's flags (owner ruling 2026-10-13) — the detail surface, so a
+      // reader who opens the card sees the same list the card did.
+      const destinationCountries = journeyDestinationCountries(trip.flights, facts, legs);
       // Each entry carries the photos it shows, in the gallery's own shape.
       const journalEntries = trip.journalEntries.map(({ photos: links, ...entry }) => ({
         ...entry,
@@ -441,7 +454,14 @@ router.get(
       // The stations of the trip's roadtrips; [] while roadtrips are off.
       const roadtripStations = await roadtripStationsForTrip(userId, trip.id);
       const detail = withJourneySpan(
-        withTripDetailTimes({ ...trip, photos, flights, countries, journalEntries })
+        withTripDetailTimes({
+          ...trip,
+          photos,
+          flights,
+          countries,
+          destinationCountries,
+          journalEntries,
+        })
       );
       res.json({ trip: { ...detail, roadtripStations } });
     } catch (error) {

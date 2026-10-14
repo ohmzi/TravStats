@@ -297,6 +297,18 @@ export const tripResponse = registry.register(
       times: tripTimesSchema
         .optional()
         .describe("The trip's first and last day; on the list, detail, create and update"),
+      destinationCountries: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "GET /trips and GET /trips/{id}: the places the journey went (owner ruling " +
+            "2026-10-13) — the country of every flight's ARRIVAL airport and of every " +
+            "car leg, in travel order, with the final element of the raw sequence " +
+            "dropped (the last arrival is home, and home never shows), deduped keeping " +
+            "first occurrence. A separate list from `countries`, which stays a counted " +
+            "SET (sorted, home included): this one orders the band's flags. Empty when " +
+            "no flag is drawable — the card keeps its gradient fallback."
+        ),
     })
     .openapi("Trip")
 );

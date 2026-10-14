@@ -4,6 +4,23 @@ import { prisma } from "../../db";
 import { hashPassword } from "../../utils/password";
 import { generateToken } from "../../utils/jwt";
 
+/** A synthetic catalogue airport, upserted so no test depends on the seed. */
+function uatAirport(iata: string, country: string) {
+  return prisma.airport.upsert({
+    where: { airports_iata_is_closed_key: { iata, isClosed: false } },
+    update: { country },
+    create: {
+      iata,
+      name: `UAT ${iata}`,
+      country,
+      timezone: "UTC",
+      lat: 0,
+      lon: 0,
+      isClosed: false,
+    },
+  });
+}
+
 /**
  * `trips.countries` is a stored column nobody derives, so 2.5.0 taught
  * GET /trips/:id to fall back to the countries of the trip's flights. The trip
@@ -351,5 +368,211 @@ describe("trip countries are derived on the list, not only on the detail", () =>
     } finally {
       await prisma.trip.delete({ where: { id: empty.id } });
     }
+  });
+
+  /**
+   * The band's flags (`destinationCountries`, owner ruling 2026-10-13) are a
+   * SECOND list beside `countries`: the places the journey went, in travel
+   * order, the last arrival (home) dropped, deduped keeping first occurrence.
+   * `countries` stays the counted set; this one orders the card's flags.
+   */
+  describe("the journey band's destinations (owner ruling 2026-10-13)", () => {
+    /** A flight leg, both ends on the catalogue, dated by whole days from a base. */
+    const base = Date.UTC(2031, 0, 1, 8);
+    const at = (days: number): Date => new Date(base + days * 86_400_000);
+    const leg = (depIata: string, arrIata: string, days: number) => ({
+      userId,
+      depIata,
+      arrIata,
+      departureTime: at(days),
+      status: "flown",
+      depLat: 0,
+      depLon: 0,
+      arrLat: 0,
+      arrLon: 0,
+    });
+
+    it("reads the destinations in travel order, the last arrival dropped (Karachi 2025)", async () => {
+      const codes: Record<string, string> = {
+        TR: "XQT",
+        PK: "XKP",
+        AE: "XAU",
+        OM: "XOM",
+        CA: "XCA",
+      };
+      for (const [country, iata] of Object.entries(codes)) await uatAirport(iata, country);
+
+      const trip = await prisma.trip.create({
+        data: { userId, name: "UAT band journey", status: "completed" },
+      });
+      // Arrivals: TR, PK, AE, OM, AE, TR, CA (the last is home).
+      await prisma.flight.createMany({
+        data: [
+          leg("XCA", "XQT", 0),
+          leg("XQT", "XKP", 1),
+          leg("XKP", "XAU", 2),
+          leg("XAU", "XOM", 3),
+          leg("XOM", "XAU", 4),
+          leg("XAU", "XQT", 5),
+          leg("XQT", "XCA", 6),
+        ].map((l) => ({ ...l, tripId: trip.id })),
+      });
+      // A car leg in Karachi (PK), dated between the second and third flights:
+      // it merges into the travel order and folds away (PK is already there).
+      const lodging = await prisma.lodging.create({
+        data: {
+          userId,
+          name: "UAT Karachi stay",
+          type: "hotel",
+          country: "Pakistan",
+          isoCountryCode: "PK",
+        },
+      });
+      const stay = await prisma.lodgingStay.create({
+        data: {
+          userId,
+          lodgingId: lodging.id,
+          tripId: trip.id,
+          checkIn: at(2),
+          checkOut: at(3),
+          status: "completed",
+        },
+      });
+      const route = await prisma.tripRoute.create({
+        data: {
+          userId,
+          tripId: trip.id,
+          name: "UAT Karachi",
+          mode: "car",
+          kind: "roadtrip",
+          startDay: new Date(Date.UTC(2031, 0, 3)),
+        },
+      });
+      await prisma.tripStop.create({
+        data: {
+          tripId: trip.id,
+          routeId: route.id,
+          routeOrderIdx: 0,
+          title: "UAT Karachi",
+          startDate: at(2),
+          endDate: at(3),
+          lat: null,
+          lon: null,
+          lodgingStayId: stay.id,
+        },
+      });
+
+      try {
+        const [list, detail] = await Promise.all([
+          request(app).get("/api/v1/trips").set("Cookie", authCookie).expect(200),
+          request(app).get(`/api/v1/trips/${trip.id}`).set("Cookie", authCookie).expect(200),
+        ]);
+        const listed = list.body.trips.find((t: { id: string }) => t.id === trip.id);
+        // CA (home) dropped, first occurrence of each kept.
+        expect(listed.destinationCountries).toEqual(["TR", "PK", "AE", "OM"]);
+        // The detail serves the same list the card did.
+        expect(detail.body.trip.destinationCountries).toEqual(["TR", "PK", "AE", "OM"]);
+      } finally {
+        await prisma.tripStop.deleteMany({ where: { routeId: route.id } });
+        await prisma.tripRoute.delete({ where: { id: route.id } });
+        await prisma.lodgingStay.delete({ where: { id: stay.id } });
+        await prisma.lodging.delete({ where: { id: lodging.id } });
+        await prisma.flight.deleteMany({ where: { tripId: trip.id } });
+        await prisma.trip.delete({ where: { id: trip.id } });
+        await prisma.airport.deleteMany({ where: { iata: { in: Object.values(codes) } } });
+      }
+    });
+
+    it("reads a simple round trip as its one destination (home dropped)", async () => {
+      await uatAirport("XCA", "CA");
+      await uatAirport("XMX", "Mexico");
+      const trip = await prisma.trip.create({
+        data: { userId, name: "UAT round trip", status: "completed" },
+      });
+      await prisma.flight.createMany({
+        data: [leg("XCA", "XMX", 0), leg("XMX", "XCA", 9)].map((l) => ({ ...l, tripId: trip.id })),
+      });
+      try {
+        const res = await request(app).get("/api/v1/trips").set("Cookie", authCookie).expect(200);
+        const listed = res.body.trips.find((t: { id: string }) => t.id === trip.id);
+        expect(listed.destinationCountries).toEqual(["MX"]);
+      } finally {
+        await prisma.flight.deleteMany({ where: { tripId: trip.id } });
+        await prisma.trip.delete({ where: { id: trip.id } });
+        await prisma.airport.deleteMany({ where: { iata: { in: ["XCA", "XMX"] } } });
+      }
+    });
+
+    it("reads a car-only journey as no destinations (its one leg is the whole list)", async () => {
+      const lodging = await prisma.lodging.create({
+        data: {
+          userId,
+          name: "UAT Home stay",
+          type: "hotel",
+          country: "Canada",
+          isoCountryCode: "CA",
+        },
+      });
+      const trip = await prisma.trip.create({
+        data: { userId, name: "UAT car only", status: "completed" },
+      });
+      const stay = await prisma.lodgingStay.create({
+        data: {
+          userId,
+          lodgingId: lodging.id,
+          tripId: trip.id,
+          checkIn: at(0),
+          checkOut: at(2),
+          status: "completed",
+        },
+      });
+      const route = await prisma.tripRoute.create({
+        data: {
+          userId,
+          tripId: trip.id,
+          name: "UAT drive",
+          mode: "car",
+          kind: "roadtrip",
+          startDay: new Date(Date.UTC(2031, 0, 1)),
+        },
+      });
+      await prisma.tripStop.create({
+        data: {
+          tripId: trip.id,
+          routeId: route.id,
+          routeOrderIdx: 0,
+          title: "UAT drive",
+          startDate: at(0),
+          endDate: at(1),
+          lat: null,
+          lon: null,
+          lodgingStayId: stay.id,
+        },
+      });
+      try {
+        const res = await request(app).get("/api/v1/trips").set("Cookie", authCookie).expect(200);
+        const listed = res.body.trips.find((t: { id: string }) => t.id === trip.id);
+        expect(listed.destinationCountries).toEqual([]);
+      } finally {
+        await prisma.tripStop.deleteMany({ where: { routeId: route.id } });
+        await prisma.tripRoute.delete({ where: { id: route.id } });
+        await prisma.lodgingStay.delete({ where: { id: stay.id } });
+        await prisma.lodging.delete({ where: { id: lodging.id } });
+        await prisma.trip.delete({ where: { id: trip.id } });
+      }
+    });
+
+    it("reads no destinations for a trip with no legs", async () => {
+      const trip = await prisma.trip.create({
+        data: { userId, name: "UAT nothing", status: "planned" },
+      });
+      try {
+        const res = await request(app).get("/api/v1/trips").set("Cookie", authCookie).expect(200);
+        const listed = res.body.trips.find((t: { id: string }) => t.id === trip.id);
+        expect(listed.destinationCountries).toEqual([]);
+      } finally {
+        await prisma.trip.delete({ where: { id: trip.id } });
+      }
+    });
   });
 });

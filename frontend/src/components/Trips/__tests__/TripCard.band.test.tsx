@@ -128,13 +128,7 @@ describe("TripCard band flags", () => {
   // draw, in order — the band drops nothing to hit a number.
   it("paints all five flags of a five-country trip, in order", () => {
     const layers = flagLayers(renderCard(["CA", "PK", "AE", "OM", "TR"]));
-    expect(layers.map((l) => l.getAttribute("data-flag"))).toEqual([
-      "CA",
-      "PK",
-      "AE",
-      "OM",
-      "TR",
-    ]);
+    expect(layers.map((l) => l.getAttribute("data-flag"))).toEqual(["CA", "PK", "AE", "OM", "TR"]);
   });
 
   it("paints nothing when the trip records no countries", () => {
@@ -261,7 +255,9 @@ describe("band legibility", () => {
     for (const [name, hex] of Object.entries(TRIP_PILL_COLOURS)) {
       const pillText = channels(hex);
       const pillBg = over(pillText, 0.12, band);
-      expect(contrast(pillText, pillBg), `${name} pill over five flags`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(pillText, pillBg), `${name} pill over five flags`).toBeGreaterThanOrEqual(
+        4.5
+      );
     }
   });
 
@@ -272,5 +268,86 @@ describe("band legibility", () => {
     const openBand = over(channels(SURFACE2), SCRIM_BASE, flag);
     const pillBand = over(channels(SURFACE2), SCRIM_OVER_PILL, flag);
     expect(luminance(openBand)).toBeGreaterThan(luminance(pillBand) * 5);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// The band names the places the JOURNEY went (owner ruling 2026-10-13): the
+// server's `destinationCountries` — travel-ordered, home dropped — not the
+// counted country SET. A trip that went nowhere by flight or car keeps the
+// countries it always drew. `flights`/`_count.roadtrips` are how the card
+// tells a journey from a plain trip (the nested trips and tours are
+// `RoadtripCard`s, never this one).
+describe("TripCard band names the journey's destinations", () => {
+  const base = (over: Record<string, unknown>): Trip =>
+    ({
+      id: "t1",
+      name: "QA Reise",
+      status: "completed",
+      countries: [],
+      bookings: [],
+      flights: [],
+      cruises: [],
+      tags: [],
+      category: null,
+      color: TRIP_COLOR,
+      coverImageUrl: null,
+      destinationLabel: null,
+      startDate: null,
+      endDate: null,
+      _count: { flights: 0, cruises: 0, lodgingStays: 0, routes: 0, photos: 0 },
+      ...over,
+    }) as unknown as Trip;
+
+  const renderTrip = (trip: Trip): HTMLElement => {
+    const { container } = render(
+      <MemoryRouter>
+        <TripCard trip={trip} onOpen={() => {}} />
+      </MemoryRouter>
+    );
+    return container;
+  };
+
+  it("paints exactly the journey's destinations, in travel order", () => {
+    const layers = flagLayers(
+      renderTrip(
+        base({
+          flights: [{ id: "f1" }],
+          countries: ["CA", "TR", "PK", "AE", "OM"],
+          destinationCountries: ["TR", "PK", "AE", "OM"],
+        })
+      )
+    );
+    expect(layers.map((l) => l.getAttribute("data-flag"))).toEqual(["TR", "PK", "AE", "OM"]);
+  });
+
+  it("keeps the gradient when a journey names no destination", () => {
+    const container = renderTrip(
+      base({ flights: [{ id: "f1" }], countries: ["CA"], destinationCountries: [] })
+    );
+    expect(flagLayers(container)).toHaveLength(0);
+    const band = container.querySelector<HTMLElement>("[data-testid='trip-band']");
+    expect(band?.getAttribute("style")).toContain(TRIP_COLOR);
+  });
+
+  it("keeps a plain trip's own flags — a trip that went nowhere by flight or car", () => {
+    const layers = flagLayers(
+      renderTrip(base({ flights: [], countries: ["CH"], destinationCountries: [] }))
+    );
+    expect(layers.map((l) => l.getAttribute("data-flag"))).toEqual(["CH"]);
+  });
+
+  it("reads a car-only journey from its roadtrip count", () => {
+    const layers = flagLayers(
+      renderTrip(
+        base({
+          flights: [],
+          _count: { flights: 0, cruises: 0, lodgingStays: 0, routes: 1, photos: 0, roadtrips: 1 },
+          countries: ["CA", "MX"],
+          destinationCountries: ["MX"],
+        })
+      )
+    );
+    expect(layers.map((l) => l.getAttribute("data-flag"))).toEqual(["MX"]);
   });
 });
