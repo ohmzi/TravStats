@@ -131,7 +131,12 @@ export function roadtripSketchPath(
     // The leg's own line when there is one — it starts and ends at the two
     // stations, so neither endpoint needs adding — and the chord when there
     // is not.
-    const segment = waypoints ?? [[from.lon!, from.lat!], [to.lon!, to.lat!]] as LonLat[];
+    const segment =
+      waypoints ??
+      ([
+        [from.lon!, from.lat!],
+        [to.lon!, to.lat!],
+      ] as LonLat[]);
     for (const point of segment) {
       const last = path[path.length - 1];
       if (!last || last[0] !== point[0] || last[1] !== point[1]) {

@@ -60,9 +60,7 @@ describe("ReviewExcluded", () => {
   });
 
   it("draws nothing when the only count is the carried-location one", () => {
-    const { container } = render(
-      <ReviewExcluded excluded={{ ...NONE, locationCarried: 242 }} />
-    );
+    const { container } = render(<ReviewExcluded excluded={{ ...NONE, locationCarried: 242 }} />);
     expect(container).toBeEmptyDOMElement();
   });
 });

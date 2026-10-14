@@ -71,9 +71,7 @@ describe("bannerFlags — the flag rule every journey obeys", () => {
     expect(bannerFlags(["CA", "PK", "AE", "OM"])).toHaveLength(4);
     expect(bannerFlags(["CA", "PK", "AE", "OM", "TR"])).toHaveLength(5);
     expect(bannerFlags(["CA", "PK", "AE", "OM", "TR", "DE"])).toHaveLength(6);
-    expect(
-      bannerFlags(["CA", "PK", "AE", "OM", "TR", "DE", "FR", "ES"])
-    ).toHaveLength(8);
+    expect(bannerFlags(["CA", "PK", "AE", "OM", "TR", "DE", "FR", "ES"])).toHaveLength(8);
   });
 
   // The `allow` seam exists so the drop rule can be pinned against a narrow

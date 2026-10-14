@@ -22,9 +22,7 @@ import { prisma } from "../../db";
  */
 export async function withTripListFigures<T extends { id: string; _count: object }>(
   trips: T[]
-): Promise<
-  Array<T & { _count: T["_count"] & { roadtrips: number }; drivenKm: number }>
-> {
+): Promise<Array<T & { _count: T["_count"] & { roadtrips: number }; drivenKm: number }>> {
   if (trips.length === 0) {
     return [];
   }

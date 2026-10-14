@@ -30,7 +30,11 @@ const { deckLayers, mapProps, cardProps } = vi.hoisted(() => ({
 
 vi.mock("../map/DeckGLOverlay", () => ({
   // The overlay only draws; the layers handed to it are the map's own output.
-  DeckGLOverlay: ({ layers }: { layers: Array<{ id: string; props: Record<string, unknown> }> }) => {
+  DeckGLOverlay: ({
+    layers,
+  }: {
+    layers: Array<{ id: string; props: Record<string, unknown> }>;
+  }) => {
     deckLayers.push(layers);
     return null;
   },
@@ -202,7 +206,13 @@ describe("the flat map guards a caller's extra-layer pick", () => {
     });
 
     render(
-      <DeckGLMap flights={[]} visMode="routes" extraLayers={[layer]} pinned={null} onPinnedChange={setPinned} />
+      <DeckGLMap
+        flights={[]}
+        visMode="routes"
+        extraLayers={[layer]}
+        pinned={null}
+        onPinnedChange={setPinned}
+      />
     );
 
     const drawn = drawnLayer();
@@ -236,7 +246,13 @@ describe("the flat map holds ONE pinned slot across both line kinds", () => {
       []
     );
     return (
-      <DeckGLMap flights={[leg("f1")]} visMode="routes" extraLayers={layers} pinned={pinned} onPinnedChange={setPinned} />
+      <DeckGLMap
+        flights={[leg("f1")]}
+        visMode="routes"
+        extraLayers={layers}
+        pinned={pinned}
+        onPinnedChange={setPinned}
+      />
     );
   }
 

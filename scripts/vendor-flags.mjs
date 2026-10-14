@@ -85,8 +85,7 @@ function coloursOf(svg) {
 function headerFor(cc, version, svg) {
   const name = regionName.of(cc) ?? cc;
   const colours = coloursOf(svg);
-  const colourLine =
-    colours.length > 0 ? ` Colours used: ${colours.join(", ")}.` : "";
+  const colourLine = colours.length > 0 ? ` Colours used: ${colours.join(", ")}.` : "";
   return `<!--
   ${name} — one of the journeys-card band's flags (owner, 2026-10-09).
 
@@ -152,13 +151,13 @@ function main() {
 
   if (CHECK_ONLY) {
     const total = domain.length;
-    console.log(`checked ${total} codes: ${total - missing.length} present, ${missing.length} missing`);
+    console.log(
+      `checked ${total} codes: ${total - missing.length} present, ${missing.length} missing`
+    );
     process.exit(missing.length === 0 && orphans.length === 0 ? 0 : 1);
   }
 
-  console.log(
-    `vendored ${written} flags from flag-icons ${version} into frontend/public/flags/`
-  );
+  console.log(`vendored ${written} flags from flag-icons ${version} into frontend/public/flags/`);
   process.exit(missing.length === 0 && orphans.length === 0 ? 0 : 1);
 }
 
