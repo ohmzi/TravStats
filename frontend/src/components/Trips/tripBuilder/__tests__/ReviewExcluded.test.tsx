@@ -48,11 +48,21 @@ describe("ReviewExcluded", () => {
     ]);
   });
 
-  it("says how many photos took the last located photo's place", () => {
+  it("does not list carried-location photos as left out — they are placed, not out", () => {
+    // Owner live report 2026-10-13 (Aruba): "242 photos without GPS took the
+    // last located photo's place" sat under "Left out of the route" and read
+    // as an exclusion. They ARE in the route; the line now lives in the
+    // warnings box (ReviewWarnings), and this list must not carry it.
     render(<ReviewExcluded excluded={{ ...NONE, unlocated: 1, locationCarried: 4 }} />);
     expect(screen.getAllByRole("listitem").map((li) => li.textContent)).toEqual([
       'tripBuilder:review.excluded.unlocated {"count":1}',
-      'tripBuilder:review.excluded.locationCarried {"count":4}',
     ]);
+  });
+
+  it("draws nothing when the only count is the carried-location one", () => {
+    const { container } = render(
+      <ReviewExcluded excluded={{ ...NONE, locationCarried: 242 }} />
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 });

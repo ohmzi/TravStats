@@ -411,7 +411,12 @@ function ReviewScreen({
         }
       />
       <ReviewExcluded excluded={draft.stats.excluded} />
-      <ReviewWarnings warnings={draft.warnings} window={draft.window} onExtend={rescan} />
+      <ReviewWarnings
+        warnings={draft.warnings}
+        window={draft.window}
+        onExtend={rescan}
+        carriedCount={draft.stats.excluded.locationCarried}
+      />
     </div>
   );
 

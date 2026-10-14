@@ -19,6 +19,25 @@ function renderWarnings(warnings: BuilderWarning[], onExtend = vi.fn()) {
 }
 
 describe("ReviewWarnings", () => {
+  it("says how many photos without GPS were placed at a neighbour's location", () => {
+    // Owner live report 2026-10-13 (Aruba): this count belongs beside the
+    // notes, NOT under "Left out of the route" — the photos are in the route.
+    render(
+      <ReviewWarnings warnings={[]} window={WINDOW} onExtend={vi.fn()} carriedCount={242} />
+    );
+    const item = screen.getByText(/locationCarried/);
+    expect(item.textContent).toBe(
+      'tripBuilder:review.excluded.locationCarried {"count":242}'
+    );
+  });
+
+  it("draws nothing for a zero carried count with no warnings", () => {
+    const { container } = render(
+      <ReviewWarnings warnings={[]} window={WINDOW} onExtend={vi.fn()} carriedCount={0} />
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("draws nothing without a warning, nor for the two that are said elsewhere", () => {
     const { container } = render(
       <ReviewWarnings

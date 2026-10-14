@@ -11,7 +11,6 @@ const REASONS: ReadonlyArray<readonly [keyof ExcludedCounts, string]> = [
   ["inFlight", "tripBuilder:review.excluded.inFlight"],
   ["atSea", "tripBuilder:review.excluded.atSea"],
   ["unlocated", "tripBuilder:review.excluded.unlocated"],
-  ["locationCarried", "tripBuilder:review.excluded.locationCarried"],
   ["dayGuessed", "tripBuilder:review.excluded.dayGuessed"],
   ["otherTrip", "tripBuilder:review.excluded.otherTrip"],
 ];
@@ -21,6 +20,11 @@ const REASONS: ReadonlyArray<readonly [keyof ExcludedCounts, string]> = [
  * absent. Own photos kept off the route (taken in the air, at sea, without a
  * place, with the wrong date) stay in the album; other people's and the hidden
  * halves of live photos were never counted.
+ *
+ * `locationCarried` deliberately does NOT live here (owner, 2026-10-13): those
+ * photos ARE in the route — each one placed at its neighbour's location — so
+ * under "Left out of the route" the row read as an exclusion. It renders in
+ * `ReviewWarnings` instead, beside the notes.
  */
 export default function ReviewExcluded({
   excluded,

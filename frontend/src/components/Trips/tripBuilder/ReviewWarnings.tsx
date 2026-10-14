@@ -81,6 +81,13 @@ interface ReviewWarningsProps {
   window: { startDay: Day; endDay: Day };
   /** Scan again for a longer window; the page re-applies the edits by their keys. */
   onExtend: (range: { startDay?: Day; endDay?: Day }) => void;
+  /**
+   * Photos the scan placed at their neighbour's location (the carry rule).
+   * A NOTE, not a warning: they are in the route — but it does not belong
+   * under "Left out of the route", where it read as an exclusion (owner,
+   * 2026-10-13). Rendered with the notes' own styling.
+   */
+  carriedCount?: number;
 }
 
 /**
@@ -92,11 +99,12 @@ export default function ReviewWarnings({
   warnings,
   window,
   onExtend,
+  carriedCount = 0,
 }: ReviewWarningsProps): JSX.Element | null {
   const { t } = useTranslation(["tripBuilder"]);
   const fmt = useDisplayFormat();
   const shown = warnings.filter((warning) => !SAID_ELSEWHERE.has(warning.code));
-  if (shown.length === 0) return null;
+  if (shown.length === 0 && carriedCount <= 0) return null;
 
   const chipsOf = (warning: BuilderWarning): ExtendChip[] => {
     const start = (day: Day): ExtendChip => ({
@@ -127,6 +135,17 @@ export default function ReviewWarnings({
   return (
     <ReviewSection title={t("tripBuilder:review.warnings.title")}>
       <ul className="flex flex-col" style={{ gap: "var(--ts-space-md)" }}>
+        {carriedCount > 0 && (
+          <li
+            data-warning="locationCarried"
+            style={{
+              paddingLeft: "var(--ts-space-lg)",
+              borderLeft: "3px solid var(--ts-info)",
+            }}
+          >
+            <span>{t("tripBuilder:review.excluded.locationCarried", { count: carriedCount })}</span>
+          </li>
+        )}
         {shown.map((warning, index) => {
           const chips = chipsOf(warning);
           return (
