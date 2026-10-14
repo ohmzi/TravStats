@@ -357,114 +357,146 @@ a leg, and its cities cell prints a real `0` for a row with no titled station,
 because that is a known empty and not an unknown count. The two cities cells
 diverge there on purpose — the data does — and are not to be "unified".
 
-### The journey card's band carries the trip's flags
+### The journey card's band shows one flag
 
 The header band of a journey card — the card on the **Journeys** page — used to
-be a light-to-dark wash in the trip's own colour. It now carries the **flags of
-the countries the trip was in**, laid over one another under the same
-light-to-dark spectrum: the flags take the place the colour tint held, so the
-band keeps its exact geometry — 110 px tall, a 135° ramp from the light top-left
-to the dark bottom-right, landing on `--ts-surface2` — and the title and figures
-below it do not move (owner, 2026-10-09).
+be a light-to-dark wash in the trip's own colour, then carried the flags of the
+countries the journey was in. It now carries **one flag: the country the journey
+spent the most days in** (owner ruling, 2026-10-14). The band keeps its exact
+geometry — 110 px tall, a 135° ramp from the light top-left to the dark
+bottom-right, landing on `--ts-surface2` — and the title and figures below it do
+not move. The ruling retired the earlier travel-order set (each flight and car
+leg's destination country, the last element dropped to hide home) and replaced
+it outright, because that rule removed home only by an ordering accident and
+could show a country the traveller merely passed through.
 
-**This is a rule for every journey, not a treatment for a few trips.** The band
-reads `trip.countries` and nothing else. Every journey resolves its own flags the
-same way, through one pure selector (`bannerFlags` in `lib/tripFlags.ts`): no trip
-is named, and no journey has a branch of its own. The owner judged the mechanism
-on two pilot cards first, and the flags now draw for every journey, so the
-generality is the point, not a side effect.
+**How the country is chosen.** The journey's own **stations** decide it, because
+that is where the data holds real time. Each station contributes the distinct
+calendar days it covers — its start through its end inclusive, one day for a
+place with no dates — and a day two stations share counts **once**, so the
+weight is days *spent*, not spans summed. The country with the most distinct
+days wins; a tie goes to the country present on the earliest day, then to the
+earliest station. A journey whose stations resolve no country falls back to the
+country with the most **flight arrivals**, a tie to the earliest flight, so a
+journey whose places were never recorded still shows something. A route
+correction (a `via` point) counts for nothing, exactly as in every station
+count. The answer is folded to ISO alpha-2 against the same catalogues the rest
+of the app uses, so a catalogue spelling and a code cannot disagree.
 
-**The flag set is the app's own country domain, derived and not registered.**
-The band paints one flag per code in `ISO_3166_1_ALPHA2` — the very list the
-country resolver recognises a name from — reached by the convention
-`/flags/<cc>.svg`. There is **no allow-list of flags** to keep in step: the way
+The field on the wire is `destinationCountries` — **at most one entry**, empty
+when nothing resolves — and it is separate from `trip.countries`, the sorted set
+that still feeds the card's own country figure. The rule lives on the server in
+`backend/src/routes/trips/tripCountries.ts` (`journeyPrimaryCountry`), one
+function the list and detail endpoints both call. Because it is derived per
+request and nothing is stored, a trip created after this change draws its flag
+with no migration and no backfill.
+
+**A country with no asset is dropped, never stood in for.** The band paints only
+files this repository ships, by URL from `public/flags/`, reached by the
+convention `/flags/<cc>.svg` over the app's own country list
+(`ISO_3166_1_ALPHA2`) — there is no allow-list of flags to keep in step: the way
 to give a country a flag is to add its code to that shared list and run
-`node scripts/vendor-flags.mjs`, which copies the file out of the in-repo
-`flag-icons` dependency. A test
-(`frontend/src/lib/__tests__/flagAssets.test.ts`) fails if the folder and the
-list ever disagree, in either direction — which is what makes a URL derived by
-convention safe. So a trip created after this change draws its flags with no
-migration, no backfill and nothing for a human to update (owner, 2026-10-09).
+`node scripts/vendor-flags.mjs`. A test fails if the folder and the list ever
+disagree, in either direction. Nothing is fetched at build or at runtime: the
+app's own flag component loads `flagcdn.com` for the small chips it was written
+for, but the card band reads a local source, and each SVG records its provenance
+and licence in a header comment. When the field is empty — no country recorded,
+or none drawable — the band keeps the trip's own colour gradient, so an absent
+flag reads as the trip's colour rather than as a hole.
 
-**A country with no asset is dropped, never stood in for.** Each entry in
-`trip.countries` runs through the app's own country resolver, which accepts a
-code *or* a name in any language and returns nothing for what it cannot place —
-"a wrong flag is worse than no flag" is the rule it was written to. Unplaceable
-entries are dropped and duplicates collapsed, and only countries in the app's
-country domain are painted. What the band does, case by case:
+A **stay- or cruise-only trip** (one that went nowhere by flight or car) is not a
+journey in this sense and still hands the band its full country set, painted as
+overlapping diagonal ribbons with feathered seams. The seam is count-keyed, so a
+several-flag band stays legible: one to three flags keep the pilot's formula
+bit-for-bit, and four or more use a smaller fixed seam so no ribbon's solid core
+reaches zero (the arithmetic that made the old three-flag cap impossible to
+raise). The order is positional only — a trip's countries are a set, never a
+route — so the band is not read first-visited-to-last.
 
-- **No country recorded, or none drawable:** the band keeps **today's exact
-  `trip.color` gradient**. Nothing is invented — an absent flag shows as the
-  trip's own colour, which is honest where a made-up flag or a flat grey block
-  would not be.
-- **All drawable:** every recorded country paints a flag. There is **no count
-  cap**: a set has no meaningful order, so a cap could only hide a country
-  chosen arbitrarily, and the owner's own five-country journeys were exactly
-  what it hid. A five-country trip draws all five.
-- **Some drawable, some not:** the drawable flags paint and the band carries a
-  `title` stating how many countries were left out, so an omission reads as a
-  spoken reason rather than as a hole. This now fires only for an entry that
-  names no country or a code outside the shipped domain — never for a country
-  dropped to hit a number. The card's figures line still prints the trip's true
-  country count, so the band never claims more than it can draw.
-
-**The flags overlap; they are not a row of strips.** Several flags are cut into
-equal diagonal ribbons along the one 135° axis with feathered seams, so
-neighbours cross-fade over each other with no border, divider or shadow — a
-drawn edge is what would turn the wash back into a collage of columns. The order
-is the order the trip records, and it is **positional only**: a trip's countries
-are a set, never a route (the stored array is the user's order, the derived one
-sorted), so the band must not be read as first-visited-to-last. The first flag
-merely reads as the more prominent.
-
-**The seam is count-keyed so five flags stay legible.** The pilot's seam was
-`min(seg·0.5, 10)`; at five flags `seg = 20`, so the feather was 10 and the solid
-core of every interior ribbon — `seg − 2·feather` — was **zero**. Every flag
-reached full opacity at exactly one line and neighbours blended into one wash.
-That is arithmetic, not taste, and it is why the old three-flag cap could not
-simply be raised. So one to three flags keep the pilot's formula **bit-for-bit**
-(those cards are signed off and must not move), while four or more use a small
-fixed seam, `min(seg·0.25, 3)`: at five flags each ribbon keeps a 14 % solid core
-with 3 % seams. Past roughly ten flags the ribbons stop reading as separate
-flags and the band becomes a dense wash — but nothing is dropped, and the figures
-line still prints the true count. Whether a flag reads as *itself* at five (not
-merely as one of five) is a question only a render settles; the slicing samples a
-diagonal of a cover-scaled flag, so a charge near an edge can fall outside the
-visible band.
-
-**The dark end is a legibility requirement, not a style choice.** Two layers
-keep the spectrum honest over a flag. A **mask** fades the flags themselves along
-the 135° axis — strong at the light corner, exactly zero at the dark corner — so
-the band lands on `--ts-surface2` for a mostly-white flag and a dark one alike:
-a white field and a green one reach the same dark end, and so does any flag
-added later. A **scrim** then caps the brightest pixel where the status pill
-sits, because the pill is a 12 %-alpha fill tuned for dark surfaces and a
-white-heavy flag would otherwise break its contrast. The band's legibility is
-pinned by a test that recomputes the composited pixels from the component's own
-stop constants — jsdom paints nothing, so it asserts the model, never a pass
-nothing measured — and the pill clears 4.5:1 over a pure-white worst case.
-Without the scrim the flag would win and the pill would fail; without the mask the
-band would not end dark enough for the chrome above it.
-
-**Nothing is fetched.** The band paints only files this repository ships, by URL
-from `public/flags/`. The app's own flag component loads `flagcdn.com` at
-runtime — right for the small chips it was written for, forbidden for the card
-band — so the band reads a separate, local source. Every one of those SVGs was
-copied **verbatim** from the flag set the repository already vendors for its
-backend (`flag-icons` 7.5.0, MIT-licensed), never downloaded, and each records
-its source, licence and own colours in a header comment. The set is regenerated,
-not hand-kept, by `node scripts/vendor-flags.mjs`; the folder explains itself in
-`frontend/public/flags/README.md`, and `.gitattributes` marks `*.svg` non-text
-so a Windows checkout cannot rewrite the bytes.
+**The dark end is a legibility requirement, not a style choice.** A **mask**
+fades the flag along the 135° axis — strong at the light corner, exactly zero at
+the dark corner — so the band lands on `--ts-surface2` for a pale flag and a
+dark one alike; a **scrim** caps the brightest pixel where the status pill sits,
+because the pill is a 12 %-alpha fill tuned for dark surfaces and a white-heavy
+flag would otherwise break its contrast. The band's legibility is pinned by a
+test that recomputes the composited pixels from the component's own stop
+constants — jsdom paints nothing, so it asserts the model, never a pass nothing
+measured — and the pill clears 4.5:1 over a pure-white worst case.
 
 **The chips name the country once.** The trip head's country chips put the name
 in both the flag's `alt` and the text beside it, so a screen reader said it twice
-and a plain-text copy concatenated "United Arab EmiratesUnited Arab Emirates"
 (owner, 2026-10-09). The flag is now rendered decorative there — `alt=""`,
 `aria-hidden`, no `title` — and the chip's own text names the country. `FlagImg`
 keeps its `alt`/`title` by default, because in the lodging table the flag is the
 only thing naming the country. The chips also fold a duplicated `trip.countries`
 entry, so a stored list that repeats a country draws one chip, not two.
+
+### The figures band is navigation
+
+The figures row at the top of the journey, trip and flight-trip pages used to be
+a wall of read-only sums. A figure that names a surface is now a link to it, so
+the row reads as the doorways of the page it heads. The wiring is all in the
+three band components (`EntityFigures.tsx` for the journey and trip,
+`FlightTripFigures.tsx` for the flight-trip page); `FigureBand` itself needed no
+change, its `value` already being a `ReactNode`, and no DTO, endpoint or fetch
+was touched.
+
+The journey band's cells and where each goes: **days** to the journey's
+`?tab=timeline`, **km** (driven) to the roadtrip it sums when there is exactly
+one and to the journey's `?tab=trips` when there are several, **kmFlown** to the
+flight journey's own route view, **countries** to `?tab=map`, **trips** to
+`?tab=trips`, and **albums** to `?tab=gallery` when the trip has at least one.
+The **dates** cell stays plain text.
+
+The trip band's cells: **driven** and **countries** to `?tab=map`, **days** and
+**places** to `?tab=timeline`; **dates**, the journey link and the album cell are
+unchanged.
+
+The flight-trip band: **distance**, **cities** and **airports** all open the
+flight journey's own Route view with `?view=` cleared (there is no airport page,
+so they return to the surface that draws those numbers), and **days** opens the
+single associated roadtrip's timeline when there is exactly one, else the
+journey's `?tab=trips`. The **flights** cell keeps its button, because that tap
+swaps the table in rather than navigating and is the table view's only door.
+
+A cell with no sensible target keeps today's plain rendering rather than linking
+to nowhere — a journey with no roadtrip leaves its km plain, an album-less trip
+leaves its count plain. The links reuse each cell's own text (so the band's
+accessible names are unchanged) and carry the repo's quiet-link idiom,
+`hover:underline`.
+
+### A flight sorts by where it moved you, on the journey timeline
+
+The journey timeline pairs a flight with a time-less place entry that shares its
+day. The rule used to be direction-blind: any such flight sorted **first**, even
+one that carried the traveller *away* from the place — so a departure flight out
+of a place was drawn above presence in that place (owner report, 2026-10-14). The
+rule now asks which of the flight's two airports is **nearer the place**, using
+the repo's own Haversine helper:
+
+- the flight's **arrival** airport is nearer ⇒ it **brought** the traveller there
+  ⇒ the flight sorts **first** (the earlier ruling, kept);
+- the flight's **departure** airport is nearer ⇒ it **took** them away ⇒ the
+  flight sorts **last**, after the place's entries;
+- a missing point on either side, or two airports equidistant ⇒ today's
+  behaviour, a flight first.
+
+The comparator is a pure function of its two arguments — the points ride on the
+events, built in `tripTimelineEvents.ts` — so the rule corrects every journey,
+past and future, with no re-sync. It lives in `frontend/src/lib/tripTimeline.ts`.
+
+### A cluster's named places stand apart
+
+Within one stay, the photo clusters a scan derives are cut by the places Immich
+names. The rule used to re-merge named groups whose medians lay within the
+clustering distance, so a compact island or a multi-district city — every
+district name within a few kilometres of every other — collapsed into a single
+station named by whichever name held the most photos. Now each named place group
+that carries enough photos to stand alone **is its own station**: the named
+groups are the split, and only unnamed or too-small strays are attached to their
+nearest group. The clustering constants themselves are untouched; only the
+re-merge step was removed. The rule lives in
+`backend/src/services/tripBuilder/cityClusters.ts` (`splitByNames`).
 
 ### A dashboard line card is a way in, never a way into editing
 
@@ -655,6 +687,23 @@ is not connected, or when the trip is longer than one 62-day scan. Deleting a
 builder trip never deletes the Immich album — the album is the user's, on the
 user's server — and its roadtrips are only detached from it, because a roadtrip
 outlives its trip.
+
+**A re-sync can be scoped to one roadtrip.** A trip that shares a journey with
+others should be correctable without rewriting the whole journey (owner request,
+2026-10-12), so the trip's own edit page and the roadtrip's figures band each
+carry a "Re-sync from Immich" entry. Its scan target names the route as
+well as the trip (`{kind:"existing", tripId, routeId}`): the window is the
+trip's own saved dates, and `routeScope.ts` merges the window's areas into the
+single area the target roadtrip becomes, in travel order, with a straight road
+leg joining the boundary. The journey-level machinery that would re-mint the row
+is skipped — no naming pass, no pitstop album, no stopover offers, no photo
+findings — and the annotation forces the association with the stored roadtrip, so
+the owner's corrected photo locations cannot fail a name or proximity match and
+turn the update into a second row. The commit writes exactly that roadtrip and
+its album, add-only, through the same writer the journey-wide flow uses; nothing
+else of the journey moves, its `updatedAt` included. A scanned stop that also
+stands on another stored roadtrip's stations refuses with a conflict rather than
+writing across rows.
 
 **Known limits of a re-sync.** An `unknown` night that a kept `notSeen` slept
 station covers still counts as unknown in the draft and in `unknownNights`.
@@ -982,7 +1031,38 @@ wording where it names the journey itself.
 
 When the routing provider answers from a road graph that has no data for a trip's region, its line snaps hundreds or thousands of kilometres away; the app refuses that answer and now also asks an operator-configured helper — the `osrm-autofetch` service — to fetch the missing region. The helper downloads the region's OpenStreetMap extract, rebuilds the routing graph into a staging directory, swaps it in while the old graph keeps serving, and restarts the router; the next attempt routes. The admin setting `routingAutoFetchUrl` holds the helper's URL; left empty, behaviour is byte-for-byte what it was before this change. The refusal message itself then says the map for the region is downloading, and roughly how long it takes.
 
-The same routing guard accepts the provider's own nearest-road snap when a trip pin sits within 25 km of a road — a photo taken on a beach or a hike routes from the nearest road instead of being refused — and keeps refusing (with the map fetch) beyond that bound.
+The same routing guard accepts the provider's own nearest-road snap when a trip
+pin sits within 25 km of a road — a photo taken on a beach or a hike routes from
+the nearest road instead of being refused — and keeps refusing (with the map
+fetch) beyond that bound. The fetch trigger fires on **any** refusal, one-sided
+included: the snap bound refuses only when one end is more than 25 km off, which
+is always beyond the trigger's lower 20 km threshold, so a wrong-region refusal
+never leaves without asking the service.
+
+**The app reports the download, and links to it.** A running download used to be
+invisible: the alert said a region's map was on its way and then nothing said how
+far along it was. An admin **Settings** page now carries a map-download panel
+(`RouteFetchProgressPanel`) that polls a new admin endpoint
+(`GET /admin/route-fetch`, which proxies the service's own `/status` and never
+throws — a stopped service is the panel's "unreachable" state, not a 500). The
+panel shows what the service reports and nothing it invents: the phase in words,
+the region label and regions, the elapsed time, and an ETA only when the service
+supplies one — no invented percentage. The downloading alert links to that panel
+on both surfaces it renders on (the toast and the leg dialog), for admins only
+and only for the `started`/`running` answer that names a region, so neither
+surface silently lacks it. The endpoint lives on the admin mount, which is
+undocumented by design — no new public endpoint and no OpenAPI path.
+
+**The service covers the ground between two points, not just the endpoints.** A
+leg resolved only from its two ends could miss a region the route crosses; the
+service now samples each consecutive pair's great circle and unions every
+covering extract, so the corridor is covered. A mid-path sample is never allowed
+to pull a continent-scale extract (only a request's own point may), the
+already-built regions are dropped before the per-job cap is applied so a long
+corridor makes progress across attempts, and an interior request point in
+uncovered ground is refused rather than silently skipped. That work lives in the
+service's own repository, not this one — see the README's "Outside this
+repository".
 
 ## How it fits with Immich
 
@@ -1031,6 +1111,11 @@ container image is built from this repository (`docker build -f server/Dockerfil
 and the app runs from a compose file that pins `IMMICH_VERSION` so the server and
 the machine-learning image move together. Immich does not support version skew
 between the two.
+
+The machinery that deliberately lives outside this repository — the on-demand
+map-fetch service, the OSRM data layout it rebuilds, and the scripted
+deployment with its pre-deploy database backups — is described in the README's
+"Outside this repository" section.
 
 No credentials, hostnames, album names or itinerary data belong in this
 document. If you are forking this in turn, keep it that way: the code is meant to

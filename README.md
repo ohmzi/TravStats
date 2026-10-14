@@ -80,6 +80,159 @@ imported from files you supply.
 
 ---
 
+## This fork
+
+This is a personal fork of TravStats, developed against one household's real
+logbook. It tracks upstream — the 2.7.0-rc.13 line is merged — and carries a
+set of features on top. Upstream releases are **merged** into the fork's line
+rather than rebased onto, so the features below stay put across an upstream
+pull and none of them is upstream's own work. Everything else in this README
+is upstream's and still applies. The per-change record — what each does, why,
+and which files or subsystems it touches — is in
+[`docs/FORK_CHANGES.md`](docs/FORK_CHANGES.md).
+
+### Build a trip from your Immich photos
+
+The Create Trip form can read the photos taken inside a trip's dates from a
+self-hosted Immich library and draft the whole trip from them. Two switches,
+**Inspect Immich** and **Create album in Immich**, start a read-only scan: the
+server fetches the window's photos, gives each one an instant and a timezone,
+keeps your own, and cuts the ground movement at every flight already in your
+logbook. From that it drafts a day-by-day itinerary — where each day was spent,
+how the logged flights divide the ground travel into stretches, and where each
+night was slept — and proposes a roadtrip per ground area with **native
+roadtrip stations**. A single ground area takes the trip's own name; where there
+are several, each is named `<trip> · <main city>`. Photos taken while airborne
+are kept in the album but never become stops, and a night spent in the air is a
+flight, not a place.
+
+**Nothing is written until you confirm.** The draft is held in memory and
+reviewed on its own page, where you can rename, merge, split and delete stops,
+answer an open night, choose what each area becomes, and see the photos the scan
+left out and the warnings it raised — all before pressing the button. Only then
+does a single transaction write the trip, its flights, its stops and its
+roadtrips, with the album following. A **re-sync** updates an existing trip
+instead: it re-scans the trip's saved dates, shows a diff (changed, new,
+unchanged, "not in your photos") and writes only what changed. A re-sync can
+also be **scoped to one roadtrip** from that trip's own page, so correcting one
+trip never rewrites the rest of the journey.
+
+**Albums are made and changed only through your own Immich key**, never the
+operator's, and the only step that removes photos — a date change — is doubly
+gated: a photo leaves an album only when TravStats made that album (its
+description carries a marker written at creation) and the key grants the
+album-delete scope. A shared connection or a missing scope saves the trip
+without the album rather than failing it.
+
+### One flag on the journey band
+
+The band at the top of a journey card shows a **single country flag: the country
+the journey spent the most days in**. The journey's own stations decide it —
+each contributes the distinct calendar days it covers, a day two stations share
+counting once — with the country most landed-in by its flights as the fallback
+when no station resolves a country. When nothing resolves, the band keeps the
+trip's own colour gradient rather than inventing a flag. (An earlier rule
+painted the travel-order destination flags and dropped home only by an ordering
+accident; a later ruling replaced the whole rule with the one country most
+spent.)
+
+### The figures band is navigation
+
+The figures row on the journey, trip and flight-trip pages is no longer a wall
+of read-only sums. A figure that names a surface is a link to it: the day count
+and the places open the timeline, the countries and the route distance open the
+map, the trip count opens the trips, the album opens the gallery, and the flown
+distance and the flight distances open the flight journey's own route view. A
+cell with no sensible target stays a plain figure rather than linking to
+nowhere.
+
+### On-demand map downloading, and its progress panel
+
+Routing runs on a self-hosted OSRM graph that may not cover every region a trip
+visits. When the router's answer snaps far from a leg's two stops — the sign
+that the graph has no data there — the app refuses it and, when an operator has
+configured the fetch service's URL, asks that service to download the covering
+region and rebuild the graph while the old one keeps serving. The refusal
+message tells the truth about it: it says the map for the region is downloading
+and roughly how long it takes, and the next attempt routes.
+
+The same routing guard now accepts the router's own **nearest-road snap when a
+pin sits within 25 km of a road** — a photo taken on a beach or a hike routes
+from the nearest road — while still refusing, with the map fetch, beyond that
+bound. So a missing map region heals itself, and a pin that is merely off-road
+no longer fails.
+
+An admin **Settings** page carries a **map-download panel** showing the
+service's own phase, region and elapsed time (and an ETA when the service
+supplies one). The downloading alert links there — for admins only, on both the
+toast and the leg dialog — so neither surface silently lacks the way to watch a
+download in progress.
+
+### Timeline and clustering rules
+
+Two ordering rules keep a journey's timeline honest. On the journey timeline,
+the flight that **brought** the traveller to a place sorts **before** that
+place's time-less entries, and the flight that **took** them away from it sorts
+**after** them; which it is, is decided by which of the flight's two airports is
+nearer the place. And within a stay, the places a cluster carries **stand
+apart**: each named place becomes its own station even when the places sit
+within the clustering distance of one another, so a compact island or a
+multi-district city shows its places rather than collapsing into one.
+
+## Outside this repository
+
+Some of the fork's machinery deliberately lives outside the app's repository.
+It is the part most easily lost when the repository is moved or re-cloned, so it
+is written down here.
+
+### The `osrm-autofetch` host service
+
+A small separate Python project — standard library only, no dependencies — that
+runs beside OSRM and fetches map regions on demand. Asked to cover a leg, it
+resolves the Geofabrik extract(s) covering the request's points **and the ground
+between them** (it samples the great-circle path, so a corridor is covered, not
+just its two ends), downloads them, stage-builds the merged graph, swaps it in
+while the old graph keeps serving, and restarts the router. It caps how many new
+extracts one job may add and how many regions may be built at once, refuses
+while free disk is low, and caches a no-data answer briefly so the same request
+is not retried in a loop.
+
+A built region is dropped from the graph once it has been present for a
+configurable TTL (default 30 days), unless it is named in a **keep-file**, which
+pins the regions you always want. The sweep runs on the service's own thread,
+never while a job is in flight, and an expired region is simply missing again —
+the next request re-fetches it. Build containers are **memory-capped** so a
+runaway build is killed inside its own container rather than on the host, and
+the serving container has its own memory limit. It is installed as a **systemd
+unit** on a private port, reachable only over the app's Docker bridge.
+
+### The OSRM data layout
+
+The router serves one **merged graph**, built from a **region list** — one
+Geofabrik path per line — that the download script, the build script and the
+fetch service all read as a single source. Two scripts own the lifecycle:
+`download-osm.sh` fetches the regional extracts, and `build.sh` merges them with
+`osmium` (dropping the duplicate nodes neighbouring extracts share), builds the
+graph with `osrm-extract`, then partitions and customises it for the MLD query
+algorithm. A graph rebuild is the expensive, memory-hungry step; the fetch
+service does the same work into a staging directory so the live graph is never
+down while it runs.
+
+### Deployment
+
+The app is built from this repository into a container image and run from a
+compose file adapted from upstream's production compose — published on the
+loopback interface only, with pinned image tags and upstream's bundled Ollama
+omitted in favour of one already running on the host. Deployment is scripted: a
+deploy script tags the live image for rollback, takes a **database backup
+(`pg_dump`) before every deploy**, builds and swaps in the new image, and
+smoke-tests it; a gate script runs the full test suite — both trees, several
+time zones, and the migrations against a throwaway database — on a frozen
+snapshot before anything ships. The backups sit beside the deployment, named for
+the build they preceded.
+
+---
+
 ## Screenshots
 
 <table>
