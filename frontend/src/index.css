@@ -49,6 +49,34 @@
   color utility to any element that depends on these defaults.
 */
 @layer base {
+  /*
+    A fieldset's UA default is `min-inline-size: min-content`, so it can
+    never be narrower than its widest unbreakable child and pushes a form past
+    its card on a phone (forgejo#292, the WebDAV form). Every fieldset in the
+    app wants to shrink like any other block.
+  */
+  fieldset {
+    min-inline-size: 0;
+  }
+
+  /*
+    A long unbroken string — a URL in a hint, a booking reference, a file name —
+    must wrap inside its box instead of widening the page (forgejo#292: the
+    WebDAV hint "https://…" at 360 px). `break-word`, not `anywhere`: it only
+    acts when the box is already too narrow and leaves min-content sizing alone,
+    so a flex item is not squeezed to a letter wide before its neighbours give.
+  */
+  p,
+  li,
+  dd,
+  h1,
+  h2,
+  h3,
+  h4,
+  label {
+    overflow-wrap: break-word;
+  }
+
   *,
   ::after,
   ::before,
@@ -194,6 +222,14 @@
   }
   &:focus {
     border-color: var(--accent);
+  }
+  /* Touch sizing follows the pointer (forgejo#249): the web build is drawn for
+     iPads, where a 38 px field was measured as a missed tap. Every form field
+     that uses this class — and the shared ones built on it (LocationInput,
+     TagInput) — reaches the touch minimum on a coarse pointer only, so the
+     desktop layout keeps its density. */
+  @media (pointer: coarse) {
+    min-height: var(--ts-size-touch-min);
   }
 }
 
@@ -388,10 +424,16 @@
   }
 
   /* Focus is a system state, not a per-component afterthought
-     (DESIGN_SYSTEM.md §5). The ring shows only under :focus-visible, so a
-     mouse click does not draw it but a Tab key always does. */
+     (DESIGN_SYSTEM.md §5). It shows only under :focus-visible, so a mouse
+     click does not draw it but a Tab key always does.
+     The `focusRing` halo alone is accent at 18 % — measured 1.42:1 against
+     `surface`, under the 3:1 a focus indicator needs, and invisible beside
+     the field borders on a tablet (forgejo#249). The accent outline carries
+     the contrast (8.9:1); the halo stays as the system's softer edge. An
+     outline also survives a `shadow-*` utility, which replaces box-shadow. */
   :focus-visible {
-    outline: none;
+    outline: 2px solid var(--ts-accent);
+    outline-offset: 2px;
     box-shadow: var(--ts-shadow-focus-ring);
   }
 

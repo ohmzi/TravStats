@@ -38,7 +38,15 @@ import { expectNoNestedTriggers } from "../../__tests__/noNestedTriggers";
 const response = (): TravelAccountResponse => ({
   account: {
     years: [
-      { year: "2025", days: 365, hotelNights: 30, seaNights: 7, airNights: 3, homeNights: 325 },
+      {
+        year: "2025",
+        days: 365,
+        hotelNights: 30,
+        seaNights: 7,
+        airNights: 3,
+        railNights: 0,
+        unassignedNights: 325,
+      },
     ],
     contestedNights: 2,
   },
@@ -98,24 +106,27 @@ describe("the travel-account tiles open the measures they render", () => {
     getTravelAccount.mockResolvedValue(response());
   });
 
-  it("wires the two single-number trip cards and both figures of the coverage card", async () => {
+  it("wires the trip cards and both figures of the coverage card", async () => {
     expect(await keysOpened()).toEqual(
       [
         "travelAccountJournalEntryCount",
         "travelAccountUncoveredDayCount",
         "travelAccountFullyCoveredTripCount",
         "travelAccountTripsWithDatesCount",
+        // forgejo#265: the average trip length opens the trips it averages.
+        "travelAccountTripDaysTotal",
       ].sort()
     );
   });
 
-  it("leaves the five night measures unwired — this section has no all-time night figure", async () => {
+  it("leaves the six night measures unwired — this section has no all-time night figure", async () => {
     const keys = await keysOpened();
     for (const key of [
       "travelAccountHotelNights",
       "travelAccountSeaNights",
+      "travelAccountRailNights",
       "travelAccountAirNights",
-      "travelAccountHomeNights",
+      "travelAccountUnassignedNights",
       "travelAccountContestedNights",
     ]) {
       expect([key, keys]).toEqual([key, expect.not.arrayContaining([key])]);

@@ -88,6 +88,27 @@ export const RATE_LIMITS = {
   // out for the rest of the hour — twice, restarting the container each time.
   RAIL_CREATION_MAX: 300, // journeys per hour
 
+  // Bus rides take rail's budget, for rail's reason: a later import saves one
+  // ride per request, and a first sitting is years of tickets.
+  BUS_CREATION_MAX: 300, // rides per hour
+  /**
+   * Road-routing provider calls per UTC day (`services/tour/routing/providerBudget.ts`).
+   * The instance cap sits below OpenRouteService's free tier (2,000 requests a
+   * day) so tours and roadtrips keep headroom; the per-user cap keeps one
+   * account (or a looped client) from spending the instance's share alone.
+   * Counted in memory: a restart resets the day, which at worst doubles one
+   * day's spend, never makes it unbounded.
+   */
+  ROUTING_CALLS_PER_USER_PER_DAY: 300,
+  ROUTING_CALLS_PER_INSTANCE_PER_DAY: 1500,
+  /** A finished bulk-routing pass answers a restart with its own result for this long. */
+  BUS_ROUTE_ALL_COOLDOWN_MS: 10 * 60 * 1000,
+  BUS_ROUTE_MAX: 60, // 'route again' / 'route all' requests per hour — each spends the provider's quota
+
+  // Standalone notes (forgejo#137): rail's budget. The Companion keeps notes
+  // offline and sends its outbox in one burst after a trip without signal.
+  NOTE_CREATION_MAX: 300, // notes per hour
+
   // Flight lookup rate limits
   FLIGHT_LOOKUP_WINDOW_MS: 15 * 60 * 1000, // 15 minutes
   FLIGHT_LOOKUP_MAX: 30, // lookups per window
@@ -107,6 +128,9 @@ export const RATE_LIMITS = {
   // Stats calculation rate limits (expensive DB aggregations)
   STATS_WINDOW_MS: 60 * 1000, // 1 minute
   STATS_MAX_REQUESTS: 30, // 30 requests per minute
+  // Badge proofs fold a badge's rows many times over (forgejo#265): tighter.
+  BADGE_EVIDENCE_WINDOW_MS: 60 * 1000, // 1 minute
+  BADGE_EVIDENCE_MAX_REQUESTS: 10, // 10 badge proofs per minute
 
   // Admin export rate limits (loads entire DB)
   ADMIN_EXPORT_WINDOW_MS: 60 * 60 * 1000, // 1 hour
@@ -241,11 +265,6 @@ export const PARSER_SETTINGS = {
   LLM_TOP_P: 0.9,
   LLM_TOP_K: 40,
   LLM_REPEAT_PENALTY: 1.1,
-} as const;
-
-// ========== FILE CLEANUP ==========
-export const CLEANUP = {
-  RECEIPT_RETENTION_DAYS: 90, // days before cleaning up orphaned receipts
 } as const;
 
 // ========== AIRPORT CATALOGUE ==========

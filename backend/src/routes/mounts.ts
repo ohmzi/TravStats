@@ -23,13 +23,20 @@ import flightRoutes from "./flights";
 import flightEntrySuggestionRoutes from "./flights/entrySuggestions";
 import flightTrackRoutes from "./flights/track";
 import flightObservedTimesRoutes from "./flights/observedTimes";
+import flightBookingRoutes from "./flights/booking";
+import flightBulkEditRoutes from "./flights/bulkEdit";
 import upcomingRoutes from "./upcoming";
+import dawarichStayRoutes from "./dawarichStays";
 import photoJourneyRoutes from "./photoJourneys";
 import tripSuggestionRoutes from "./tripSuggestions";
 import tripBuilderRoutes from "./tripBuilder";
 import flightLookupRoutes from "./flightLookup";
 import statsRoutes from "./stats";
+import statsFlightInsightsRoutes from "./stats/flightInsights";
+import statsCruiseInsightsRoutes from "./stats/cruiseInsights";
 import statsNetworkRouteRoutes from "./stats/networkRoute";
+import statsInsightRoutes from "./stats/insights";
+import statsDomainRecordsRoutes from "./stats/domainRecords";
 import airportRoutes from "./airports";
 import airlineLogoRoutes from "./airlineLogos";
 import countryFlagRoutes from "./countryFlags";
@@ -55,6 +62,9 @@ import templateStatusRoutes from "./templateStatus";
 import parserTemplatesRoutes from "./parserTemplates";
 import trainingRoutes from "./training";
 import tripsRoutes from "./trips";
+import tripBookingRoutes from "./trips/tripBookings";
+import tripPackageRoutes from "./trips/tripPackage";
+import tripExchangeRoutes from "./trips/tripExchange";
 import tripEntrySuggestionRoutes from "./trips/entrySuggestions";
 import tripStopRoutes from "./trips/tripStops";
 import tripPhotoRoutes from "./trips/tripPhotos";
@@ -81,19 +91,27 @@ import airlinesRoutes from "./airlines";
 import aircraftRoutes from "./aircraft";
 import cruisesRouter from "./cruises";
 import cruiseRouteOverrideRoutes from "./cruises/routeOverride";
+import railOperatorRouter from "./rail/operators";
 import railRouter from "./rail";
 import railStationsRouter from "./rail/stations";
 import railEntrySuggestionsRouter from "./rail/entrySuggestions";
 import railLookupRouter from "./rail/lookup";
+import railShareLinkRouter from "./rail/shareLink";
 import railStatsRouter from "./rail/stats";
 import railConnectionsRouter from "./rail/connections";
 import railRoadtripConversionRouter from "./rail/roadtripConversion";
+import busRouter from "./bus";
+import ferryRouter from "./ferry";
+import ferryRoadtripRouter from "./ferry/roadtrip";
+import busEntrySuggestionsRouter from "./bus/entrySuggestions";
+import busStatsRouter from "./bus/stats";
 import rentalRouter from "./rental";
 import rentalStationsRouter from "./rental/stations";
 import rentalImportRouter from "./rental/import";
 import rentalStatsRouter from "./rental/stats";
 import rentalRemindersRouter from "./rental/reminders";
 import rentalLinksRouter from "./rental/links";
+import rentalProvidersRouter from "./rental/providers";
 import cruiseTrackRoutes from "./cruises/tracks";
 import currenciesRouter from "./currencies";
 import lodgingRouter from "./lodging";
@@ -104,6 +122,8 @@ import placeVisitPhotoRouter from "./places/visitPhotos";
 import placeVisitDateSuggestionRouter from "./places/visitDateSuggestions";
 import placeVisitPhotoSuggestionRouter from "./places/visitPhotoSuggestions";
 import placeCoverRouter from "./places/placeCover";
+import placeRelationsRouter from "./places/relations";
+import placeMergeRouter from "./places/merge";
 import documentExtractValueRoutes from "./documents/extractValues";
 import placeListsRouter from "./placeLists";
 import curatedListsRouter from "./placeLists/curated";
@@ -114,6 +134,10 @@ import lodgingImportRoutes from "./lodgingImport";
 import placeImportRoutes from "./placeImport";
 import importBatchRoutes from "./importBatches";
 import companionRoutes from "./companions";
+import noteRoutes from "./notes";
+import sharingRoutes from "./sharing";
+import shareLinkRoutes from "./shareLinks";
+import publicShareLinkRoutes from "./publicShareLinks";
 import tagRoutes from "./tags";
 import openapiRoutes from "./openapi";
 import importRoutes from "./import";
@@ -145,6 +169,7 @@ export const apiMounts: ApiMount[] = [
   { id: "openapi", base: "/api/v1", router: openapiRoutes },
   // Public and unauthenticated, like the spec: the About section reads it before login.
   { id: "version", base: "/api/v1", router: versionRoutes },
+  { id: "dawarichStays", base: "/api/v1/dawarich-stays", router: dawarichStayRoutes },
   { id: "setup", base: "/api/v1/setup", router: setupRoutes },
   { id: "admin", base: "/api/v1/admin", router: adminRoutes },
   // Mounted BEFORE the generic /api/v1/auth routers so a future catch-all there
@@ -179,11 +204,16 @@ export const apiMounts: ApiMount[] = [
     base: "/api/v1/flights",
     router: flightEntrySuggestionRoutes,
   },
+  // Trip, tags and companions over a selection (forgejo#217) — before
+  // `flights` too, for the same reason.
+  { id: "flights.bulkEdit", base: "/api/v1/flights", router: flightBulkEditRoutes },
   { id: "flights", base: "/api/v1/flights", router: flightRoutes },
   // What a paired phone sends about a flight (forgejo#193/#194) — satellites
   // at the same prefix, the `cruises.tracks` pattern: flights.ts is frozen.
   { id: "flights.track", base: "/api/v1/flights", router: flightTrackRoutes },
   { id: "flights.observedTimes", base: "/api/v1/flights", router: flightObservedTimesRoutes },
+  // A flight's booking and its segments (forgejo#218/#219).
+  { id: "flights.booking", base: "/api/v1/flights", router: flightBookingRoutes },
   // The dashboard tab strip's "next up" line — one route for every domain,
   // so the strip never depends on which tab happens to have loaded.
   { id: "upcoming", base: "/api/v1/upcoming", router: upcomingRoutes },
@@ -199,6 +229,27 @@ export const apiMounts: ApiMount[] = [
     id: "stats.networkRoute",
     base: "/api/v1/stats/network/route",
     router: statsNetworkRouteRoutes,
+  },
+  // Flight insights (forgejo#256), on their own base for the same reason.
+  {
+    id: "stats.flightInsights",
+    base: "/api/v1/stats/flight-insights",
+    router: statsFlightInsightsRoutes,
+  },
+  // Cruise insights (forgejo#257), likewise.
+  {
+    id: "stats.cruiseInsights",
+    base: "/api/v1/stats/cruise-insights",
+    router: statsCruiseInsightsRoutes,
+  },
+  // The statistics expansion (forgejo#258/#259/#260/#264), likewise beside
+  // the frozen stats router rather than in it.
+  { id: "stats.insights", base: "/api/v1/stats/insights", router: statsInsightRoutes },
+  // forgejo#265 — records beyond flights; the same reason as the route above.
+  {
+    id: "stats.domainRecords",
+    base: "/api/v1/stats/domain-records",
+    router: statsDomainRecordsRoutes,
   },
   { id: "stats", base: "/api/v1/stats", router: statsRoutes },
   { id: "airports", base: "/api/v1/airports", router: airportRoutes },
@@ -236,6 +287,13 @@ export const apiMounts: ApiMount[] = [
     base: "/api/v1/trips",
     router: tripEntrySuggestionRoutes,
   },
+  // Bookings (#356): split out of trips.ts; BEFORE it, so `/trips/bookings`
+  // is never read as a trip id.
+  { id: "trips.bookings", base: "/api/v1", router: tripBookingRoutes },
+  // Package tours → trips (plan 2026-10-09 P3), same reason.
+  { id: "trips.package", base: "/api/v1", router: tripPackageRoutes },
+  // One trip as a `.travstats` file (spec 2026-10-09 S3), same reason.
+  { id: "trips.exchange", base: "/api/v1", router: tripExchangeRoutes },
   { id: "trips", base: "/api/v1", router: tripsRoutes },
   // Stops + journal, and photos + cover: split out of trips.ts (forgejo#59).
   // Mounted directly after `trips`, before every other satellite, so Express
@@ -305,8 +363,10 @@ export const apiMounts: ApiMount[] = [
   // Train journeys (spec 2026-09-25-rail-domain). Behind the beta switch in the UI only.
   // The catalogue typeahead and the train lookup mount FIRST on the same
   // prefix: the journey router's '/:id' would otherwise answer them as a 404.
+  { id: "rail.operators", base: "/api/v1/rail/operators", router: railOperatorRouter },
   { id: "rail.stations", base: "/api/v1/rail/stations", router: railStationsRouter },
   { id: "rail.lookup", base: "/api/v1/rail/lookup", router: railLookupRouter },
+  { id: "rail.shareLink", base: "/api/v1/rail/share-link", router: railShareLinkRouter },
   { id: "rail.stats", base: "/api/v1/rail/stats", router: railStatsRouter },
   { id: "rail.connections", base: "/api/v1/rail/connections", router: railConnectionsRouter },
   {
@@ -320,9 +380,21 @@ export const apiMounts: ApiMount[] = [
     router: railRoadtripConversionRouter,
   },
   { id: "rail", base: "/api/v1/rail", router: railRouter },
+  // Bus rides (spec 2026-10-07-bus-domain-design). Behind the beta switch in the UI only.
+  // Mounts FIRST on its prefix: the bus router's '/:id' would answer it as a 404.
+  {
+    id: "bus.entrySuggestions",
+    base: "/api/v1/bus/entry-suggestions",
+    router: busEntrySuggestionsRouter,
+  },
+  { id: "bus.stats", base: "/api/v1/bus/stats", router: busStatsRouter },
+  { id: "bus", base: "/api/v1/bus", router: busRouter },
+  { id: "ferry.roadtrip", base: "/api/v1/ferry", router: ferryRoadtripRouter },
+  { id: "ferry", base: "/api/v1/ferry", router: ferryRouter },
   // Car rentals (spec 2026-10-01-rental-domain-design). Behind the beta switch in
   // the UI only. Sub-routers mount FIRST: '/:id' would answer them as a 404.
   { id: "rental.stations", base: "/api/v1/rentals/stations", router: rentalStationsRouter },
+  { id: "rental.providers", base: "/api/v1/rentals/providers", router: rentalProvidersRouter },
   { id: "rental.import", base: "/api/v1/rentals/import", router: rentalImportRouter },
   { id: "rental.stats", base: "/api/v1/rentals/stats", router: rentalStatsRouter },
   {
@@ -358,6 +430,10 @@ export const apiMounts: ApiMount[] = [
   },
   // The place page's lead photograph — same prefix, own file, same reason.
   { id: "places.cover", base: "/api/v1/places", router: placeCoverRouter },
+  // What hangs off a place, counted — for the delete and merge questions.
+  { id: "places.related", base: "/api/v1/places", router: placeRelationsRouter },
+  // Folding a duplicate into a place (forgejo#232).
+  { id: "places.merge", base: "/api/v1/places", router: placeMergeRouter },
   { id: "places", base: "/api/v1/places", router: placesRouter },
   { id: "xlsxImport", base: "/api/v1/xlsx-import", router: xlsxImportRouter },
   // Curated checklists mount FIRST on the same path: '/curated' would
@@ -380,6 +456,14 @@ export const apiMounts: ApiMount[] = [
   { id: "placeImport", base: "/api/v1/place-import", router: placeImportRoutes },
   { id: "importBatches", base: "/api/v1/import-batches", router: importBatchRoutes },
   { id: "companions", base: "/api/v1/companions", router: companionRoutes },
+  // Standalone notes (forgejo#137).
+  { id: "notes", base: "/api/v1/notes", router: noteRoutes },
+  // Shared trips (design 2026-10-09): consent, companion link, share, leave.
+  { id: "sharing", base: "/api/v1/sharing", router: sharingRoutes },
+  // Public share links (forgejo#281): the owner's list/preview/create/revoke,
+  // and the unauthenticated side a link's page asks with its token.
+  { id: "shareLinks", base: "/api/v1/share-links", router: shareLinkRoutes },
+  { id: "publicShareLinks", base: "/api/v1/public/share-links", router: publicShareLinkRoutes },
   { id: "tags", base: "/api/v1/tags", router: tagRoutes },
   { id: "import", base: "/api/v1/import", router: importRoutes },
   { id: "pairing", base: "/api/v1/pairing", router: pairingRoutes },

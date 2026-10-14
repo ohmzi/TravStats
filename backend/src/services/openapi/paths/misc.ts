@@ -13,6 +13,7 @@ import { registry } from "../registry";
 import { prismaColumns } from "../prismaColumns";
 import { errorContent } from "./shared";
 import { evidenceResponseSchema } from "../../../schemas/evidence";
+import { busTimesSchema } from "../../../schemas/times";
 import { EVIDENCE_PAGE_SIZE } from "../../../shared/evidence";
 
 const achievement = registry.register(
@@ -150,7 +151,7 @@ registry.registerPath({
   path: "/upcoming",
   summary: "The next item across every enabled domain",
   description:
-    "One entry per domain the user has enabled — next flight, cruise, stay, train — " +
+    "One entry per domain the user has enabled — next flight, cruise, stay, train, bus, rental — " +
     "plus the next trip, sorted by start. Domains the user cannot see are absent " +
     "rather than empty: switched off by the user, OR hidden by the instance's beta " +
     "switch (rail while `betaFeaturesEnabled` is false) — a client need not apply " +
@@ -173,6 +174,7 @@ registry.registerPath({
                     "lodging",
                     "place",
                     "rail",
+                    "bus",
                     "rental",
                     "trip",
                   ]),
@@ -188,10 +190,13 @@ registry.registerPath({
                     .enum(["minute", "day"])
                     .optional()
                     .describe(
-                      "Rail only. `day` for a ride logged without a clock: `startsAt` is " +
+                      "Rail and bus. `day` for a ride logged without a clock: `startsAt` is " +
                         "the start of that day at the station, not a departure time, and " +
                         "the entry stays upcoming until the day is over."
                     ),
+                  times: busTimesSchema
+                    .optional()
+                    .describe("Bus: departure and arrival on the terminal clocks."),
                   tripId: z.string().uuid().nullable(),
                   tripName: z.string().nullable(),
                   primary: z
@@ -275,12 +280,30 @@ registry.registerPath({
             "`passportContinentCount` (all-time only). ranking: `<dimension>:<value>` — " +
             "`airline:iata:LH`, `airport:FRA`, `aircraftType:A320`, `country:<catalogue " +
             "country name>` (the flight distribution tile), `passportCountry:<ISO alpha-2>` " +
-            "(one passport country's entries, counted as /stats/countries/{code} counts them)."
+            "(one passport country's entries, counted as /stats/countries/{code} counts them), " +
+            "`departureMonth:1`–`12` and `departureWeekday:0`–`6` (0 = Sunday; the flight " +
+            "tab's seasonal and weekday charts, on the departure airport's clock), " +
+            "`seat:position:window`, `seat:zone:front`, `seat:class:<seat class>`, " +
+            "`seat:number:<seat>` and `seat:row:numbered` (the seat section's figures), " +
+            "`flightStatus:<status>` and `boardingGroup:<group>` (the breakdown's rows)."
         ),
     }),
     query: z.object({
-      period: z.enum(["allTime", "year", "rolling12m"]).optional(),
+      period: z
+        .enum(["allTime", "year", "rolling12m", "range"])
+        .optional()
+        .describe(
+          "`range` is the days `from`..`to`, both included, each record on its own " +
+            "calendar — what a same-span year comparison counted. Only measures whose " +
+            "registry scopes list `range` accept it (rail rides, km and countries; rentals " +
+            "and rental days; bus rides and km); every other answers 400."
+        ),
       year: z.coerce.number().int().optional().describe("Required when period=year"),
+      from: z.string().optional().describe("`YYYY-MM-DD`; required when period=range"),
+      to: z
+        .string()
+        .optional()
+        .describe("`YYYY-MM-DD`, not before `from`; required when period=range"),
       domains: z.string().optional().describe("Comma-separated domains, e.g. `flight,cruise`"),
       offset: z.coerce.number().int().min(0).optional(),
       limit: z.coerce

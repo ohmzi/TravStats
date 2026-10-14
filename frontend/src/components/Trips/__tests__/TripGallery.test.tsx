@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import TripGallery from "../TripGallery";
+import TripGallery, { TRIP_PHOTO_MAX_BYTES } from "../TripGallery";
 import type { TripPhoto } from "../../../types";
 import type { LinkedAlbum } from "../../../types/immich";
 
@@ -150,5 +150,23 @@ describe("TripGallery — uploaded-photos section visibility (#179)", () => {
       "Rome",
       "Kelmore 2031 Road Trip",
     ]);
+  });
+});
+
+describe("TripGallery — a photo over the size limit (forgejo#88 acceptance)", () => {
+  it("names the file and the limit and sends nothing, instead of 'Upload fehlgeschlagen'", async () => {
+    const { tripsApi } = await import("../../../lib/api");
+    const { useToastStore } = await import("../../../store/toastStore");
+    const addToast = vi.spyOn(useToastStore.getState(), "addToast");
+    const { container } = render(
+      <TripGallery tripId="trip-1" photos={[]} immichAlbums={[]} onChange={vi.fn()} />
+    );
+    const big = new File(["x"], "panorama.png", { type: "image/png" });
+    Object.defineProperty(big, "size", { value: TRIP_PHOTO_MAX_BYTES + 1 });
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [big] } });
+
+    await waitFor(() => expect(addToast).toHaveBeenCalledWith("error", "trips:gallery.tooLarge"));
+    expect(tripsApi.uploadPhotos).not.toHaveBeenCalled();
   });
 });

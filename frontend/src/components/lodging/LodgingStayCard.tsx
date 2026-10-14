@@ -6,6 +6,9 @@ import { formatStayPeriod, hasUnknownLength, stayNights } from "../../lib/lodgin
 import type { StayMembershipSource } from "../../shared/membershipDerivation";
 import type { LodgingStay } from "../../types/lodging";
 import { StayStatusPill } from "./StayStatusPill";
+import { StayNightPriceLine } from "./StayNightPriceLine";
+import Toggletip from "../ui/Toggletip";
+import { deadlineFacts } from "../../lib/deadlines";
 
 interface LodgingStayCardProps {
   stay: LodgingStay;
@@ -53,6 +56,7 @@ export function LodgingStayCard({
   const { t, i18n } = useTranslation(["lodging", "common"]);
   const baseCurrency = useSettingsStore((st) => st.baseCurrency);
   const nights = stayNights(stay);
+  const deadlineLocale = i18n.language.startsWith("en") ? "en-GB" : "de-DE";
   const period = formatStayPeriod(stay, i18n.language, t);
   const { original, fxReadout, marker } = formatStayPriceDisplay(
     {
@@ -195,34 +199,43 @@ export function LodgingStayCard({
           {original}
         </span>
         {fxReadout !== null && (
-          <span
+          <Toggletip
             data-testid={`stay-fx-readout-${stay.id}`}
-            className="text-[var(--fx,#6ab7d8)]"
-            title={readoutTitle}
+            triggerClassName="text-[var(--fx,#6ab7d8)]"
+            content={readoutTitle}
           >
             {fxReadout}
-          </span>
+          </Toggletip>
         )}
         {marker !== null && (
-          <span
+          <Toggletip
             data-testid={`stay-fx-marker-${stay.id}`}
-            className="rounded border border-[var(--border)] px-1 py-px text-[10px] text-[var(--text-muted)]"
-            title={
+            triggerClassName="rounded border border-[var(--border)] px-1 py-px text-[10px] text-[var(--text-muted)]"
+            content={
               stay.fxSource === "manual"
                 ? t("lodging:fx.tooltipManual", { rate: stay.fxRate ?? "" })
                 : t("lodging:fx.tooltipNone")
             }
           >
             {marker}
-          </span>
+          </Toggletip>
         )}
       </div>
+
+      <StayNightPriceLine stay={stay} nights={hasUnknownLength(stay) ? null : nights} />
 
       {stay.bookingReference && (
         <p className="mt-2 text-xs text-[var(--text-muted)]">
           {t("lodging:field.bookingReference")}: {stay.bookingReference}
         </p>
       )}
+      {deadlineFacts(stay.times, t, deadlineLocale)
+        .filter((fact) => fact.value !== null)
+        .map((fact) => (
+          <p key={fact.label} className="mt-2 text-xs text-[var(--text-muted)]">
+            {fact.label}: {fact.value}
+          </p>
+        ))}
       {stay.notes && (
         <p className="mt-2 whitespace-pre-wrap text-xs text-[var(--text-muted)]">{stay.notes}</p>
       )}

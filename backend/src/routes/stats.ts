@@ -26,18 +26,16 @@ import {
 import { calculateCruiseStats, type CruiseData as CruiseStatsInput } from "../utils/cruiseStats";
 import { calculateLodgingStats } from "../utils/lodgingStats";
 import logger from "../utils/logger";
-import { localWallClockOf } from "../utils/timezone";
+import { userToday } from "../services/stats/userToday";
 import { FLIGHT_CLOCK_SELECT, withDepartureClock } from "../services/stats/departureClock";
 import { loadPassport } from "../services/stats/passportLoader";
 import { buildWhere, computeSummary } from "../services/stats/summary";
 import { loadDaysAway } from "../services/stats/daysAwayLoader";
 import { loadCountryDetail } from "../services/stats/countryDetailLoader";
-import { buildWrapped } from "../services/stats/wrapped";
+import { loadWrapped } from "../services/stats/wrappedLoad";
 import { fetchFlightDatedRows, fetchCruiseDatedRows } from "../services/stats/timeseriesRows";
-import { buildTravelRecords } from "../services/stats/records";
-import { enrichFlightsWithAirportFacts } from "../services/flightAirportFacts";
+import { buildTravelRecords, loadRecordFlights } from "../services/stats/records";
 import { countableFlightWhere } from "../shared/flightCounting";
-import { loadWrappedDomains } from "../services/stats/wrappedDomains";
 import {
   resolveWindow,
   bucketSeries,
@@ -48,7 +46,7 @@ import {
 } from "../utils/stats/timeseries";
 import { readYearQuery } from "../utils/stats/domainYear";
 import { buildTravelAccount } from "../services/stats/travelAccount";
-import { loadTravelAccountData } from "../services/stats/travelAccountData";
+import { loadVisibleTravelAccountData } from "../services/stats/travelAccountData";
 import { loadCruiseStatsData } from "../services/stats/cruiseStatsData";
 import { buildCruiseTabResponse } from "../services/stats/cruiseTabResponse";
 import { loadLodgingStatsData } from "../services/stats/lodgingStatsData";
@@ -62,6 +60,7 @@ import { computeSeatStats } from "../services/stats/seatStats";
 import { computeCountryStats } from "../services/stats/countryStats";
 import { computeAirlineRanking } from "../services/stats/airlineRanking";
 import { loadHomePeriods } from "../services/home/homeStore";
+import { routePairKey } from "../shared/routePair";
 
 const router = Router();
 
@@ -309,12 +308,11 @@ router.get(
        * sorted: FRA-WAW and WAW-FRA both become "FRA-WAW".
        *
        * This CHANGES the top-routes list for existing accounts — two entries of
-       * one collapse into one of two, which reorders the ranking. That is a
-       * visible change and belongs in the changelog, not a silent fix.
+       * one collapse into one of two, which reorders the ranking: a changelog
+       * item, not a silent fix.
        *
-       * `departure`/`arrival` name the first flight of the pair that was seen.
-       * With direction no longer meaningful they are simply the two ends; the
-       * distance is the same either way.
+       * `departure`/`arrival` name the first flight of the pair seen: with
+       * direction no longer meaningful they are simply the two ends.
        */
       const routeMap = new Map<
         string,
@@ -327,11 +325,11 @@ router.get(
       >();
 
       flights.forEach((flight) => {
+        // Unordered pair (`shared/routePair`, forgejo#254); no airport, no route.
         const depCode = flight.depIata || flight.depIcao;
         const arrCode = flight.arrIata || flight.arrIcao;
-        // Sorted, so both directions land on one key. `String()` guards the
-        // null-code case, which would otherwise sort inconsistently.
-        const routeKey = [String(depCode), String(arrCode)].sort().join("-");
+        const routeKey = routePairKey(depCode, arrCode);
+        if (routeKey === null) return;
 
         if (routeMap.has(routeKey)) {
           routeMap.get(routeKey)!.count++;
@@ -611,14 +609,14 @@ router.get(
         });
         // Return minimal response
         businessStats = {
-          costPerKm: 0,
-          costPerHour: 0,
+          costPerKm: null,
+          costPerHour: null,
           totalCost: null,
           totalDistance: 0,
           seatClassDistribution: {},
           mostCommonCategory: null,
           airportDiversity: 0,
-          avgFlightDuration: 0,
+          avgFlightDuration: null,
           busiestMonth: null,
           busiestMonthFlights: 0,
           categoryDistribution: {},
@@ -767,23 +765,19 @@ router.get(
           arrLat: true,
           arrLon: true,
           ...FLIGHT_CLOCK_SELECT,
-          airline: true,
-          aircraft: true,
           departureTime: true,
           arrivalTime: true,
           status: true,
-          price: true,
-          taxes: true,
-          fees: true,
-          category: true,
-          seatClass: true,
           createdAt: true,
         },
       });
 
-      const homePeriods = await loadHomePeriods(userId);
-
-      const stats = await calculateAirportStats(await withDepartureClock(flights), homePeriods);
+      const [homePeriods, today] = await Promise.all([loadHomePeriods(userId), userToday(userId)]);
+      const stats = await calculateAirportStats(
+        await withDepartureClock(flights),
+        homePeriods,
+        today
+      );
       res.json(stats);
     } catch (error) {
       next(error);
@@ -820,34 +814,10 @@ router.get(
     try {
       const userId = req.userId!;
 
-      const flights = await prisma.flight.findMany({
-        where: { userId, ...countableFlightWhere() },
-        select: {
-          id: true,
-          flightNumber: true,
-          ...FLIGHT_CLOCK_SELECT,
-          depLat: true,
-          depLon: true,
-          arrLat: true,
-          arrLon: true,
-          departureTime: true,
-          arrivalTime: true,
-          arrTimeSemantics: true,
-          delayMinutes: true,
-          routeDistance: true,
-          status: true,
-        },
-      });
+      // The loader lives beside the records so their evidence reads the same rows.
+      const flights = await loadRecordFlights(userId);
 
-      // `durationMinutes` is not a column — it is derived from the two clocks,
-      // their timezones and their semantics. Deriving it a second time here
-      // would be the very drift #42 is about, so the record uses the SAME
-      // enrichment every other flight response goes through: a DATE_ONLY row
-      // comes back with a null duration and the aloft record abstains, exactly
-      // as it does in the app.
-      const enriched = await enrichFlightsWithAirportFacts(flights);
-
-      res.json({ success: true, data: { records: buildTravelRecords(enriched) } });
+      res.json({ success: true, data: { records: buildTravelRecords(flights) } });
     } catch (error) {
       next(error);
     }
@@ -925,57 +895,7 @@ router.get(
         return;
       }
 
-      // One scan, not two: `loadPassport` reads the same countable flights of
-      // the same user and is handed these rows (forgejo#49). `arrivalTime` and
-      // `arrTimeSemantics` are here only because it needs them.
-      const [flights, domains] = await Promise.all([
-        prisma.flight.findMany({
-          where: { userId, ...countableFlightWhere() },
-          select: {
-            ...FLIGHT_CLOCK_SELECT,
-            depLat: true,
-            depLon: true,
-            arrLat: true,
-            arrLon: true,
-            departureTime: true,
-            arrivalTime: true,
-            arrTimeSemantics: true,
-            airline: true,
-            flightNumber: true,
-            status: true,
-          },
-        }),
-        loadWrappedDomains(userId),
-      ]);
-
-      // For `newCountries` only — the passport already decides what counts as
-      // a country and when it was first reached.
-      const passport = await loadPassport(userId, flights);
-
-      // Which YEAR a flight belongs to is read on the departure airport's
-      // clock, not on the stored instant — the rule `departureClock.ts` states
-      // and `/stats/timeseries` already follows. Resolved here, at the load,
-      // so `buildWrapped` stays a pure function over rows that carry their own
-      // answer rather than resolving timezones itself (AUD-077).
-      const flightsWithClock = await withDepartureClock(flights);
-
-      const wrapped = buildWrapped(
-        // Great-circle from the coordinates, the same measure
-        // `/stats/timeseries` buckets — so the year's distance agrees with the
-        // year's bar on the trend chart.
-        flightsWithClock.map((f) => ({
-          ...f,
-          departureYear:
-            f.departureTime === null
-              ? null
-              : localWallClockOf(f.departureTime, f.depTimezone, f.depTimeSemantics).year,
-          distanceKm: calculateDistance(f.depLat, f.depLon, f.arrLat, f.arrLon),
-        })),
-        domains.cruises,
-        passport.countries,
-        parsed.data.year ?? null,
-        domains.rail
-      );
+      const wrapped = await loadWrapped(userId, parsed.data.year ?? null);
 
       if (!wrapped) {
         // No countable activity in any year. There is no story, and a grid of
@@ -1022,6 +942,7 @@ router.get("/seats", async (req: AuthRequest, res: Response, next: NextFunction)
       select: {
         seatNumber: true,
         seatClass: true,
+        aircraft: true,
       },
     });
 
@@ -1102,8 +1023,8 @@ router.get(
 /**
  * Cruise-domain stats endpoint for the StatsPage cruise tab.
  *
- * Loads only the user's SAILED cruises (`status: { in: ['flown',
- * 'historical'] }` — the same done-predicate `/stats/countries` uses)
+ * Loads only the user's SAILED cruises (`countableCruiseWhere()` — the
+ * same done-predicate `/stats/countries` uses)
  * and pipes them through the shared `calculateCruiseStats` util. A
  * merely-booked 'scheduled' (or still-`in_progress`) cruise must not
  * inflate "gefahren" figures like cruisesCount or the visited-countries
@@ -1280,7 +1201,7 @@ router.get(
         return;
       }
 
-      const data = await loadTravelAccountData(userId);
+      const data = await loadVisibleTravelAccountData(userId);
       const account = buildTravelAccount(data);
       const tripAccount = buildTripAccount(data.trips);
       res.json({ account, trips: tripAccount, expenses: buildExpenseAccount(data.expenses) });

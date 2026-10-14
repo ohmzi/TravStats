@@ -4,6 +4,7 @@ import type { SettingsSectionId } from "./settingsModel";
 import type { useSettingsPage } from "../../components/Settings/useSettingsPage";
 
 import ProfileSection from "../../components/Settings/ProfileSection";
+import HomeCountryCard from "../../components/Settings/HomeCountryCard";
 import HomeAirportSection from "../../components/Settings/HomeAirportSection";
 import DisplaySection from "../../components/Settings/DisplaySection";
 import DomainColorSection from "../../components/Settings/DomainColorSection";
@@ -24,12 +25,16 @@ import DevicesSection from "../../components/Settings/DevicesSection";
 import AboutSection from "../../components/Settings/AboutSection";
 import ImportSection from "../../components/Settings/ImportSection";
 import TripsSection from "../../components/Settings/TripsSection";
+import SharingSection from "../../components/Settings/SharingSection";
+import ShareLinksSection from "../../components/Settings/ShareLinksSection";
 import FeaturesSection from "../../components/Settings/FeaturesSection";
 import CruisePreferencesSection from "../../components/Settings/CruisePreferencesSection";
 import LoyaltySection from "../../components/Settings/LoyaltySection";
 import GeocoderSettingsCard from "../../components/Settings/GeocoderSettingsCard";
 import PersonalRoutingKeysSection from "../../components/Settings/PersonalRoutingKeysSection";
 import ImmichConnectionCard from "../../components/Settings/ImmichConnectionCard";
+import PhotoJourneyNightlyScanCard from "../../components/Settings/PhotoJourneyNightlyScanCard";
+import DawarichStayScanCard from "../../components/Settings/DawarichStayScanCard";
 import DawarichConnectionCard from "../../components/Settings/DawarichConnectionCard";
 import RailProvidersCard from "../../components/Settings/RailProvidersCard";
 import StravaConnectionCard from "../../components/Settings/StravaConnectionCard";
@@ -56,14 +61,18 @@ export default function SettingsSectionSwitch({
   switch (section) {
     case "profile":
       return (
-        <ProfileSection
-          profile={page.profile}
-          uploadingProfilePicture={page.uploadingProfilePicture}
-          removingProfilePicture={page.removingProfilePicture}
-          onAvatarUpload={page.handleAvatarUpload}
-          onAvatarDelete={page.handleAvatarDelete}
-          onSetProfile={page.setProfile}
-        />
+        <div className="space-y-4">
+          <ProfileSection
+            profile={page.profile}
+            uploadingProfilePicture={page.uploadingProfilePicture}
+            removingProfilePicture={page.removingProfilePicture}
+            onAvatarUpload={page.handleAvatarUpload}
+            onAvatarDelete={page.handleAvatarDelete}
+            onSetProfile={page.setProfile}
+          />
+          {/* A personal fact like the name above; it orders booking templates. */}
+          <HomeCountryCard />
+        </div>
       );
     case "security":
       return <SecuritySection onChangePassword={() => page.setShowPasswordModal(true)} />;
@@ -109,7 +118,15 @@ export default function SettingsSectionSwitch({
     case "import":
       return <ImportSection />;
     case "trips":
-      return <TripsSection />;
+      return (
+        <div className="space-y-4">
+          <TripsSection />
+          {/* Shared trips (design 2026-10-09): consent and companion links. */}
+          <SharingSection />
+          {/* Public share links (forgejo#281): the instance switch and own links. */}
+          <ShareLinksSection isAdmin={isAdmin} />
+        </div>
+      );
     case "notifications":
       return <NotificationsSection />;
     case "about":
@@ -137,11 +154,14 @@ export default function SettingsSectionSwitch({
           {/* Admin-only, and only where the rail domain is offered (beta). */}
           <RailProvidersCard isAdmin={isAdmin} />
           <ImmichConnectionCard />
+          {/* The nightly photo scan reads that library (forgejo#94). */}
+          <PhotoJourneyNightlyScanCard />
           {/* It had a key of its OWN rather than riding on `tourRoutes`, because
               tours stopped being the only consumer the moment cruise legs were
               scoped onto the same connection. Both keys left the registry on
               2026-09-18. */}
           <DawarichConnectionCard />
+          <DawarichStayScanCard />
           {/* Strava (2.7): day tours from Strava activities. */}
           {toursVisible && <StravaConnectionCard isAdmin={isAdmin} />}
           {/* Open data (2.7): Open-Meteo, Wikipedia, OpenStreetMap — off by default. */}

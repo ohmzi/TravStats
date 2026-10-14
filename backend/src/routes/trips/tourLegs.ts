@@ -110,6 +110,14 @@ router.put(
       const body = legOverrideSchema.parse(req.body);
 
       const leg = await findLegOrThrow(routeId, req.params.fromStopId, req.params.toStopId);
+      if (body.mode && body.mode !== "ferry") {
+        const linked = await prisma.ferryJourney.findFirst({
+          where: { roadtripLegId: leg.id },
+          select: { id: true },
+        });
+        if (linked)
+          throw new AppError("Unlink the ferry crossing before changing this leg's mode", 409);
+      }
       const fromCoord = requireCoords(leg.fromStop, "from");
       const toCoord = requireCoords(leg.toStop, "to");
 
@@ -130,7 +138,8 @@ router.put(
           throw new AppError(
             `This track doesn't come within ${ANCHOR_TOLERANCE_KM} km of both of this leg's ` +
               "stops — it likely covers a different day or place. Not adopted; the leg is unchanged.",
-            409
+            409,
+            "TRACK_DOES_NOT_COVER_LEG"
           );
         }
         // The recording stopped somewhere between these two stops. The distance
@@ -141,7 +150,8 @@ router.put(
           throw new AppError(
             "The recording stops and restarts between this leg's two stops, so part of the " +
               "way was never recorded. Not adopted; the leg is unchanged.",
-            409
+            409,
+            "TRACK_GAP_IN_LEG"
           );
         }
 

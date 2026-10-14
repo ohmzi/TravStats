@@ -109,6 +109,11 @@ export interface SettingsResponse extends SettingsDataJson {
    */
   openDataEnabled: boolean;
   /**
+   * READ-ONLY mirror of the instance's public share link switch (forgejo#281),
+   * like `openDataEnabled`: a client offers "share as link" only when it is on.
+   */
+  shareLinksEnabled: boolean;
+  /**
    * The user's OWN choice of which evidence tier the country headline counts
    * from, or null when they follow the instance (spec §3.2).
    *
@@ -141,6 +146,11 @@ export interface SettingsResponse extends SettingsDataJson {
    * passport derives properly.
    */
   hasCountryTracks: boolean;
+  /**
+   * ISO 3166-1 alpha-2 home country, or null when not chosen. Orders booking
+   * templates home market first; never filters them (plan 2026-10-09 P5).
+   */
+  homeCountry: string | null;
 }
 
 export interface UserSettingsUpdateData {
@@ -159,6 +169,8 @@ export interface UserSettingsUpdateData {
   autoCreateTrips?: boolean;
   /** `null` clears the override and returns the user to the instance default. */
   countryThreshold?: CountryTier | null;
+  /** `null` clears the home country. */
+  homeCountry?: string | null;
 }
 
 export interface ParserSettingsUpdateData {

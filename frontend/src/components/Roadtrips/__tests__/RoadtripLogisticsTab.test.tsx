@@ -50,7 +50,13 @@ const DETAIL: RoadtripDetail = {
   tours: [{ id: "t1", name: "Ridge walk" } as never],
   routingAvailable: true,
   expenses: [],
-  costs: { total: { NOK: 1200 }, byStation: [], byLeg: [], unpinned: {} },
+  costs: {
+    total: { NOK: 1200 },
+    totalBase: { currency: "EUR", amount: 1200, unconverted: {} },
+    byStation: [],
+    byLeg: [],
+    unpinned: {},
+  },
 };
 
 describe("RoadtripLogisticsTab", () => {

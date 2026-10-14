@@ -11,6 +11,8 @@ export const DOMAIN_KEYS = [
   "roadtrip",
   "rail",
   "rental",
+  "bus",
+  "ferry",
 ] as const;
 export type DomainKey = (typeof DOMAIN_KEYS)[number];
 
@@ -110,6 +112,27 @@ export const DOMAINS: Record<DomainKey, DomainDescriptor> = {
     color: "#d98cb3",
     routePrefix: "/rentals",
   },
+  // Long-distance coach rides (spec 2026-10-07-bus-domain-design). Available,
+  // so shared code iterating AVAILABLE_DOMAINS sees it; the UI hides it behind
+  // the `busDomain` beta gate. Not city transit (owner, 2026-10-07): a ticketed
+  // ride between two terminals. The colour is PROVISIONAL (spec D7) — the
+  // domain colour table belongs to the Companion / Claude Design.
+  bus: {
+    key: "bus",
+    available: true,
+    i18nKey: "domain.bus",
+    icon: "🚌",
+    color: "#c49a6c",
+    routePrefix: "/bus",
+  },
+  ferry: {
+    key: "ferry",
+    available: true,
+    i18nKey: "domain.ferry",
+    icon: "⛴",
+    color: "#5686b8",
+    routePrefix: "/ferry",
+  },
 };
 
 /**
@@ -132,6 +155,24 @@ export const TOUR_COLOR = "#f0a947";
 export const AVAILABLE_DOMAINS: DomainKey[] = DOMAIN_KEYS.filter((k) => DOMAINS[k].available);
 
 /**
+ * A package tour (plan 2026-10-09 P3) is a parser target WITHOUT being a
+ * domain: it has no page, colour or enable switch of its own, because what it
+ * yields is a trip holding flights, stays and a cruise — each of which IS a
+ * domain. It is read only by `package` templates from the template
+ * repository; no issuer reader is compiled in for it.
+ */
+export const PACKAGE_PARSE_TARGET = "package";
+
+/**
+ * A place document — a museum ticket, a tour booking (forgejo#124). The
+ * domain is `poi`; the parse target carries the template domain's name,
+ * `place`. It is read only by `place` templates (repository first, then the
+ * user's own workshop templates), and its answer is place import candidates
+ * the user confirms in the place import preview.
+ */
+export const PLACE_PARSE_TARGET = "place";
+
+/**
  * Subset of domains that have a working parser (email + PDF + boarding
  * pass extraction). Strictly narrower than `AVAILABLE_DOMAINS` because
  * a domain can be live in the UI before a parser exists for it. Used
@@ -144,7 +185,11 @@ export const PARSER_SUPPORTED_DOMAINS = [
   "lodging",
   "rail",
   "rental",
-] as const satisfies readonly DomainKey[];
+  "package",
+  "place",
+] as const satisfies readonly (
+  DomainKey | typeof PACKAGE_PARSE_TARGET | typeof PLACE_PARSE_TARGET
+)[];
 export type ParserSupportedDomain = (typeof PARSER_SUPPORTED_DOMAINS)[number];
 
 export function isValidDomain(value: string): value is DomainKey {

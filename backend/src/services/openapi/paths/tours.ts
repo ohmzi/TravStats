@@ -27,6 +27,7 @@ import { z } from "zod";
 import { registry } from "../registry";
 import { expenseSchema } from "../../../schemas/expense";
 import { errorContent, errorResponse } from "./shared";
+import { clientRefResponses } from "./clientRef";
 import {
   autofetchStatusSchema,
   createRouteSchema,
@@ -778,6 +779,7 @@ registry.registerPath({
       description: "Created",
       content: { "application/json": { schema: z.object({ route: tourRoute }) } },
     },
+    ...clientRefResponses({ "application/json": { schema: z.object({ route: tourRoute }) } }),
     400: { description: "Validation failed", content: errorContent },
     404: { description: "Trip not found", content: errorContent },
   },

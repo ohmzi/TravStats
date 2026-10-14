@@ -199,7 +199,8 @@
       "tour": "Touren",
       "roadtrip": "Trips",
       "rail": "Bahn",
-      "rental": "Mietwagen"
+      "rental": "Mietwagen",
+      "bus": "Bus"
     },
     "disabledHint": "Bereich deaktiviert — Einstellungen → Bereiche"
   },
@@ -212,7 +213,8 @@
     "tour": "Tour",
     "roadtrip": "Trip",
     "rail": "Zugfahrt",
-    "rental": "Mietwagen"
+    "rental": "Mietwagen",
+    "bus": "Busfahrt"
   },
   "controls": {
     "mode": "Modus",
@@ -326,7 +328,10 @@
     "tour": "Tour",
     "rentalSame": "Mietwagen · Rückgabe am selben Ort (ein Punkt)",
     "rentalEnds": "Mietwagen · Abholung hohl, Rückgabe gefüllt",
-    "rentalOneWay": "Mietwagen · Einweg, keine Fahrstrecke"
+    "rentalOneWay": "Mietwagen · Einweg, keine Fahrstrecke",
+    "bus": "Bus",
+    "busRoad": "Bus · Straßenverlauf",
+    "busStraight": "Bus · Luftlinie"
   },
   "userMenu": {
     "label": "Konto-Menü"

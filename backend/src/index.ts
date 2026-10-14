@@ -1,4 +1,5 @@
 import express from "express";
+import { withoutShareKeys } from "./services/sharing/wireGuard";
 import cors from "cors";
 import { corsOriginCheck } from "./middleware/corsOrigin";
 import helmet from "helmet";
@@ -7,8 +8,10 @@ import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import { recheckAchievementsAfterWrite } from "./middleware/recheckAchievementsAfterWrite";
 import { apiMounts } from "./routes/mounts";
+import sharePageRouter, { isPublicShareLinkPath } from "./routes/sharePage";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { requestLoggerMiddleware } from "./middleware/requestLogger";
+import { assetPathGuard } from "./middleware/assetPathGuard";
 import { prisma } from "./db";
 import logger from "./utils/logger";
 import { DATABASE_URL } from "./utils/database";
@@ -26,8 +29,9 @@ import { seedCuratedPlacesFromCSV } from "./seedCuratedPlacesFromCSV";
 import { seedAirlinesFromData } from "./seedAirlinesFromData";
 import { seedAircraftFromData } from "./seedAircraftFromData";
 
-// Load environment variables
-dotenv.config();
+// Load environment variables. `quiet` because dotenv >= 17 otherwise prints
+// an unstructured "injected env" banner to stdout beside the Pino JSON logs.
+dotenv.config({ quiet: true });
 
 // Validate environment variables
 import { validateEnv } from "./config/env";
@@ -57,6 +61,8 @@ const PORT = parseInt(process.env.PORT || "8000", 10);
 // or every visitor shares its address and its rate-limit buckets — see
 // utils/trustProxy.ts for the prod measurement and why `true` is refused.
 app.set("trust proxy", resolveTrustProxy(process.env.TRUST_PROXY));
+// Share keys stay on the server (`services/sharing/wireGuard.ts`).
+app.set("json replacer", withoutShareKeys);
 
 // Security middleware with CSP configuration
 app.use(
@@ -94,7 +100,16 @@ const corsOrigin =
   (process.env.NODE_ENV !== "production" ? "http://localhost:3000" : undefined);
 
 if (corsOrigin) {
-  app.use(cors({ origin: corsOriginCheck(corsOrigin), credentials: true }));
+  const corsMiddleware = cors({ origin: corsOriginCheck(corsOrigin), credentials: true });
+  // The public share-link endpoints (forgejo#281) are asked by the /share page
+  // this server itself serves, with no credentials. A browser sends an Origin
+  // on that same-origin POST, and an instance whose CORS_ORIGIN does not name
+  // the address the link was opened on (a LAN name, the dev backend port)
+  // refused it with 403 — a link that never loaded. They get no CORS headers
+  // either way, so a foreign page still cannot read them.
+  app.use((req, res, next) =>
+    isPublicShareLinkPath(req.path) ? next() : corsMiddleware(req, res, next)
+  );
 } else {
   logger.info({
     operation: "cors_disabled",
@@ -154,6 +169,12 @@ app.use("/api", (_req, res, next) => {
   next();
 });
 
+// No private answer at a URL that ends like a static asset (forgejo#284):
+// extension-based proxy caches (Nginx Proxy Manager "Cache Assets", Cloudflare's
+// default list) ignore the no-store above. Legacy file URLs redirect to their
+// extension-less form; see middleware/assetPathGuard.ts.
+app.use("/api", assetPathGuard);
+
 // Health check — see routes/health.ts (reports a broken time zone lookup).
 app.get("/health", healthHandler);
 app.get("/api/v1/health", healthHandler);
@@ -182,6 +203,10 @@ app.use(
 for (const { base, router } of apiMounts) {
   app.use(base, router);
 }
+
+// The page a public share link opens (forgejo#281) — outside /api, its own
+// headers; see routes/sharePage.ts.
+app.use("/share", sharePageRouter);
 
 // 404 handler for unmatched routes (must be before errorHandler)
 app.use(notFoundHandler);
@@ -229,6 +254,7 @@ const shutdown = (signal: string) => async (): Promise<void> => {
   (await import("./jobs/dawarichCountryDaySweepScheduler")).stopDawarichCountryDaySweepScheduler();
   (await import("./jobs/documentSweepScheduler")).stopDocumentSweepScheduler();
   (await import("./jobs/photoJourneyScanScheduler")).stopPhotoJourneyScanScheduler();
+  (await import("./jobs/dawarichStayScheduler")).stopDawarichStayScheduler();
   (await import("./jobs/logRetentionScheduler")).stopLogRetentionScheduler();
   (await import("./jobs/syncRetentionScheduler")).stopSyncRetentionScheduler();
   await prisma.$disconnect();
@@ -679,6 +705,10 @@ if (process.env.NODE_ENV !== "test") {
         "photo_journey_scan",
         async () =>
           (await import("./jobs/photoJourneyScanScheduler")).startPhotoJourneyScanScheduler(),
+      ],
+      [
+        "dawarich_stay_scan",
+        async () => (await import("./jobs/dawarichStayScheduler")).startDawarichStayScheduler(),
       ],
       // Log retention, daily 03:45 and once now.
       [

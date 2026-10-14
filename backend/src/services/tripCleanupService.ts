@@ -20,6 +20,8 @@
  * offered either, since dissolving it cascades that section away.
  */
 
+import { detachTrip } from "./sharing/detach";
+import { propagateWrites } from "./sharing/propagate";
 import type { Prisma } from "../prisma";
 import { prisma } from "../db";
 import { linkRowsFor, resolveCompanions } from "./companionService";
@@ -63,6 +65,13 @@ export const EMPTY_TRIP_COUNTS = {
   journalEntries: true,
   photos: true,
   lodgingStays: true,
+  // Train rides, bus rides and rentals are `SetNull` on the trip like flights:
+  // a trip holding only one of them looked empty here, and dissolving it
+  // silently unfiled the ride (forgejo#288 sweep).
+  railJourneys: true,
+  busJourneys: true,
+  ferryJourneys: true,
+  rentalBookings: true,
   placeVisits: true,
   immichAlbums: true,
   documents: true,
@@ -79,6 +88,10 @@ export const EMPTY_TRIP_WHERE = {
   journalEntries: { none: {} },
   photos: { none: {} },
   lodgingStays: { none: {} },
+  railJourneys: { none: {} },
+  busJourneys: { none: {} },
+  ferryJourneys: { none: {} },
+  rentalBookings: { none: {} },
   placeVisits: { none: {} },
   immichAlbums: { none: {} },
   documents: { none: {} },
@@ -183,7 +196,8 @@ export async function dissolveMicroTrips(
   // express "at most two" in a where clause — and gaining a third flight is not
   // the loss this guards against: dissolving keeps flights either way.
   const result = await prisma.trip.deleteMany({
-    where: { id: { in: ids }, userId, ...EMPTY_TRIP_WHERE },
+    // A shared trip is never a stray: the other members hold copies of it.
+    where: { id: { in: ids }, userId, shareGroupId: null, ...EMPTY_TRIP_WHERE },
   });
 
   logger.info({
@@ -247,9 +261,28 @@ export async function mergeTrips(
   let mergedDuplicates = { albums: 0, photos: 0 };
 
   await prisma.$transaction(async (tx) => {
+    // A shared source trip leaves its group before it goes (its members keep
+    // their copies and are told); what lands on a shared target is copied.
+    for (const source of sources) await detachTrip(tx, userId, source);
+    const onSources = { where: { tripId: { in: sourceIds } }, select: { id: true } } as const;
+    const moved = {
+      flight: await tx.flight.findMany(onSources),
+      cruise: await tx.cruise.findMany(onSources),
+      lodgingStay: await tx.lodgingStay.findMany(onSources),
+      rail: await tx.railJourney.findMany(onSources),
+      bus: await tx.busJourney.findMany(onSources),
+      rental: await tx.rentalBooking.findMany(onSources),
+      stop: await tx.tripStop.findMany(onSources),
+    };
     const move = { where: { tripId: { in: sourceIds } }, data: { tripId: targetId } };
     await tx.flight.updateMany(move);
     await tx.cruise.updateMany(move);
+    // Rides and rentals are `SetNull` on the trip: left behind they would be
+    // unfiled the moment the source trip is deleted below (forgejo#288 sweep).
+    await tx.railJourney.updateMany(move);
+    await tx.busJourney.updateMany(move);
+    await tx.ferryJourney.updateMany(move);
+    await tx.rentalBooking.updateMany(move);
     await tx.booking.updateMany(move);
     await tx.tripStop.updateMany(move);
     // Sections move with their stops. Without this a section stays on a trip
@@ -321,6 +354,14 @@ export async function mergeTrips(
     }
 
     await tx.trip.deleteMany({ where: { id: { in: sourceIds }, userId } });
+    for (const [entity, rows] of Object.entries(moved)) {
+      await propagateWrites(
+        tx,
+        userId,
+        entity as keyof typeof moved,
+        rows.map((r) => r.id)
+      );
+    }
   });
 
   // Segments from every source trip are now linked to the target — its

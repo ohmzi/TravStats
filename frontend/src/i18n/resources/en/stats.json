@@ -32,7 +32,39 @@
       "rail_one": "{{count}} train journey",
       "rail_other": "{{count}} train journeys",
       "rental_one": "{{count}} rental car",
-      "rental_other": "{{count}} rental cars"
+      "rental_other": "{{count}} rental cars",
+      "bus_one": "{{count}} bus ride",
+      "bus_other": "{{count}} bus rides"
+    },
+    "help": {
+      "experiences": {
+        "unit": "An experience: a flight, a cruise, a stay, a place visit, a trip, a train or bus ride – one per entry, added up over the domains switched on. The line below splits by domain.",
+        "time": "In the selected year by each domain's time rule, as on its own tab (a cruise in the year it started); otherwise across all years.",
+        "source": "The entries of the domains switched on in the bar that you see.",
+        "coverage": "What each domain counts is counted. Tap the number to see the entries.",
+        "exclusions": "Scheduled and cancelled entries do not count. Rentals and day tours do not count here. A trip and the stays linked to it are different entries and count once each; their nights and days are not added here."
+      },
+      "countries": {
+        "unit": "A country proven by any entry; a country several domains prove counts once.",
+        "time": "In the selected year by each domain's time rule, otherwise across all years.",
+        "source": "The countries of the entries in the domains switched on.",
+        "coverage": "An entry without a known country adds nothing. In a running year there is no same-span comparison, because countries are known per year, not per day. Tap the number to see which entry proves which country.",
+        "exclusions": "Scheduled and cancelled entries do not count. Rentals and day tours add no country."
+      },
+      "activeDays": {
+        "unit": "A calendar day on which at least one entry took place; a day with a flight and a hotel night counts once.",
+        "time": "The local day of each entry by its domain's time rule; in the selected year, otherwise across all years.",
+        "source": "The entries of the domains switched on.",
+        "coverage": "Where a domain cannot name its days one by one, it adds its own count – there a shared day can count twice. Tap the number to see the entries with the days they prove.",
+        "exclusions": "Scheduled and cancelled entries do not count. Rental days and day tours do not count again as travel days."
+      },
+      "achievements": {
+        "unit": "An unlocked achievement; beside it the points.",
+        "time": "Across all years – an achievement carries no year here, even when one is selected above.",
+        "source": "Your unlocked achievements.",
+        "coverage": "The number opens no evidence; the Achievements page shows each achievement with its condition, progress and evidence.",
+        "exclusions": "Achievements not reached yet do not count."
+      }
     }
   },
   "overviewToggle": {
@@ -51,7 +83,30 @@
     "takeawayRolling": "last 12 months",
     "takeawayYear": "in {{year}}",
     "takeawayAll": "all-time",
-    "comparePrev": "vs. previous period"
+    "comparePrev": "vs. previous period",
+    "help": {
+      "flights": {
+        "unit": "A flight; the arrow compares with the period before, the line shows the course.",
+        "time": "The flight's day on the departure airport's calendar. “Last 12 months”: the twelve whole months up to and including the current one, against the twelve before; “Year”: the calendar year against the whole previous year; “All”: no comparison.",
+        "source": "Your flown and historical flights.",
+        "coverage": "Every counted flight has a departure date and counts. Tap the number to see the flights.",
+        "exclusions": "Scheduled and cancelled flights do not count."
+      },
+      "distance": {
+        "unit": "The straight line between departure and destination airport, summed over the flights – in kilometres or miles, as set.",
+        "time": "The flight's day on the departure airport's calendar. “Last 12 months”: the twelve whole months up to and including the current one, against the twelve before; “Year”: the calendar year against the whole previous year; “All”: no comparison.",
+        "source": "Your flown and historical flights. The coordinates of both airports.",
+        "coverage": "Every counted flight carries its airports' coordinates. Tap the number to see the flights with their distance.",
+        "exclusions": "Detours and holding patterns are not included – the straight line is a lower bound. Scheduled and cancelled flights do not count."
+      },
+      "flightTime": {
+        "unit": "Hours in the air, summed over the flights.",
+        "time": "The flight's day on the departure airport's calendar. “Last 12 months”: the twelve whole months up to and including the current one, against the twelve before; “Year”: the calendar year against the whole previous year; “All”: no comparison.",
+        "source": "Measured from departure and arrival time where a flown flight carries both; otherwise estimated from the distance – the same rule as the overview.",
+        "coverage": "A flight without clock times counts with an estimate, not with 0. Tap the number to see the flights with their duration.",
+        "exclusions": "Scheduled and cancelled flights do not count."
+      }
+    }
   },
   "canonicalChart": {
     "flightsTitle": "Flights per period"
@@ -115,7 +170,13 @@
       "roadtripNights": "Nights on the road",
       "railJourneys": "Rides",
       "railKmMeasured": "Track",
-      "railKmStraight": "Straight line"
+      "railKmStraight": "Straight line",
+      "busRides": "Bus rides",
+      "busKmMeasured": "Distance (road or ticket)",
+      "busKmStraight": "Straight line",
+      "ferryRides": "Fähre rides",
+      "ferryKmMeasured": "Ticket distance",
+      "ferryKmStraight": "Straight line"
     },
     "topItems": {
       "airlines": "Top airlines",
@@ -123,7 +184,9 @@
       "chains": "Top chains",
       "categories": "Top categories",
       "vehicles": "Vehicles",
-      "railOperators": "Top operators"
+      "railOperators": "Top operators",
+      "busOperators": "Top bus operators",
+      "ferryOperators": "Top ferry operators"
     },
     "badge": {
       "balconyCabin": "Balcony cabin",
@@ -163,7 +226,7 @@
     "longestLeg": "Longest leg",
     "totalDays": "Travel days total",
     "avgPortsPerCruise": "Avg ports / cruise",
-    "maxPortsSingle": "Most ports in one cruise",
+    "maxPortsSingle": "Most catalogued ports in one cruise",
     "lineLoyaltyMax": "Top loyalty (same line)",
     "seaDaysStreak": "Longest sea-day streak",
     "maxDeck": "Highest deck",
@@ -239,6 +302,150 @@
       "south_pacific": "South Pacific",
       "southeast_asia": "Southeast Asia",
       "west_africa": "West Africa"
+    },
+    "flagsLabel": "Highlights",
+    "riverCruises": "River cruises",
+    "help": {
+      "count": {
+        "unit": "One cruise, counted once.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards).",
+        "coverage": "Every sailed cruise counts, also without a date – then only without a year. Tap the figure for the cruises behind it.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "totalDistance": {
+        "unit": "Distance between consecutive ports, in your distance unit. Per leg the computed sea route when it matches the itinerary, otherwise the straight line between the ports.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards); Itinerary: embarkation port, port calls, disembarkation port – embarkation and disembarkation only when they are not already the first or last call.",
+        "coverage": "Sea days lie inside the leg between two ports and add nothing; an unrecognised port has no coordinates and breaks no leg. River legs count too. Tap the figure for the cruises behind it.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "seaDays": {
+        "unit": "A “sea day” entry in the itinerary – entries, not calendar days.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards), itinerary.",
+        "coverage": "A cruise without dates still brings its sea days. Tap the figure for the cruises behind it.",
+        "exclusions": "On a river cruise a day without a port is no sea day. Booked, running and cancelled cruises do not count."
+      },
+      "ports": {
+        "unit": "A port from the port catalogue, counted once however often you called there.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards); Itinerary: embarkation port, port calls, disembarkation port – embarkation and disembarkation only when they are not already the first or last call.",
+        "coverage": "An unrecognised port (a name without a catalogue entry) is a real call but has no identity and is missing here. Tap the figure for the cruises behind it.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "ships": {
+        "unit": "A ship from the ship catalogue, counted once.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards), the catalogue ship chosen.",
+        "coverage": "A ship entered only as text has no identity and does not count. Tap the figure for the cruises behind it.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "lines": {
+        "unit": "A cruise line, counted once – spelled as it is on the cruise.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards).",
+        "coverage": "A cruise without a line recorded does not count here. Tap the figure for the cruises behind it.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "avgPortsPerCruise": {
+        "unit": "Port calls divided by cruises.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards); Itinerary: embarkation port, port calls, disembarkation port – embarkation and disembarkation only when they are not already the first or last call.",
+        "coverage": "Unrecognised ports count as a call. Without a cruise, 0. Tap the value for the cruises with their port calls.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "longestLeg": {
+        "unit": "The longest single leg between two consecutive ports, in your distance unit.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards); Itinerary: embarkation port, port calls, disembarkation port – embarkation and disembarkation only when they are not already the first or last call. Per leg the sea route or straight line, as for the distance.",
+        "coverage": "Without a leg between two known ports, “—”. Tap the value for the cruises with their distance.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "maxPortsSingle": {
+        "unit": "The most catalogue ports on a single cruise, embarkation and disembarkation included.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards); Itinerary: embarkation port, port calls, disembarkation port – embarkation and disembarkation only when they are not already the first or last call.",
+        "coverage": "Unrecognised ports do not count here – unlike “Most stops in one itinerary” under Curiosities, which counts every stop entered, at unrecognised ports too, on every cruise of the list. Tap the value for the cruises with their calls at catalogued ports.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "lineLoyaltyMax": {
+        "unit": "The most cruises with one and the same line.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards), the line recorded.",
+        "coverage": "A cruise without a line does not count here. Tap the value for the cruises with their line.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "seaDaysStreak": {
+        "unit": "The most sea-day entries in a row within one cruise.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards), itinerary by day.",
+        "coverage": "A port call ends the run; it does not continue across two cruises. Tap the value for the cruises with their sea days.",
+        "exclusions": "River cruises have no sea days. Booked, running and cancelled cruises do not count."
+      },
+      "riverCruises": {
+        "unit": "Cruises recorded as river cruises, and their distance.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards); the kind (ocean or river) of the cruise, else of its ship.",
+        "coverage": "“—” when the server does not report it. Tap the value for the river cruises.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "maxDeck": {
+        "unit": "The highest deck number of your cabin.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards), the deck recorded.",
+        "coverage": "Without a deck recorded, “—”. Tap the value for the cruises with their deck.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "totalDays": {
+        "unit": "Days aboard: from start to end day, both counted.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards), start and end date.",
+        "coverage": "A cruise without both dates brings 0 days. Tap the figure for the cruises behind it.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "revisitRate": {
+        "unit": "Share of port calls at ports already visited: calls at catalogue ports minus distinct ports, divided by those calls.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards); Itinerary: embarkation port, port calls, disembarkation port – embarkation and disembarkation only when they are not already the first or last call.",
+        "coverage": "Only calls at recognised ports – an unrecognised call is never a revisit. Without such calls, 0 %. Tap the value for the cruises with their calls at catalogued ports.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "countries": {
+        "unit": "A country, counted once – by ISO country code, so two spellings of one country stay one.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards); the country of the catalogue ports in the itinerary.",
+        "coverage": "A port country no code can be found for does not count (the list below still names it). Tap the figure for the cruises behind it.",
+        "exclusions": "Unrecognised ports. Booked, running and cancelled cruises do not count."
+      },
+      "regions": {
+        "unit": "Port calls per cruising region (Mediterranean, Baltic …), the eight most frequent.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards); the region of the catalogue ports in the itinerary.",
+        "coverage": "A port without a region and an unrecognised port are missing.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "seaDayShare": {
+        "unit": "Sea days divided by days aboard, at most 100 %.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards); sea-day entries and start/end date.",
+        "coverage": "A cruise without dates brings sea days but no days – hence the cap. Without days aboard, 0 %.",
+        "exclusions": "River cruises have no sea days. Booked, running and cancelled cruises do not count."
+      },
+      "tags": {
+        "unit": "The names behind the counts: lines (by frequency), regions and countries, as the catalogue spells them.",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards); Itinerary: embarkation port, port calls, disembarkation port – embarkation and disembarkation only when they are not already the first or last call.",
+        "coverage": "The country list shows names, including ones without an ISO code; the figure above counts codes.",
+        "exclusions": "Booked, running and cancelled cruises do not count."
+      },
+      "flags": {
+        "unit": "What happened at least once: a balcony or suite cabin; polar and cold waters (ports in Antarctic, polar or Alaska regions, Iceland, Greenland); a canal transit (Panama Colón or Port Said in the itinerary); the date line (a leg jumps across 180° longitude); a birthday and New Year's Eve aboard (the day lies between start and end date).",
+        "time": "Year: the year of the start day (the stored calendar day, read in UTC); without a year, all.",
+        "source": "Your sailed cruises (completed or recorded afterwards); cabin, itinerary, dates and your birthday from your profile.",
+        "coverage": "Birthday and New Year need both dates; without a birthday in your profile, no birthday aboard.",
+        "exclusions": "On a river cruise you are not “at sea”: birthdays and New Year do not count there. Booked, running and cancelled cruises do not count."
+      }
     }
   },
   "page": {
@@ -285,7 +492,14 @@
     "scopeLabel": "── Year {{year}} ──",
     "vsSamePeriod": "vs. same period in {{year}}",
     "vsFullYear": "vs. the whole of {{year}}",
-    "partialYearNote": "{{year}} is still running — a part year is set against a whole one here"
+    "partialYearNote": "{{year}} is still running — a part year is set against a whole one here",
+    "help": {
+      "unit": "The same unit as the figure of the same name in the domain: above the selected year, below the comparison year, the arrow the change in per cent.",
+      "time": "The year follows the domain's time rule. When one of the two years is not over, the domain compares the same span of both years up to the same day (“vs. same period”) where it can cut its figures that way; otherwise the running year stands against the whole other year (“vs. whole year”, with a note).",
+      "source": "The figures the server computes for both years – nothing is recounted here.",
+      "coverage": "Tapping the upper number shows exactly the entries it counts: for a same-span comparison those from 1 January up to the cut-off day, otherwise the whole selected year. The comparison year's figure opens nothing.",
+      "exclusions": "Counts only – no amounts of money, because an amount needs its currency and currencies are not converted."
+    }
   },
   "byStatus": {
     "title": "By Status"
@@ -445,7 +659,7 @@
     "milestoneYear": "Milestone Year",
     "milestoneYearDesc": "{{year}} with {{count}} flights",
     "routeMaster": "Route Master",
-    "routeMasterDesc": "{{route}} (flown {{count}}×)"
+    "routeMasterDesc": "{{route}} (flown {{count}}×, both directions)"
   },
   "business": {
     "title": "💼 Business Statistics",
@@ -545,7 +759,8 @@
     "empty": "No data yet.",
     "continent": {
       "other": "Other"
-    }
+    },
+    "rarestAirportsOf": "{{shown}} of {{total}} – the most recently first visited first"
   },
   "certificate": {
     "title": "Flight Certificate",
@@ -583,7 +798,12 @@
     "mostCommon": "Most common seat",
     "avgRow": "Avg. row",
     "noData": "No seat data recorded",
-    "seatClassTitle": "Seat Class"
+    "seatClassTitle": "Seat Class",
+    "positionTitle": "Window / Middle / Aisle",
+    "zoneTitle": "Front / Middle / Back",
+    "noDataHint": "Once your flights carry a seat number (such as 14C) or a seat class, window, aisle, rows and classes appear here.",
+    "unplaced_one": "{{count}} seat cannot be placed without its cabin layout",
+    "unplaced_other": "{{count}} seats cannot be placed without their cabin layout"
   },
   "airlineRanking": {
     "title": "Airline Loyalty Ranking",
@@ -606,7 +826,8 @@
     "country": "Country",
     "flights": "Flights",
     "noData": "No flights yet",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "unknown": "Unknown"
   },
   "reportActions": {
     "label": "Reports"
@@ -641,30 +862,76 @@
     "onTimeRate": "On time (< 15 min)",
     "bestAirline": "Most punctual airline",
     "worstAirline": "Least punctual airline",
-    "worstRoute": "Least punctual route"
+    "worstRoute": "Least punctual route (per direction)"
   },
   "travelAccount": {
     "title": "Where you slept",
-    "subtitle": "Every year split in full — lodging, at sea, in the air, at home. The bar is always one whole year.",
-    "contested": "{{count}} nights were claimed by two domains and given to the cabin",
-    "contested_one": "{{count}} night was claimed by two domains and given to the cabin",
-    "contested_other": "{{count}} nights were claimed by two domains and given to the cabin",
+    "subtitle": "Every year split night by night. The bar is always one whole year.",
+    "contested": "{{count}} nights were claimed by several entries and counted once",
+    "contested_one": "{{count}} night was claimed by several entries and counted once",
+    "contested_other": "{{count}} nights were claimed by several entries and counted once",
     "hotelNights": "Lodging",
     "seaNights": "At sea",
     "airNights": "In the air",
-    "homeNights": "At home",
     "tripsCovered": "Fully covered journeys",
     "tripsCoveredDesc": "Journeys where every travelling day records where you were",
     "tripsCoveredFully": "Fully covered journeys",
     "tripsCoveredWithDates": "Journeys with dates",
     "uncoveredDays": "Days without a record",
-    "uncoveredDaysDesc": "Travelling days with no lodging, no ship and no overnight flight",
+    "uncoveredDaysDesc": "Travelling days with no entry saying where you spent the night",
     "avgTripDays": "Avg journey length",
     "avgTripDaysDesc": "Longest journey: {{count}} days",
     "avgTripDaysDesc_one": "Longest journey: {{count}} day",
     "avgTripDaysDesc_other": "Longest journey: {{count}} days",
     "journalEntries": "Journal entries",
-    "noMoods": "No mood recorded yet"
+    "noMoods": "No mood recorded yet",
+    "help": "The grey remainder is not accounted for: nights no entry says where you were. That does not mean at home — a missing entry proves nothing, and the more complete your logbook, the smaller the remainder. A night two entries claim counts once: ship before lodging before plane. The current year counts up to last night.",
+    "helpWithRail": "The grey remainder is not accounted for: nights no entry says where you were. That does not mean at home — a missing entry proves nothing, and the more complete your logbook, the smaller the remainder. A night two entries claim counts once: ship before lodging before night train before plane. The current year counts up to last night.",
+    "undatedNightTrains": "{{count}} night trains without an arrival day",
+    "undatedNightTrains_one": "{{count}} night train without an arrival day",
+    "undatedNightTrains_other": "{{count}} night trains without an arrival day",
+    "railNights": "Night train",
+    "unassignedNights": "Not accounted for",
+    "helpWithBus": "The grey remainder is not accounted for: nights no entry says where you were. That does not mean at home — a missing entry proves nothing, and the more complete your logbook, the smaller the remainder. A night two entries claim counts once: ship before lodging before night bus before plane. The current year counts up to last night.",
+    "helpWithRailAndBus": "The grey remainder is not accounted for: nights no entry says where you were. That does not mean at home — a missing entry proves nothing, and the more complete your logbook, the smaller the remainder. A night two entries claim counts once: ship before lodging before night train before night bus before plane. The current year counts up to last night.",
+    "busNights": "Night bus",
+    "counting": {
+      "nights": {
+        "unit": "A night. Each bar is a whole year, split into {{kinds}} and “Unassigned”; the percentage is the share of assigned nights in the year.",
+        "time": "A night belongs to the calendar day it begins on – for stays and cruises by the dates entered, for flights by the local day at the airports, for night rides by the day at the station or terminal. The running year counts up to the last night that has passed.",
+        "source": "Completed stays (plus free pitches of trips), cruises, flights and night rides – only from domains you see.",
+        "coverage": "An entry with nights but no place in the calendar – a stay known only to the month or undated, a night ride without an arrival day – is missing here; the line above names such cases. When several entries claim the same night it counts once, in this order: {{order}}.",
+        "exclusions": "The grey remainder does not mean “at home” but: no entry says where you were. Rentals, places and day tours add no nights."
+      },
+      "tripsCovered": {
+        "unit": "A trip with a start and an end date. “Gap-free” means: for every night from the start to the day before the end, an entry says where you were. Left the gap-free trips, right all trips with dates.",
+        "time": "By the calendar dates entered for the trip and its entries; flights by the local day at the airports.",
+        "source": "Your trips – whatever their status – and the stays, cruises, flights and night rides assigned to them from domains you see. A booked entry not yet taken also covers its night.",
+        "coverage": "Trips without a start or end date are missing; a stay without exact dates covers no night. Tap either number to see the trips.",
+        "exclusions": "Cancelled entries cover nothing. Rentals, places and day tours cover no night."
+      },
+      "uncoveredDays": {
+        "unit": "A night of a dated trip for which no entry says where you slept – summed over every dated trip.",
+        "time": "Per night from the start day to the day before the trip's end date, by the calendar dates entered.",
+        "source": "Your trips with a start and end date and their entries, as for the gap-free trips.",
+        "coverage": "Only trips with both dates. Tap the number to see the trips with their open nights.",
+        "exclusions": "Cancelled entries cover nothing; rentals, places and day tours cover no night."
+      },
+      "avgTripDays": {
+        "unit": "Days per trip on average, counting the start and end day (the 15th to the 18th are four days), to one decimal; beside it the longest trip.",
+        "time": "By the trip's start and end dates as entered.",
+        "source": "Your trips with a start and end date, whatever their status.",
+        "coverage": "Trips without both dates are missing. Tap the number to see the trips averaged over, with their duration.",
+        "exclusions": "Nothing beyond that; the duration is not derived from the trip's entries."
+      },
+      "journalEntries": {
+        "unit": "A journal entry; below it the three most frequent moods.",
+        "time": "Across all years.",
+        "source": "The journal entries of your trips.",
+        "coverage": "An entry without a mood counts but does not appear among the moods. Tap the number to see the trips with their entries.",
+        "exclusions": "Nothing beyond that."
+      }
+    }
   },
   "sections": {
     "button": "Sections",
@@ -689,7 +956,9 @@
     "cruiseTags": "Lines, regions, countries",
     "cruiseFlags": "Highlights",
     "rankings": "Rankings",
-    "records": "Records"
+    "records": "Records",
+    "flightInsights": "Discoveries and transfers",
+    "insights": "Insights"
   },
   "records": {
     "title": "Records",
@@ -722,9 +991,8 @@
     "yearLabel": "Year",
     "loadError": "Your year could not be loaded.",
     "loadErrorYear": "{{year}} could not be loaded.",
-    "nothingYet": "Nothing to look back on yet. Once a flight or a cruise is recorded, a review appears here.",
-    "emptyYear": "No flight recorded in {{year}}.",
-    "needsFlights": "This review is built from flights. Switch the flights area on to see it.",
+    "nothingYet": "Nothing to look back on yet. Once a flight, a ride, a stay, a place visit or a rental is recorded, a review appears here.",
+    "emptyYear": "Nothing is recorded in {{year}}.",
     "rankTop": "Your biggest flying year so far.",
     "rankSecond": "Only {{year}} had more flights.",
     "flights": "Flights",
@@ -747,9 +1015,385 @@
     "none": "—",
     "rail": "Train rides",
     "railDesc": "{{km}} km by train",
-    "railDescStraight": "{{km}} km by train, {{straight}} km of it straight line"
+    "railDescStraight": "{{km}} km by train, {{straight}} km of it straight line",
+    "chapters": {
+      "stays": "Stays",
+      "staysDesc_one": "{{count}} night in lodgings",
+      "staysDesc_other": "{{count}} nights in lodgings",
+      "staysDescUnknown_one": "{{nights}} known nights; {{count}} stay does not say how many nights",
+      "staysDescUnknown_other": "{{nights}} known nights; {{count}} stays do not say how many nights",
+      "places": "Place visits",
+      "placesDesc_one": "at {{count}} place",
+      "placesDesc_other": "at {{count}} different places",
+      "roadtrips": "Trips",
+      "roadtripsDesc": "started this year",
+      "tours": "Tours",
+      "toursDesc": "day tours dated this year",
+      "rentals": "Rental cars",
+      "rentalsDesc_one": "{{count}} rental day — not counted again as a travel day",
+      "rentalsDesc_other": "{{count}} rental days — not counted again as travel days",
+      "bus": "Bus rides",
+      "busDesc": "{{km}} km by bus",
+      "busNoKm": "distance not recorded",
+      "busUnmeasured_one": "{{count}} ride without a distance",
+      "busUnmeasured_other": "{{count}} rides without a distance",
+      "busNights_one": "{{count}} night on board",
+      "busNights_other": "{{count}} nights on board"
+    },
+    "help": {
+      "stays": {
+        "unit": "A stay at a lodging; in the sentence below the nights, where their number is known.",
+        "time": "In the year of the check-in date as entered. A stay counts only once its check-out is past.",
+        "source": "Your stays.",
+        "coverage": "A stay without a date that fixes a year is missing here. Where the number of nights is not recorded, the stay counts and the sentence says so. Tap the number to see the entries.",
+        "exclusions": "Scheduled, ongoing and cancelled stays do not count. A hidden domain has no chapter. The chapter is never added to another one."
+      },
+      "places": {
+        "unit": "A place visit; in the sentence below, at how many distinct places.",
+        "time": "In the year of the visit on the place's calendar. A visit counts once it has happened.",
+        "source": "The visits of your places.",
+        "coverage": "A visit without a date has no year and is missing here. Tap the number to see the entries.",
+        "exclusions": "Places on the wish list without a visit do not count. A hidden domain has no chapter. The chapter is never added to another one."
+      },
+      "roadtrips": {
+        "unit": "A trip that began this year.",
+        "time": "In the year of its first dated station (its date or the check-in of its stay). A trip counts once it has begun.",
+        "source": "Your trips with their stations.",
+        "coverage": "A trip without a dated station has no year and is missing here. Tap the number to see the entries.",
+        "exclusions": "The trip's nights and days are not added to stays. A hidden domain has no chapter. The chapter is never added to another one."
+      },
+      "tours": {
+        "unit": "A day tour dated this year.",
+        "time": "The tour's date, a calendar day without a time zone; a tour counts once its day has come.",
+        "source": "Your day tours.",
+        "coverage": "A tour without a date is missing here. Tap the number to see the entries.",
+        "exclusions": "Tours dated in the future do not count. Tours appear only while the instance shows them. The chapter is never added to another one."
+      },
+      "rentals": {
+        "unit": "A rental; in the sentence below its rental days.",
+        "time": "In the year of pick-up on the pick-up station's calendar; rental days on the stations' calendars.",
+        "source": "Your completed rentals.",
+        "coverage": "Every completed rental carries its pick-up and return time and therefore counts. Tap the number to see the entries.",
+        "exclusions": "Scheduled, ongoing and cancelled rentals do not count. Rental days do not count again as travel days. A hidden domain has no chapter. The chapter is never added to another one."
+      },
+      "bus": {
+        "unit": "A bus ride; in the sentence below the kilometres of the rides with a known distance and the nights on a night bus.",
+        "time": "In the year of departure on the departure terminal's calendar.",
+        "source": "Your completed bus rides.",
+        "coverage": "Rides without a distance add no kilometres and are named; when none has one, no kilometre figure is shown. Tap the number to see the entries.",
+        "exclusions": "Scheduled, ongoing and cancelled rides do not count. A hidden domain has no chapter. The chapter is never added to another one."
+      }
+    }
   },
   "period": {
     "emptyYear": "Nothing recorded here for {{year}}."
+  },
+  "insights": {
+    "title": "Discoveries, returns and transfers",
+    "intro": "“New” means recorded for the first time in your logbook. The reference is everything you have entered since {{firstYear}} – the app knows nothing about travel before that.",
+    "empty": "No flown flights with a date yet. These figures come from flown and back-filled flights with a departure date and airports.",
+    "openFlight": "Open flight",
+    "coverage": {
+      "undated": "{{flights}} flights without a date are in no year.",
+      "unknownEnd": "{{flights}} flights without an airport code at one end are on no connection.",
+      "placeholderDate": "{{flights}} flights with a placeholder date (only the year known) count in their year, but in no pause and no quarter."
+    },
+    "story": {
+      "title": "Your flying year {{year}}",
+      "titleNoYear": "Your flying year",
+      "latestYearHint": "No year selected – this is the latest year with recorded flights.",
+      "noFlightsInYear": "There are no recorded flights in {{year}}.",
+      "newAirports": "New destinations",
+      "noNewAirports": "No new airports this year.",
+      "biggestChange": "Biggest change",
+      "change": "{{measure}}: {{previous}} → {{current}} ({{delta}} against {{previousYear}})",
+      "noComparison": "Nothing to compare: {{previousYear}} has no recorded flights or the same figures.",
+      "measures": {
+        "flights": "Flights",
+        "distanceKm": "Kilometres",
+        "airports": "Airports used",
+        "connections": "Connections"
+      },
+      "repetition": "Most curious repetition",
+      "reunion_one": "Back at {{airport}} after {{count}} year ({{from}} → {{to}}).",
+      "reunion_other": "Back at {{airport}} after {{count}} years ({{from}} → {{to}}).",
+      "connection": "{{connection}}: flown {{flights}} times this year.",
+      "noRepetition": "No striking repetition this year.",
+      "funFacts": "Fun facts of the year",
+      "fastestDay": "Busiest day: {{date}} with {{flights}} flights",
+      "routeMaster": "Most flown connection: {{route}} ({{flights}}×, both directions)",
+      "timezones": "{{zones}} time zones touched",
+      "transfers": "{{transfers}} measured transfers, the shortest {{shortest}}",
+      "noTransfers": "No measurable transfers this year",
+      "firstRecordedYear": "Your first recorded year – every airport is new here."
+    },
+    "discovery": {
+      "title": "Discovery rate and new connections per year",
+      "year": "Year",
+      "flights": "Flights",
+      "airportsUsed": "Airports",
+      "newAirports": "Of which new",
+      "rate": "Rate",
+      "newConnections": "New connections",
+      "repeatedConnections": "Repeated"
+    },
+    "reunions": {
+      "title": "Long time no see",
+      "years_one": "{{count}} year away",
+      "years_other": "{{count}} years away",
+      "days_one": "{{count}} day away",
+      "days_other": "{{count}} days away",
+      "empty": "No airport visited on two different days yet."
+    },
+    "quarters": {
+      "title": "In all four quarters",
+      "row": "{{airport}} in {{year}}",
+      "quarter": "Q{{quarter}}",
+      "empty": "No airport used in all four calendar quarters of a year yet."
+    },
+    "transfers": {
+      "title": "Transfer times",
+      "empty": "No transfer time can be measured yet. It appears once flights are linked into one booking and the landing and the onward departure are recorded to the minute.",
+      "measured": "Measured transfers",
+      "measuredCount": "{{transfers}} measured transfers",
+      "shortest": "Shortest",
+      "longest": "Longest",
+      "count": "Transfers",
+      "median": "Median",
+      "arriving": "Arrival",
+      "departing": "Onward flight",
+      "airportChange": "change of airport {{from}} → {{to}}",
+      "coverage": "{{measured}} of {{gaps}} gaps in {{bookings}} bookings measured.",
+      "coverageDetail": "Not measured: {{unknownTime}} without minute-precise times, {{unknownOrder}} with an unclear order, {{notFlown}} not both flown, {{conflict}} leaving before the landing, {{separate}} separate journeys (a return or over 24 hours)."
+    },
+    "help": {
+      "discovery": {
+        "unit": "New airports relative to every airport used that year. Counting unit: an airport a flight leaves from or lands at; each airport counts once per year. Rate = new ÷ airports used that year.",
+        "time": "Each end on its own local day – the departure on the day it left, the arrival on the day it landed; a New Year's Eve flight can therefore land in the next year. An airport is new in the year it first appears in your whole logbook – not just in the selected period.",
+        "source": "Flown and back-filled flights, with the airport code (IATA, else ICAO) of both ends.",
+        "coverage": "In the first recorded year everything is therefore new – the app knows nothing about travel before that. Flights with a placeholder date (only the year known) count in their year. Tap a number to see the flights behind it.",
+        "exclusions": "Not included: planned and cancelled flights, flights without a date, ends without an airport code."
+      },
+      "routes": {
+        "unit": "Connections flown for the first time against connections flown again. Counting unit: a connection is the airport pair without direction – MUC→JFK and JFK→MUC are the same connection, so a return flight is a repetition. Each connection counts once per year, as new or as repeated.",
+        "time": "Year: the departure day at the departure airport. A connection is new in the year of its first flight in the logbook and repeated in every later year you fly it again.",
+        "source": "Flown and back-filled flights with a departure date and an airport code at both ends.",
+        "coverage": "The reference is the whole logbook, so in the first recorded year every connection is new. Tap a number to see the flights behind it.",
+        "exclusions": "Not included: flights with an unknown airport at one end, flights without a date, planned and cancelled flights."
+      },
+      "reunions": {
+        "unit": "The longest pause between two visits of the same airport. Counting unit: days between two consecutive visit days of an airport; each airport shows its longest pause. Years count whole calendar years only – from one whole year the pause is shown in years, otherwise in days.",
+        "time": "Each visit day is read on the airport's own calendar – the departure on the day it left, the arrival on the day it landed. A change of planes on one day is no reunion.",
+        "source": "Flown and back-filled flights with a date, both the departure and the arrival airport.",
+        "coverage": "The ten longest are listed with both flights linked – the last one before the pause and the first one after it. An airport used on one day only has no pause.",
+        "exclusions": "Flights with a placeholder date (only the year known) take no part. Planned and cancelled flights and ends without an airport code do not count."
+      },
+      "quarters": {
+        "unit": "Airports you used in all four calendar quarters of one year. Counting unit: a departure or an arrival at that airport; the quarters with at least one of them are counted.",
+        "time": "Calendar quarters (Jan–Mar, Apr–Jun, Jul–Sep, Oct–Dec) on the airport's local calendar – explicitly not seasons, which fall differently in the southern hemisphere. The year is the calendar year at the airport.",
+        "source": "Flown and back-filled flights with a date, both the departure and the arrival airport.",
+        "coverage": "The first flight of each quarter is linked. Only airport-years with all four quarters are listed.",
+        "exclusions": "Flights with a placeholder date take no part. Planned and cancelled flights, flights without a date and ends without an airport code do not count."
+      },
+      "transfers": {
+        "unit": "The wait between two flights of the same booking. The wait is the real distance between the two instants, across time zones too; each year shows the count, the median (the lower of the two middle values for an even count), the shortest and the longest transfer.",
+        "time": "Year: the landing day at the connecting airport.",
+        "source": "Measured only between two flights linked into one booking – never between flights that merely happen to be close in time – in the order of their stored departure time. Both must have been flown (back-filled flights often carry placeholder times), the landing and the departure known to the minute and their order certain.",
+        "coverage": "What could not be measured is listed below with its reason: no minute-precise times, an unclear order, not both flown, leaving before the landing, or a separate journey. None of it counts as zero minutes.",
+        "exclusions": "More than 24 hours on the ground, or a return to an airport already visited, is a separate journey. The figure does not say whether a connection was feasible. Cancelled flights are part of no booking sequence."
+      },
+      "story": {
+        "unit": "The year's story, told from proven extremes. New destinations: airports the year recorded for the first time. Biggest change: of flights, kilometres (great circle), airports used and connections, the figure that moved most, relatively, against the calendar year before. Most curious repetition: the longest return to an airport this year after at least a whole year away, otherwise the connection flown most often this year with at least three flights.",
+        "time": "Year: the departure day at the departure airport – for flights, kilometres, connections and the fun facts. Airports (new and used) and returns count on the local day of their end, transfers on the landing day at the connecting airport. With no year selected, the latest year with recorded flights is shown.",
+        "source": "Flown and back-filled flights with a date. The fun facts come from the same calculator as the fun facts block, run over this year's flights only.",
+        "coverage": "Without flights in the year before there is no comparison; a figure that was zero in that year or did not change cannot be the biggest change. Where an extreme is missing, nothing is shown rather than an invented figure; in the first recorded year every airport is new.",
+        "exclusions": "Planned and cancelled flights and flights without a date do not count. Flights with a placeholder date take part in no return."
+      },
+      "cruiseEvents": {
+        "unit": "Events the badges detect – with the cruises that prove them. The unit is a sailed cruise on which the event happened, each once per event. It is the badges' own rule.",
+        "time": "Year: the cruise's start year – with a year selected, the cruises that started in it. A birthday or New Year's Eve when the day lies between the start and end date (both days included).",
+        "source": "The itinerary of sailed cruises (completed or recorded afterwards), embarkation and disembarkation port included: the equator and the date line are detected between two consecutive ports with a known position – the equator when they lie on opposite sides of it, the date line when the longitude jumps by more than 180°. Canal and polar waters by the ports called at (Colón in Panama or Port Said; a port in the polar region). The birthday comes from your profile.",
+        "coverage": "A port without a recognised catalogue entry has no position and proves nothing. A birthday or New Year's Eve needs both a start and an end date. With no birthday in your profile, the line says so instead of showing zero. Tap the number for the list.",
+        "exclusions": "Booked and cancelled cruises do not count. On a river cruise a birthday or New Year's Eve does not count – it is not at sea."
+      },
+      "cruisePorts": {
+        "unit": "New ports against ports you already know from an earlier cruise. The unit is a catalogue port of a cruise – embarkation port, calls in day order, disembarkation port; the same port twice on one cruise counts once. A port is new on the first cruise (by start date) it appears on in your logbook; every later cruise with it counts it once as a return. “Ports” are the distinct ports of a year's cruises.",
+        "time": "Year: the cruise's start year. Every sailed cruise is the reference, also with a year selected. The year table always shows every year; a selected year narrows the per-cruise list.",
+        "source": "Sailed cruises (completed or recorded afterwards): the embarkation and disembarkation port and the itinerary's calls that are matched to a catalogue port.",
+        "coverage": "Cruises without a start date and calls at an unrecognised port are named in the footer but counted neither as new nor as a return. Tap a number for the list.",
+        "exclusions": "Not included: booked and cancelled cruises. Sea days do not count."
+      },
+      "cruiseReunion": {
+        "unit": "How long a port had to wait for you. The unit is days from a port's last day on one cruise to its first day on the next cruise that calls there; the longest such pause is shown. Below: ports on at least two sailed cruises, with the cruises linked.",
+        "time": "A call's day: its recorded local day, else the start day plus the day of the cruise (day 1 is the start day); the embarkation port is on the start day, the disembarkation port on the end day. The longest pause is searched across every year, also with a year selected; the port list then shows ports with at least one of their cruises starting in that year.",
+        "source": "Sailed cruises (completed or recorded afterwards) by start date: the embarkation and disembarkation port and the calls at a catalogue port.",
+        "coverage": "Only cruises with a start date count for the pause; the port list takes undated ones too. The list shows at most ten ports, those on the most cruises first.",
+        "exclusions": "Booked and cancelled cruises, sea days and calls at an unrecognised port do not count – an unmatched name cannot be tied to a port with certainty."
+      },
+      "cruiseItineraries": {
+        "unit": "Cruises with exactly the same sequence of ports. The full sequence is compared: embarkation port, every call in day order, disembarkation port – sea days do not count, the order does. A group has at least two cruises, the largest come first.",
+        "time": "The sequence itself has no date. With a year selected, a group appears when at least one of its cruises started in that year; the comparison runs across every year.",
+        "source": "Sailed cruises only (completed or recorded afterwards), undated ones included: the embarkation and disembarkation port and the calls at a catalogue port.",
+        "coverage": "At least two ports. A cruise with an unrecognised port takes no part, because it cannot be shown to be the same port.",
+        "exclusions": "Booked and cancelled cruises do not count. Nothing beyond that."
+      },
+      "cruiseStays": {
+        "unit": "Time in port, from a call's arrival to its departure; the time in port is the real distance between the two instants, across a clock change too. Shown are the average over the measured calls and the longest and shortest stay.",
+        "time": "Period: cruises that started in the selected year. Arrival and departure are instants in the port's time zone; the longest and shortest stay carry the call's local day.",
+        "source": "The calls of sailed cruises (completed or recorded afterwards) – at an unrecognised port too – with their recorded arrival and departure.",
+        "coverage": "Measured only where arrival and departure are recorded to the minute. Calls without these times are not in the average and are listed in the footer, never as zero minutes; so are calls whose departure is at or before the arrival. Tap the number of measured calls for the list.",
+        "exclusions": "The embarkation and disembarkation ports have no times of their own and are left out. Sea days, booked and cancelled cruises do not count."
+      },
+      "cruiseDays": {
+        "unit": "Sea days against port days, and the cruise type that follows. A day is a day of the itinerary: a sea day when it is recorded as one, a port day when at least one call is on it (two ports on one day are one port day). Type from the recorded days: at least half sea days = sea-day cruise, at most a fifth = port-intensive cruise, otherwise mixed; under two days no type. The year table sums the days and counts the types.",
+        "time": "Year: the start year. A day is a day of the itinerary, not a calendar date. The year table always shows every year; a selected year narrows the per-cruise list.",
+        "source": "The itinerary entries of sailed cruises (completed or recorded afterwards) – sea days and calls, at unrecognised ports too; for the days without an entry, also the start and end date.",
+        "coverage": "Days without an entry are named, not guessed: the days between start and end date the itinerary does not name – without both dates that stays open. Cruises without a start date are missing from the year table. Tap a year's port days for the list.",
+        "exclusions": "Booked and cancelled cruises do not count. The embarkation and disembarkation ports count only when they are listed as a call in the itinerary. On a river cruise a day without a port is no sea day but a river day: it is in the itinerary (so not a day without an entry), yet neither a sea nor a port day, and outside the cruise type – the same rule as the sea days above and the badges."
+      },
+      "cruiseExcursions": {
+        "unit": "Documented shore excursions per cruise. An excursion is a call with an excursion note, or with a tour you recorded on the same local day that starts at most 100 km from the port (the tour's first point, else the start of its recording) – there is no stored link, hence this rule. Calls are counted; a tour belongs to at most one, the nearest that day.",
+        "time": "The tour's day is compared with the call's local day (its recorded day, else the start day plus the day of the cruise). Period: cruises that started in the selected year.",
+        "source": "The calls of sailed cruises (completed or recorded afterwards) with their excursion note, and your day tours. Activity, distance and climb come from the tours: recorded kilometres from the recording, or for a tour without one the planned kilometres of its route – kept apart, never in one sum. On foot counts hikes, walks, runs and climbs.",
+        "coverage": "With neither, the cruise reads “no excursions documented” – which does not mean there were none. Distance and climb appear only where a tour measured them. A tour without a day or a starting point belongs to no call. Tap the number for the list.",
+        "exclusions": "Tours are shown when your instance shows tours (beta switch); otherwise only the note counts. A call at an unrecognised port has no position and takes no tour. Sea days, booked and cancelled cruises do not count."
+      },
+      "cruiseExcursionsNotes": {
+        "unit": "Documented shore excursions per cruise. An excursion is a call with an excursion note; calls are counted.",
+        "time": "Period: cruises that started in the selected year.",
+        "source": "The calls of sailed cruises (completed or recorded afterwards) with their excursion note – at an unrecognised port too.",
+        "coverage": "Without one, the cruise reads “no excursions documented” – which does not mean there were none. Tap the number for the list.",
+        "exclusions": "Sea days, booked and cancelled cruises do not count."
+      }
+    },
+    "cruise": {
+      "title": "Ports, time in port and excursions",
+      "intro": "Sailed cruises are counted. “New” means called at on no earlier cruise in your logbook.",
+      "empty": "No sailed cruise in this period. These figures come from sailed cruises with ports in their itinerary.",
+      "events": {
+        "title": "Special events",
+        "names": {
+          "equator": "Crossed the equator",
+          "dateline": "Crossed the date line",
+          "birthdayAtSea": "Birthday aboard",
+          "newYearAtSea": "New Year's Eve aboard",
+          "canal": "Canal transit",
+          "polar": "Polar waters"
+        },
+        "cruises": "{{cruises}}× ",
+        "none": "on no cruise yet",
+        "noBirthday": "no birthday in your profile – with one this can be counted"
+      },
+      "ports": {
+        "title": "New ports and returns",
+        "cruises": "Cruises",
+        "ports": "Ports",
+        "new": "New",
+        "again": "Again",
+        "perCruise": "Per cruise",
+        "cruiseRow": "{{ports}} ports, {{fresh}} new and {{again}} seen again",
+        "undatedRow": "{{ports}} ports – without a start date neither new nor seen again",
+        "coverage": "Not placed: {{undated}} cruises without a start date, {{unresolved}} calls at an unrecognised port."
+      },
+      "reunion": {
+        "title": "Longest pause before a return",
+        "days_one": "{{count}} day",
+        "days_other": "{{count}} days",
+        "empty": "No port on two dated cruises yet.",
+        "repeatPorts": "Ports on several cruises",
+        "noRepeatPorts": "No port on two cruises yet."
+      },
+      "itineraries": {
+        "title": "Same sequence of ports",
+        "empty": "No two cruises with exactly the same sequence of ports yet."
+      },
+      "stays": {
+        "title": "Time in port",
+        "average": "On average {{average}} in port,",
+        "measured": "measured on {{calls}} calls",
+        "measuredLabel": "Calls with a measured time in port",
+        "longest": "Longest call",
+        "shortest": "Shortest call",
+        "empty": "No time in port can be measured yet. It appears once a call has its arrival and departure recorded to the minute.",
+        "coverage": "{{measured}} of {{calls}} calls measured; {{missing}} without a minute-precise arrival and departure, {{inconsistent}} departing at or before the arrival – they are not in the average."
+      },
+      "days": {
+        "title": "Sea days and port days",
+        "seaDays": "Sea days",
+        "portDays": "Port days",
+        "types": "Cruise types",
+        "typeCounts": "{{seaHeavy}} sea · {{balanced}} mixed · {{portIntensive}} port",
+        "typeNames": {
+          "seaHeavy": "Sea-day cruise",
+          "balanced": "Mixed cruise",
+          "portIntensive": "Port-intensive cruise"
+        },
+        "unclassified": "too few days in the itinerary",
+        "row": "{{sea}} sea days, {{port}} port days",
+        "unlisted": "{{days}} days without an itinerary entry"
+      },
+      "excursions": {
+        "title": "Shore excursions",
+        "summary": "{{calls}} documented excursions at {{ports}} ports on {{cruises}} cruises",
+        "cruiseRow": "{{documented}} of {{calls}} calls with an excursion ({{notes}} notes, {{tours}} tours)",
+        "noneDocumented": "no excursions documented",
+        "empty": "No excursion documented yet. An excursion counts when a call has an excursion note, or when you recorded a tour that day starting at most {{km}} km from the port.",
+        "emptyNotesOnly": "No excursion documented yet. An excursion counts when a call has an excursion note.",
+        "unspecified": "No activity",
+        "ascent": "{{m}} m climbed",
+        "onFootRecorded": "{{km}} on foot, recorded",
+        "recorded": "{{km}} recorded",
+        "planned": "{{km}} planned (no recording)"
+      }
+    }
+  },
+  "insight": {
+    "entries_one": "{{count}} entry",
+    "entries_other": "{{count}} entries",
+    "duration": {
+      "minutes": "{{m}} min",
+      "hours": "{{h}} h",
+      "hoursMinutes": "{{h}} h {{m}} min"
+    }
+  },
+  "domainRecords": {
+    "title": "Records across all kinds of travel",
+    "ids": {
+      "longest-cruise": "Longest cruise",
+      "longest-stay": "Longest stay",
+      "most-visited-place": "Most visited place",
+      "longest-roadtrip": "Longest trip",
+      "longest-rail-ride": "Longest train ride",
+      "longest-rental": "Longest rental",
+      "longest-bus-ride": "Longest bus ride"
+    },
+    "units": {
+      "days_one": "{{value}} day",
+      "days_other": "{{value}} days",
+      "nights_one": "{{value}} night",
+      "nights_other": "{{value}} nights",
+      "visits_one": "{{value}} visit",
+      "visits_other": "{{value}} visits",
+      "km_one": "{{value}} km",
+      "km_other": "{{value}} km"
+    },
+    "straightLine": "straight line (the real route is longer)",
+    "help": {
+      "unit": "One record per kind of travel you see – each in its own unit, never ranked against each other: cruises, trips and rentals in calendar days (first and last day both counted, a rental at least one day), a stay in nights, train and bus in kilometres, a place in visits. The number opens the entry that holds the record.",
+      "time": "Across all years, whatever period is selected. Cruises count by their start and end dates, trips by their stations' dates, rentals on the calendars of the pick-up and return stations.",
+      "source": "Each counts by its own kind's rule: only completed rides and rentals, only stays and trips that have happened, only place visits that took place.",
+      "coverage": "A stay counts only where its nights are known; a cruise needs a start and end date, a train or bus ride a distance. The straight line is named as such (the real route is longer). A kind of travel with nothing measurable has no record – never a zero.",
+      "exclusions": "A place needs at least two visits. A trip counts no planned station, no day after today, no cancelled stay and no month-only date. A kind of travel you have switched off, or that sits behind the beta switch, has no record. Flight records are on the Flights tab."
+    }
+  },
+  "counting": {
+    "summary": "How this is counted",
+    "fields": {
+      "unit": "Unit",
+      "time": "Time rule",
+      "source": "Source",
+      "coverage": "Coverage",
+      "exclusions": "Left out"
+    }
   }
 }

@@ -3,16 +3,27 @@ import type { ReactNode } from "react";
 export type ImportDomain = "flight" | "cruise" | "lodging" | "trip" | "poi" | "rail" | "rental";
 
 /**
- * The domains a document can actually be parsed FOR. Deliberately narrower
- * than `ImportDomain`: a place is never booked, and the tour-operator parser
- * for trips does not exist yet. The chooser uses this to decide whether a drop
+ * The targets a document can actually be parsed FOR. Not a subset of
+ * `ImportDomain`: a place is never booked, and a trip is parsed as a
+ * `package` (a tour operator's documents), which the trip adapter names
+ * through `parseAs`. The chooser uses this to decide whether a drop
  * zone may appear at all, so a domain cannot offer a reading the backend has
  * no route for — a type error rather than a runtime 400.
  */
-export const PARSEABLE_IMPORT_DOMAINS = ["flight", "cruise", "lodging", "rail", "rental"] as const;
+export const PARSEABLE_IMPORT_DOMAINS = [
+  "flight",
+  "cruise",
+  "lodging",
+  "rail",
+  "rental",
+  "package",
+  "place",
+] as const;
 export type ParseableImportDomain = (typeof PARSEABLE_IMPORT_DOMAINS)[number];
 
-export function isParseableDomain(domain: ImportDomain): domain is ParseableImportDomain {
+export function isParseableDomain(
+  domain: ImportDomain
+): domain is Extract<ImportDomain, ParseableImportDomain> {
   return (PARSEABLE_IMPORT_DOMAINS as readonly string[]).includes(domain);
 }
 
@@ -36,14 +47,29 @@ export interface ImportRoute {
   /** Trailing button label. Omit when `render` supplies its own control. */
   actionLabel?: string;
   onSelect?: () => void;
-  /** Inline body under the description, e.g. a search field. */
-  render?: () => ReactNode;
+  /**
+   * Inline body under the description, e.g. a search field. The context lets
+   * a route hand its result on the way a dropped document is handed on — to
+   * the review, or to the manual form with what it already knows. Absent where
+   * the list is shown outside `<DomainImportPanel>`.
+   */
+  render?: (context?: ImportRouteContext) => ReactNode;
   /**
    * Built but not offered yet. The route stays in the code — and in the
    * tests — instead of being commented out, so switching a domain on is one
    * flag rather than an archaeology exercise.
    */
   hidden?: boolean;
+}
+
+/** What `<DomainImportPanel>` offers a route's inline body. */
+export interface ImportRouteContext {
+  /** Opens the adapter's review with a parse-shaped result, as a dropped document would. */
+  openReview: (parseResult: unknown) => void;
+  /** Opens the manual form, prefilled with what the route already read. */
+  openManual: (prefill?: unknown) => void;
+  /** Brings the document drop zone into view — "upload the PDF instead". Absent without one. */
+  focusDocumentRoute?: () => void;
 }
 
 /**
@@ -66,6 +92,11 @@ export interface DomainImportAdapter {
    * cannot happen.
    */
   supportsDocumentImport?: boolean;
+  /**
+   * What the drop zone parses FOR when it is not the adapter's own domain —
+   * the trip import reads a tour operator's documents as `package`.
+   */
+  parseAs?: ParseableImportDomain;
   /** Copy for the shared drop-zone route. Falls back to generic wording. */
   documentRoute?: Pick<ImportRoute, "title" | "description">;
   /** Domain-specific routes, rendered after the drop zone in this order. */
@@ -73,7 +104,27 @@ export interface DomainImportAdapter {
   /** Footer link label. Defaults to the generic "enter by hand". */
   manualLabel?: string;
   /** Render the manual-entry experience as a sibling modal. */
-  renderManual: (props: { onClose: () => void; onSaved: () => void }) => ReactNode;
+  renderManual: (props: {
+    onClose: () => void;
+    /**
+     * Resolves once the list behind the panel has reloaded. A form passes this
+     * promise to its save step (`useSaveOnce`) so that a failed reload is
+     * reported as "saved, but not refreshed" instead of vanishing with the form.
+     */
+    onSaved: () => void | Promise<void>;
+    /**
+     * Reload the list behind the panel WITHOUT closing it — for a form that
+     * stores one record and stays open for the next (rail's "save and add a
+     * connection"). Without it, cancelling after the first leg left the list
+     * without the leg that was stored.
+     */
+    onProgress?: () => void | Promise<void>;
+    /**
+     * What a route already read before the user chose to type the rest
+     * (`ImportRouteContext.openManual`) — the adapter narrows it.
+     */
+    prefill?: unknown;
+  }) => ReactNode;
   /**
    * Render the post-parse review/preview UI (e.g. FlightReviewModal,
    * LodgingImportPreviewModal). Called after a successful parse.

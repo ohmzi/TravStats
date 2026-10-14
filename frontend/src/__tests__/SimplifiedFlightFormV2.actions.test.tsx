@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import SimplifiedFlightFormV2 from "../components/SimplifiedFlightFormV2";
 import { companionsApi } from "../lib/api";
+import { getNamed } from "./helpers/namedElement";
 
 // The flight forms ask the user's logbook for suggestions over the network;
 // these tests pin other wiring and must reach none.
@@ -77,9 +78,7 @@ vi.mock("@/lib/api/client", async (importOriginal) => {
 const openManualEntry = async (): Promise<void> => {
   render(<SimplifiedFlightFormV2 onSubmit={vi.fn()} onCancel={vi.fn()} />);
   fireEvent.click(screen.getByText(/flights:form\.manualEntryAction/i));
-  await waitFor(() =>
-    expect(screen.getByRole("button", { name: /flights:form\.submit$/i })).toBeInTheDocument()
-  );
+  await waitFor(() => expect(getNamed("button", /flights:form\.submit$/i)).toBeInTheDocument());
 };
 
 describe("SimplifiedFlightFormV2 — the footer's actions", () => {
@@ -92,8 +91,11 @@ describe("SimplifiedFlightFormV2 — the footer's actions", () => {
   it("puts 'Flug speichern' last and makes it the only primary action", async () => {
     await openManualEntry();
 
+    // The "Zum Speichern fehlt noch" items are buttons too (they focus their
+    // field); they are not footer actions.
     const labels = screen
       .getAllByRole("button")
+      .filter((button) => !button.hasAttribute("data-inline-action"))
       .map((button) => button.textContent ?? "")
       .filter((label) => label.startsWith("flights:form."));
 
@@ -103,8 +105,8 @@ describe("SimplifiedFlightFormV2 — the footer's actions", () => {
       "flights:form.submit",
     ]);
 
-    const save = screen.getByRole("button", { name: /flights:form\.submit$/i });
-    const withReturn = screen.getByRole("button", { name: /flights:form\.submitAndReturn/i });
+    const save = getNamed("button", /flights:form\.submit$/i);
+    const withReturn = getNamed("button", /flights:form\.submitAndReturn/i);
     expect(save.className).toContain("btn-primary");
     expect(withReturn.className).toContain("btn-secondary");
     expect(withReturn.className).not.toContain("btn-primary");
@@ -137,7 +139,7 @@ describe("SimplifiedFlightFormV2 — the footer's actions", () => {
   it("focuses the first empty required field from the save-and-return button", async () => {
     await openManualEntry();
 
-    fireEvent.click(screen.getByRole("button", { name: /flights:form\.submitAndReturn/i }));
+    fireEvent.click(getNamed("button", /flights:form\.submitAndReturn/i));
 
     await waitFor(() => {
       const focused = document.activeElement as HTMLElement | null;
@@ -158,7 +160,7 @@ describe("SimplifiedFlightFormV2 — the footer's actions", () => {
   it("leaves the primary save button enabled and tied to the form", async () => {
     await openManualEntry();
 
-    const save = screen.getByRole("button", { name: /flights:form\.submit$/i });
+    const save = getNamed("button", /flights:form\.submit$/i);
     const form = screen.getByRole("dialog").querySelector("form");
     expect(save).toBeEnabled();
     expect(save.getAttribute("type")).toBe("submit");

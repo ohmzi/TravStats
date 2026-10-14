@@ -74,6 +74,7 @@ describe("Tour route sections — stop assignment", () => {
   it("refuses a stop without coordinates", async () => {
     const res = await put([stopIds.kristiansand, stopIds.restaurant]);
     expect(res.status).toBe(400);
+    expect(res.body.code).toBe("ROUTE_STOP_NO_COORDINATE");
     expect(String(res.body.error)).toMatch(/coordinate/i);
 
     const stop = await prisma.tripStop.findUnique({ where: { id: stopIds.restaurant } });
@@ -87,6 +88,7 @@ describe("Tour route sections — stop assignment", () => {
     });
     const res = await put([stopIds.kristiansand, foreign.id]);
     expect(res.status).toBe(400);
+    expect(res.body.code).toBe("ROUTE_STOP_NOT_OWNED");
   });
 
   it("refuses a stop that already belongs to a different route section", async () => {
@@ -101,6 +103,7 @@ describe("Tour route sections — stop assignment", () => {
     const res = await put([stopIds.kristiansand, stopIds.bergen]);
     expect(res.status).toBe(400);
     expect(String(res.body.error)).toMatch(/already belongs to another route section/i);
+    expect(res.body.code).toBe("ROUTE_STOP_IN_OTHER_SECTION");
 
     // Nothing was written: the stop still belongs to its original section.
     const stop = await prisma.tripStop.findUnique({ where: { id: stopIds.bergen } });
@@ -190,20 +193,24 @@ describe("Tour route sections — stop assignment", () => {
     });
 
     const originalFindMany = prisma.tripStop.findMany.bind(prisma.tripStop);
-    const spy = jest
-      .spyOn(prisma.tripStop, "findMany")
-      .mockImplementationOnce(async (...args: Parameters<typeof prisma.tripStop.findMany>) => {
-        const result = await originalFindMany(...args);
-        await prisma.tripStop.update({
-          where: { id: stopIds.bergen },
-          data: { routeId: otherRoute.id, routeOrderIdx: 0 },
-        });
-        return result;
+    // This hook is only awaited by the pre-check; it is not submitted to $transaction.
+    const spy = jest.spyOn(prisma.tripStop, "findMany") as jest.SpyInstance<
+      Promise<Awaited<ReturnType<typeof prisma.tripStop.findMany>>>,
+      Parameters<typeof prisma.tripStop.findMany>
+    >;
+    spy.mockImplementationOnce(async (...args) => {
+      const result = await originalFindMany(...args);
+      await prisma.tripStop.update({
+        where: { id: stopIds.bergen },
+        data: { routeId: otherRoute.id, routeOrderIdx: 0 },
       });
+      return result;
+    });
 
     try {
       const res = await put([stopIds.kristiansand, stopIds.bergen]);
       expect(res.status).toBe(409);
+      expect(res.body.code).toBe("ROUTE_STOP_CLAIMED_MEANWHILE");
 
       // Atomic: the transaction rolled back, so Kristiansand — assigned
       // before the loop reached the stolen stop — was NOT left assigned.

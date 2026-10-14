@@ -62,7 +62,7 @@ export default function LoggingManager({
   return (
     <div className="space-y-6">
       {/* Header with Quick Actions */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-(--text-primary)">
             {t("admin:logging.title")}
@@ -72,7 +72,7 @@ export default function LoggingManager({
             {t("admin:logging.help.warning")}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={onToggleDebug}
             disabled={pinned}
@@ -170,13 +170,19 @@ export default function LoggingManager({
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label
-              htmlFor="admin-log-level"
-              className="flex items-center gap-1.5 text-sm font-medium text-(--text-primary) mb-2"
-            >
-              {t("admin:logging.level.label")}
-              <HelpIcon content={t("admin:logging.help.levels")} position="top" />
-            </label>
+            <div className="mb-2 flex items-center gap-1.5">
+              <label
+                htmlFor="admin-log-level"
+                className="text-sm font-medium text-(--text-primary)"
+              >
+                {t("admin:logging.level.label")}
+              </label>
+              <HelpIcon
+                content={t("admin:logging.help.levels")}
+                position="top"
+                subject={t("admin:logging.level.label")}
+              />
+            </div>
             <select
               id="admin-log-level"
               value={loggingConfig.logLevel}

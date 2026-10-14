@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 
 vi.mock("../../../hooks/useTranslation", () => ({
   useTranslation: () => ({ t: (k: string) => k, i18n: { language: "de" }, ready: true }),
@@ -60,18 +60,40 @@ vi.mock("../../../lib/api/rail", () => ({
 import { RailFormModal } from "../RailFormModal";
 import { useToastStore } from "../../../store/toastStore";
 import { makeRailJourney } from "./railJourneyFixture";
+import { allNamed, findNamed, getNamed } from "../../../__tests__/helpers/namedElement";
+
+/** The departure time's label ends in the required mark (forgejo#245). */
+const DEPARTURE_TIME = /^rail:form\.departureTime\s*\*?$/;
 
 function saveButton(): HTMLElement {
-  return screen.getByRole("button", { name: "rail:form.save" });
+  return getNamed("button", "rail:form.save");
 }
 
 /** Both station fields switched from the catalogue to the geocoder, then picked. */
 function pickBothViaGeocoder(): void {
-  for (const b of screen.getAllByRole("button", { name: "rail:station.useGeocoder" })) {
+  for (const b of allNamed("button", "rail:station.useGeocoder")) {
     fireEvent.click(b);
   }
   fireEvent.click(screen.getByText("pick rail:form.departureStation"));
   fireEvent.click(screen.getByText("pick rail:form.arrivalStation"));
+}
+
+/**
+ * Waits for the trip list to arrive in the trip select. Scoped to that select
+ * on purpose: the form also holds the currency select with ~160 options, and a
+ * document-wide `findByRole("option", { name })` computes the accessible name
+ * and visibility of every one of them on each poll — about a second per try
+ * locally, enough to run a test past its 5 s budget on a loaded CI runner.
+ */
+async function tripsLoaded(name = "Paris weekend"): Promise<void> {
+  await waitFor(() =>
+    within(screen.getByLabelText("rail:form.trip")).getByRole("option", { name })
+  );
+}
+
+/** The two "only the date is known" checkboxes: departure first, arrival second. */
+function dayOnlyBoxes(): HTMLElement[] {
+  return screen.getAllByRole("checkbox", { name: /: rail:form\.dayOnly$/ });
 }
 
 describe("RailFormModal", () => {
@@ -100,7 +122,7 @@ describe("RailFormModal", () => {
     expect(screen.queryByText("rail:form.stationMissing")).toBeNull();
     expect(saveButton()).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText("rail:form.departureTime"), {
+    fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
       target: { value: "2026-07-01T08:15" },
     });
     expect(saveButton()).not.toBeDisabled();
@@ -111,10 +133,10 @@ describe("RailFormModal", () => {
     create.mockResolvedValue({ journey: saved, geometry: null });
     const onSaved = vi.fn();
     render(<RailFormModal journey={null} onClose={vi.fn()} onSaved={onSaved} />);
-    await screen.findByRole("option", { name: "Paris weekend" });
+    await tripsLoaded();
 
     pickBothViaGeocoder();
-    fireEvent.change(screen.getByLabelText("rail:form.departureTime"), {
+    fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
       target: { value: "2026-07-01T08:15" },
     });
     fireEvent.change(screen.getByLabelText("rail:form.category"), { target: { value: "ICE" } });
@@ -158,17 +180,17 @@ describe("RailFormModal", () => {
       { id: "t2", name: "Später", startDate: "2026-08-01", endDate: "2026-08-05" },
     ]);
     render(<RailFormModal journey={null} onClose={vi.fn()} onSaved={vi.fn()} />);
-    await screen.findByRole("option", { name: "Paris weekend" });
+    await tripsLoaded();
     const trip = screen.getByLabelText("rail:form.trip") as HTMLSelectElement;
     expect(trip.value).toBe("");
 
-    fireEvent.change(screen.getByLabelText("rail:form.departureTime"), {
+    fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
       target: { value: "2026-07-02T08:15" },
     });
     await waitFor(() => expect(trip.value).toBe("t1"));
 
     fireEvent.change(trip, { target: { value: "" } });
-    fireEvent.change(screen.getByLabelText("rail:form.departureTime"), {
+    fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
       target: { value: "2026-08-02T08:15" },
     });
     expect(trip.value).toBe("");
@@ -189,7 +211,7 @@ describe("RailFormModal", () => {
     const onSaved = vi.fn();
     render(<RailFormModal journey={null} onClose={vi.fn()} onSaved={onSaved} />);
     pickBothViaGeocoder();
-    fireEvent.change(screen.getByLabelText("rail:form.departureTime"), {
+    fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
       target: { value: "2026-07-01T08:15" },
     });
     fireEvent.click(saveButton());
@@ -205,7 +227,7 @@ describe("RailFormModal", () => {
     create.mockRejectedValue({ response: { data: { error: '[{"code":"invalid_type"}]' } } });
     render(<RailFormModal journey={null} onClose={vi.fn()} onSaved={vi.fn()} />);
     pickBothViaGeocoder();
-    fireEvent.change(screen.getByLabelText("rail:form.departureTime"), {
+    fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
       target: { value: "2026-07-01T08:15" },
     });
     fireEvent.click(saveButton());
@@ -264,14 +286,21 @@ describe("RailFormModal", () => {
 
     const [depSearch] = screen.getAllByRole("combobox");
     fireEvent.change(depSearch, { target: { value: "frankfurt hbf" } });
-    fireEvent.click(await screen.findByRole("button", { name: /Frankfurt \(Main\) Hbf/ }));
+    // Scoped to the picker: its search answers after a 250 ms debounce, and a
+    // document-wide role query over this form is slow enough under load to use
+    // up findBy's one-second window in two or three polls.
+    fireEvent.click(
+      await within(depSearch.parentElement as HTMLElement).findByRole("button", {
+        name: /Frankfurt \(Main\) Hbf/,
+      })
+    );
     expect(screen.getByText("rail:station.picked")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("rail:form.number"), { target: { value: "ICE 696" } });
     fireEvent.change(screen.getByLabelText("rail:lookup.date"), {
       target: { value: "2026-09-26" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "rail:lookup.run" }));
+    fireEvent.click(getNamed("button", "rail:lookup.run"));
     await waitFor(() =>
       expect(lookup).toHaveBeenCalledWith({
         trainNumber: "ICE 696",
@@ -279,7 +308,7 @@ describe("RailFormModal", () => {
         fromStationId: 7604,
       })
     );
-    fireEvent.click(await screen.findByRole("button", { name: "rail:lookup.apply" }));
+    fireEvent.click(await findNamed("button", "rail:lookup.apply"));
     fireEvent.click(saveButton());
 
     await waitFor(() => expect(create).toHaveBeenCalled());
@@ -344,8 +373,8 @@ describe("RailFormModal", () => {
     fireEvent.change(dateField, {
       target: { value: "2026-09-26" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "rail:lookup.run" }));
-    fireEvent.click(await screen.findByRole("button", { name: "rail:lookup.apply" }));
+    fireEvent.click(getNamed("button", "rail:lookup.run"));
+    fireEvent.click(await findNamed("button", "rail:lookup.apply"));
 
     expect(screen.getByLabelText("rail:form.operator")).toHaveValue("ÖBB");
     expect(screen.getByLabelText("rail:form.category")).toHaveValue("RJX");
@@ -367,9 +396,9 @@ describe("RailFormModal", () => {
     render(
       <RailFormModal journey={null} onClose={vi.fn()} onSaved={onSaved} onProgress={onProgress} />
     );
-    await screen.findByRole("option", { name: "Paris weekend" });
+    await tripsLoaded();
     pickBothViaGeocoder();
-    fireEvent.change(screen.getByLabelText("rail:form.departureTime"), {
+    fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
       target: { value: "2026-07-01T08:15" },
     });
     fireEvent.click(screen.getByTestId("rail-save-and-connect"));
@@ -379,9 +408,9 @@ describe("RailFormModal", () => {
     expect(create.mock.calls[0][0]).not.toHaveProperty("connectsFrom");
     // The dialog now holds the next leg, from the previous arrival.
     expect(await screen.findByTestId("rail-connection-banner")).toBeInTheDocument();
-    expect(screen.getByLabelText("rail:form.departureTime")).toHaveValue("2026-09-26T07:10");
+    expect(screen.getByLabelText(DEPARTURE_TIME)).toHaveValue("2026-09-26T07:10");
 
-    for (const b of screen.getAllByRole("button", { name: "rail:station.useGeocoder" })) {
+    for (const b of allNamed("button", "rail:station.useGeocoder")) {
       fireEvent.click(b);
     }
     fireEvent.click(screen.getByText("pick rail:form.arrivalStation"));
@@ -405,7 +434,7 @@ describe("RailFormModal", () => {
     const onSaved = vi.fn();
     render(<RailFormModal journey={null} onClose={vi.fn()} onSaved={onSaved} />);
     pickBothViaGeocoder();
-    fireEvent.change(screen.getByLabelText("rail:form.departureTime"), {
+    fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
       target: { value: "2026-07-01T08:15" },
     });
     fireEvent.click(saveButton());
@@ -428,7 +457,7 @@ describe("RailFormModal", () => {
     const onSaved = vi.fn();
     render(<RailFormModal journey={null} onClose={vi.fn()} onSaved={onSaved} />);
     pickBothViaGeocoder();
-    fireEvent.change(screen.getByLabelText("rail:form.departureTime"), {
+    fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
       target: { value: "2026-07-01T08:15" },
     });
     fireEvent.click(saveButton());
@@ -451,7 +480,7 @@ describe("RailFormModal", () => {
     const onSaved = vi.fn();
     render(<RailFormModal journey={null} onClose={vi.fn()} onSaved={onSaved} />);
     pickBothViaGeocoder();
-    fireEvent.change(screen.getByLabelText("rail:form.departureTime"), {
+    fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
       target: { value: "2026-07-01T08:15" },
     });
     fireEvent.click(saveButton());
@@ -470,7 +499,7 @@ describe("RailFormModal", () => {
     const onSaved = vi.fn();
     render(<RailFormModal journey={null} onClose={vi.fn()} onSaved={onSaved} />);
     pickBothViaGeocoder();
-    fireEvent.change(screen.getByLabelText("rail:form.departureTime"), {
+    fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
       target: { value: "2026-07-01T08:15" },
     });
     fireEvent.click(saveButton());
@@ -499,5 +528,314 @@ describe("RailFormModal", () => {
     // Next to the arrival it qualifies: both in the same column.
     const arrival = screen.getByLabelText("rail:form.arrivalTime");
     expect(arrival.closest("label")?.parentElement).toBe(label?.parentElement);
+  });
+
+  // forgejo#212: a day-only ride opened as 00:00 and a seat change saved it
+  // back as a midnight departure.
+  describe("a day-only ride", () => {
+    const dayRide = makeRailJourney({
+      departureTime: "2026-09-20T22:00:00.000Z",
+      arrivalTime: null,
+      times: {
+        departure: {
+          utc: "2026-09-20T22:00:00.000Z",
+          zone: "Europe/Berlin",
+          offset: "+02:00",
+          local: "2026-09-21T00:00:00",
+          precision: "day",
+        },
+        arrival: null,
+        actualDeparture: null,
+        actualArrival: null,
+      },
+    });
+
+    it("opens on a date input and saves a seat change without inventing a clock", async () => {
+      update.mockResolvedValue({ journey: dayRide, geometry: null });
+      render(<RailFormModal journey={dayRide} onClose={vi.fn()} onSaved={vi.fn()} />);
+      await waitFor(() => expect(getAllTrips).toHaveBeenCalled());
+
+      const departure = screen.getByLabelText(DEPARTURE_TIME);
+      expect(departure).toHaveAttribute("type", "date");
+      expect(departure).toHaveValue("2026-09-21");
+      const [depDayOnly, arrDayOnly] = dayOnlyBoxes();
+      expect(depDayOnly).toBeChecked();
+      expect(arrDayOnly).not.toBeChecked();
+      // A delay needs both clocks; the field says why it is off.
+      expect(screen.getByLabelText("rail:form.delay")).toBeDisabled();
+      expect(screen.getByLabelText("rail:form.delay")).toHaveAccessibleDescription(
+        "rail:form.delayNeedsClock"
+      );
+
+      fireEvent.change(screen.getByLabelText("rail:form.seatNumber"), { target: { value: "42" } });
+      fireEvent.click(saveButton());
+
+      await waitFor(() => expect(update).toHaveBeenCalled());
+      expect(update).toHaveBeenCalledWith(
+        "j1",
+        expect.objectContaining({
+          departureLocal: "2026-09-21",
+          arrivalLocal: null,
+          delayMinutes: null,
+          seat: "42",
+        })
+      );
+    });
+
+    it("leaves the delay editable and sent while only an absent arrival is marked date-only", async () => {
+      const clocked = makeRailJourney({ arrivalTime: null });
+      update.mockResolvedValue({ journey: clocked, geometry: null });
+      render(<RailFormModal journey={clocked} onClose={vi.fn()} onSaved={vi.fn()} />);
+      await waitFor(() => expect(getAllTrips).toHaveBeenCalled());
+
+      fireEvent.click(dayOnlyBoxes()[1]);
+      const delay = screen.getByLabelText("rail:form.delay");
+      expect(delay).toBeEnabled();
+      fireEvent.change(delay, { target: { value: "12" } });
+      fireEvent.click(saveButton());
+
+      await waitFor(() => expect(update).toHaveBeenCalled());
+      expect(update.mock.calls[0][1]).toMatchObject({ arrivalLocal: null, delayMinutes: 12 });
+    });
+
+    it("names each checkbox after its own time field", async () => {
+      render(<RailFormModal journey={dayRide} onClose={vi.fn()} onSaved={vi.fn()} />);
+      await waitFor(() => expect(getAllTrips).toHaveBeenCalled());
+      expect(
+        screen.getByRole("checkbox", { name: "rail:form.departureTime: rail:form.dayOnly" })
+      ).toBeChecked();
+      expect(
+        screen.getByRole("checkbox", { name: "rail:form.arrivalTime: rail:form.dayOnly" })
+      ).not.toBeChecked();
+    });
+
+    it("sends a day for an arrival the user marks as date-only", async () => {
+      update.mockResolvedValue({ journey: dayRide, geometry: null });
+      render(<RailFormModal journey={dayRide} onClose={vi.fn()} onSaved={vi.fn()} />);
+      await waitFor(() => expect(getAllTrips).toHaveBeenCalled());
+
+      fireEvent.change(screen.getByLabelText("rail:form.arrivalTime"), {
+        target: { value: "2026-09-22T07:30" },
+      });
+      fireEvent.click(dayOnlyBoxes()[1]);
+      const arrival = screen.getByLabelText("rail:form.arrivalTime");
+      expect(arrival).toHaveAttribute("type", "date");
+      expect(arrival).toHaveValue("2026-09-22");
+
+      fireEvent.click(saveButton());
+      await waitFor(() => expect(update).toHaveBeenCalled());
+      expect(update).toHaveBeenCalledWith(
+        "j1",
+        expect.objectContaining({ departureLocal: "2026-09-21", arrivalLocal: "2026-09-22" })
+      );
+    });
+
+    it("gives the day a clock when the user says the time is known, and back", async () => {
+      render(<RailFormModal journey={dayRide} onClose={vi.fn()} onSaved={vi.fn()} />);
+      await waitFor(() => expect(getAllTrips).toHaveBeenCalled());
+      const toggle = dayOnlyBoxes()[0];
+
+      fireEvent.click(toggle);
+      const departure = screen.getByLabelText(DEPARTURE_TIME);
+      expect(departure).toHaveAttribute("type", "datetime-local");
+      expect(departure).toHaveValue("2026-09-21T00:00");
+
+      fireEvent.change(departure, { target: { value: "2026-09-21T08:15" } });
+      fireEvent.click(toggle);
+      expect(screen.getByLabelText(DEPARTURE_TIME)).toHaveValue("2026-09-21");
+    });
+  });
+
+  // The server takes a day or a clock per end; one flag for the ride lost the
+  // arrival's clock here (or turned its day into a midnight).
+  it("keeps a mixed-precision ride's day and clock apart, each end with its own checkbox", async () => {
+    const mixed = makeRailJourney({
+      departureTime: "2026-09-20T22:00:00.000Z",
+      arrivalTime: "2026-09-21T09:20:00.000Z",
+      delayMinutes: 3,
+      times: {
+        departure: {
+          utc: "2026-09-20T22:00:00.000Z",
+          zone: "Europe/Berlin",
+          offset: "+02:00",
+          local: "2026-09-21T00:00:00",
+          precision: "day",
+        },
+        arrival: {
+          utc: "2026-09-21T09:20:00.000Z",
+          zone: "Europe/Berlin",
+          offset: "+02:00",
+          local: "2026-09-21T11:20:00",
+          precision: "minute",
+        },
+        actualDeparture: null,
+        actualArrival: null,
+      },
+    });
+    update.mockResolvedValue({ journey: mixed, geometry: null });
+    render(<RailFormModal journey={mixed} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await waitFor(() => expect(getAllTrips).toHaveBeenCalled());
+
+    const [depDayOnly, arrDayOnly] = dayOnlyBoxes();
+    expect(depDayOnly).toBeChecked();
+    expect(arrDayOnly).not.toBeChecked();
+    expect(screen.getByLabelText(DEPARTURE_TIME)).toHaveAttribute("type", "date");
+    const arrival = screen.getByLabelText("rail:form.arrivalTime");
+    expect(arrival).toHaveAttribute("type", "datetime-local");
+    expect(arrival).toHaveValue("2026-09-21T11:20");
+
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(update).toHaveBeenCalledWith(
+      "j1",
+      expect.objectContaining({
+        departureLocal: "2026-09-21",
+        arrivalLocal: "2026-09-21T11:20",
+        delayMinutes: null,
+      })
+    );
+  });
+
+  // forgejo#251: the stored occurrence of a repeated autumn hour is part of
+  // the ride, not of the wall clock.
+  describe("a ride in a repeated hour", () => {
+    const laterRide = makeRailJourney({
+      departureTime: "2026-10-25T01:30:00.000Z",
+      arrivalTime: null,
+      times: {
+        departure: {
+          utc: "2026-10-25T01:30:00.000Z",
+          zone: "Europe/Berlin",
+          offset: "+01:00",
+          local: "2026-10-25T02:30:00",
+          precision: "minute",
+        },
+        arrival: null,
+        actualDeparture: null,
+        actualArrival: null,
+      },
+    });
+    const laterBox = (): HTMLElement => screen.getByLabelText("common:clockChange.later");
+
+    it("resends the later occurrence when only the seat changes", async () => {
+      update.mockResolvedValue({ journey: laterRide, geometry: null });
+      render(<RailFormModal journey={laterRide} onClose={vi.fn()} onSaved={vi.fn()} />);
+      await waitFor(() => expect(getAllTrips).toHaveBeenCalled());
+      expect(laterBox()).toBeChecked();
+
+      fireEvent.change(screen.getByLabelText("rail:form.seatNumber"), { target: { value: "7" } });
+      fireEvent.click(saveButton());
+
+      await waitFor(() => expect(update).toHaveBeenCalled());
+      expect(update).toHaveBeenCalledWith(
+        "j1",
+        expect.objectContaining({
+          departureLocal: "2026-10-25T02:30",
+          departureFold: "later",
+          seat: "7",
+        })
+      );
+    });
+
+    it("gives the stored occurrence back when the time is typed back to the one the ride opened with", async () => {
+      update.mockResolvedValue({ journey: laterRide, geometry: null });
+      render(<RailFormModal journey={laterRide} onClose={vi.fn()} onSaved={vi.fn()} />);
+      await waitFor(() => expect(getAllTrips).toHaveBeenCalled());
+      const input = screen.getByLabelText(DEPARTURE_TIME);
+
+      fireEvent.change(input, { target: { value: "2026-10-25T02:35" } });
+      expect(laterBox()).not.toBeChecked();
+      fireEvent.change(input, { target: { value: "2026-10-25T02:30" } });
+      expect(laterBox()).toBeChecked();
+
+      fireEvent.click(saveButton());
+      await waitFor(() => expect(update).toHaveBeenCalled());
+      expect(update.mock.calls[0][1]).toMatchObject({
+        departureLocal: "2026-10-25T02:30",
+        departureFold: "later",
+      });
+    });
+
+    it("does not give it back once the station has moved: the occurrence was read at the old place", async () => {
+      update.mockResolvedValue({ journey: laterRide, geometry: null });
+      render(<RailFormModal journey={laterRide} onClose={vi.fn()} onSaved={vi.fn()} />);
+      await waitFor(() => expect(getAllTrips).toHaveBeenCalled());
+      fireEvent.click(screen.getByText("pick rail:form.departureStation"));
+      const input = screen.getByLabelText(DEPARTURE_TIME);
+
+      fireEvent.change(input, { target: { value: "2026-10-25T02:35" } });
+      fireEvent.change(input, { target: { value: "2026-10-25T02:30" } });
+      fireEvent.click(saveButton());
+
+      await waitFor(() => expect(update).toHaveBeenCalled());
+      expect(update.mock.calls[0][1]).toMatchObject({
+        departureLocal: "2026-10-25T02:30",
+        departureFold: null,
+      });
+    });
+
+    it("drops the occurrence when the station is moved", async () => {
+      update.mockResolvedValue({ journey: laterRide, geometry: null });
+      render(<RailFormModal journey={laterRide} onClose={vi.fn()} onSaved={vi.fn()} />);
+      await waitFor(() => expect(getAllTrips).toHaveBeenCalled());
+      fireEvent.click(screen.getByText("pick rail:form.departureStation"));
+      fireEvent.click(saveButton());
+
+      await waitFor(() => expect(update).toHaveBeenCalled());
+      expect(update.mock.calls[0][1]).toMatchObject({
+        departureLocal: "2026-10-25T02:30",
+        departureFold: null,
+      });
+    });
+
+    it("drops the occurrence when the day box is ticked on and off", async () => {
+      update.mockResolvedValue({ journey: laterRide, geometry: null });
+      render(<RailFormModal journey={laterRide} onClose={vi.fn()} onSaved={vi.fn()} />);
+      await waitFor(() => expect(getAllTrips).toHaveBeenCalled());
+      const box = screen.getByRole("checkbox", {
+        name: "rail:form.departureTime: rail:form.dayOnly",
+      });
+      fireEvent.click(box);
+      fireEvent.click(box);
+      // The clock comes back as midnight, which is not the repeated hour.
+      expect(screen.getByLabelText(DEPARTURE_TIME)).toHaveValue("2026-10-25T00:00");
+      fireEvent.click(saveButton());
+
+      await waitFor(() => expect(update).toHaveBeenCalled());
+      expect(update.mock.calls[0][1]).toMatchObject({ departureFold: null });
+    });
+
+    it("drops the stored occurrence when the time is typed anew, and offers the choice again", async () => {
+      update.mockResolvedValue({ journey: laterRide, geometry: null });
+      const first = render(
+        <RailFormModal journey={laterRide} onClose={vi.fn()} onSaved={vi.fn()} />
+      );
+      await waitFor(() => expect(getAllTrips).toHaveBeenCalled());
+
+      fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
+        target: { value: "2026-10-25T02:45" },
+      });
+      expect(laterBox()).not.toBeChecked();
+      fireEvent.click(saveButton());
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+      expect(update.mock.calls[0][1]).toMatchObject({
+        departureLocal: "2026-10-25T02:45",
+        departureFold: null,
+      });
+
+      // A saved dialog sends nothing more (forgejo#247, save once); the
+      // choice is offered again when the ride is opened anew.
+      first.unmount();
+      render(<RailFormModal journey={laterRide} onClose={vi.fn()} onSaved={vi.fn()} />);
+      await waitFor(() => expect(getAllTrips).toHaveBeenCalledTimes(2));
+      fireEvent.change(screen.getByLabelText(DEPARTURE_TIME), {
+        target: { value: "2026-10-25T02:45" },
+      });
+      expect(laterBox()).not.toBeChecked();
+      fireEvent.click(laterBox());
+      fireEvent.click(saveButton());
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+      expect(update.mock.calls[1][1]).toMatchObject({ departureFold: "later" });
+    });
   });
 });

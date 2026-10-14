@@ -1,7 +1,11 @@
+import { z } from "zod";
 import { acrissTraits } from "../../schemas/rental";
+import { rentalInvoiceFeeSchema, type RentalInvoiceFee } from "../../schemas/rentalImport";
 import { rentalCost, rentalDays, rentalDrivenKm } from "../../shared/rentalCounting";
 import { isOneWay } from "./rentalWrite";
 import { rentalTimes, type RentalTimeColumns } from "./timesDto";
+import { fromDbDate } from "../../shared/time/localDate";
+import { deadlineDayFields } from "../deadlines/bookingDeadlines";
 
 /**
  * What a rental row carries beyond its columns when it is read: the D3
@@ -26,20 +30,60 @@ export interface RentalReadColumns extends RentalTimeColumns {
   distanceSource: string | null;
   odometerOutKm: number | null;
   odometerInKm: number | null;
+  userEditedFields: string[];
+  externalRef: string | null;
   pickupAirport?: { iata: string | null } | null;
   returnAirport?: { iata: string | null } | null;
 }
+
+/**
+ * Where the BOOKED price came from (forgejo#237): the booking mail it was
+ * imported from, unless a person typed or changed it since. The invoice never
+ * writes the booked price, so the two amounts stay side by side with their
+ * origins. Null without a price.
+ */
+export function rentalPriceSource(row: {
+  price: number | null;
+  userEditedFields: string[];
+  externalRef: string | null;
+}): "booking" | "user" | null {
+  if (row.price === null) return null;
+  if (row.userEditedFields.includes("price")) return "user";
+  return row.externalRef ? "booking" : "user";
+}
+
+const storedFeesSchema = z.array(rentalInvoiceFeeSchema);
+
+/**
+ * The fee lines taken over from an invoice (forgejo#237), as a list. The
+ * column is JSON and outlives any release: a value of another shape is read
+ * as no lines rather than handed on as if it were some.
+ */
+export function rentalInvoiceFees(value: unknown): RentalInvoiceFee[] {
+  const parsed = storedFeesSchema.safeParse(value);
+  return parsed.success ? parsed.data : [];
+}
+
+/** A `@db.Date` column as the day it holds, `YYYY-MM-DD`. */
+const dayOf = (value: Date | null | undefined): string | null => (value ? fromDbDate(value) : null);
 
 export function withRentalReadFields<T extends RentalReadColumns>(row: T) {
   const { pickupAirport, returnAirport, ...rest } = row;
   return {
     ...rest,
+    // Days, never instants: the deposit columns are calendar days.
+    depositPaidOn: dayOf(row.depositPaidOn),
+    depositReturnedOn: dayOf(row.depositReturnedOn),
+    // The day deadlines likewise (forgejo#285); the instant stays a real UTC instant.
+    ...deadlineDayFields(row),
     pickupIata: pickupAirport?.iata ?? null,
     returnIata: returnAirport?.iata ?? null,
     oneWay: isOneWay(row),
     rentalDays: rentalDays(row),
     vehicleTraits: acrissTraits(row.acrissCode),
     cost: rentalCost(row),
+    priceSource: rentalPriceSource(row),
+    invoiceFees: rentalInvoiceFees((row as { invoiceFees?: unknown }).invoiceFees),
     // Returned, and no driven km yet — not from an invoice, a correction or
     // both odometer readings (`rentalDrivenKm`, forgejo#206). The reminder the
     // Companion shows after a return (D11 b).

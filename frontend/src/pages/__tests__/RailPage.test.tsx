@@ -39,12 +39,30 @@ vi.mock("../../components/import/adapters/railAdapter", () => ({
   useRailImportAdapter: () => ({ domain: "rail" }),
 }));
 vi.mock("../../components/Training/ConfirmModal", () => ({
-  default: ({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: () => void }) =>
+  default: ({
+    isOpen,
+    onConfirm,
+    message,
+    confirmButtonClass,
+  }: {
+    isOpen: boolean;
+    onConfirm: () => void;
+    message: string;
+    confirmButtonClass?: string;
+  }) =>
     isOpen ? (
-      <button type="button" onClick={onConfirm}>
-        confirm-delete
-      </button>
+      <div>
+        <p data-testid="delete-message">{message}</p>
+        <button type="button" onClick={onConfirm} className={confirmButtonClass}>
+          confirm-delete
+        </button>
+      </div>
     ) : null,
+}));
+// The delete question counts the ride's originals (forgejo#250).
+const listForEntry = vi.fn();
+vi.mock("../../lib/api/documents", () => ({
+  documentsApi: { listForEntry: (...a: unknown[]) => listForEntry(...a) },
 }));
 
 const list = vi.fn();
@@ -74,6 +92,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import RailPage from "../RailPage";
 import type { RailJourney } from "../../types/rail";
+import { getNamed } from "../../__tests__/helpers/namedElement";
 
 // A row opens the journey's own page since the detail page (phase 2b); the
 // loyalty notice reads the URL, so the page renders inside a router.
@@ -101,6 +120,7 @@ const page = (
 
 function journey(over: Partial<RailJourney> = {}): RailJourney {
   return {
+    tightConnection: false,
     id: "j1",
     userId: "u1",
     operator: "DB Fernverkehr",
@@ -156,6 +176,7 @@ describe("RailPage", () => {
     remove.mockReset();
     addToast.mockReset();
     navigate.mockReset();
+    listForEntry.mockReset().mockResolvedValue([]);
     stats.mockReset().mockResolvedValue({ byYear: [{ year: 2025 }, { year: 2026 }] });
     localStorage.clear();
   });
@@ -202,7 +223,7 @@ describe("RailPage", () => {
     const alert = await screen.findByRole("alert");
     expect(alert.querySelector('[data-empty-kind="degraded"]')).not.toBeNull();
     expect(alert).toHaveTextContent("HTTP 503");
-    fireEvent.click(screen.getByRole("button", { name: "common:buttons.retry" }));
+    fireEvent.click(getNamed("button", "common:buttons.retry"));
     expect(await screen.findByTestId("rail-row-back")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -242,13 +263,44 @@ describe("RailPage", () => {
     expect(screen.queryByTestId("rail-form")).toBeNull();
   });
 
+  // forgejo#250: the question names the ride, the originals that go with it
+  // and what stays, behind the red button every delete uses.
+  it("names what goes and what stays, behind the red delete button", async () => {
+    listConnections.mockResolvedValue(
+      page([journey({ bookingId: "b1", trip: { id: "t1", name: "Paris", color: "#fff" } })])
+    );
+    listForEntry.mockResolvedValue([{ id: "d1" }, { id: "d2" }]);
+    renderPage();
+    await screen.findByTestId("rail-row-j1");
+    fireEvent.click(getNamed("button", "rail:delete"));
+    await waitFor(() =>
+      expect(screen.getByTestId("delete-message").textContent).toContain(
+        "documents:deleteCascadeNote/2"
+      )
+    );
+    const message = screen.getByTestId("delete-message").textContent ?? "";
+    expect(message).toContain("rail:deleteConfirmNamed");
+    expect(message).toContain("common:delete.survivors");
+    expect(listForEntry).toHaveBeenCalledWith({ type: "railJourney", id: "j1" });
+    expect(screen.getByText("confirm-delete")).toHaveClass("bg-[var(--danger)]");
+  });
+
+  it("offers the add chooser as the next step of an empty logbook", async () => {
+    listConnections.mockResolvedValue(page());
+    renderPage();
+    await screen.findByText("rail:empty");
+    // The header's button reads "+ rail:add"; this one is the empty state's.
+    fireEvent.click(getNamed("button", "rail:add"));
+    expect(screen.getByTestId("rail-import-panel")).toHaveTextContent("rail");
+  });
+
   it("deletes after confirmation and reloads the list", async () => {
     listConnections.mockResolvedValueOnce(page([journey()]));
     listConnections.mockResolvedValueOnce(page());
     remove.mockResolvedValue(undefined);
     renderPage();
     await screen.findByTestId("rail-row-j1");
-    fireEvent.click(screen.getByRole("button", { name: "rail:delete" }));
+    fireEvent.click(getNamed("button", "rail:delete"));
     fireEvent.click(screen.getByText("confirm-delete"));
     await waitFor(() => expect(remove).toHaveBeenCalledWith("j1"));
     expect(await screen.findByText("rail:empty")).toBeInTheDocument();
@@ -331,7 +383,10 @@ describe("RailPage — a ride with changes", () => {
     listConnections.mockResolvedValueOnce({ ...page([journey({ id: "solo" })]), total: 60 });
     renderPage();
     await screen.findByTestId("rail-connection-row-leg-1");
-    fireEvent.click(screen.getAllByRole("button", { name: "common:table.pagination.next" })[0]);
+    // By its aria-label, not by role: with 51 rides on screen a role query
+    // weighs the name of all ~110 buttons over ~1500 nodes — 4.4 s measured on
+    // its own, which ran this test past 5 s on a loaded runner.
+    fireEvent.click(screen.getAllByLabelText("common:table.pagination.next")[0]);
     await screen.findByTestId("rail-row-solo");
     expect(listConnections.mock.calls[1][0]).toMatchObject({ limit: 50, offset: 50 });
   });

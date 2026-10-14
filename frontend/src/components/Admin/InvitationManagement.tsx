@@ -1,6 +1,7 @@
 import { formatInProfileZone } from "../../lib/profileInstant";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import Toggletip from "../ui/Toggletip";
 
 export interface Invitation {
   id: string;
@@ -60,7 +61,7 @@ export default function InvitationManagement({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
         <div>
           <h2 className="text-lg font-semibold text-(--text-primary)">
             {t("admin:invitations.invitationLinks")}
@@ -69,7 +70,7 @@ export default function InvitationManagement({
               sending one — single use, seven days — now simply stand here. */}
           <p className="text-sm text-(--text-muted) mt-1">{t("admin:invitations.description")}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button onClick={onCreateLink} className="btn-primary">
             {t("admin:invitations.actions.createLink")}
           </button>
@@ -100,7 +101,10 @@ export default function InvitationManagement({
         ))}
       </div>
 
-      <div className="bg-(--bg-surface) rounded-lg shadow-sm overflow-x-auto">
+      {/* `relative`: the scroller must be the containing block of anything
+          absolutely positioned in the table, or it escapes the clip and
+          widens the page on a phone (forgejo#182, the users table). */}
+      <div className="bg-(--bg-surface) relative overflow-x-auto rounded-lg shadow-sm">
         <table className="w-full min-w-[720px]">
           <thead className="bg-(--bg-base)">
             <tr>
@@ -163,13 +167,13 @@ export default function InvitationManagement({
                         {t("admin:invitations.status.expired")}
                       </span>
                     ) : invitation.emailStatus === "failed" ? (
-                      <span
-                        className="px-2 py-1 text-xs font-semibold rounded-full"
-                        style={{ background: "rgba(245,158,11,0.2)", color: "#d97706" }}
-                        title={invitation.emailError ?? ""}
+                      <Toggletip
+                        content={invitation.emailError ?? t("admin:invitations.status.emailFailed")}
+                        triggerClassName="px-2 py-1 text-xs font-semibold rounded-full"
+                        triggerStyle={{ background: "rgba(245,158,11,0.2)", color: "#d97706" }}
                       >
                         {t("admin:invitations.status.emailFailed")}
-                      </span>
+                      </Toggletip>
                     ) : (
                       <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                         {t("admin:invitations.status.active")}

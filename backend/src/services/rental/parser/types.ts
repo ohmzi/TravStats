@@ -6,7 +6,12 @@ import type { RENTAL_INCLUSIONS, RENTAL_PAYMENT_TIMINGS } from "../../../schemas
  * document PRINTS; a value it does not print is null, never a guess.
  */
 
-export type RentalParseSource = "sixt-confirmation" | "sixt-invoice";
+/**
+ * Which reader produced a document: the template's short name
+ * (`sixt-confirmation`, `sixt-invoice` — plan 2026-10-09 P4b moved the
+ * provider readers into the template repository, so the set is open).
+ */
+export type RentalParseSource = string;
 
 /** One end as printed: the station's name and its wall clock. */
 export interface ParsedRentalEnd {
@@ -36,6 +41,12 @@ export interface ParsedRentalConfirmation {
    * Read by station resolution only — never stored.
    */
   placeHints: { country: string | null; airportWords: string[] };
+  /**
+   * Deadlines a template read (forgejo#285): a cancellation as the pickup
+   * station's wall clock (`YYYY-MM-DDTHH:mm`) or a bare day, payment as a day.
+   */
+  freeCancellationUntil?: string | null;
+  paymentDueOn?: string | null;
 }
 
 /** A change or a cancellation names a booking by its number — and never creates one. */
@@ -74,6 +85,18 @@ export interface ParsedRentalInvoice {
   actualPickupLocal: string | null;
   finalAmount: number | null;
   finalCurrency: string | null;
+  /**
+   * The single extra charges the invoice lists (refuelling, tolls, …), as
+   * printed (forgejo#237). Already part of `finalAmount` — an explanation of
+   * the difference to the booked price, never a cost on top of it.
+   */
+  fees: ParsedRentalFee[];
+}
+
+export interface ParsedRentalFee {
+  label: string;
+  amount: number;
+  currency: string;
 }
 
 export type ParsedRentalDocument =

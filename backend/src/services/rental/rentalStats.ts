@@ -8,6 +8,7 @@ import {
   rentalYear,
 } from "../../shared/rentalCounting";
 import { isOneWay } from "./rentalWrite";
+import { computeRentalExtraStats, inRentalPeriod, type RentalExtraStats } from "./rentalStatsExtra";
 
 /**
  * The rental statistics (spec 2026-10-01-rental-domain-design §7.4; concept
@@ -167,7 +168,70 @@ export function computeRentalStats(
   };
 }
 
-export async function rentalStatsFor(userId: string, year: number | null): Promise<RentalStats> {
+/** The columns the rental statistics read — the tab and its evidence panels alike. */
+const RENTAL_STATS_SELECT = {
+  id: true,
+  status: true,
+  pickupTime: true,
+  pickupTimezone: true,
+  returnTime: true,
+  returnTimezone: true,
+  // The evidence panels name a rental by its stations.
+  pickupStationName: true,
+  returnStationName: true,
+  pickupCountry: true,
+  returnCountry: true,
+  pickupAirportId: true,
+  returnAirportId: true,
+  pickupLat: true,
+  pickupLon: true,
+  returnLat: true,
+  returnLon: true,
+  provider: true,
+  broker: true,
+  price: true,
+  currency: true,
+  finalAmount: true,
+  finalCurrency: true,
+  distanceKm: true,
+  distanceSource: true,
+  odometerOutKm: true,
+  odometerInKm: true,
+  // forgejo#262 — a secured final amount, and what car was promised and driven.
+  finalAmountSource: true,
+  vehicleClass: true,
+  acrissCode: true,
+  vehicleExample: true,
+  vehicleDriven: true,
+} as const;
+
+/** The counted rentals with every column the statistics read, oldest first. */
+export async function loadRentalStatsRows(userId: string) {
+  return prisma.rentalBooking.findMany({
+    where: { userId, ...countableRentalWhere() },
+    select: RENTAL_STATS_SELECT,
+    orderBy: [{ pickupTime: "asc" }, { id: "asc" }],
+  });
+}
+
+/** The figures plus forgejo#262's: efficiency, booked vs billed, vehicles, records. */
+export type RentalStatsResponse = RentalStats & { extra: RentalExtraStats };
+
+/**
+ * @param until "MM-DD": cut the selected year at this day on the pickup
+ *              station's calendar, so a running year is compared with the
+ *              SAME span of another (the rail tab's rule, acceptance D11).
+ */
+export async function rentalStatsFor(
+  userId: string,
+  year: number | null,
+  until: string | null = null
+): Promise<RentalStatsResponse> {
+  // Other years stay whole (they feed `byYear`); only the selected one is cut.
+  const cut = <T extends { pickupTime: Date; pickupTimezone: string }>(list: T[]): T[] =>
+    until === null || year === null
+      ? list
+      : list.filter((r) => rentalYear(r) !== year || inRentalPeriod(r, year, until));
   const cancelled = await prisma.rentalBooking.findMany({
     where: { userId, status: "cancelled", finalAmount: { not: null } },
     select: {
@@ -180,33 +244,13 @@ export async function rentalStatsFor(userId: string, year: number | null): Promi
       finalCurrency: true,
     },
   });
-  const rows = await prisma.rentalBooking.findMany({
-    where: { userId, ...countableRentalWhere() },
-    select: {
-      status: true,
-      pickupTime: true,
-      pickupTimezone: true,
-      returnTime: true,
-      returnTimezone: true,
-      pickupCountry: true,
-      returnCountry: true,
-      pickupAirportId: true,
-      returnAirportId: true,
-      pickupLat: true,
-      pickupLon: true,
-      returnLat: true,
-      returnLon: true,
-      provider: true,
-      broker: true,
-      price: true,
-      currency: true,
-      finalAmount: true,
-      finalCurrency: true,
-      distanceKm: true,
-      distanceSource: true,
-      odometerOutKm: true,
-      odometerInKm: true,
-    },
-  });
-  return computeRentalStats(rows, year, cancelled);
+  const rows = await loadRentalStatsRows(userId);
+  const counted = cut(rows);
+  return {
+    ...computeRentalStats(counted, year, cut(cancelled)),
+    extra: computeRentalExtraStats(
+      counted.filter((r) => inRentalPeriod(r, year, until)),
+      rows
+    ),
+  };
 }

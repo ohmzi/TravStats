@@ -10,6 +10,7 @@
  * so Express matches in exactly the order it did before.
  */
 
+import { propagateDelete, shareSnapshot } from "../../services/sharing/propagate";
 import { Router, Response, NextFunction } from "express";
 
 import { prisma } from "../../db";
@@ -40,7 +41,9 @@ router.post("/:id/stays", async (req: AuthRequest, res: Response, next: NextFunc
     const documentIds = await takeDocumentIds(userId, req.body);
     // The whole write — references, price, FX, derived status/rating — lives
     // in `services/lodging/stayWrites.ts`, shared with the spreadsheet import.
-    const stay = await createStayRecord(userId, lodging.id, parsed.data);
+    const stay = await createStayRecord(userId, lodging.id, parsed.data, {
+      viaToken: Boolean(req.apiToken),
+    });
 
     await linkDocuments(userId, documentIds, { type: "lodgingStay", id: stay.id });
     await recheckAchievements(userId, "lodging");
@@ -70,7 +73,13 @@ router.patch("/:id/stays/:stayId", async (req: AuthRequest, res: Response, next:
     const parsed = updateStaySchema.safeParse(req.body);
     if (!parsed.success) throw parsed.error;
     // Shared with the spreadsheet import — see `services/lodging/stayWrites.ts`.
-    const updated = await updateStayRecord(userId, stay, parsed.data);
+    const updated = await updateStayRecord(
+      userId,
+      stay,
+      parsed.data,
+      "typed",
+      Boolean(req.apiToken)
+    );
 
     await recheckAchievements(userId, "lodging");
     res.json({ success: true, data: withStayTimes(updated) });
@@ -90,7 +99,11 @@ router.delete("/:id/stays/:stayId", async (req: AuthRequest, res: Response, next
     });
     if (!stay) throw new AppError("Stay not found", 404);
 
-    await prisma.lodgingStay.delete({ where: { id: stay.id } });
+    await prisma.$transaction(async (tx) => {
+      const gone = await shareSnapshot(tx, "lodgingStay", stay.id);
+      await tx.lodgingStay.delete({ where: { id: stay.id } });
+      await propagateDelete(tx, userId, gone);
+    });
     res.status(204).send();
   } catch (err) {
     next(err);

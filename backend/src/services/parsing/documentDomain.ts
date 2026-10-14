@@ -47,6 +47,9 @@
  */
 
 import { PARSER_SUPPORTED_DOMAINS, type ParserSupportedDomain } from "../../shared/domains";
+import { templateRegistry } from "../parsers/templates/registry";
+import { envelopeMatches } from "../parsers/templates/v2/runners";
+import type { TemplateEnvelope } from "../parsers/templates/v2/envelope";
 
 /** One piece of evidence: a pattern, what it is worth, and a name for it. */
 interface Signal {
@@ -237,7 +240,55 @@ const SIGNALS: Record<ParserSupportedDomain, readonly Signal[]> = {
     },
     // No bare "Mietwagen"/"rental car": every airline confirmation offers one.
   ],
+  // No static signal: a package tour is recognised by an active `package`
+  // template from the template repository and by nothing else — its text is
+  // flights and hotels, which the other domains' signals already score. See
+  // `packageTemplateSignals` below.
+  package: [],
+  // The same for a place document (forgejo#124): a museum ticket or tour
+  // booking has no vocabulary of its own that a flight or hotel mail lacks,
+  // so only an active `place` template — the repository's or one the user
+  // derived in the workshop — recognises it.
+  place: [],
 };
+
+/** The parse targets recognised by their templates alone, and nothing else. */
+const TEMPLATE_ONLY_TARGETS = ["package", "place"] as const;
+type TemplateOnlyTarget = (typeof TEMPLATE_ONLY_TARGETS)[number];
+const isTemplateOnly = (d: ParserSupportedDomain): d is TemplateOnlyTarget =>
+  (TEMPLATE_ONLY_TARGETS as readonly string[]).includes(d);
+
+/**
+ * What an active package template's matcher is worth. A matcher is every
+ * marker of ONE operator plus one of its anchors — evidence no generic signal
+ * reaches — and it must outweigh the flight and lodging signals the same
+ * document carries (an invoice listing four flights and two hotels scores
+ * about 15 and 10 there), or a recognised package would be read as a flight.
+ */
+export const PACKAGE_TEMPLATE_WEIGHT = 25;
+
+/**
+ * A place template's matcher is worth the same, for the same reason: a ticket
+ * that names its venue and a date also trips a flight or hotel signal or two,
+ * and a recognised place document must not be read as one of those.
+ */
+export const PLACE_TEMPLATE_WEIGHT = 25;
+
+const TEMPLATE_WEIGHT: Record<TemplateOnlyTarget, number> = {
+  package: PACKAGE_TEMPLATE_WEIGHT,
+  place: PLACE_TEMPLATE_WEIGHT,
+};
+
+/** The active templates of `domain` whose matcher accepts the text, as signals. */
+function templateSignals(
+  domain: TemplateOnlyTarget,
+  haystack: string,
+  templates: readonly TemplateEnvelope[]
+): string[] {
+  return templates
+    .filter((t) => t.domain === domain && envelopeMatches(t, haystack))
+    .map((t) => `${domain}-template:${t.id}`);
+}
 
 /**
  * The score above which the evidence is considered substantial rather than
@@ -275,7 +326,10 @@ export interface DomainDetection {
  * first — the historical default. A tie means the evidence did not decide, and
  * preserving the old behaviour there is the least surprising thing to do.
  */
-export function scoreDocument(text: string): DomainDetection {
+export function scoreDocument(
+  text: string,
+  templates: readonly TemplateEnvelope[] = templateRegistry.getActiveV2()
+): DomainDetection {
   const haystack = text.slice(0, SCAN_LIMIT);
 
   const scored = PARSER_SUPPORTED_DOMAINS.map((domain) => {
@@ -286,6 +340,14 @@ export function scoreDocument(text: string): DomainDetection {
       if (signal.pattern.test(haystack)) {
         matched.push(signal.id);
         score += signal.weight;
+      }
+    }
+    if (isTemplateOnly(domain)) {
+      // Rule 1 again: several templates of one issuer are one piece of evidence.
+      const hits = templateSignals(domain, haystack, templates);
+      if (hits.length > 0) {
+        matched.push(...hits);
+        score += TEMPLATE_WEIGHT[domain];
       }
     }
     return { domain, score, matched, confidence: 0 };

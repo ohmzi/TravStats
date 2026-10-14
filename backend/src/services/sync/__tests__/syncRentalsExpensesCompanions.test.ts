@@ -3,7 +3,7 @@ import request from "supertest";
 import app from "../../../index";
 import { prisma } from "../../../db";
 import { resolveCompanions } from "../../companionService";
-import { getInstanceSettings, updateInstanceSettings } from "../../instanceSettingsService";
+import * as instanceSettings from "../../instanceSettingsService";
 import { drainFeed, registerUser, wipe } from "./syncFixtures";
 
 /**
@@ -41,16 +41,22 @@ function createRental(userId: string, provider = "Testcar") {
 }
 
 describe("sync feed: rentals, trip expenses and the companion catalogue", () => {
-  let betaBefore: boolean;
+  // The rental domain is beta-gated by an INSTANCE flag — one row every test
+  // process on this database shares. Another suite switching it off mid-run
+  // made two of these tests fail once (review, fix round 1). This suite now
+  // reads its own answer instead of the shared row, and leaves the row alone.
+  const realSettings = instanceSettings.getInstanceSettings;
+  let settingsSpy: jest.SpyInstance;
 
-  beforeAll(async () => {
-    betaBefore = (await getInstanceSettings()).betaFeaturesEnabled;
-    await updateInstanceSettings({ betaFeaturesEnabled: true });
+  beforeAll(() => {
+    settingsSpy = jest
+      .spyOn(instanceSettings, "getInstanceSettings")
+      .mockImplementation(async () => ({ ...(await realSettings()), betaFeaturesEnabled: true }));
   });
   beforeEach(wipe);
   afterAll(async () => {
+    settingsSpy.mockRestore();
     await wipe();
-    await updateInstanceSettings({ betaFeaturesEnabled: betaBefore });
     await prisma.$disconnect();
   });
 
@@ -74,6 +80,20 @@ describe("sync feed: rentals, trip expenses and the companion catalogue", () => 
     expect(record?.record?.vehicleDriven).toBe("VW Golf");
   });
 
+  it("does not depend on the shared instance flag another test process may switch", async () => {
+    const before = (await realSettings()).betaFeaturesEnabled;
+    await instanceSettings.updateInstanceSettings({ betaFeaturesEnabled: false });
+    try {
+      const user = await registerUser("sync-rental-flag", ALL_DOMAINS);
+      const start = await drainFeed(user);
+      const rental = await createRental(user.id);
+      const delta = await drainFeed(user, start.cursor);
+      expect(items(delta.items, "rental_booking")).toEqual([`upsert:${rental.id}`]);
+    } finally {
+      await instanceSettings.updateInstanceSettings({ betaFeaturesEnabled: before });
+    }
+  });
+
   it("keeps rentals, and their tombstones, from an account that hides the domain", async () => {
     const user = await registerUser("sync-rental-2", ["flight"]);
     const start = await drainFeed(user);
@@ -95,7 +115,20 @@ describe("sync feed: rentals, trip expenses and the companion catalogue", () => 
       data: { userId: user.id, name: "Alpen", mode: "car", kind: "roadtrip" },
     });
     const onTrip = await prisma.tripExpense.create({
-      data: { userId: user.id, tripId: trip.id, kind: "parking", amount: "12.40", currency: "EUR" },
+      data: {
+        userId: user.id,
+        tripId: trip.id,
+        kind: "parking",
+        amount: "12.40",
+        currency: "EUR",
+        // forgejo#150: the payer and the exchange-rate record travel too.
+        payerName: "Anna",
+        amountBase: "12.40",
+        fxRate: 1,
+        fxRateDate: new Date("2026-07-15T00:00:00Z"),
+        fxBaseCurrency: "EUR",
+        fxSource: "ecb",
+      },
     });
     const onRoute = await prisma.tripExpense.create({
       data: { userId: user.id, routeId: route.id, kind: "toll", amount: "8.00", currency: "EUR" },
@@ -112,6 +145,14 @@ describe("sync feed: rentals, trip expenses and the companion catalogue", () => 
     const record = delta.items.find((item) => item.id === onTrip.id)?.record;
     expect(record?.amount).toBe("12.4");
     expect(record).not.toHaveProperty("route");
+    expect(record).toMatchObject({
+      payerName: "Anna",
+      payerCompanionId: null,
+      amountBase: "12.4",
+      fxRate: 1,
+      fxBaseCurrency: "EUR",
+      fxSource: "ecb",
+    });
   });
 
   it("keeps a roadtrip's expense from an account that hides roadtrips, not a trip's", async () => {

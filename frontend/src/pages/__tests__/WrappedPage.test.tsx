@@ -127,13 +127,25 @@ describe("WrappedPage", () => {
     expect(screen.queryByText("stats:wrapped.topRoute")).toBeNull();
   });
 
-  it("hides the cruise figure for a reader who does not sail", async () => {
-    domains.cruise = false;
-    getWrappedMock.mockResolvedValue(wrapped());
+  // forgejo#265: the server answers null for a domain the reader does not see,
+  // as for every chapter, and the page follows the payload.
+  it("hides the cruise and rail figures the server abstains on", async () => {
+    getWrappedMock.mockResolvedValue(
+      wrapped({ cruises: null, railRides: null, railKm: null, railStraightLineKm: null })
+    );
     renderAtRoute();
 
     await waitFor(() => expect(screen.getByText("42")).toBeTruthy());
     expect(screen.queryByText("stats:wrapped.cruises")).toBeNull();
+    expect(screen.queryByText("stats:wrapped.rail")).toBeNull();
+  });
+
+  it("shows a cruise count of zero for a reader who sees cruises", async () => {
+    getWrappedMock.mockResolvedValue(wrapped({ cruises: 0 }));
+    renderAtRoute();
+
+    await waitFor(() => expect(screen.getByText("42")).toBeTruthy());
+    expect(screen.getByText("stats:wrapped.cruises")).toBeTruthy();
   });
 
   it("calls a cruise-only year empty for a reader who cannot see cruises", async () => {
@@ -141,9 +153,10 @@ describe("WrappedPage", () => {
     // not, so a year with three cruises and no flights drew a grid reading
     // "Flüge 0 / Strecke 0 km / Neue Länder 0" — every figure on screen a
     // zero, and the one number that was not zero hidden by the domain switch.
-    domains.cruise = false;
+    // Since forgejo#265 the hidden domain arrives as null, so the empty test
+    // and the card read the same field.
     getWrappedMock.mockResolvedValue(
-      wrapped({ year: 2021, flights: 0, cruises: 3, distanceKm: 0, earthFactor: 0 })
+      wrapped({ year: 2021, flights: 0, cruises: null, distanceKm: 0, earthFactor: 0 })
     );
     renderAtRoute();
 
@@ -239,12 +252,34 @@ describe("WrappedPage", () => {
     expect(screen.getByText("stats:wrapped.loadError")).toBeTruthy();
   });
 
-  it("explains itself rather than asking for a number that cannot exist", async () => {
+  // forgejo#265: the story is no longer flights only. With flights switched
+  // off it still loads, draws no flight card, and tells the other chapters.
+  it("tells a year without flight cards when flights are switched off", async () => {
     domains.flight = false;
+    getWrappedMock.mockResolvedValue(
+      wrapped({
+        flights: 0,
+        topAirline: null,
+        topRoute: null,
+        chapters: {
+          lodging: { stays: 2, nights: 5, nightsUnknown: 0 },
+          places: null,
+          roadtrips: null,
+          tours: null,
+          rentals: { rentals: 1, days: 4 },
+          bus: null,
+        },
+      })
+    );
     renderAtRoute();
 
-    await waitFor(() => expect(screen.getByText("stats:wrapped.needsFlights")).toBeTruthy());
-    expect(getWrappedMock).not.toHaveBeenCalled();
+    // Headings, not text: the chapters' "So wird gezählt" names them too.
+    const heading = (name: string) => screen.queryByRole("heading", { name });
+    await waitFor(() => expect(heading("stats:wrapped.chapters.stays")).toBeTruthy());
+    expect(heading("stats:wrapped.chapters.rentals")).toBeTruthy();
+    expect(screen.queryByText("stats:wrapped.flights")).toBeNull();
+    expect(screen.queryByText("stats:wrapped.chapters.bus")).toBeNull();
+    expect(getWrappedMock).toHaveBeenCalledWith(undefined);
   });
 
   it("shows no percentage and no flag — forgejo#53's two standing rules", async () => {

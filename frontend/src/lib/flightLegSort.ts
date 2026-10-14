@@ -1,4 +1,5 @@
 import type { Flight } from "../types";
+import { localWallClockOf } from "../shared/localWallClock";
 
 /**
  * The fields the leg order reads. A `Flight` satisfies it, and so does the
@@ -6,17 +7,26 @@ import type { Flight } from "../types";
  * page orders the same rows with the same rule the logbook's timeline does,
  * without pretending the whole row is present.
  */
-type LegOrderRow = Pick<Flight, "departureTime" | "depIata" | "arrIata">;
+type LegOrderRow = Pick<
+  Flight,
+  "departureTime" | "depIata" | "arrIata" | "depTimezone" | "depTimeSemantics"
+>;
 
 /**
  * Order flights for trip-leg display: stable timestamp sort first, then a
  * topological repair pass for same-day groups whose timestamp order does
  * not reflect the IATA chain.
  *
- * Why this is needed: DATE_ONLY rows store a 12:00 UTC placeholder. A
- * timed flight on the same day at 20:58 UTC sorts after the placeholder
- * even when chronologically it must come first (e.g. OGG→HNL precedes
- * HNL→SFO in a Hawaii return leg). Pure timestamp sort gets it wrong.
+ * Why this is needed: DATE_ONLY rows carry a placeholder time — the form
+ * writes 12:00 LOCAL, the cruise import 00:00 local, each converted through
+ * the airport's zone. A timed flight on the same day sorts after the
+ * placeholder even when chronologically it must come first (e.g. OGG→HNL
+ * precedes HNL→SFO in a Hawaii return leg). Pure timestamp sort gets it wrong.
+ *
+ * "Same day" is the departure airport's LOCAL day (`localWallClockOf`, the
+ * clock every flight statistic reads), not the UTC date: east of UTC a
+ * placeholder and a timed flight of one local day straddle UTC midnight, and a
+ * UTC window would never put them together (forgejo#273).
  *
  * The repair walks each contiguous same-day window and reorders it as a
  * chain: pick the head whose `depIata` is not used as any other flight's
@@ -36,7 +46,7 @@ export function sortFlightsByLegOrder<T extends LegOrderRow>(flights: T[]): T[] 
   let i = 0;
   while (i < sorted.length) {
     let j = i + 1;
-    while (j < sorted.length && sameYmd(sorted[i].departureTime, sorted[j].departureTime)) {
+    while (j < sorted.length && sameLocalDay(sorted[i], sorted[j])) {
       j++;
     }
     if (j - i >= 2) {
@@ -80,12 +90,17 @@ function repairSameDayChain<T extends LegOrderRow>(window: T[]): T[] | null {
   return out;
 }
 
-function sameYmd(
-  a: string | Date | null | undefined,
-  b: string | Date | null | undefined
-): boolean {
-  if (!a || !b) return false;
-  const da = typeof a === "string" ? new Date(a) : a;
-  const db = typeof b === "string" ? new Date(b) : b;
-  return da.toISOString().slice(0, 10) === db.toISOString().slice(0, 10);
+/** The departure's day on its airport's clock; the stored date without a zone. */
+function departureDay(flight: LegOrderRow): string | null {
+  if (!flight.departureTime) return null;
+  return localWallClockOf(
+    new Date(flight.departureTime),
+    flight.depTimezone,
+    flight.depTimeSemantics
+  ).date;
+}
+
+function sameLocalDay(a: LegOrderRow, b: LegOrderRow): boolean {
+  const day = departureDay(a);
+  return day !== null && day === departureDay(b);
 }

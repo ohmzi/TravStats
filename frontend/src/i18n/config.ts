@@ -1,3 +1,5 @@
+import enFerry from "./resources/en/ferry.json";
+import deFerry from "./resources/de/ferry.json";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { useSettingsStore } from "../store/settingsStore";
@@ -13,6 +15,7 @@ import enTraining from "./resources/en/training.json";
 import enErrors from "./resources/en/errors.json";
 import enAchievements from "./resources/en/achievements.json";
 import enStats from "./resources/en/stats.json";
+import enFlightStatsHelp from "./resources/en/flightStatsHelp.json";
 import enSetup from "./resources/en/setup.json";
 import enMap from "./resources/en/map.json";
 import enPendingUpdates from "./resources/en/pendingUpdates.json";
@@ -20,6 +23,7 @@ import enParser from "./resources/en/parser.json";
 import enTrips from "./resources/en/trips.json";
 import enCruise from "./resources/en/cruise.json";
 import enRail from "./resources/en/rail.json";
+import enBus from "./resources/en/bus.json";
 import enRental from "./resources/en/rental.json";
 import enImport from "./resources/en/import.json";
 import enAircraft from "./resources/en/aircraft.json";
@@ -35,12 +39,14 @@ import enCompanions from "./resources/en/companions.json";
 import enPlaces from "./resources/en/places.json";
 import enXlsx from "./resources/en/xlsx.json";
 import enDataQuality from "./resources/en/dataQuality.json";
+import enSharing from "./resources/en/sharing.json";
 import enEvidence from "./resources/en/evidence.json";
 import enDocuments from "./resources/en/documents.json";
 import enRoadtrips from "./resources/en/roadtrips.json";
 import enOpenData from "./resources/en/openData.json";
 import enLoyalty from "./resources/en/loyalty.json";
 import enTripBuilder from "./resources/en/tripBuilder.json";
+import enNotes from "./resources/en/notes.json";
 
 import deCommon from "./resources/de/common.json";
 import deDashboard from "./resources/de/dashboard.json";
@@ -52,6 +58,7 @@ import deTraining from "./resources/de/training.json";
 import deErrors from "./resources/de/errors.json";
 import deAchievements from "./resources/de/achievements.json";
 import deStats from "./resources/de/stats.json";
+import deFlightStatsHelp from "./resources/de/flightStatsHelp.json";
 import deSetup from "./resources/de/setup.json";
 import deMap from "./resources/de/map.json";
 import dePendingUpdates from "./resources/de/pendingUpdates.json";
@@ -59,6 +66,7 @@ import deParser from "./resources/de/parser.json";
 import deTrips from "./resources/de/trips.json";
 import deCruise from "./resources/de/cruise.json";
 import deRail from "./resources/de/rail.json";
+import deBus from "./resources/de/bus.json";
 import deRental from "./resources/de/rental.json";
 import deImport from "./resources/de/import.json";
 import deAircraft from "./resources/de/aircraft.json";
@@ -74,12 +82,14 @@ import deCompanions from "./resources/de/companions.json";
 import dePlaces from "./resources/de/places.json";
 import deXlsx from "./resources/de/xlsx.json";
 import deDataQuality from "./resources/de/dataQuality.json";
+import deSharing from "./resources/de/sharing.json";
 import deEvidence from "./resources/de/evidence.json";
 import deDocuments from "./resources/de/documents.json";
 import deRoadtrips from "./resources/de/roadtrips.json";
 import deOpenData from "./resources/de/openData.json";
 import deLoyalty from "./resources/de/loyalty.json";
 import deTripBuilder from "./resources/de/tripBuilder.json";
+import deNotes from "./resources/de/notes.json";
 
 // Get initial language: stored preference → browser language → fallback "en"
 const getInitialLanguage = (): string => {
@@ -114,6 +124,7 @@ const resources = {
     errors: enErrors,
     achievements: enAchievements,
     stats: enStats,
+    flightStatsHelp: enFlightStatsHelp,
     setup: enSetup,
     map: enMap,
     pendingUpdates: enPendingUpdates,
@@ -121,6 +132,8 @@ const resources = {
     trips: enTrips,
     cruise: enCruise,
     rail: enRail,
+    bus: enBus,
+    ferry: enFerry,
     rental: enRental,
     import: enImport,
     aircraft: enAircraft,
@@ -136,12 +149,14 @@ const resources = {
     places: enPlaces,
     xlsx: enXlsx,
     dataQuality: enDataQuality,
+    sharing: enSharing,
     evidence: enEvidence,
     documents: enDocuments,
     roadtrips: enRoadtrips,
     openData: enOpenData,
     loyalty: enLoyalty,
     tripBuilder: enTripBuilder,
+    notes: enNotes,
   },
   de: {
     common: deCommon,
@@ -154,6 +169,7 @@ const resources = {
     errors: deErrors,
     achievements: deAchievements,
     stats: deStats,
+    flightStatsHelp: deFlightStatsHelp,
     setup: deSetup,
     map: deMap,
     pendingUpdates: dePendingUpdates,
@@ -161,6 +177,8 @@ const resources = {
     trips: deTrips,
     cruise: deCruise,
     rail: deRail,
+    bus: deBus,
+    ferry: deFerry,
     rental: deRental,
     import: deImport,
     aircraft: deAircraft,
@@ -176,12 +194,14 @@ const resources = {
     places: dePlaces,
     xlsx: deXlsx,
     dataQuality: deDataQuality,
+    sharing: deSharing,
     evidence: deEvidence,
     documents: deDocuments,
     roadtrips: deRoadtrips,
     openData: deOpenData,
     loyalty: deLoyalty,
     tripBuilder: deTripBuilder,
+    notes: deNotes,
   },
 };
 
@@ -204,6 +224,7 @@ i18n.use(initReactI18next).init({
     "errors",
     "achievements",
     "stats",
+    "flightStatsHelp",
     "setup",
     "map",
     "pendingUpdates",
@@ -211,6 +232,7 @@ i18n.use(initReactI18next).init({
     "trips",
     "cruise",
     "rail",
+    "bus",
     "rental",
     "import",
     "aircraft",
@@ -226,12 +248,14 @@ i18n.use(initReactI18next).init({
     "places",
     "xlsx",
     "dataQuality",
+    "sharing",
     "evidence",
     "documents",
     "roadtrips",
     "openData",
     "loyalty",
     "tripBuilder",
+    "notes",
   ],
   interpolation: {
     escapeValue: false, // React already escapes values

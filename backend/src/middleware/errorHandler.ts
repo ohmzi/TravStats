@@ -25,6 +25,12 @@ export interface ApiError extends Error {
  * `error` field rather than in `code`.
  */
 export type ApiErrorCode =
+  | "DAWARICH_OWN_CONNECTION_REQUIRED"
+  | "DAWARICH_SCAN_UNAVAILABLE"
+  | "DAWARICH_STAY_SCAN_FAILED"
+  | "DAWARICH_ALREADY_RESOLVED"
+  | "DAWARICH_INVALID_INTERVAL"
+  | "DAWARICH_VISIT_TRIP_CONFLICT"
   /** An edit or delete named a base version (If-Match / baseVersion) the
    *  record has moved past — forgejo#141, `services/sync/versionPrecondition.ts`.
    *  The 409 carries the current record and the changed fields. */
@@ -51,6 +57,10 @@ export type ApiErrorCode =
    *  create (forgejo#211): the lookup named nothing and the body sent nothing.
    *  The card asks for one instead of minting "unknown". */
   | "VISIT_NAME_REQUIRED"
+  /** A `visit` finding was accepted onto a place that is not the caller's
+   *  (forgejo#211, the batch review's "correct the place"): gone since the
+   *  list was read, or never theirs. */
+  | "VISIT_PLACE_NOT_FOUND"
   /** A training annotation whose offsets do not cut their own value out of
    *  the text being saved. The two used to be allowed to disagree, which
    *  corrupted every derivation built on it in silence. */
@@ -88,12 +98,23 @@ export type ApiErrorCode =
   /** A rail arrival instant before its departure — usually a night train
    *  whose arrival kept the departure's date. `field` is `arrivalLocal`. */
   | "RAIL_ARRIVAL_BEFORE_DEPARTURE"
+  /** A bus write body failed validation; `field` names the first field. */
+  | "FERRY_INVALID_INPUT"
+  | "FERRY_ARRIVAL_BEFORE_DEPARTURE"
+  | "BUS_INVALID_INPUT"
+  /** A bus arrival instant before its departure (spec 2026-10-07-bus-domain-design §3.2).
+   *  `field` is `arrivalLocal`. */
+  | "BUS_ARRIVAL_BEFORE_DEPARTURE"
+  | "BUS_NO_ROUTING_PROVIDER"
   // Car rentals (spec 2026-10-01-rental-domain-design).
   | "RENTAL_INVALID_INPUT"
   | "RENTAL_INVALID_QUERY"
   | "RENTAL_NOT_FOUND"
   | "RENTAL_ROADTRIP_NOT_FOUND"
   | "RENTAL_RETURN_BEFORE_PICKUP"
+  | "RENTAL_ACTUAL_RETURN_BEFORE_PICKUP"
+  | "RENTAL_DEPOSIT_RETURN_EXCEEDS"
+  | "RENTAL_DEPOSIT_RETURNED_BEFORE_PAID"
   /** The return odometer below the pick-up one, on the merged row. `field` is `odometerInKm`. */
   | "RENTAL_ODOMETER_REVERSED"
   | "RENTAL_STATION_UNRESOLVED"
@@ -102,6 +123,7 @@ export type ApiErrorCode =
   | "RENTAL_UNKNOWN_BOOKING"
   /** An invoice's km beside a figure the user typed; the review shows both and asks. */
   | "RENTAL_INVOICE_KM_CONFLICT"
+  | "RENTAL_INVOICE_FEE_UNKNOWN"
   /** A parse needed the configured LLM and could not reach it — "try later",
    *  not "broken". */
   | "LLM_UNREACHABLE"
@@ -125,6 +147,31 @@ export type ApiErrorCode =
   /** An accepted trip suggestion named members it does not hold, none at all,
    *  or an end before its start. */
   | "TRIP_SUGGESTION_SELECTION_INVALID"
+  /** Package import (plan 2026-10-09 P3): the document holds no package
+   *  reading — it was parsed as something else, or not at all. */
+  | "PACKAGE_READING_MISSING"
+  /** The package reading does not satisfy the contract; `extra.issues` names it. */
+  | "PACKAGE_READING_INVALID"
+  /** One leg of the package cannot be written as a flight; `field` names it. */
+  | "PACKAGE_FLIGHT_INVALID"
+  /** Single-trip import (spec 2026-10-09 S3): the upload is not a readable
+   *  `.travstats` file — not a ZIP, no manifest/trip.json, or a schema
+   *  failure (`extra.issues` names the paths). */
+  | "TRIP_FILE_INVALID"
+  /** The `.travstats` file names a format version this server cannot read
+   *  (`extra.formatVersion`, `extra.supported`). */
+  | "TRIP_FILE_VERSION_UNSUPPORTED"
+  /** The `.travstats` file (or one entry in it) is past its size or entry cap (413). */
+  | "TRIP_FILE_TOO_LARGE"
+  /** An entry of the `.travstats` file names a path outside the archive. */
+  | "TRIP_FILE_UNSAFE_PATH"
+  /** A trip, booking or flight id the request named is not the caller's. */
+  | "TRIP_NOT_FOUND"
+  | "BOOKING_NOT_FOUND"
+  | "FLIGHT_NOT_FOUND"
+  /** A stay or cruise a booking was asked to cover is not the caller's (#356). */
+  | "STAY_NOT_FOUND"
+  | "CRUISE_NOT_FOUND"
   /** A request body failed its schema. Sent on every ZodError answer, so a
    *  form shows its own sentence instead of zod's JSON issue dump. */
   | "VALIDATION_FAILED"
@@ -153,6 +200,26 @@ export type ApiErrorCode =
    *  flight is gone — stop retrying" from "this server has no route yet"
    *  (forgejo#201). */
   | "FLIGHT_NOT_FOUND"
+  /** Kept originals (forgejo#272): the entry a document is filed under or
+   *  listed for does not exist for this user. Distinct from a code-less 404,
+   *  which an older server — or one without the documents routes at all —
+   *  also answers; the Companion deletes a queued original only on this code,
+   *  so "the entry is gone" is never confused with "this server has no route"
+   *  (the prose "Entry not found" stays for clients that matched on it). */
+  | "DOCUMENT_ENTRY_NOT_FOUND"
+  /** A flight's booking split (forgejo#219): the flight is linked to no booking. */
+  | "BOOKING_NOT_FOUND"
+  /** Booking split: the booking has no total recorded, so there is nothing to split (409). */
+  | "BOOKING_PRICE_MISSING"
+  /** Booking split: the booking has one flight — its total is that flight's (409). */
+  | "BOOKING_SPLIT_SINGLE_SEGMENT"
+  /** Booking split: cruises, journeys or stays share the booking, so its total
+   *  is not the flights' alone and a flights-only split would misstate it (409). */
+  | "BOOKING_SPLIT_MIXED"
+  /** Booking split by distance: a segment has no known route distance (422). */
+  | "BOOKING_SPLIT_DISTANCE_UNKNOWN"
+  /** Bulk flight edit (forgejo#217): the trip named is not this account's — refused before any write. */
+  | "TRIP_NOT_FOUND"
   /** Flight recording (forgejo#193): the flight already has a recording under
    *  another upload id; resend with `replace: true` to swap it. */
   | "TRACK_ALREADY_RECORDED"
@@ -199,6 +266,21 @@ export type ApiErrorCode =
   | "TOUR_POINTS_FROM_TRIP"
   /** A trip's timeline stop was sent as a route correction (via point). */
   | "VIA_POINT_ON_TIMELINE"
+  /** A full station list was written against a station set that has changed
+   *  since the writer read it (a station added or removed elsewhere — the
+   *  phone). Nothing was written; read the roadtrip again and merge. */
+  | "ROADTRIP_STATIONS_CHANGED"
+  /** A recording offered for a leg does not come near both of its stops (409). */
+  | "TRACK_DOES_NOT_COVER_LEG"
+  /** The recording stops and restarts between a leg's two stops (409). */
+  | "TRACK_GAP_IN_LEG"
+  /** Assigning stops to a route section (review M4): a stop that is not on
+   *  this trip/tour, one without a coordinate, one already in another
+   *  section, and one another request claimed meanwhile (409). */
+  | "ROUTE_STOP_NOT_OWNED"
+  | "ROUTE_STOP_NO_COORDINATE"
+  | "ROUTE_STOP_IN_OTHER_SECTION"
+  | "ROUTE_STOP_CLAIMED_MEANWHILE"
   /** A trip photo was linked to a stop that is not on its trip — neither on
    *  the trip's timeline nor a station of a roadtrip filed on it (forgejo#139).
    *  Also answered for a stop that does not exist, so a probe learns nothing
@@ -290,7 +372,68 @@ export type ApiErrorCode =
    */
   | "ROUTE_SCOPE_CONFLICT"
   /** Phase B rolled back; nothing was written (the job's error). */
-  | "COMMIT_FAILED";
+  | "COMMIT_FAILED"
+  /** Trip sharing (`routes/sharing.ts`, design 2026-10-09). No account of
+   *  that name on this server (404) — sharing never leaves the instance. */
+  | "SHARE_USER_NOT_FOUND"
+  /** A consent request addressed to the requester's own account (400). */
+  | "SHARE_SELF"
+  /** A consent between these two is already pending or accepted (409). */
+  | "SHARE_CONSENT_DUPLICATE"
+  /** No consent of this caller under that id (404) — also answered for
+   *  another pair's consent, so a probe learns nothing. */
+  | "SHARE_CONSENT_NOT_FOUND"
+  /** Accept/decline on a consent that is no longer pending (409). */
+  | "SHARE_CONSENT_NOT_PENDING"
+  /** Linking or sharing needs an accepted consent the other account gave to
+   *  the caller (403). */
+  | "SHARE_CONSENT_REQUIRED"
+  /** No companion of this caller under that id (404). */
+  | "COMPANION_NOT_FOUND"
+  /** Another of the caller's companions is already linked to that account (409). */
+  | "SHARE_COMPANION_ALREADY_LINKED"
+  /** Sharing with a companion that is not linked to an account (409). */
+  | "SHARE_COMPANION_NOT_LINKED"
+  /** Leaving a group with a trip that is in none (409). */
+  | "SHARE_TRIP_NOT_SHARED"
+  /** No share notice of this caller under that id (404). */
+  | "SHARE_NOTICE_NOT_FOUND"
+  /** Public share links (forgejo#281). Every public failure — unknown,
+   *  malformed, expired, revoked, switch off, target gone — is this one 404,
+   *  so a guesser cannot tell a dead link from one that never existed. Also
+   *  the owner's answer for a link id or a target that is not theirs. */
+  | "SHARE_LINK_NOT_FOUND"
+  /** The instance switch for public links is off (409). */
+  | "SHARE_LINKS_DISABLED"
+  /** A flight link for a flight that has already landed (409). */
+  | "SHARE_LINK_FLIGHT_LANDED"
+  /** The account already holds the maximum of active links (409). */
+  | "SHARE_LINK_LIMIT"
+  /** An expiry in the past or beyond the maximum (400). */
+  | "SHARE_LINK_EXPIRY_INVALID"
+  /** Undo refused: the copy changed since the notice; `extra.fields` names
+   *  the facts that differ (409). */
+  | "SHARE_UNDO_STALE"
+  /** The notice is not one that can be acted on that way (not a change, or
+   *  already undone) (409). */
+  | "SHARE_UNDO_UNAVAILABLE"
+  /** The caller's own copy of the entry is gone (deleted or moved away) (409). */
+  | "SHARE_COPY_NOT_FOUND"
+  /** A rental evidence category on a document not filed with a rental (forgejo#239). */
+  | "DOCUMENT_CATEGORY_NOT_RENTAL"
+  /** Merging two places (forgejo#232, `services/places/placeMerge.ts`): a
+   *  place cannot be merged into itself (400), and two places that each
+   *  stand for a DIFFERENT checklist item cannot become one (409) — one
+   *  checklist's tick would be lost. */
+  | "PLACE_MERGE_SAME"
+  | "PLACE_MERGE_BOTH_CURATED"
+  /** A create's idempotency key (forgejo#283, `services/sync/clientRef.ts`)
+   *  was already spent on a different body or another route (409).
+   *  `extra.kind` and `extra.entityId` name the row it made. */
+  | "CLIENT_REF_REUSED"
+  /** A repeat create whose key made a row that has been deleted since (410):
+   *  nothing is re-created. `extra.kind`, `extra.entityId` name it. */
+  | "CLIENT_REF_TARGET_GONE";
 
 interface AuthRequest extends Request {
   user?: {

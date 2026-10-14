@@ -27,7 +27,7 @@
     "deleted": "„{{name}}“ wurde gelöscht.",
     "deleteFailed": "Der Ort konnte nicht gelöscht werden.",
     "deleteTitle": "Ort löschen?",
-    "deleteMessage": "„{{name}}“ wird mit {{count}} Besuchen dauerhaft gelöscht. Zugehörige Reisen bleiben erhalten.",
+    "deleteMessage": "„{{name}}“ wird mit {{count}} Besuchen dauerhaft gelöscht.",
     "columns": {
       "name": "Name",
       "category": "Kategorie",
@@ -51,12 +51,13 @@
       "wishlist": "Merkliste",
       "planned": "Geplant"
     },
-    "retry": "Erneut versuchen",
     "addPlace": "Ort",
     "emptyHint": "Füge deinen ersten Ort hinzu.",
-    "deleteMessage_one": "„{{name}}“ wird mit einem Besuch dauerhaft gelöscht. Zugehörige Reisen bleiben erhalten.",
-    "deleteMessage_other": "„{{name}}“ wird mit {{count}} Besuchen dauerhaft gelöscht. Zugehörige Reisen bleiben erhalten.",
-    "deleteMessageNoVisits": "„{{name}}“ wird dauerhaft gelöscht."
+    "deleteMessage_one": "„{{name}}“ wird mit einem Besuch dauerhaft gelöscht.",
+    "deleteMessage_other": "„{{name}}“ wird mit {{count}} Besuchen dauerhaft gelöscht.",
+    "deleteMessageNoVisits": "„{{name}}“ wird dauerhaft gelöscht.",
+    "addFirst": "Ersten Ort anlegen",
+    "deleteFailedFor": "„{{name}}“ wurde nicht gelöscht. {{reason}}"
   },
   "filter": {
     "allStatuses": "Alle Status",
@@ -81,12 +82,19 @@
     "onWishlist": "☆ Merkliste",
     "statusHint": "Neue Orte landen standardmäßig auf der Merkliste und zählen erst mit, wenn du „War ich schon“ wählst oder einen Besuch einträgst.",
     "notes": "Notiz",
-    "positionRequired": "Ohne Position lässt sich der Ort nicht speichern — such ihn, klick ihn auf der Karte an oder gib Koordinaten ein.",
     "created": "Ort angelegt.",
     "updated": "Ort gespeichert.",
     "saveFailed": "Der Ort konnte nicht gespeichert werden.",
     "addToLists": "Zu Listen hinzufügen",
-    "listAddFailed": "Konnte nicht zu diesen Listen hinzufügen: {{lists}}"
+    "missing": {
+      "position": "Position",
+      "coordinates": "gültige Koordinaten"
+    },
+    "listPartial_one": "Ort gespeichert. Die Liste „{{lists}}“ hat ihn nicht aufgenommen.",
+    "listPartial_other": "Ort gespeichert. Diese Listen haben ihn nicht aufgenommen: {{lists}}.",
+    "listRetry": "Erneut zuordnen",
+    "listContinue": "Weiter",
+    "forList": "Nach dem Speichern kommt der Ort in die Liste „{{list}}“."
   },
   "detail": {
     "backToList": "Zurück zur Übersicht",
@@ -108,7 +116,6 @@
     "visitFailed": "Der Besuch konnte nicht eingetragen werden.",
     "visitDeleteFailed": "Der Besuch konnte nicht gelöscht werden.",
     "visitDeleteTitle": "Besuch löschen?",
-    "visitDeleteMessage": "Der Besuch vom {{visit}} wird dauerhaft gelöscht, samt seiner Beleg-Fotos. Der Ort selbst bleibt bestehen.",
     "notes": "Notiz",
     "masterData": "Stammdaten",
     "position": "Position",
@@ -125,7 +132,11 @@
     "editVisit": "Besuch bearbeiten",
     "visitUpdated": "Besuch gespeichert.",
     "visitUpdateFailed": "Der Besuch konnte nicht gespeichert werden.",
-    "visitNotFound": "Diesen Besuch gibt es an diesem Ort nicht mehr."
+    "visitNotFound": "Diesen Besuch gibt es an diesem Ort nicht mehr.",
+    "visitDeleteMessageNoPhotos": "Der Besuch vom {{visit}} wird dauerhaft gelöscht. Der Ort selbst bleibt bestehen.",
+    "visitDeleteMessagePhotos_one": "Der Besuch vom {{visit}} wird dauerhaft gelöscht, samt seinem Beleg-Foto. Der Ort selbst bleibt bestehen.",
+    "visitDeleteMessagePhotos_other": "Der Besuch vom {{visit}} wird dauerhaft gelöscht, samt seinen {{count}} Beleg-Fotos. Der Ort selbst bleibt bestehen.",
+    "deletedViewStale": "Gelöscht. Die Ansicht konnte nicht aktualisiert werden – lade die Seite neu."
   },
   "lists": {
     "title": "Listen",
@@ -154,7 +165,7 @@
     "backToLists": "Zurück zu den Listen",
     "addPlace": "Ort hinzufügen",
     "addPlacePlaceholder": "Erfassten Ort suchen …",
-    "addNoMatches": "Kein passender Ort. Lege ihn zuerst unter „Orte“ an.",
+    "addNoMatches": "Kein passender Ort in deinem Logbuch.",
     "listEmpty": "Diese Liste ist noch leer.",
     "removeFromList": "„{{name}}“ aus der Liste entfernen",
     "deleteList": "Liste löschen",
@@ -171,7 +182,15 @@
     "subscribeFailed": "Der Checkliste konnte nicht gefolgt werden.",
     "moveUp": "„{{name}}“ nach oben schieben",
     "moveDown": "„{{name}}“ nach unten schieben",
-    "reorderFailed": "Die Reihenfolge konnte nicht gespeichert werden."
+    "reorderFailed": "Die Reihenfolge konnte nicht gespeichert werden.",
+    "nameRequired": "Eine Liste braucht einen Namen.",
+    "createAndAdd": "„{{name}}“ als Ort anlegen und hinzufügen",
+    "unassigned": "„{{name}}“ ist gespeichert, steht aber noch nicht in dieser Liste.",
+    "assignAgain": "Erneut zuordnen",
+    "dismissUnassigned": "Ausblenden",
+    "createTitle": "Neue Liste",
+    "createFirst": "Erste Liste anlegen",
+    "alreadyInList": "„{{name}}“ steht schon in dieser Liste."
   },
   "checklist": {
     "notFound": "Diese Checkliste gibt es nicht.",
@@ -242,11 +261,11 @@
       "link_other": "{{count}} Fotos verknüpfen",
       "linked_one": "{{count}} Foto verknüpft.",
       "linked_other": "{{count}} Fotos verknüpft.",
-      "distance": "{{metres}} m vom Ort entfernt",
       "alt": {
         "trip": "Foto aus deiner Reise",
         "library": "Foto aus der Fotobibliothek"
-      }
+      },
+      "distanceShort": "{{metres}} m"
     }
   },
   "stats": {
@@ -289,7 +308,8 @@
       "byMonth": "Besuche pro Monat",
       "byWeekday": "Besuche pro Wochentag",
       "undatedNote": "{{count}} Besuche ohne Datum sind in den Summen enthalten, aber in keinem Diagramm — sie haben keinen Tag.",
-      "undatedNote_one": "Ein Besuch ohne Datum ist in den Summen enthalten, aber in keinem Diagramm — er hat keinen Tag."
+      "undatedNote_one": "Ein Besuch ohne Datum ist in den Summen enthalten, aber in keinem Diagramm — er hat keinen Tag.",
+      "charts": "Besuche pro Jahr, Monat und Wochentag"
     },
     "quality": {
       "title": "Bewertungen",
@@ -310,6 +330,254 @@
       "southernmost": "Südlichster Ort",
       "onTrips": "Besuche in einer Reise",
       "onTripsDesc": "von {{total}} insgesamt"
+    },
+    "insights": {
+      "title": "Auswertungen",
+      "loadFailed": "Die Auswertungen konnten nicht geladen werden.",
+      "lifetime": "über alle Jahre",
+      "discoveries": {
+        "title": "Entdeckungen und Wiederbesuche",
+        "new": "Erstbesuche",
+        "again": "Wiederbesuche",
+        "yearRow": "{{year}}: {{discoveries}} neu · {{revisits}} wieder",
+        "empty": "Erscheint, sobald ein Besuch mit Datum vorbei ist.",
+        "help": {
+          "unit": "Ein Besuch. Erstbesuch ist der früheste datierte Besuch eines Ortes, jeder spätere ein Wiederbesuch.",
+          "time": "Jahr nach dem Kalender des Ortes (seine Zeitzone), nicht nach deinem Gerät.",
+          "source": "Deine Besuche an Orten im Logbuch.",
+          "coverage": "{{unordered}} datierte Besuche gehören zu Orten mit einem undatierten Besuch – ob sie der erste waren, weiß niemand, sie stehen in keiner Spalte. {{withoutDate}} Orte haben gar keinen datierten Besuch, {{undated}} Besuche sind ohne Datum.",
+          "exclusions": "Orte auf der Wunschliste und Besuche mit Datum in der Zukunft zählen nicht."
+        },
+        "before": "Erstbesuche · ",
+        "after_one": " Wiederbesuch",
+        "after_other": " Wiederbesuche"
+      },
+      "returning": {
+        "title": "Rückkehr nach langer Pause",
+        "years_one": "{{count}} Jahr",
+        "years_other": "{{count}} Jahre",
+        "days_one": "{{count}} Tag",
+        "days_other": "{{count}} Tage",
+        "gap": "Längste Pause ({{from}} → {{to}}):",
+        "empty": "Erscheint, sobald du einen Ort an einem zweiten Tag wieder besuchst.",
+        "help": {
+          "unit": "Die Pause zwischen zwei aufeinanderfolgenden Besuchen desselben Ortes; volle Jahre zählen von Jahrestag zu Jahrestag.",
+          "time": "Tage nach dem Kalender des Ortes.",
+          "source": "Deine datierten Besuche je Ort. Die Liste nennt Orte, die du in mehreren Kalenderjahren besucht hast.",
+          "coverage": "Nur Besuche mit bekanntem Tag messen eine Pause.",
+          "exclusions": "Undatierte Besuche, Wunschliste und geplante Besuche."
+        }
+      },
+      "variety": {
+        "title": "Vielfalt je Reise",
+        "value_one": "{{count}} Kategorie",
+        "value_other": "{{count}} Kategorien",
+        "description": "Höchste Zahl verschiedener Ortskategorien auf einer Reise",
+        "year_one": "{{year}}: {{count}} Kategorie insgesamt",
+        "year_other": "{{year}}: {{count}} Kategorien insgesamt",
+        "cities": "Vielseitigste Städte: {{cities}}",
+        "empty": "Erscheint, sobald Besuche einer Reise zugeordnet sind.",
+        "help": {
+          "unit": "Eine Ortskategorie (Restaurant, Sehenswürdigkeit, Natur …), je Reise, Stadt oder Jahr einmal gezählt.",
+          "time": "Eine Reise zählt im Jahr ihres ersten datierten Besuchs; Jahre nach dem Kalender des Ortes.",
+          "source": "Kategorie des Ortes, Reise des Besuchs, Stadt des Ortes.",
+          "coverage": "{{withoutTrip}} Besuche gehören zu keiner Reise und fehlen in der Reise-Ansicht.",
+          "exclusions": "Wunschliste und geplante Besuche. Städte werden nach Name und Land getrennt."
+        }
+      },
+      "documentation": {
+        "title": "Dokumentiert",
+        "photo": "Besuche mit Foto",
+        "note": "Besuche mit Notiz",
+        "rating": "Besuche mit Bewertung",
+        "description": "{{photo}} mit Foto · {{note}} mit Notiz · {{rating}} mit Bewertung – von {{count}} Besuchen",
+        "empty": "Erscheint mit dem ersten vergangenen Besuch.",
+        "help": {
+          "unit": "Ein Besuch. Foto, Notiz und Bewertung werden jeweils für sich gezählt, nie zu einer Note verrechnet.",
+          "time": "Jahr nach dem Kalender des Ortes; undatierte Besuche zählen nur im Gesamtwert.",
+          "source": "Fotos, die am Besuch selbst hängen, die Notiz des Besuchs und seine Bewertung.",
+          "coverage": "Ein Foto der Reise, das keinem Besuch zugeordnet ist, zählt hier nicht.",
+          "exclusions": "Eine fehlende Bewertung ist keine schlechte – es wird nie eine verlangt oder ergänzt."
+        },
+        "photoValue": "{{pct}} mit Foto",
+        "noteValue": "{{pct}} mit Notiz",
+        "ratingValue": "{{pct}} mit Bewertung"
+      },
+      "jump": {
+        "title": "Größter Sprung",
+        "value": "{{km}} km Luftlinie",
+        "empty": "Erscheint, sobald zwei Besuche an verschiedenen Orten in sicherer Reihenfolge erfasst sind.",
+        "help": {
+          "unit": "Kilometer Luftlinie zwischen zwei Orten – ausdrücklich nicht die zurückgelegte Strecke.",
+          "time": "Zwei Besuche, die zeitlich direkt aufeinander folgen, nach Tag und – am selben Tag – nach Uhrzeit.",
+          "source": "Koordinaten deiner besuchten Orte.",
+          "coverage": "{{uncertain}} Besuchspaare am selben Tag ohne Uhrzeit sind in unklarer Reihenfolge und werden nicht gemessen; {{undated}} Besuche ohne Tag stehen in keiner Folge.",
+          "exclusions": "Wunschliste und geplante Besuche."
+        }
+      }
+    },
+    "help": {
+      "visitedPlaces": {
+        "unit": "Ein Ort im Logbuch, der als besucht gilt – drei Besuche im selben Café sind ein Ort.",
+        "time": "Ohne Jahr: jeder besuchte Ort. Mit Jahr: ein Ort, von dem ein vergangener Besuch in dieses Kalenderjahr fällt (das eingetragene Datum am Ort).",
+        "source": "Deine Orte und ihre Besuche (Orte-Liste).",
+        "coverage": "Ein als besucht markierter Ort ohne datierten Besuch zählt im Gesamtwert, aber in keinem Jahr.",
+        "exclusions": "Orte auf der Merkliste und Orte, deren einziger Besuch noch in der Zukunft liegt."
+      },
+      "wishlist": {
+        "unit": "Ein Ort, den du dir vorgemerkt hast, aber noch nicht besucht.",
+        "time": "Nur ohne Jahr gezeigt: eine Merkliste hat einen Zustand, kein Datum.",
+        "source": "Deine Orte, die nicht als besucht gelten.",
+        "coverage": "Ein Ort mit einem Besuch, der erst in der Zukunft liegt, steht hier: geplant ist nicht besucht.",
+        "exclusions": "Besuchte Orte."
+      },
+      "visits": {
+        "unit": "Ein Besuch – drei Besuche im selben Café sind drei.",
+        "time": "Ein Besuch zählt, sobald sein Datum vorbei ist; mit Jahr nur Besuche, die in dieses Jahr fallen.",
+        "source": "Die Besuche an deinen besuchten Orten.",
+        "coverage": "Besuche ohne Datum zählen im Gesamtwert, aber in keinem Jahr und in keinem Diagramm.",
+        "exclusions": "Besuche, die noch in der Zukunft liegen, und Orte auf der Merkliste."
+      },
+      "countries": {
+        "unit": "Ein Land, gezählt über den Ländercode des Ortes – „Deutschland“ und „Germany“ sind ein Land.",
+        "time": "Wie bei „Orte besucht“: mit Jahr nur Orte mit einem Besuch in diesem Jahr.",
+        "source": "Der Ländercode, den die Ortssuche zu jedem Ort ermittelt hat.",
+        "coverage": "Ein Ort ohne ermittelten Ländercode zählt in keinem Land.",
+        "exclusions": "Orte auf der Merkliste; der frei eingetragene Ländername wird nicht gelesen."
+      },
+      "cities": {
+        "unit": "Eine Stadt, nach dem Namen, den die Ortssuche geschrieben hat – für Städte gibt es keinen Code.",
+        "time": "Wie bei „Orte besucht“.",
+        "source": "Das Stadtfeld deiner besuchten Orte.",
+        "coverage": "Orte ohne Stadt zählen in keiner Stadt; zwei gleichnamige Städte in verschiedenen Ländern sind hier eine.",
+        "exclusions": "Orte auf der Merkliste."
+      },
+      "lists": {
+        "unit": "Eine Liste – eigene und abonnierte Checklisten gleichermaßen.",
+        "time": "Nur ohne Jahr gezeigt: eine Liste ist, was du führst, und gehört zu keinem Jahr.",
+        "source": "Deine Ortslisten und die Checklisten, die du abonniert hast.",
+        "coverage": "Jede Liste zählt, auch eine leere.",
+        "exclusions": "Checklisten, die du nicht abonniert hast."
+      },
+      "byCategory": {
+        "unit": "Besuchte Orte je Kategorie, jeder Ort einmal.",
+        "time": "Wie bei „Orte besucht“.",
+        "source": "Die Kategorie jedes besuchten Ortes.",
+        "coverage": "Jeder Ort hat genau eine Kategorie (ohne Angabe: „Sonstiges“).",
+        "exclusions": "Orte auf der Merkliste."
+      },
+      "mostVisited": {
+        "unit": "Besuche je Ort; der Name führt zum Ort.",
+        "time": "Gezählt werden vergangene Besuche; mit Jahr nur die dieses Jahres.",
+        "source": "Die Besuche jedes besuchten Ortes.",
+        "coverage": "Besuche ohne Datum zählen mit, solange kein Jahr gewählt ist.",
+        "exclusions": "Zukünftige Besuche und Orte ohne gezählten Besuch."
+      },
+      "byCountry": {
+        "unit": "Besuchte Orte je Land, über den Ländercode.",
+        "time": "Wie bei „Orte besucht“.",
+        "source": "Der Ländercode jedes besuchten Ortes.",
+        "coverage": "Orte ohne ermittelten Ländercode fehlen in dieser Liste.",
+        "exclusions": "Orte auf der Merkliste."
+      },
+      "byCity": {
+        "unit": "Besuchte Orte je Stadt, nach Stadtname.",
+        "time": "Wie bei „Orte besucht“.",
+        "source": "Das Stadtfeld jedes besuchten Ortes.",
+        "coverage": "Orte ohne Stadt fehlen in dieser Liste.",
+        "exclusions": "Orte auf der Merkliste."
+      },
+      "checklists": {
+        "unit": "Abgehakte Einträge einer Checkliste von allen ihren Einträgen; sortiert nach Anteil, nicht nach Anzahl.",
+        "time": "Nur ohne Jahr gezeigt: der Stand von heute.",
+        "source": "Die Checklisten, die du abonniert hast, und ihre abgehakten Einträge.",
+        "coverage": "Nur Checklisten mit mindestens einem abgehakten Eintrag stehen hier.",
+        "exclusions": "Deine eigenen Listen haben keinen Fortschritt und stehen nicht hier."
+      },
+      "busiestMonth": {
+        "unit": "Der Kalendermonat mit den meisten Besuchen, über alle Jahre zusammengezählt; bei Gleichstand der frühere Monat.",
+        "time": "Der Monat des eingetragenen Besuchsdatums – die Uhrzeit am Ort, nicht die deines Geräts.",
+        "source": "Deine datierten, vergangenen Besuche.",
+        "coverage": "Ein in der Companion-App erfasster Besuch kurz vor oder nach Mitternacht kann einen Tag daneben liegen. {{undated}} Besuche ohne Datum stehen in keinem Monat.",
+        "exclusions": "Besuche ohne Datum, zukünftige Besuche, Orte auf der Merkliste."
+      },
+      "busiestWeekday": {
+        "unit": "Der Wochentag mit den meisten Besuchen; bei Gleichstand der frühere, ab Sonntag gezählt.",
+        "time": "Der Wochentag des eingetragenen Besuchsdatums am Ort.",
+        "source": "Deine datierten, vergangenen Besuche.",
+        "coverage": "{{undated}} Besuche ohne Datum stehen auf keinem Wochentag.",
+        "exclusions": "Besuche ohne Datum, zukünftige Besuche, Orte auf der Merkliste."
+      },
+      "busiestDay": {
+        "unit": "Verschiedene Orte an einem Kalendertag – zwei Besuche desselben Ortes am selben Tag sind einer; bei Gleichstand der frühere Tag.",
+        "time": "Der Tag des eingetragenen Besuchsdatums am Ort.",
+        "source": "Deine datierten, vergangenen Besuche.",
+        "coverage": "{{undated}} Besuche ohne Datum gehören zu keinem Tag.",
+        "exclusions": "Besuche ohne Datum, zukünftige Besuche, Orte auf der Merkliste."
+      },
+      "streak": {
+        "unit": "Kalendertage hintereinander mit mindestens einem Besuch; bei Gleichstand die frühere Serie.",
+        "time": "Kalendertage des eingetragenen Besuchsdatums am Ort – eine Zeitumstellung unterbricht keine Serie.",
+        "source": "Deine datierten, vergangenen Besuche.",
+        "coverage": "{{undated}} Besuche ohne Datum können keine Serie verlängern.",
+        "exclusions": "Besuche ohne Datum, zukünftige Besuche, Orte auf der Merkliste."
+      },
+      "charts": {
+        "unit": "Besuche je Jahr, je Monat (alle zwölf, auch leere) und je Wochentag.",
+        "time": "Das eingetragene Besuchsdatum am Ort.",
+        "source": "Deine datierten, vergangenen Besuche.",
+        "coverage": "{{undated}} Besuche ohne Datum zählen in den Summen oben, aber in keinem Diagramm.",
+        "exclusions": "Besuche ohne Datum, zukünftige Besuche, Orte auf der Merkliste."
+      },
+      "average": {
+        "unit": "Durchschnitt der Sterne (1–5) über bewertete Besuche.",
+        "time": "Wie bei „Besuche“: mit Jahr nur Besuche dieses Jahres.",
+        "source": "Die Bewertung, die du an einem Besuch vergeben hast.",
+        "coverage": "Bewertet sind {{rated}} von {{total}} Besuchen.",
+        "exclusions": "Ein Besuch ohne Bewertung ist keine Null und zieht nichts herunter – er fehlt einfach."
+      },
+      "bestRated": {
+        "unit": "Die fünf höchsten Bewertungen einzelner Besuche; bei Gleichstand nach Name.",
+        "time": "Wie bei „Ø Bewertung“.",
+        "source": "Die Bewertungen deiner Besuche.",
+        "coverage": "Ein Ort mit mehreren bewerteten Besuchen kann mehrmals erscheinen.",
+        "exclusions": "Unbewertete Besuche."
+      },
+      "firstVisit": {
+        "unit": "Der früheste datierte Besuch.",
+        "time": "Das eingetragene Besuchsdatum; mit Jahr der früheste dieses Jahres.",
+        "source": "Deine datierten, vergangenen Besuche.",
+        "coverage": "Ein Besuch ohne Datum kann früher gewesen sein – niemand weiß es, er wird nicht berücksichtigt.",
+        "exclusions": "Besuche ohne Datum, zukünftige Besuche, Orte auf der Merkliste."
+      },
+      "favourite": {
+        "unit": "Der Ort mit den meisten Besuchen, ab zwei; bei Gleichstand nach Name.",
+        "time": "Wie bei „Besuche“.",
+        "source": "Die Besuche deiner besuchten Orte.",
+        "coverage": "Besuche ohne Datum zählen mit, solange kein Jahr gewählt ist.",
+        "exclusions": "Zukünftige Besuche und Orte auf der Merkliste."
+      },
+      "categoryCoverage": {
+        "unit": "Eine Ortskategorie, die mindestens ein besuchter Ort trägt, von allen Kategorien des Katalogs.",
+        "time": "Wie bei „Orte besucht“.",
+        "source": "Die Kategorie deiner besuchten Orte und der feste Kategorienkatalog.",
+        "coverage": "Jeder Ort hat genau eine Kategorie.",
+        "exclusions": "Orte auf der Merkliste."
+      },
+      "extremes": {
+        "unit": "Der besuchte Ort mit der größten bzw. kleinsten geografischen Breite.",
+        "time": "Wie bei „Orte besucht“.",
+        "source": "Die Koordinaten deiner besuchten Orte.",
+        "coverage": "Jeder Ort hat Koordinaten; liegen zwei auf genau derselben Breite, nennt der Beleg beide.",
+        "exclusions": "Orte auf der Merkliste – auch wenn einer weiter nördlich läge."
+      },
+      "onTrips": {
+        "unit": "Ein Besuch, der einer Reise zugeordnet ist – ein Besuch, nicht ein Ort, gehört zu einer Reise.",
+        "time": "Wie bei „Besuche“.",
+        "source": "Die Reise, die an einem Besuch eingetragen ist.",
+        "coverage": "Von {{total}} Besuchen; Besuche ohne Reise fehlen hier.",
+        "exclusions": "Zukünftige Besuche; eine Reise wird nie aus dem Datum erraten."
+      }
     }
   },
   "import": {
@@ -346,7 +614,9 @@
     "actions": {
       "choose": "Bitte wählen",
       "create": "Anlegen",
-      "skip": "Überspringen"
+      "skip": "Überspringen",
+      "trip_stop": "Als Reisestopp",
+      "stay": "Ist meine Unterkunft"
     },
     "flags": {
       "missing_name": "Kein Name",
@@ -373,7 +643,88 @@
       "failureCodes": {
         "invalid_row": "Zeile nicht lesbar",
         "no_position": "keine Position",
-        "write_failed": "nicht gespeichert"
+        "write_failed": "nicht gespeichert",
+        "invalid_target": "Reise oder Unterkunft nicht gefunden"
+      },
+      "takeoutExtra": "{{stops}} als Reisestopp angelegt · {{stays}} als deine Unterkunft erkannt",
+      "stopsSkipped_one": "{{count}} Reisestopp übersprungen — die Reise hat ihn an diesem Tag schon",
+      "stopsSkipped_other": "{{count}} Reisestopps übersprungen — die Reise hat sie an diesem Tag schon"
+    },
+    "takeout": {
+      "intro_one": "{{count}} Zeile stammt aus einer Google-Maps-Liste. Position, Reise und Besuchstag lassen sich vorschlagen — du entscheidest danach pro Zeile.",
+      "intro_other": "{{count}} Zeilen stammen aus einer Google-Maps-Liste. Position, Reise und Besuchstag lassen sich vorschlagen — du entscheidest danach pro Zeile.",
+      "resolve": "Vorschläge holen",
+      "running": "Suche läuft … {{done}} von {{total}}",
+      "errors": {
+        "failed": "Die Vorschläge konnten nicht geholt werden. Die Zeilen bleiben, wie sie waren — du kannst ihre Position weiter selbst setzen.",
+        "lost": "Der Server hat die Suche verloren (Neustart?). Bitte noch einmal versuchen.",
+        "rateLimited": "Zu viele Importe in kurzer Zeit. Bitte in ein paar Minuten noch einmal versuchen."
+      },
+      "summary": {
+        "google": "per Google-Link verortet",
+        "byName": "per Namenssuche",
+        "unplaced": "ohne Position",
+        "dated": "mit Besuchstag aus Fotos"
+      },
+      "trip": {
+        "found": "Reise: „{{name}}“ — Besuche und Reisestopps werden ihr zugeordnet.",
+        "no_country": "Der Listenname nennt kein Land, deshalb wird keine Reise zugeordnet und nicht nach Namen gesucht.",
+        "no_trip": "Du hast keine Reise in dieses Land — es wird keine Reise zugeordnet.",
+        "several_trips": "Du hast mehrere Reisen in dieses Land — welche es war, entscheidest du; es wird keine zugeordnet."
+      },
+      "noKey": "Für diese Instanz ist kein Google-Places-Schlüssel eingerichtet (Einstellungen → Integrationen). Positionen kommen deshalb nur aus der Namenssuche im Land der Liste.",
+      "googleFailed": "Google-Abfrage fehlgeschlagen:",
+      "unplacedBecause": "Ohne Position, weil:",
+      "positionReasons": {
+        "no_cid": "Link ohne Google-ID",
+        "no_key": "kein Google-Schlüssel",
+        "auth": "Google lehnt den Schlüssel ab",
+        "quota": "Google-Kontingent erschöpft",
+        "timeout": "Google antwortet nicht rechtzeitig",
+        "network": "Google nicht erreichbar",
+        "not_found": "Google kennt den Ort nicht",
+        "provider_error": "unlesbare Antwort",
+        "not_in_country": "im Land der Liste nicht gefunden",
+        "no_country": "Liste nennt kein Land",
+        "geocoder_unavailable": "Ortssuche nicht erreichbar",
+        "limit_reached": "Suchlimit für einen Lauf erreicht"
+      },
+      "sources": {
+        "google_cid": "Position aus Google-Link",
+        "name_search": "Position per Namenssuche — bitte prüfen"
+      },
+      "kinds": {
+        "sight": "Sehenswürdigkeit",
+        "station": "Bahnhof/Haltestelle",
+        "fuel": "Tankstelle",
+        "shop": "Geschäft",
+        "airport": "Flughafen",
+        "lodging": "Unterkunft",
+        "city": "ganze Stadt — eher überspringen"
+      },
+      "matchedStay": "deine Unterkunft „{{name}}“",
+      "dayFromPhotos_one": "aus {{count}} Foto",
+      "dayFromPhotos_other": "aus {{count}} Fotos",
+      "dayReasons": {
+        "no_trip": "kein Tag: keine Reise zugeordnet",
+        "no_position": "kein Tag: keine Position",
+        "no_photos": "kein Tag: keine Fotos dort",
+        "ambiguous": "kein Tag: Fotos an mehreren Tagen gleich oft"
+      }
+    },
+    "document": {
+      "title": "Ort aus einem Dokument",
+      "description": "Ein Museumsticket oder eine Führungsbuchung: Text einfügen oder als PDF, .eml, .msg oder .txt wählen. Gelesen wird wie jedes andere Dokument, mit deinen Orts-Templates aus der Parser-Werkstatt; der Ort landet in der Vorschau, und erst du legst ihn an.",
+      "textLabel": "Text des Dokuments",
+      "placeholder": "Text des Tickets oder der Buchung hier einfügen …",
+      "read": "Dokument lesen",
+      "reading": "Wird gelesen …",
+      "uploadLabel": "Datei wählen",
+      "readFailed": "Das Dokument konnte nicht gelesen werden. Bitte noch einmal versuchen.",
+      "fallback": {
+        "noTemplate": "Noch kein Orts-Template aktiv. Leite in der Parser-Werkstatt (Art des Dokuments: Ort) aus einem Ticket dieses Anbieters eines ab, prüfe es mit der Vorschau und aktiviere es.",
+        "notRecognised": "Keines deiner Orts-Templates erkennt dieses Dokument. Für einen neuen Anbieter leitest du in der Parser-Werkstatt ein eigenes ab.",
+        "timedOut": "Das Lesen hat zu lange gedauert und wurde abgebrochen. Bitte noch einmal versuchen."
       }
     }
   },
@@ -381,6 +732,151 @@
     "title": "Galerie",
     "lead": "Titelbild von {{name}}",
     "makeCover": "Als Titelbild verwenden",
-    "coverFailed": "Das Titelbild konnte nicht gespeichert werden."
+    "coverFailed": "Das Titelbild konnte nicht gespeichert werden.",
+    "makeCoverHint": "Tippe ein Foto an, um es zum Titelbild zu machen."
+  },
+  "delete": {
+    "tripsStayUnnamed": "Verknüpfte Reisen bleiben erhalten.",
+    "photos_one": "Dazu ein Beleg-Foto, das mit gelöscht wird.",
+    "photos_other": "Dazu {{count}} Beleg-Fotos, die mit gelöscht werden.",
+    "lists_one": "Er verschwindet aus der Liste {{names}}; die Liste selbst bleibt.",
+    "lists_other": "Er verschwindet aus {{count}} Listen ({{names}}); die Listen selbst bleiben.",
+    "stations_one": "Eine Trip-Station, die ihn nennt, bleibt erhalten.",
+    "stations_other": "{{count}} Trip-Stationen, die ihn nennen, bleiben erhalten."
+  },
+  "visit": {
+    "action": "Besuch erfassen",
+    "recordTitle": "Besuch erfassen · {{name}}",
+    "when": "Wann warst du dort?",
+    "mode": {
+      "today": "Heute",
+      "other": "Anderes Datum",
+      "unknown": "Datum unbekannt"
+    },
+    "timeOptional": "Uhrzeit (optional)",
+    "unknownHint": "Der Besuch wird ohne Datum gespeichert – er zählt trotzdem.",
+    "aheadHint": "Dieser Tag liegt in der Zukunft: Der Besuch ist geplant und zählt erst, wenn er da ist. Fotos kannst du danach ergänzen.",
+    "tripsFailed": "Deine Reisen konnten nicht geladen werden. Den Besuch kannst du trotzdem nach Datum zuordnen lassen.",
+    "photos": "Fotos (optional)",
+    "photosHint": "Bis zu {{max}} Fotos – sie werden hochgeladen, sobald der Besuch gespeichert ist.",
+    "photosPicked_one": "1 Foto ausgewählt",
+    "photosPicked_other": "{{count}} Fotos ausgewählt",
+    "photoFailed": "Die Fotos konnten nicht hochgeladen werden.",
+    "savedPhotoFailed": "Besuch gespeichert. {{reason}}",
+    "photoRetry": "Fotos erneut hochladen",
+    "continueWithoutPhoto": "Weiter ohne Fotos",
+    "recorded": "Besuch bei „{{name}}“ eingetragen.",
+    "photosTooMany": "höchstens {{max}} Fotos"
+  },
+  "merge": {
+    "action": "Dublette zusammenführen",
+    "title": "Dublette zusammenführen · {{name}}",
+    "intro": "„{{name}}“ bleibt bestehen. Wähle den doppelten Ort, der darin aufgehen soll – danach entscheidest du für jede Angabe, welche bleibt.",
+    "pickLabel": "Doppelten Ort wählen",
+    "pickPlaceholder": "Name oder Stadt …",
+    "pickStep": "den doppelten Ort wählen",
+    "pickFailed": "Deine Orte konnten nicht geladen werden.",
+    "pickNone": "Kein anderer Ort passt.",
+    "metres_one": "{{count}} m entfernt",
+    "metres_other": "{{count}} m entfernt",
+    "kilometres_one": "{{count}} km entfernt",
+    "kilometres_other": "{{count}} km entfernt",
+    "pickedLine": "Wird zusammengeführt mit „{{name}}“.",
+    "pickOther": "Anderen Ort wählen",
+    "group": {
+      "name": "Name",
+      "localName": "Name in Landesschrift",
+      "category": "Kategorie",
+      "position": "Position",
+      "address": "Adresse",
+      "notes": "Notiz"
+    },
+    "side": {
+      "target": "Dieser Ort",
+      "source": "Der andere",
+      "both": "Beide"
+    },
+    "bothNotes": "Beide Notizen behalten",
+    "none": "—",
+    "same": "bei beiden gleich",
+    "apart": "Die beiden Positionen liegen {{metres}} m auseinander.",
+    "confirm": "Zusammenführen",
+    "failed": "Die Orte konnten nicht zusammengeführt werden. Es wurde nichts verändert.",
+    "merged": "„{{name}}“ ist zusammengeführt.",
+    "errors": {
+      "bothCurated": "Beide Orte sind Einträge von Checklisten – zusammengeführt ginge ein Haken verloren. Es wurde nichts verändert.",
+      "same": "Ein Ort kann nicht mit sich selbst zusammengeführt werden."
+    },
+    "impact": {
+      "title": "Von „{{name}}“ zu „{{kept}}“ ziehen um:",
+      "visits_one": "1 Besuch",
+      "visits_other": "{{count}} Besuche",
+      "photos_one": "1 Beleg-Foto",
+      "photos_other": "{{count}} Beleg-Fotos",
+      "documents_one": "1 Dokument",
+      "documents_other": "{{count}} Dokumente",
+      "lists_one": "die Liste {{names}}",
+      "lists_other": "{{count}} Listen: {{names}} – steht der Ort schon darin, bleibt es ein Eintrag",
+      "stations_one": "1 Trip-Station",
+      "stations_other": "{{count}} Trip-Stationen",
+      "counting": "Wird gezählt …",
+      "unknown": "Was umzieht, ließ sich nicht zählen – alle Besuche, Fotos, Dokumente und Listen ziehen trotzdem mit um.",
+      "deleted": "Danach wird „{{name}}“ gelöscht.",
+      "visited": "Der Ort zählt als besucht, weil einer der beiden besucht war.",
+      "wishlist": "Der Ort bleibt auf der Merkliste.",
+      "refKept": "Seine Kennung aus der Quelle bleibt als Zweitverweis erhalten – ein späterer Import findet ihn wieder."
+    },
+    "curated": {
+      "twoLists": "„{{kept}}“ und „{{other}}“ sind Einträge zweier Checklisten ({{lists}}). Zusammengeführt ginge ein Haken verloren – deshalb bleiben beide bestehen.",
+      "sameList": "„{{kept}}“ und „{{other}}“ sind zwei verschiedene Einträge der Checkliste {{list}}. Zusammengeführt ginge ein Haken verloren – deshalb bleiben beide bestehen."
+    }
+  },
+  "nearby": {
+    "title": "In der Nähe",
+    "subtitle": "Deine gespeicherten Orte rund um eine Unterkunft oder einen Punkt – ohne Standortfreigabe.",
+    "metres": "{{value}} m",
+    "kilometres": "{{value}} km",
+    "origin": {
+      "title": "Ausgangspunkt",
+      "mode": {
+        "lodging": "Unterkunft",
+        "point": "Ort oder Punkt",
+        "device": "Mein Standort"
+      },
+      "lodgingLabel": "Unterkunft",
+      "lodgingPlaceholder": "Unterkunft wählen …",
+      "lodgingsFailed": "Deine Unterkünfte konnten nicht geladen werden.",
+      "noLodgings": "Keine Unterkunft mit Standort. Wähle einen Ort oder Punkt.",
+      "unplacedLodgings_one": "Eine Unterkunft ohne Standort ist nicht wählbar.",
+      "unplacedLodgings_other": "{{count}} Unterkünfte ohne Standort sind nicht wählbar.",
+      "pointLabel": "Ort suchen oder Punkt setzen",
+      "deviceHint": "Dein Standort wird einmal abgefragt, nur für diese Ansicht – er wird nirgends gespeichert. Ohne Freigabe geht es über Unterkunft oder Punkt genauso.",
+      "deviceUse": "Standort einmal verwenden",
+      "deviceAsking": "Standort wird abgefragt …",
+      "device_denied": "Standort nicht freigegeben. Wähle stattdessen eine Unterkunft oder einen Punkt.",
+      "device_unavailable": "Der Standort ist gerade nicht verfügbar. Wähle stattdessen eine Unterkunft oder einen Punkt.",
+      "deviceLabel": "dein Standort",
+      "current": "Ausgangspunkt: {{label}}",
+      "linkedLodgingUnusable": "Diese Unterkunft hat keinen Standort – wähle einen anderen Ausgangspunkt."
+    },
+    "filter": {
+      "title": "Filter",
+      "radius": "Umkreis",
+      "states": "Zeigen"
+    },
+    "state": {
+      "visited": "Besucht",
+      "planned": "Geplant",
+      "excluded": "Gemerkt"
+    },
+    "results": {
+      "title": "Orte",
+      "count_one": "1 Ort bis {{radius}} um {{label}}",
+      "count_other": "{{count}} Orte bis {{radius}} um {{label}}",
+      "noOrigin": "Wähle einen Ausgangspunkt – eine Unterkunft, einen Ort oder einen Punkt auf der Karte.",
+      "none": "Keine gespeicherten Orte bis {{radius}}.",
+      "noneFiltered": "Keine Orte passen zu den Filtern.",
+      "wider": "Umkreis auf {{radius}} erweitern"
+    }
   }
 }

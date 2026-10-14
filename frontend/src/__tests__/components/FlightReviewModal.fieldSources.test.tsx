@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
-import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import FlightReviewModal from "../../components/FlightReviewModal";
 import type { ParsedBooking } from "../../types";
 
@@ -28,6 +28,7 @@ vi.mock("../../lib/api/airports", () => ({
 vi.mock("../../lib/api", () => ({
   airportsApi: { search: vi.fn().mockResolvedValue([]) },
   parseApi: { submitParserCorrection: vi.fn() },
+  setupApi: { getAirportSeedingStatus: vi.fn().mockResolvedValue({ status: "completed" }) },
 }));
 vi.mock("../../store/authStore", () => ({
   useAuthStore: () => ({ user: { id: "u1" } }),
@@ -40,7 +41,9 @@ vi.mock("@/hooks/useRecentCurrencies", async (importOriginal) => {
   return { ...actual, useRecentCurrencies: () => [] };
 });
 vi.mock("../../hooks/useTranslation", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  // `i18n` too: the "Zum Speichern fehlt noch" line joins its items in the
+  // reader's language (forgejo#245).
+  useTranslation: () => ({ t: (k: string) => k, i18n: { language: "de" } }),
 }));
 
 // The aircraft suggestion list loads on mount; an empty list is what the failed
@@ -64,9 +67,40 @@ vi.mock("@/lib/api/suggestions", async (importOriginal) => {
   };
 });
 
+// Settle lookup promises and the real suggestion debounce without sleeping.
+// Keep the real child components: these tests should catch broken wiring too.
+async function renderSettled(ui: ReactElement) {
+  let view!: ReturnType<typeof render>;
+  await act(async () => {
+    view = render(ui);
+  });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(300);
+  });
+  return view;
+}
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.spyOn(console, "error");
+  vi.spyOn(console, "warn");
+});
+
+afterEach(() => {
+  cleanup();
+  try {
+    expect(console.error).not.toHaveBeenCalled();
+    expect(console.warn).not.toHaveBeenCalled();
+  } finally {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  }
+});
+
 describe("FlightReviewModal fieldSources", () => {
-  it("applies green border class for template-sourced flight number field", () => {
-    render(
+  it("applies green border class for template-sourced flight number field", async () => {
+    await renderSettled(
       <FlightReviewModal
         isOpen={true}
         onClose={noop as unknown as () => void}
@@ -92,8 +126,8 @@ describe("FlightReviewModal parser info", () => {
     fieldSources: { flightNumber: "template" },
   };
 
-  it("renders parser template name when parserTemplate is set", () => {
-    render(
+  it("renders parser template name when parserTemplate is set", async () => {
+    await renderSettled(
       <FlightReviewModal
         isOpen={true}
         onClose={() => {}}
@@ -105,8 +139,8 @@ describe("FlightReviewModal parser info", () => {
     expect(screen.getByText("Lufthansa Buchungsdetails")).toBeInTheDocument();
   });
 
-  it("renders confidence pill when parserConfidence is set", () => {
-    render(
+  it("renders confidence pill when parserConfidence is set", async () => {
+    await renderSettled(
       <FlightReviewModal
         isOpen={true}
         onClose={() => {}}
@@ -119,8 +153,7 @@ describe("FlightReviewModal parser info", () => {
   });
 
   it("shows source text panel when toggle is clicked", async () => {
-    const user = userEvent.setup();
-    const { getByText, queryByText } = render(
+    const { getByText, queryByText } = await renderSettled(
       <FlightReviewModal
         isOpen={true}
         onClose={() => {}}
@@ -131,12 +164,12 @@ describe("FlightReviewModal parser info", () => {
       />
     );
     expect(queryByText(/Buchungscode: K9NB9B/)).not.toBeInTheDocument();
-    await user.click(getByText("flights:review.sourceText"));
+    fireEvent.click(getByText("flights:review.sourceText"));
     expect(getByText(/Buchungscode: K9NB9B/)).toBeInTheDocument();
   });
 
-  it("does not render parser info row when both parserTemplate and parserConfidence are absent", () => {
-    const { container } = render(
+  it("does not render parser info row when both parserTemplate and parserConfidence are absent", async () => {
+    const { container } = await renderSettled(
       <FlightReviewModal
         isOpen={true}
         onClose={() => {}}
@@ -146,5 +179,26 @@ describe("FlightReviewModal parser info", () => {
       />
     );
     expect(container.querySelector("[data-testid='parser-info-row']")).toBeNull();
+  });
+});
+
+describe("cancellation review (forgejo#298)", () => {
+  it("puts cancellation and unconfirmed-clock warnings inside the review", async () => {
+    await renderSettled(
+      <FlightReviewModal
+        isOpen
+        onClose={() => {}}
+        onConfirm={noop}
+        source="email"
+        initialData={{
+          ...parsedData,
+          airlineNotice: "flight_cancellation",
+          departureTime: "2025-07-10T00:00",
+          inferredFields: ["departureTime"],
+        }}
+      />
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("flights:review.cancellationNotice");
+    expect(screen.getByRole("alert")).toHaveTextContent("flights:review.unconfirmedTimeNotice");
   });
 });

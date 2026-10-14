@@ -20,6 +20,26 @@ import { localDateValueSchema, timeValueSchema } from "../shared/time/wire";
 const time = timeValueSchema.nullable();
 const day = localDateValueSchema.nullable();
 
+/**
+ * The booking deadlines (forgejo#285) a stay, a rental and a booking share.
+ * A cancellation deadline is EITHER an instant (`freeCancellationUntil`) OR a
+ * day (`freeCancellationOn`) — at most one is non-null; nothing invents an hour.
+ */
+const deadlineMembers = {
+  freeCancellationUntil: time.describe(
+    "Free cancellation until this instant, on the clock it was stated on; null when not " +
+      "recorded or known only to the day."
+  ),
+  freeCancellationOn: day.describe(
+    "Free cancellation until the END of this local day — the deadline known only to the day. " +
+      "`zone` is the place's, null for an entity without one. Null when not recorded or when " +
+      "`freeCancellationUntil` holds the instant."
+  ),
+  paymentDue: day.describe(
+    "The day payment is due — a calendar day with no zone; null when not recorded."
+  ),
+};
+
 export const flightTimesSchema = z
   .object({
     departure: time,
@@ -30,6 +50,10 @@ export const flightTimesSchema = z
     actualArrival: time,
     runwayDeparture: time.describe("Wheels-up as a provider reported it."),
     runwayArrival: time,
+    onlineCheckInOpens: time.describe(
+      "When online check-in opens, on the clock it was stated on (forgejo#285); null when " +
+        "not recorded — never derived from the departure."
+    ),
   })
   .openapi("FlightTimes", {
     description:
@@ -43,6 +67,12 @@ export const railTimesSchema = z
   .openapi("RailTimes", { description: "Planned and actual times at their stations." });
 export type RailTimes = z.infer<typeof railTimesSchema>;
 
+/** A bus ride's times — rail's shape under the bus name (the two ends carry rail's columns). */
+export const busTimesSchema = z
+  .object({ departure: time, arrival: time, actualDeparture: time, actualArrival: time })
+  .openapi("BusTimes", { description: "Planned and actual times at their terminals." });
+export type BusTimes = z.infer<typeof busTimesSchema>;
+
 export const rentalTimesSchema = z
   .object({
     pickup: time.describe(
@@ -51,6 +81,11 @@ export const rentalTimesSchema = z
     return: time.describe("Booked return at the return station's clock."),
     actualPickup: time.describe("Pickup as an agreement, an invoice or the user recorded it."),
     actualReturn: time,
+    depositPaid: day.describe(
+      "The day the deposit was held, as the statement shows it — no zone (forgejo#238)."
+    ),
+    depositReturned: day.describe("The day the deposit came back; null while it is held."),
+    ...deadlineMembers,
   })
   .openapi("RentalTimes", { description: "Booked and actual times at their stations." });
 export type RentalTimes = z.infer<typeof rentalTimesSchema>;
@@ -63,9 +98,15 @@ export const stayTimesSchema = z
       "Check-in day plus its time on the hotel's clock; null without a time."
     ),
     checkOutAt: time,
+    ...deadlineMembers,
   })
   .openapi("StayTimes", { description: "A stay's days and, where known, its hours." });
 export type StayTimes = z.infer<typeof stayTimesSchema>;
+
+export const bookingTimesSchema = z.object(deadlineMembers).openapi("BookingTimes", {
+  description: "A booking's deadlines (forgejo#285): free cancellation and payment due.",
+});
+export type BookingTimes = z.infer<typeof bookingTimesSchema>;
 
 export const visitTimesSchema = z
   .object({
@@ -113,6 +154,19 @@ export const journalEntryTimesSchema = z
   .openapi("JournalEntryTimes", { description: "The day a journal entry is written about." });
 export type JournalEntryTimes = z.infer<typeof journalEntryTimesSchema>;
 
+export const noteTimesSchema = z
+  .object({
+    occurredAt: timeValueSchema.describe(
+      "When the note is filed, on the clock of the zone it was written in; precision `day` " +
+        "for a note dated to the day only."
+    ),
+    day: localDateValueSchema.describe(
+      "The day the note belongs to — read in the zone it was written in, not the reader's."
+    ),
+  })
+  .openapi("NoteTimes", { description: "A standalone note's moment and its day." });
+export type NoteTimes = z.infer<typeof noteTimesSchema>;
+
 export const roadtripStationTimesSchema = z
   .object({ start: day, end: day })
   .openapi("RoadtripStationTimes", {
@@ -124,8 +178,10 @@ export type RoadtripStationTimes = z.infer<typeof roadtripStationTimesSchema>;
 export const TIMES_SCHEMAS = {
   FlightTimes: flightTimesSchema,
   RailTimes: railTimesSchema,
+  BusTimes: busTimesSchema,
   RentalTimes: rentalTimesSchema,
   StayTimes: stayTimesSchema,
+  BookingTimes: bookingTimesSchema,
   VisitTimes: visitTimesSchema,
   PlaceTimes: placeTimesSchema,
   CruiseTimes: cruiseTimesSchema,
@@ -134,4 +190,5 @@ export const TIMES_SCHEMAS = {
   TripStopTimes: tripStopTimesSchema,
   JournalEntryTimes: journalEntryTimesSchema,
   RoadtripStationTimes: roadtripStationTimesSchema,
+  NoteTimes: noteTimesSchema,
 } as const;

@@ -42,6 +42,7 @@ vi.mock("../../store/toastStore", () => ({
 
 const mockNavigate = vi.fn();
 import { MemoryRouter } from "react-router-dom";
+import { getNamed } from "../helpers/namedElement";
 
 // Measured 2026-09-19: this page's paged-rows case renders in about a second
 // on a developer machine and past Vitest's 5 s default on the CI runner under
@@ -53,6 +54,11 @@ vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
   return { ...actual, useNavigate: () => mockNavigate };
 });
+
+// The delete question asks how many originals go with the cruise
+// (forgejo#250); counted in its own test, silent here so no request leaves.
+const documentCount = vi.fn((): number | null => null);
+vi.mock("../../hooks/useDocumentCount", () => ({ useDocumentCount: () => documentCount() }));
 
 vi.mock("../../lib/api", () => ({
   cruiseApi: {
@@ -148,7 +154,7 @@ describe("CruisesPage", () => {
     // Default sort is date/desc — newest first.
     expect(lastSort()).toMatchObject({ sort: "date", order: "desc" });
 
-    await userEvent.click(screen.getByRole("button", { name: /columns\.dates/ }));
+    await userEvent.click(getNamed("button", /columns\.dates/));
 
     // Clicking the already-active "date" header toggles to asc.
     await waitFor(() => expect(lastSort()).toMatchObject({ sort: "date", order: "asc" }));
@@ -171,7 +177,7 @@ describe("CruisesPage", () => {
 
     await screen.findByRole("table");
 
-    await userEvent.click(screen.getByRole("button", { name: "common:buttons.delete" }));
+    await userEvent.click(getNamed("button", "common:buttons.delete"));
 
     const dialog = await screen.findByRole("dialog");
     // The list and the detail page share these keys now — deleting a cruise
@@ -182,6 +188,39 @@ describe("CruisesPage", () => {
     const message = within(dialog).getByText(/deleteConfirmMessageNoStops/);
     // …and it names the ship, which this dialog never did before.
     expect(message.textContent).toContain("Solo Ship");
+  });
+
+  // forgejo#250: the list's question used to stop at the port calls — the
+  // originals filed with the cruise went unmentioned here while the detail
+  // page named them, and neither said WHICH trip stays.
+  it("names the originals that go with the cruise and the trip that stays, in red", async () => {
+    documentCount.mockReturnValue(2);
+    const cruise = makeCruise({
+      id: "a",
+      shipNameOverride: "Solo Ship",
+      startDate: "2026-01-10",
+      tripId: "t1",
+      trip: { id: "t1", name: "Norwegen 2026", color: "#fff" },
+    });
+    vi.mocked(cruiseApi.listPage).mockImplementation(pageOf([cruise]));
+    vi.mocked(cruiseApi.facets).mockResolvedValue(facetsFor([cruise]));
+    try {
+      render(
+        <MemoryRouter>
+          <CruisesPage />
+        </MemoryRouter>
+      );
+      await screen.findByRole("table");
+      await userEvent.click(getNamed("button", "common:buttons.delete"));
+
+      const dialog = await screen.findByRole("dialog");
+      expect(dialog.textContent).toContain("documents:deleteCascadeNote(count:2)");
+      expect(dialog.textContent).toContain("cruise:deleteSurvivors.trip(name:Norwegen 2026)");
+      const confirm = within(dialog).getByRole("button", { name: "common:buttons.delete" });
+      expect(confirm.className).toContain("bg-[var(--danger)]");
+    } finally {
+      documentCount.mockReturnValue(null);
+    }
   });
 
   // Review finding (Alex T7, round 1): nothing tested that the wiring

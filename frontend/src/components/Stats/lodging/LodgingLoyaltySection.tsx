@@ -1,8 +1,11 @@
 import type { JSX } from "react";
+import TableScroll from "../../ui/TableScroll";
 import { Link } from "react-router-dom";
 import { useTranslation } from "../../../hooks/useTranslation";
 import type { LodgingStats } from "../../../types/lodging";
 import StatCard from "../StatCard";
+import CountingHelp from "../counting/CountingHelp";
+import type { EvidenceScopeParams } from "../../evidence/useEvidence";
 import RankedBarList from "./RankedBarList";
 import { loyaltyListLink } from "../../Loyalty/LoyaltyListFilter";
 
@@ -11,6 +14,12 @@ const LIST_LIMIT = 8;
 
 interface Props {
   stats: LodgingStats;
+  /**
+   * The population these figures were measured over, present only where a
+   * tile may open the evidence panel — the statistics page passes it, a
+   * screen without a chosen period does not, and its tiles stay plain.
+   */
+  evidenceScope?: EvidenceScopeParams;
 }
 
 /**
@@ -25,7 +34,7 @@ interface Props {
  * loyal" even for someone who stays in chains twice a year and sleeps in
  * guesthouses the rest of the time.
  */
-export default function LodgingLoyaltySection({ stats }: Props): JSX.Element {
+export default function LodgingLoyaltySection({ stats, evidenceScope }: Props): JSX.Element {
   const { t } = useTranslation(["lodging"]);
   const { loyalty } = stats;
   const totalNights = loyalty.chainNights + loyalty.independentNights;
@@ -44,6 +53,14 @@ export default function LodgingLoyaltySection({ stats }: Props): JSX.Element {
     []
   );
 
+  // Every share here is read off the chain nights (`lodgingChainNightsTotal`,
+  // each stay naming its chain); the top chain opens its own nights, which is
+  // the number its description states.
+  const opens = (key: string, renderedValue: number | null) =>
+    evidenceScope
+      ? { kind: "metric" as const, key, scope: evidenceScope, renderedValue }
+      : undefined;
+
   return (
     <section className="mt-8">
       <h2 className="mb-6 text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
@@ -55,6 +72,7 @@ export default function LodgingLoyaltySection({ stats }: Props): JSX.Element {
           accent={LODGING_ACCENT}
           valueSize="md"
           title={t("lodging:stats.loyalty.chainShare")}
+          evidence={opens("lodgingChainNightsTotal", null)}
           value={totalNights > 0 ? percent(loyalty.chainNights / totalNights) : "—"}
           description={t("lodging:stats.loyalty.chainShareDesc", {
             chain: loyalty.chainNights,
@@ -65,6 +83,7 @@ export default function LodgingLoyaltySection({ stats }: Props): JSX.Element {
           accent={LODGING_ACCENT}
           valueSize="md"
           title={t("lodging:stats.loyalty.topChain")}
+          evidence={opens("lodgingTopChainNights", loyalty.topChain?.nights ?? null)}
           value={loyalty.topChain?.name ?? "—"}
           description={
             loyalty.topChain
@@ -76,6 +95,7 @@ export default function LodgingLoyaltySection({ stats }: Props): JSX.Element {
           accent={LODGING_ACCENT}
           valueSize="md"
           title={t("lodging:stats.loyalty.topChainShare")}
+          evidence={opens("lodgingChainNightsTotal", null)}
           value={percent(loyalty.topChainShare)}
           description={t("lodging:stats.loyalty.topChainShareDesc")}
         />
@@ -83,6 +103,7 @@ export default function LodgingLoyaltySection({ stats }: Props): JSX.Element {
           accent={LODGING_ACCENT}
           valueSize="md"
           title={t("lodging:stats.loyalty.concentration")}
+          evidence={opens("lodgingChainNightsTotal", null)}
           value={loyalty.concentration !== null ? loyalty.concentration.toFixed(2) : "—"}
           description={t("lodging:stats.loyalty.concentrationDesc")}
           footnote={t("lodging:stats.loyalty.concentrationFootnote")}
@@ -113,7 +134,11 @@ export default function LodgingLoyaltySection({ stats }: Props): JSX.Element {
             color: "var(--text-primary)",
           }}
         >
-          <h3 className="mb-3 text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+          <h3
+            id="lodging-loyalty-programmes"
+            className="mb-3 text-sm font-medium"
+            style={{ color: "var(--text-muted)" }}
+          >
             {t("lodging:stats.loyalty.programmeYears")}
           </h3>
           {/* The CARD's tier belongs to today, not to a year: printed beside
@@ -131,54 +156,89 @@ export default function LodgingLoyaltySection({ stats }: Props): JSX.Element {
               {t("lodging:stats.loyalty.noProgrammes")}
             </p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ color: "var(--text-muted)" }}>
-                  <th className="pb-2 text-left font-normal">
-                    {t("lodging:stats.loyalty.programme")}
-                  </th>
-                  <th className="pb-2 text-left font-normal">{t("lodging:stats.loyalty.year")}</th>
-                  <th className="pb-2 text-right font-normal">
-                    {t("lodging:stats.loyalty.nights")}
-                  </th>
-                  <th className="pb-2 text-right font-normal">
-                    {t("lodging:stats.loyalty.stays")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {loyalty.programmeYears.map((row) => (
-                  <tr key={`${row.programme}-${row.year}`}>
-                    <td className="py-1">
-                      {/* The hotels whose stays make up this row's nights —
-                          the list the tester asked to reach from the figure. */}
-                      {row.membershipId ? (
-                        <Link
-                          to={loyaltyListLink("lodging", row.membershipId, Number(row.year))}
-                          title={t("lodging:stats.loyalty.staysLink", { year: row.year })}
-                          className="hover:underline"
-                          style={{ color: "var(--ts-accent)" }}
-                        >
-                          {row.programme}
-                        </Link>
-                      ) : (
-                        row.programme
-                      )}
-                    </td>
-                    <td className="py-1">{row.year}</td>
-                    <td className="py-1 text-right" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {row.nights}
-                    </td>
-                    <td className="py-1 text-right" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {row.stays}
-                    </td>
+            <TableScroll labelledBy="lodging-loyalty-programmes">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ color: "var(--text-muted)" }}>
+                    <th className="pb-2 text-left font-normal">
+                      {t("lodging:stats.loyalty.programme")}
+                    </th>
+                    <th className="pb-2 text-left font-normal">
+                      {t("lodging:stats.loyalty.year")}
+                    </th>
+                    <th className="pb-2 text-right font-normal">
+                      {t("lodging:stats.loyalty.nights")}
+                    </th>
+                    <th className="pb-2 text-right font-normal">
+                      {t("lodging:stats.loyalty.stays")}
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {loyalty.programmeYears.map((row) => (
+                    <tr key={`${row.programme}-${row.year}`}>
+                      <td className="py-1">
+                        {/* The hotels whose stays make up this row's nights —
+                          the list the tester asked to reach from the figure. */}
+                        {row.membershipId ? (
+                          <Link
+                            to={loyaltyListLink("lodging", row.membershipId, Number(row.year))}
+                            title={t("lodging:stats.loyalty.staysLink", { year: row.year })}
+                            className="hover:underline"
+                            style={{ color: "var(--ts-accent)" }}
+                          >
+                            {row.programme}
+                          </Link>
+                        ) : (
+                          row.programme
+                        )}
+                      </td>
+                      <td className="py-1">{row.year}</td>
+                      <td
+                        className="py-1 text-right"
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                      >
+                        {row.nights}
+                      </td>
+                      <td
+                        className="py-1 text-right"
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                      >
+                        {row.stays}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableScroll>
           )}
         </div>
       </div>
+
+      <CountingHelp
+        testId="lodging-loyalty-help"
+        entries={[
+          {
+            term: t("lodging:stats.loyalty.chainShare"),
+            helpKey: "lodging:stats.help.chainShare",
+            values: { chain: loyalty.chainNights, independent: loyalty.independentNights },
+          },
+          { term: t("lodging:stats.loyalty.topChain"), helpKey: "lodging:stats.help.topChain" },
+          {
+            term: t("lodging:stats.loyalty.topChainShare"),
+            helpKey: "lodging:stats.help.topChainShare",
+          },
+          {
+            term: t("lodging:stats.loyalty.concentration"),
+            helpKey: "lodging:stats.help.concentration",
+          },
+          { term: t("lodging:stats.loyalty.byChain"), helpKey: "lodging:stats.help.chainRanking" },
+          {
+            term: t("lodging:stats.loyalty.programmeYears"),
+            helpKey: "lodging:stats.help.programmeYears",
+          },
+        ]}
+      />
     </section>
   );
 }

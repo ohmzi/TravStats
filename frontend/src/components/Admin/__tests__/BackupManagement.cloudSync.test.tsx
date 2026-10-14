@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import adminDe from "../../../i18n/resources/de/admin.json";
 
 /**
@@ -103,8 +104,21 @@ describe("uploading a backup by hand", () => {
     await waitFor(() => expect(post).toHaveBeenCalledWith("/backup/backup-1/sync"));
   });
 
+  it("offers re-upload for a legacy cloud backup whose deletion target is unknown", async () => {
+    mockGets([{ ...UNSYNCED_BACKUP, syncedToCloud: true, cloudTarget: null }]);
+    render(<BackupManagement />);
+    expect(await screen.findByRole("button", { name: "Hochladen" })).toBeInTheDocument();
+  });
+
   it("does not offer it for a backup that is already up there", async () => {
-    mockGets([{ ...UNSYNCED_BACKUP, syncedToCloud: true, cloudSyncAt: "2026-09-12T02:05:00Z" }]);
+    mockGets([
+      {
+        ...UNSYNCED_BACKUP,
+        syncedToCloud: true,
+        cloudTarget: "known-target",
+        cloudSyncAt: "2026-09-12T02:05:00Z",
+      },
+    ]);
     vi.spyOn(api, "post").mockResolvedValue({ data: {} } as never);
 
     render(<BackupManagement />);
@@ -146,8 +160,10 @@ describe("uploading a backup by hand", () => {
 
     render(<BackupManagement />);
 
-    const cell = await screen.findByTitle(/401/);
-    expect(cell.textContent).toContain("Fehlgeschlagen");
+    // The reason opens on a tap or a key, not only on hover (forgejo#249).
+    const cell = await screen.findByRole("button", { name: /Fehlgeschlagen/ });
+    await userEvent.click(cell);
+    expect(screen.getByRole("dialog")).toHaveTextContent(/401/);
   });
 });
 

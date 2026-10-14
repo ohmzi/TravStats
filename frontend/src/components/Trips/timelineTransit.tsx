@@ -3,6 +3,8 @@ import type { JSX } from "react";
 import { RailTripCard } from "../rail/RailTripCard";
 import { RentalTripCard } from "../rental/RentalTripCard";
 import { RoadtripStationTimelineCard } from "./RoadtripStationTimelineCard";
+import { FerryTripCard } from "../ferry/FerryTripCard";
+import { BusTripCard } from "../bus/BusTripCard";
 import { formatTimelineDate } from "../../lib/tripTimeline";
 import type { TimelineEvent } from "../../lib/tripTimelineEvents";
 import { rentalBandSegments, type RentalBandSegment } from "../../lib/rentalTimelineBands";
@@ -13,12 +15,17 @@ import { rentalBandSegments, type RentalBandSegment } from "../../lib/rentalTime
  * the file-size ratchet freezes at its size.
  */
 
-/** A train ride, a rental end or a roadtrip station; null for every other entry. */
+/** A train ride, a bus ride, a rental end or a roadtrip station; null for every other entry. */
 export function TransitCard({ ev }: { ev: TimelineEvent }): JSX.Element | null {
   if (ev.kind === "rail") {
     return (
       <RailTripCard journey={ev.journey} date={ev.date} dateLabel={formatTimelineDate(ev.when)} />
     );
+  }
+  if (ev.kind === "ferry")
+    return <FerryTripCard ride={ev.ride} date={ev.date} dateLabel={formatTimelineDate(ev.when)} />;
+  if (ev.kind === "bus") {
+    return <BusTripCard ride={ev.ride} date={ev.date} dateLabel={formatTimelineDate(ev.when)} />;
   }
   if (ev.kind === "rental-pickup" || ev.kind === "rental-return") {
     return (

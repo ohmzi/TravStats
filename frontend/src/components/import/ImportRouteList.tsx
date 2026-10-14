@@ -1,5 +1,5 @@
 import type { JSX, ReactNode } from "react";
-import type { ImportRoute } from "./types";
+import type { ImportRoute, ImportRouteContext } from "./types";
 
 /**
  * The rows of the "what do you have?" chooser, shared by every domain.
@@ -67,10 +67,12 @@ export function ImportRouteRow({
 
 interface ImportRouteListProps {
   routes: ImportRoute[];
+  /** Handed to each route's inline body; see `ImportRouteContext`. */
+  context?: ImportRouteContext;
 }
 
 /** Renders every route that is not hidden, in the order the adapter gave. */
-export function ImportRouteList({ routes }: ImportRouteListProps): JSX.Element {
+export function ImportRouteList({ routes, context }: ImportRouteListProps): JSX.Element {
   return (
     <>
       {routes
@@ -85,7 +87,7 @@ export function ImportRouteList({ routes }: ImportRouteListProps): JSX.Element {
             actionLabel={r.actionLabel}
             onSelect={r.onSelect}
           >
-            {r.render?.()}
+            {r.render?.(context)}
           </ImportRouteRow>
         ))}
     </>
@@ -108,7 +110,7 @@ export function ImportManualFooter({ label, onSelect }: ManualFooterProps): JSX.
       <button
         type="button"
         onClick={onSelect}
-        className="text-xs text-(--text-muted) underline underline-offset-4 hover:text-(--text-primary)"
+        className="text-xs text-(--text-muted) underline underline-offset-4 hover:text-(--text-primary) pointer-coarse:inline-flex pointer-coarse:min-h-(--ts-size-touch-min) pointer-coarse:items-center"
       >
         {label}
       </button>

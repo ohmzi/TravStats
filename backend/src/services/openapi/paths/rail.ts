@@ -10,6 +10,8 @@ import { z } from "zod";
 
 import { registry } from "../registry";
 import { includedRow, prismaColumns } from "../prismaColumns";
+import { clientRefBodySchema } from "../../../schemas/clientRef";
+import { clientRefResponses } from "./clientRef";
 import { errorContent, timeRefused } from "./shared";
 import { documentIdsBodySchema } from "../../../schemas/document";
 import {
@@ -122,6 +124,12 @@ const railJourney = registry.register(
         .int()
         .nullable()
         .describe("Arrival delay; null = not recorded, 0 = on time"),
+      tightConnection: z
+        .boolean()
+        .describe(
+          "The user's own mark that the change AFTER this train is tight; set on the " +
+            "leg that arrives at the change. Never derived"
+        ),
       trip: includedRow("trip (id, name, color)").nullable().optional(),
       times: railTimesSchema,
       source: railSource,
@@ -145,6 +153,17 @@ const railBookingLeg = z.object({
   trainCategory: z.string().nullable(),
   trainNumber: z.string().nullable(),
   status: z.enum(RAIL_STATUSES),
+  depStationId: z.number().int().nullable(),
+  arrStationId: z.number().int().nullable(),
+  depLat: z.number(),
+  depLon: z.number(),
+  arrLat: z.number(),
+  arrLon: z.number(),
+  travelClass: z.enum(RAIL_TRAVEL_CLASSES).nullable(),
+  coach: z.string().nullable(),
+  seat: z.string().nullable(),
+  bookingReference: z.string().nullable(),
+  tightConnection: z.boolean().describe("The user's mark that the change after this leg is tight"),
   times: railTimesSchema,
 });
 
@@ -309,7 +328,8 @@ registry.registerPath({
         "application/json": {
           schema: createRailJourneySchema
             .openapi("RailJourneyCreateInput")
-            .and(documentIdsBodySchema),
+            .and(documentIdsBodySchema)
+            .and(clientRefBodySchema),
         },
       },
     },
@@ -320,6 +340,7 @@ registry.registerPath({
       description: "Created",
       content: { "application/json": { schema: writeEnvelope(railJourney) } },
     },
+    ...clientRefResponses({ "application/json": { schema: writeEnvelope(railJourney) } }),
     400: { description: "Validation failed", content: errorContent },
     404: { description: "Trip or booking not found", content: errorContent },
     429: { description: "Too many journeys created", content: errorContent },
@@ -437,5 +458,57 @@ registry.registerPath({
     },
     401: { description: "Missing or invalid token", content: errorContent },
     404: { description: "No such journey, or not the caller's", content: errorContent },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/rail/{id}/route",
+  tags: ["Rail"],
+  summary: "Re-fetch a journey's line without changing its stations or booking",
+  request: { params: z.object({ id: z.string().uuid() }) },
+  responses: {
+    200: {
+      description: "Current journey and route outcome, including a failed provider's reason",
+      content: { "application/json": { schema: writeEnvelope(railJourney) } },
+    },
+    401: { description: "Authentication required", content: errorContent },
+    403: {
+      description: "Write access required; unavailable for the shared demo",
+      content: errorContent,
+    },
+    404: { description: "Journey not found", content: errorContent },
+    409: { description: "Journey changed while routing", content: errorContent },
+    429: { description: "Too many routing requests", content: errorContent },
+  },
+});
+registry.registerPath({
+  method: "get",
+  path: "/rail/operators",
+  tags: ["Rail"],
+  summary: "Known rail operators",
+  responses: {
+    200: {
+      description: "Operator catalogue",
+      content: {
+        "application/json": {
+          schema: envelope(z.array(z.object({ id: z.string(), name: z.string() }))),
+        },
+      },
+    },
+  },
+});
+registry.registerPath({
+  method: "get",
+  path: "/rail/operators/logo",
+  tags: ["Rail"],
+  summary: "Known operator logo, or no logo",
+  request: { query: z.object({ name: z.string().min(1).max(120) }) },
+  responses: {
+    200: {
+      description: "Raster logo",
+      content: { "image/png": { schema: z.string().openapi({ format: "binary" }) } },
+    },
+    404: { description: "Unknown operator or no logo available", content: errorContent },
   },
 });

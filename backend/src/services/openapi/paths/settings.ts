@@ -54,6 +54,10 @@ registry.registerPath({
   method: "get",
   path: "/settings",
   summary: "Get the user's settings",
+  description:
+    "Carries read-only instance flags beside the user's own settings: `betaFeaturesEnabled`, " +
+    "`openDataEnabled` and `shareLinksEnabled` (public share links, forgejo#281 — offer " +
+    "'share as link' only while it is on).",
   tags: settingsTag,
   responses: { 200: { description: "Settings" } },
 });
@@ -65,7 +69,9 @@ registry.registerPath({
   description:
     "Includes which domains are switched on. Switching one off hides it " +
     "everywhere and deletes nothing — the data is waiting if it is switched " +
-    "back on.",
+    "back on. `homeCountry` (ISO 3166-1 alpha-2, upper-case, or null to " +
+    "clear) decides which booking templates are tried first; templates for " +
+    "other countries stay active.",
   tags: settingsTag,
   responses: { 422: timeRefused, 200: { description: "Saved" }, 400: badInput },
 });
@@ -129,11 +135,13 @@ registry.registerPath({
 
 registry.registerPath({
   method: "get",
-  path: "/settings/profile-picture/{filename}",
+  path: "/settings/profile-picture/{filename}/content",
   summary: "Fetch a profile picture",
   description:
-    "Sets its own `Cache-Control: private`, overriding the API-wide `no-store`. " +
-    "Private and never public: a shared cache must not hold one user's face.",
+    "Answered with `Cache-Control: private, no-store`: a shared cache must not hold " +
+    "one user's face. The former URL `/settings/profile-picture/{filename}` ends in " +
+    "the image's extension, which extension-based proxy caches store regardless of " +
+    "headers; it answers a 308 redirect to this one.",
   tags: settingsTag,
   request: { params: z.object({ filename: z.string() }) },
   responses: {

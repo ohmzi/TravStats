@@ -1,3 +1,6 @@
+import { useVisibleTrip } from "../hooks/useVisibleTrip";
+import { useEnabledDomains } from "../hooks/useEnabledDomains";
+import { deadlineSummary } from "../lib/deadlines";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { tripsApi } from "../lib/api";
@@ -12,8 +15,7 @@ import {
 import { clockOf, type TimeValue } from "../shared/time";
 import { logger } from "../lib/logger";
 import { EDIT_PARAM, useEditDeepLink } from "../lib/editDeepLink";
-import { sumByCurrency } from "../lib/bookingCost";
-import { formatAmount, formatCurrency } from "../lib/units";
+import { formatAmount } from "../lib/units";
 import { assessStayPlausibility } from "../shared/stayPlausibility";
 import { computeRailStates } from "../lib/timelineRail";
 import { buildTimelineEvents, type TimelineEvent } from "../lib/tripTimelineEvents";
@@ -21,12 +23,11 @@ import { ExpandableEventCard } from "../components/Trip/ExpandableEventCard";
 import { JournalCard, RowActions } from "../components/Trips/TimelineJournalCard";
 import { dotColor } from "../components/Trips/timelineDotColor";
 import { useToastStore } from "../store/toastStore";
-import { useEnabledDomains } from "../hooks/useEnabledDomains";
 import { usePlacesVisible } from "../hooks/usePlacesVisible";
 import { useTranslation } from "../hooks/useTranslation";
 import { useConfirmDialog } from "../hooks/useConfirmDialog";
 import { DetailRow, OpenFullLink } from "../components/Trips/TimelineDetailParts";
-import type { Booking, Trip, TripJournalEntry, TripStop } from "../types";
+import type { Trip, TripJournalEntry, TripStop } from "../types";
 import AppShell from "../components/ui/AppShell";
 import TripOverview from "../components/Trips/TripOverview";
 import JourneyTripsTab from "../components/Trips/JourneyTripsTab";
@@ -34,7 +35,7 @@ import JournalEntryModal from "../components/Trips/JournalEntryModal";
 import TimelineActions from "../components/Trips/TimelineActions";
 import JournalViewModal from "../components/Trips/JournalViewModal";
 import StopModal from "../components/Trips/StopModal";
-import BookingEditModal from "../components/Trips/BookingEditModal";
+import { TripBookingsPanel } from "../components/Trips/TripBookingsPanel";
 import TripMapWithTours from "../components/Trips/TripMapWithTours";
 import TripGallery from "../components/Trips/TripGallery";
 import EntityPage from "../components/Entity/EntityPage";
@@ -42,16 +43,16 @@ import EntityHeader from "../components/Entity/EntityHeader";
 import EntityTabBar from "../components/ui/EntityTabBar";
 import { useTripRoadtrips } from "../components/Roadtrips/useTripRoadtrips";
 import { PanelHeader, Placeholder } from "../components/Trips/TripDetailPanels";
-import { RowActionButton } from "../components/table/RowActionButton";
 import { formatTimelineDate } from "../lib/tripTimeline";
-import { TripRailList } from "../components/rail/RailTripCard";
-import { useRailVisible } from "../hooks/useRailVisible";
-import { useRentalVisible } from "../hooks/useRentalVisible";
+import { TripGroundLists, groundRideCount } from "../components/Trips/TripGroundLists";
 import { RentalBand, TransitCard, useRentalBands } from "../components/Trips/timelineTransit";
-import { listPlaces } from "../lib/api/places";
+import { useTripPlaceVisits } from "../hooks/useTripPlaceVisits";
+import { useTripNotes } from "../hooks/useTripNotes";
+import { TimelineNoteCard, TripNotesNotice } from "../components/Trips/TimelineNoteCard";
+import NoteEditorDialog from "../components/notes/NoteEditorDialog";
+import type { Note } from "../lib/api/notes";
 import { PLACE_CATEGORY_ICONS } from "../shared/placeCategories";
 import { placeSubtitle } from "../lib/placeNames";
-import type { Place, PlaceVisit } from "../types/place";
 
 type TabKey = "overview" | "timeline" | "map" | "gallery" | "logistics" | "trips";
 const TABS: TabKey[] = ["overview", "timeline", "map", "gallery", "logistics", "trips"];
@@ -114,37 +115,7 @@ export default function TripDetailPage(): JSX.Element {
   // The shell's figures band (design §2) sums the trips' driven km and the flights' distance.
   const { rows: roadtrips } = useTripRoadtrips(id ?? "", isEnabled("roadtrip"));
 
-  // Domain-gating: a disabled domain's segments are stripped from the trip copy
-  // every tab reads; a banner below the tab bar says they are hidden, not lost.
-  const cruiseEnabled = isEnabled("cruise");
-  const lodgingEnabled = isEnabled("lodging");
-  // Rail and rentals ask their own hooks: the beta switch AND the domain.
-  const railVisible = useRailVisible();
-  const rentalVisible = useRentalVisible();
-  const displayTrip = useMemo<Trip | null>(() => {
-    const allShown = cruiseEnabled && lodgingEnabled && railVisible && rentalVisible;
-    if (trip === null || allShown) return trip;
-    return {
-      ...trip,
-      cruises: cruiseEnabled ? trip.cruises : [],
-      lodgingStays: lodgingEnabled ? trip.lodgingStays : [],
-      railJourneys: railVisible ? trip.railJourneys : [],
-      rentalBookings: rentalVisible ? trip.rentalBookings : [],
-      _count: trip._count
-        ? {
-            ...trip._count,
-            ...(cruiseEnabled ? {} : { cruises: 0 }),
-            ...(lodgingEnabled ? {} : { lodgingStays: 0 }),
-          }
-        : trip._count,
-    };
-  }, [trip, cruiseEnabled, lodgingEnabled, railVisible, rentalVisible]);
-  const hiddenCruiseCount = cruiseEnabled
-    ? 0
-    : (trip?._count?.cruises ?? trip?.cruises?.length ?? 0);
-  const hiddenLodgingCount = lodgingEnabled
-    ? 0
-    : (trip?._count?.lodgingStays ?? trip?.lodgingStays?.length ?? 0);
+  const { displayTrip, hiddenCruiseCount, hiddenLodgingCount } = useVisibleTrip(trip);
 
   const load = async (): Promise<void> => {
     if (!id) return;
@@ -290,39 +261,9 @@ function TimelineTab({ trip, onChanged, t, language }: TimelineTabProps): JSX.El
   // Both the user's domain choice and the instance beta flag, via the one
   // hook that combines them — see hooks/usePlacesVisible.ts.
   const poiEnabled = usePlacesVisible();
-  const id = trip.id;
-  /** Places visited on THIS trip, with the visit that ties them to it. A place
-   *  is a first-class row of its own now, so the trip READS it rather than
-   *  owning it — which is what #177 asked for. */
-  const [placeVisits, setPlaceVisits] = useState<{ place: Place; visit: PlaceVisit }[]>([]);
-
-  // Places are their own domain, so they are fetched separately rather than
-  // embedded in the trip payload. A failure here must not blank the trip: the
-  // timeline simply shows no places, which is what it did before they existed.
-  useEffect(() => {
-    if (!id || !poiEnabled) {
-      setPlaceVisits([]);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const places = await listPlaces({ tripId: id });
-        if (cancelled) return;
-        setPlaceVisits(
-          places.flatMap((place) =>
-            place.visits.filter((v) => v.tripId === id).map((visit) => ({ place, visit }))
-          )
-        );
-      } catch (err: unknown) {
-        logger.error({ err }, "TripDetailPage: failed to load place visits");
-        if (!cancelled) setPlaceVisits([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [id, poiEnabled]);
+  const placeVisits = useTripPlaceVisits(trip.id, poiEnabled);
+  const tripNotes = useTripNotes(trip.id);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
 
   const [adding, setAdding] = useState<null | "journal" | "stop">(null);
   const [editingJournal, setEditingJournal] = useState<TripJournalEntry | null>(null);
@@ -341,8 +282,8 @@ function TimelineTab({ trip, onChanged, t, language }: TimelineTabProps): JSX.El
     else addToast("error", t("trips:detail.journalEntryNotFound"));
   });
   const events = useMemo<TimelineEvent[]>(
-    () => buildTimelineEvents(trip, placeVisits),
-    [trip, placeVisits]
+    () => buildTimelineEvents(trip, placeVisits, tripNotes.notes),
+    [trip, placeVisits, tripNotes.notes]
   );
 
   // Cross-domain geo sanity (#6): a stay whose hotel sits far from every trip
@@ -406,6 +347,11 @@ function TimelineTab({ trip, onChanged, t, language }: TimelineTabProps): JSX.El
         entries={trip.journalEntries ?? []}
         onAddJournal={() => setAdding("journal")}
         onChanged={onChanged}
+      />
+      <TripNotesNotice
+        failed={tripNotes.failed}
+        truncated={tripNotes.notes?.truncated ?? false}
+        onRetry={tripNotes.reload}
       />
 
       {empty ? (
@@ -495,6 +441,9 @@ function TimelineTab({ trip, onChanged, t, language }: TimelineTabProps): JSX.El
                   />
                 )}
                 {ev.kind === "place-visit" && <PlaceVisitCard ev={ev} />}
+                {ev.kind === "note" && (
+                  <TimelineNoteCard ev={ev} onEdit={() => ev.mine && setEditingNote(ev.note)} />
+                )}
                 {ev.kind === "journal" && (
                   <JournalCard
                     ev={ev}
@@ -550,6 +499,13 @@ function TimelineTab({ trip, onChanged, t, language }: TimelineTabProps): JSX.El
             setEditingStop(null);
             onChanged();
           }}
+        />
+      )}
+      {editingNote && (
+        <NoteEditorDialog
+          note={editingNote}
+          onClose={() => setEditingNote(null)}
+          onSaved={tripNotes.reload}
         />
       )}
       {confirmDialog}
@@ -809,9 +765,7 @@ function LodgingCheckCard({
     isCheckIn ? "trips:detail.timeline.lodgingCheckIn" : "trips:detail.timeline.lodgingCheckOut",
     { name: stay.lodging.name }
   );
-  // A stay is a DAY at the hotel; read in the viewer's zone it printed a
-  // meaningless "02:00" and, west of UTC, the day before.
-  const subtitle = formatTimelineDate(ev.when);
+  const subtitle = formatTimelineDate(ev.when); // a stay is a DAY at the hotel, not the viewer's
   // Only on the check-in entry, so the hint appears once per stay, not twice.
   const showHint = implausible && isCheckIn;
   return (
@@ -826,6 +780,7 @@ function LodgingCheckCard({
         }
         date={ev.date}
         dateLabel={formatTimelineDate(ev.when)}
+        meta={isCheckIn ? (deadlineSummary(stay.times, t) ?? undefined) : undefined}
       />
     </Link>
   );
@@ -901,18 +856,15 @@ function LogisticsTab({
 }): JSX.Element {
   const flights = trip.flights ?? [];
   const cruises = trip.cruises ?? [];
-  const bookings = trip.bookings ?? [];
-  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
-
-  const costTotals = sumByCurrency(bookings);
-
-  const railJourneys = trip.railJourneys ?? [];
-  if (!flights.length && !cruises.length && !bookings.length && !railJourneys.length) {
-    return <Placeholder text={t("trips:detail.noLogistics")} />;
-  }
+  // The bookings panel stays reachable on an empty trip: a package booking
+  // can be created by hand before anything else is on it (#356).
+  const empty = !flights.length && !cruises.length && !groundRideCount(trip);
 
   return (
     <div className="space-y-4">
+      {empty && (trip.bookings ?? []).length === 0 && (
+        <Placeholder text={t("trips:detail.noLogistics")} />
+      )}
       {flights.length > 0 && (
         <div
           className="rounded-xl"
@@ -1001,69 +953,15 @@ function LogisticsTab({
         </div>
       )}
 
-      {railJourneys.length > 0 && <TripRailList journeys={railJourneys} />}
+      <TripGroundLists trip={trip} />
 
-      {bookings.length > 0 && (
-        <div
-          className="rounded-xl"
-          style={{ background: "var(--bg-surface)", border: "1px solid var(--color-border)" }}
-        >
-          <PanelHeader>
-            {t("trips:detail.logistics.bookings")} ({bookings.length})
-            {costTotals.length > 0 && (
-              <span className="ml-2 text-xs font-normal" style={{ color: "var(--text-muted)" }}>
-                · {t("trips:detail.logistics.totalBooked")}:{" "}
-                <strong style={{ color: "var(--text-primary)" }}>
-                  {costTotals
-                    .map((c) => formatCurrency(c.total, c.currency, { compact: true, language }))
-                    .join(" + ")}
-                </strong>
-              </span>
-            )}
-          </PanelHeader>
-          <table className="w-full text-sm">
-            <thead>
-              <tr
-                className="text-xs uppercase tracking-wide"
-                style={{ color: "var(--text-muted)" }}
-              >
-                <th className="text-left px-4 py-2">PNR</th>
-                <th className="text-right px-4 py-2">Preis</th>
-                <th className="text-right px-4 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.map((b) => (
-                <tr key={b.id} style={{ borderTop: "1px solid var(--color-border)" }}>
-                  <td className="px-4 py-2.5 font-mono">{b.pnr ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    {b.price != null ? formatAmount(b.price, b.currency, { language }) : "—"}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <RowActionButton
-                      icon="edit"
-                      label={t("trips:bookingEdit.title")}
-                      onClick={() => setEditingBooking(b)}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {editingBooking && (
-        <BookingEditModal
-          booking={editingBooking}
-          flights={flights}
-          onClose={() => setEditingBooking(null)}
-          onSaved={() => {
-            setEditingBooking(null);
-            onChanged();
-          }}
-        />
-      )}
+      <TripBookingsPanel
+        trip={trip}
+        language={language}
+        onChanged={onChanged}
+        flightDay={formatFlightDay}
+        cruiseDay={formatCruiseDay}
+      />
     </div>
   );
 }

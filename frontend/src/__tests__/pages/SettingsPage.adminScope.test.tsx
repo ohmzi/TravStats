@@ -1,8 +1,10 @@
+vi.mock("../../components/Settings/DawarichStayScanCard", () => ({ default: () => null }));
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import SettingsPage, { SettingsLegacyRedirect } from "../../pages/SettingsPage";
 import { useSettingsStore } from "../../store/settingsStore";
+import { findNamed, queryNamed } from "../helpers/namedElement";
 
 // Measured 2026-09-19: these renders take ~1 s each on a developer machine
 // and 6–8 s on the CI runner under coverage instrumentation, past Vitest's
@@ -15,6 +17,20 @@ vi.setConfig({ testTimeout: 20_000 });
 // per group), so every section in the group loads its data on mount. Each of
 // these escaped to the network once main's guard started counting (forgejo#110).
 // The modules below are the ones the sections import directly.
+// Shared trips (2026-10-09): the trip overview, the settings and the inbox
+// read the sharing API on mount; answered empty so no request escapes.
+vi.mock("@/lib/api/sharing", () => ({
+  sharingApi: {
+    tripSharing: vi
+      .fn()
+      .mockResolvedValue({ groupId: null, members: [], candidates: [], bookingTotals: [] }),
+    listConsents: vi.fn().mockResolvedValue({ incoming: [], outgoing: [] }),
+    listCompanions: vi.fn().mockResolvedValue({ companions: [], linkableUsers: [] }),
+    listNotices: vi.fn().mockResolvedValue([]),
+    inboxCount: vi.fn().mockResolvedValue(0),
+  },
+}));
+
 vi.mock("@/lib/api/twoFactor", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api/twoFactor")>();
   return {
@@ -96,6 +112,10 @@ vi.unmock("../../store/settingsStore");
 // unconditionally and fetch on mount. They were never the subject of these
 // cases — the gate used to keep them out of the tree, and the network guard in
 // `src/__tests__/setup.ts` failed the suite the moment it stopped.
+// Fetches the user's settings on mount (P5 home country) — not the subject here.
+vi.mock("../../components/Settings/HomeCountryCard", () => ({
+  default: () => <div data-testid="home-country-card" />,
+}));
 vi.mock("../../components/Settings/DawarichConnectionCard", () => ({
   default: () => <div data-testid="dawarich-connection-card" />,
 }));
@@ -104,6 +124,13 @@ vi.mock("../../components/Settings/StravaConnectionCard", () => ({
 }));
 vi.mock("../../components/Settings/ImmichConnectionCard", () => ({
   default: () => <div data-testid="immich-connection-card" />,
+}));
+vi.mock("../../components/Settings/PhotoJourneyNightlyScanCard", () => ({
+  default: () => <div data-testid="photo-journey-nightly-scan-card" />,
+}));
+// Public share links (forgejo#281) load their list on mount — not the subject here.
+vi.mock("../../components/Settings/ShareLinksSection", () => ({
+  default: () => <div data-testid="share-links-section" />,
 }));
 vi.mock("../../components/Settings/RoutingProviderSection", () => ({
   default: () => <div data-testid="routing-provider-section" />,
@@ -183,10 +210,18 @@ const renderAt = (initialEntry: string): void => {
 /** `t` echoes the key, so a nav entry or a section for the old one reads this. */
 const ADMIN_LABEL = "settings:admin.title";
 
+/*
+ * Options and links are looked up by their text, which is their accessible
+ * name here, rather than by role. This page holds ~460 <option>s (currency,
+ * country, home country), and a role query weighs the accessible name and
+ * visibility of every candidate through jsdom's getComputedStyle: measured
+ * 2026-10-09 at 5-7 s for one `queryByRole("link", { name })` on a developer
+ * machine, which ran a test past 33 s under coverage on the CI runner.
+ */
 const navListsAdmin = (): boolean =>
-  screen.queryByRole("button", { name: ADMIN_LABEL }) !== null ||
-  screen.queryByRole("option", { name: ADMIN_LABEL }) !== null ||
-  screen.queryByRole("region", { name: ADMIN_LABEL }) !== null;
+  queryNamed("button", ADMIN_LABEL) !== null ||
+  screen.queryByText(ADMIN_LABEL, { selector: "option" }) !== null ||
+  queryNamed("region", ADMIN_LABEL) !== null;
 
 describe("SettingsPage — the settings/admin boundary", () => {
   beforeEach(() => {
@@ -197,13 +232,13 @@ describe("SettingsPage — the settings/admin boundary", () => {
   it("offers no Admin section to an admin — the panel is a peer, not a subsection", async () => {
     isAdmin = true;
     renderAt("/settings");
-    await screen.findByRole("region", { name: "settings:profile.title" });
+    await findNamed("region", "settings:profile.title");
     expect(navListsAdmin()).toBe(false);
   });
 
   it("offers no Admin section to a normal user either", async () => {
     renderAt("/settings");
-    await screen.findByRole("region", { name: "settings:profile.title" });
+    await findNamed("region", "settings:profile.title");
     expect(navListsAdmin()).toBe(false);
   });
 
@@ -221,7 +256,7 @@ describe("SettingsPage — the settings/admin boundary", () => {
 
   it("does NOT redirect a non-admin — they have no admin panel to be sent to", async () => {
     renderAt("/settings?section=admin");
-    await screen.findByRole("region", { name: "settings:profile.title" });
+    await findNamed("region", "settings:profile.title");
     expect(screen.queryByTestId("admin-page")).toBeNull();
   });
 
@@ -254,12 +289,10 @@ describe("SettingsPage — the settings/admin boundary", () => {
     expect(await screen.findByText(ADMIN_ONLY_HINT)).toBeTruthy();
     // The section itself stays out — this is a permission, not a beta gate,
     // so naming it in a URL does not lift it.
-    expect(
-      screen.queryByRole("region", { name: "settings:lodgingPreferences.geocoder.title" })
-    ).toBeNull();
+    expect(queryNamed("region", "settings:lodgingPreferences.geocoder.title")).toBeNull();
     // The group holds nothing else for this account since its loyalty
     // section moved to Einstellungen → Bonusprogramme; the hint is the page.
-    expect(screen.queryByRole("region", { name: "settings:memberships.title" })).toBeNull();
+    expect(queryNamed("region", "settings:memberships.title")).toBeNull();
   });
 
   it("offers no lodging tab to an account the lodging group has nothing for", async () => {
@@ -269,8 +302,9 @@ describe("SettingsPage — the settings/admin boundary", () => {
     });
     renderAt("/settings/lodging");
     // The empty group sends the reader to the general page.
-    expect(await screen.findByRole("region", { name: "settings:profile.title" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "settings:tabs.lodging" })).toBeNull();
+    expect(await findNamed("region", "settings:profile.title")).toBeTruthy();
+    // By text, not by role: see `navListsAdmin` for what a role query costs here.
+    expect(screen.queryByText("settings:tabs.lodging", { selector: "a, a *" })).toBeNull();
   });
 
   it("says nothing of the sort to an admin, who can see the section", async () => {
@@ -281,16 +315,14 @@ describe("SettingsPage — the settings/admin boundary", () => {
     });
     renderAt(LODGING_DEEP_LINK);
 
-    expect(
-      await screen.findByRole("region", { name: "settings:lodgingPreferences.geocoder.title" })
-    ).toBeTruthy();
+    expect(await findNamed("region", "settings:lodgingPreferences.geocoder.title")).toBeTruthy();
     expect(screen.queryByText(ADMIN_ONLY_HINT)).toBeNull();
   });
 
   it("stays quiet on a deep link to a section everyone may see", async () => {
     renderAt("/settings?section=profile");
 
-    await screen.findByRole("region", { name: "settings:profile.title" });
+    await findNamed("region", "settings:profile.title");
     expect(screen.queryByText(ADMIN_ONLY_HINT)).toBeNull();
   });
 });

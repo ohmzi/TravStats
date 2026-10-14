@@ -29,7 +29,21 @@
   "deleteConfirm": {
     "title": "Trip löschen?",
     "message": "„{{name}}“ wird mit seinen Stationen, Etappen und Aufzeichnungen gelöscht. Verknüpfte Unterkünfte und Aufenthalte bleiben erhalten, seine Tagestouren als Touren ohne Station.",
-    "confirm": "Löschen"
+    "confirm": "Löschen",
+    "goes": "„{{name}}“ wird gelöscht – mit {{list}}. Das lässt sich nicht rückgängig machen.",
+    "goesEmpty": "„{{name}}“ wird gelöscht. Das lässt sich nicht rückgängig machen.",
+    "stations_one": "{{count}} Station",
+    "stations_other": "{{count}} Stationen",
+    "legs_one": "{{count}} Etappe",
+    "legs_other": "{{count}} Etappen",
+    "tracks": "allen Aufzeichnungen der Strecke",
+    "costsToTrip_one": "Die erfasste Ausgabe geht an die Reise „{{trip}}“.",
+    "costsToTrip_other": "Die {{count}} erfassten Ausgaben gehen an die Reise „{{trip}}“.",
+    "survivorTrip": "die Reise „{{name}}“",
+    "survivorLodging": "die Unterkunft „{{name}}“ mit ihren Aufenthalten",
+    "survivorTour": "die Tagestour „{{name}}“ (ohne Station)",
+    "survivorPhotos_one": "{{count}} Foto bei seiner Reise",
+    "survivorPhotos_other": "{{count}} Fotos bei ihrer Reise"
   },
   "kind": {
     "roadtrip": "Roadtrip",
@@ -58,7 +72,8 @@
     "ski": "Skitour",
     "paddle": "Paddeln",
     "climb": "Klettern",
-    "other": "Andere"
+    "other": "Andere",
+    "excursion": "Geführter Ausflug"
   },
   "figures": {
     "km": "gefahren",
@@ -160,7 +175,268 @@
     "longestByNights": "Die meisten Nächte",
     "vehicles": "Fahrzeuge",
     "empty": "In diesem Zeitraum gibt es keinen Trip.",
-    "loadFailed": "Die Trips konnten nicht geladen werden."
+    "loadFailed": "Die Trips konnten nicht geladen werden.",
+    "insights": {
+      "title": "Auswertungen",
+      "loadFailed": "Die Trip-Auswertungen konnten nicht geladen werden.",
+      "aheadFootnote": "Davon {{km}} km noch vor dir – erst wenn sie gefahren sind, zählen sie für Auszeichnungen.",
+      "source": {
+        "track": "Aufzeichnung",
+        "routed": "Route",
+        "drawn": "gezeichnet",
+        "straight": "Luftlinie"
+      },
+      "mode": {
+        "rail": "Bahn",
+        "foot": "zu Fuß",
+        "bike": "Rad",
+        "ferry": "Fähre"
+      },
+      "progress": {
+        "title": "Gefahren, heute, geplant",
+        "recorded": "Gefahrene Kilometer (Straße)",
+        "recordedNights": "Erfasste Nächte",
+        "description": "heute {{current}} · noch geplant {{planned}}",
+        "nights": "Nächte (noch geplant: {{planned}}) – erfasst:",
+        "countries": "Länder erreicht: {{recorded}} · noch vor dir: {{planned}}",
+        "sources": "Distanzquelle: {{sources}}",
+        "empty": "Erscheint mit dem ersten Trip.",
+        "help": {
+          "unit": "Gefahrene Kilometer sind Straßenetappen; Fähre, Bahn, zu Fuß und Rad stehen getrennt daneben. Dazu Nächte und Länder je Trip.",
+          "time": "Jede Etappe zählt nach dem Ortsdatum ihrer Ankunftsstation: vor heute ist sie gefahren, heute ist sie die aktuelle, danach geplant. Ein Trip gehört in das Jahr seiner ersten Station.",
+          "source": "Etappen und Stationen deiner Trips; die Distanz stammt aus Aufzeichnung, berechneter Route, gezeichneter Linie oder Luftlinie – die Zeile „Distanzquelle“ nennt den Anteil.",
+          "coverage": "Etappen ohne Datum zählen, wenn der Trip vorbei ist oder gar keine Daten hat; auf einem laufenden Trip bleiben sie offen ({{unplaced}}).",
+          "exclusions": "Geplante Etappen, Nächte und Länder zählen für keine Auszeichnung, bis sie erreicht sind."
+        },
+        "otherModes": "Dazu nicht selbst gefahren: {{modes}}"
+      },
+      "pace": {
+        "title": "Tagesetappen und Tempo",
+        "value": "{{km}} am Tag",
+        "description_one": "Median über {{count}} Fahrtag",
+        "description_other": "Median über {{count}} Fahrtage",
+        "longestDay": "Längster Fahrtag: {{km}} am {{day}} –",
+        "restDays_one": "{{count}} Tag ohne Ortswechsel auf {{trips}} vollständig datierten Trips",
+        "restDays_other": "{{count}} Tage ohne Ortswechsel auf {{trips}} vollständig datierten Trips",
+        "empty": "Erscheint, sobald eine gefahrene Etappe an Abfahrts- und Ankunftsstation denselben Tag trägt.",
+        "help": {
+          "unit": "Ein Fahrtag: alle Straßenkilometer zwischen zwei Stationen mit demselben Abfahrts- und Ankunftstag. Streckenkorrekturen gehören zur Etappe; ein Tag nur an Bord einer Fähre ist kein Fahrtag.",
+          "time": "Ortsdatum der Stationen.",
+          "source": "Datierte Stationen und Etappen deiner Trips.",
+          "coverage": "{{unstaged}} gefahrene Etappen haben keinen gemeinsamen bekannten Tag und sind in keinem Fahrtag. Tage ohne Ortswechsel zählen nur auf {{dated}} abgeschlossenen Trips, deren Stationen alle datiert sind.",
+          "exclusions": "Geplante Etappen und alles, dessen Tag nicht feststeht – nichts wird verteilt oder geschätzt."
+        }
+      },
+      "modes": {
+        "title": "Straße und Fähre",
+        "road": "Straßenkilometer",
+        "ferry": "Fährkilometer",
+        "empty": "Erscheint mit der ersten gefahrenen Etappe.",
+        "help": {
+          "unit": "Kilometer einer Etappe nach ihrem Verkehrsmittel.",
+          "time": "Nur gefahrene Etappen (siehe „Gefahren, heute, geplant“).",
+          "source": "Das Verkehrsmittel jeder Etappe (Straße, Fähre, Bahn, zu Fuß, Rad).",
+          "coverage": "Jede Etappe hat genau ein Verkehrsmittel.",
+          "exclusions": "Fährkilometer sind nie selbst gefahrene Kilometer; nur die Straße zählt als gefahren."
+        },
+        "ferryBefore": "auf der Straße · mit der Fähre ",
+        "ferryAfter": " – getrennt gezählt, nie als gefahren"
+      },
+      "nightStyle": {
+        "title": "Übernachtungsstil",
+        "value_one": "{{count}} Nacht",
+        "value_other": "{{count}} Nächte",
+        "byStyle": "Nächte nach Art",
+        "pitch": "Stellplatz / frei",
+        "campsite": "Campingplatz",
+        "lodging": "Unterkunft",
+        "unknown_one": "{{count}} Übernachtungsstation ohne bekannte Länge",
+        "unknown_other": "{{count}} Übernachtungsstationen ohne bekannte Länge",
+        "empty": "Erscheint mit der ersten vergangenen Übernachtungsstation.",
+        "help": {
+          "unit": "Eine Nacht. Stellplatz = Übernachtungsstation ohne verknüpften Aufenthalt; Campingplatz und Unterkunft = verknüpfter Aufenthalt nach Art des Hauses.",
+          "time": "Nächte von Stationen, die vor heute liegen.",
+          "source": "Übernachtungsstationen und die mit ihnen verknüpften Aufenthalte.",
+          "coverage": "{{unknown}} Stationen haben keine bekannte Länge und sind hier nicht als Nächte enthalten.",
+          "exclusions": "Ein Aufenthalt, der an zwei Stationen hängt, zählt einmal – und dieselbe Nacht steht in den Unterkunfts-Statistiken, nicht doppelt in einer Summe."
+        }
+      },
+      "toursAlong": {
+        "title": "Tagestouren unterwegs",
+        "value_one": "{{count}} Tour",
+        "value_other": "{{count}} Touren",
+        "description": "{{km}} aus eigener Kraft oder geführt – neben, nicht in der Fahrstrecke",
+        "row_one": "{{count}} Tour · {{km}} neben {{driven}} Fahrt",
+        "row_other": "{{count}} Touren · {{km}} neben {{driven}} Fahrt",
+        "ascent": "{{m}} Hm",
+        "empty": "Erscheint, sobald eine abgeschlossene Tagestour von einer Trip-Station aus startet.",
+        "help": {
+          "unit": "Eine abgeschlossene Tagestour, ihre Strecke und ihr Aufstieg.",
+          "time": "Abgeschlossen ist eine Tour mit Aufzeichnung oder mit einem Tag vor heute.",
+          "source": "Touren, deren Startpunkt eine Station des Trips ist; Strecke aus der Aufzeichnung, sonst aus der Route.",
+          "coverage": "Höhenmeter nur aus Aufzeichnungen, die sie mitbringen.",
+          "exclusions": "Tourkilometer werden nie zur Fahrstrecke addiert, ein geführter Ausflug nie als Busfahrt."
+        }
+      },
+      "lifetime": "über alle Jahre"
+    },
+    "tours": {
+      "title": "Tagestouren",
+      "loadFailed": "Die Tour-Auswertungen konnten nicht geladen werden.",
+      "lifetime": "über alle Jahre",
+      "noActivity": "ohne Aktivität",
+      "activities": {
+        "title": "Abgeschlossene Touren",
+        "km": "Tourkilometer",
+        "ascent": "Aufstieg aus Aufzeichnungen",
+        "ascentValue": "{{m}} Hm",
+        "row_one": "{{count}} Tour · {{km}} km ({{kmTours}} mit Strecke) · {{ascent}} Hm ({{ascentTours}} gemessen) · {{duration}} in Bewegung ({{movingTours}} aufgezeichnet)",
+        "row_other": "{{count}} Touren · {{km}} km ({{kmTours}} mit Strecke) · {{ascent}} Hm ({{ascentTours}} gemessen) · {{duration}} in Bewegung ({{movingTours}} aufgezeichnet)",
+        "empty": "Erscheint, sobald eine Tagestour aufgezeichnet ist oder ihr Datum vorbei ist.",
+        "help": {
+          "unit": "Eine abgeschlossene Tagestour – Wanderung, Radtour, geführter Ausflug und jede andere Aktivität.",
+          "time": "Abgeschlossen ist eine Tour mit Aufzeichnung oder mit einem Tag vor heute am Ort ihres Starts; gezählt wird sie im Jahr ihres Tages, ohne Tag im Jahr ihrer ersten Aufzeichnung.",
+          "source": "Deine Touren. Strecke aus der Aufzeichnung, wo es eine gibt, sonst aus der Route; Höhenmeter und Zeit nur aus Aufzeichnungen.",
+          "coverage": "{{planned}} Touren liegen noch vor dir, {{undated}} haben weder Tag noch Aufzeichnung und zählen nicht. {{partial}} Aufzeichnungen endeten am Importlimit – ihre Strecke ist eine Untergrenze.",
+          "exclusions": "Ein unbekannter Aufstieg bleibt unbekannt und wird nicht aus der Route geschätzt. Jede Zahl nennt, auf wie vielen Touren sie beruht. Geführte Ausflüge zählen mit ihrer Route in die Tourkilometer – je Aktivität getrennt ausgewiesen, nie als Bus- oder Fahrkilometer."
+        }
+      },
+      "moving": {
+        "title": "Bewegung und Pausen",
+        "moving": "Bewegungszeit aus Aufzeichnungen",
+        "pause_one": "{{duration}} Pause – aus {{count}} von {{of}} Touren, {{scope}}",
+        "pause_other": "{{duration}} Pause – aus {{count}} von {{of}} Touren, {{scope}}",
+        "empty": "Erscheint, sobald eine Aufzeichnung mit Zeitstempeln vorliegt.",
+        "help": {
+          "unit": "Stunden. Bewegungszeit misst die Aufzeichnung selbst; Pause ist die aufgezeichnete Gesamtdauer abzüglich der Bewegungszeit.",
+          "time": "Die Zeitstempel der Aufzeichnung.",
+          "source": "Aufzeichnungen deiner Touren (GPX, Dawarich, Strava).",
+          "coverage": "Nur Touren, deren jede Aufzeichnung Zeiten trägt.",
+          "exclusions": "Eine geplante Startzeit oder eine reine Gesamtdauer ist keine Bewegungszeit und zählt hier nie."
+        },
+        "value": "{{duration}} in Bewegung"
+      },
+      "records": {
+        "title": "Persönliche Rekorde je Aktivität",
+        "value_one": "{{count}} Aktivität",
+        "value_other": "{{count}} Aktivitäten",
+        "longest": "{{activity}}: längste Tour, {{km}} km ({{source}})",
+        "ascent": "{{activity}}: meiste Höhenmeter, {{m}} Hm",
+        "highest": "{{activity}}: höchster Punkt, {{m}} m",
+        "source": {
+          "track": "aufgezeichnet",
+          "route": "Route"
+        },
+        "empty": "Erscheint mit der ersten abgeschlossenen Tour mit bekannter Strecke.",
+        "help": {
+          "unit": "Je Aktivität die längste Tour, der größte Aufstieg und die höchste bekannte Position.",
+          "time": "Über alle abgeschlossenen Touren.",
+          "source": "Strecke aus Aufzeichnung oder Route (die Quelle steht dabei); Aufstieg und Höhe nur aus Aufzeichnungen mit Höhenprofil.",
+          "coverage": "Eine Tour ohne Höhenprofil kann keinen Höhenrekord halten.",
+          "exclusions": "Geplante Touren und Touren ohne Tag und Aufzeichnung."
+        }
+      },
+      "rhythm": {
+        "title": "Rhythmus und Gebiete",
+        "value_one": "{{count}} Land",
+        "value_other": "{{count}} Länder",
+        "repeated": "Wiederholt besucht: {{areas}}",
+        "month": {
+          "0": "Januar",
+          "1": "Februar",
+          "2": "März",
+          "3": "April",
+          "4": "Mai",
+          "5": "Juni",
+          "6": "Juli",
+          "7": "August",
+          "8": "September",
+          "9": "Oktober",
+          "10": "November",
+          "11": "Dezember"
+        },
+        "empty": "Erscheint mit der ersten datierten abgeschlossenen Tour.",
+        "help": {
+          "unit": "Touren je Jahr und Monat; ein Gebiet ist das Land am Startpunkt der Tour.",
+          "time": "Tag der Tour am Ort ihres Starts.",
+          "source": "Koordinaten des Startpunkts, über die Ländergrenzen bestimmt – nie aus dem Namen der Tour geraten.",
+          "coverage": "{{withoutArea}} Touren haben keinen Startpunkt mit Koordinaten und stehen in keinem Gebiet.",
+          "exclusions": "Geplante Touren. Die Liste nennt je Land die Tour, mit der es zum ersten Mal erreicht wurde."
+        }
+      },
+      "links": {
+        "title": "Verknüpfungen",
+        "excursions_one": "Geführte Ausflüge: {{count}} abgeschlossen, {{km}} km, {{planned}} geplant – als Touren, nie als Busfahrt oder gefahrene Kilometer.",
+        "excursions_other": "Geführte Ausflüge: {{count}} abgeschlossen, {{km}} km, {{planned}} geplant – als Touren, nie als Busfahrt oder gefahrene Kilometer.",
+        "empty": "Erscheint mit der ersten abgeschlossenen Tour.",
+        "help": {
+          "unit": "Eine abgeschlossene Tour. „Verknüpft“ ist eine Tour auf einer Reise oder von einer Trip-Station.",
+          "time": "Gezählt im Jahr der Tour (ihr Tag, ohne Tag der ihrer ersten Aufzeichnung). Eine Tour gilt als Kreuzfahrt-Ausflug, wenn ihre Reise eine Kreuzfahrt enthält und ihr Tag in deren Zeitraum liegt.",
+          "source": "Die Reise einer Tour, die Trip-Station, von der sie startet, und die Kreuzfahrten der Reise.",
+          "coverage": "Touren ohne Reise und ohne Station stehen für sich. Eine Tour kann zugleich auf einer Reise und von einer Trip-Station aus stattfinden – die Zahlen überschneiden sich und ergeben zusammen keine Summe.",
+          "exclusions": "Tourkilometer fließen in keine Fahrt- oder Busstatistik; ein geführter Ausflug ist keine Busfahrt."
+        },
+        "value_one": "{{count}} Tour verknüpft",
+        "value_other": "{{count}} Touren verknüpft",
+        "onTrip": "auf einer Reise",
+        "fromRoadtrip": "von einer Trip-Station",
+        "duringCruise": "während einer Kreuzfahrt",
+        "standalone": "für sich, ohne Reise und Station"
+      }
+    },
+    "help": {
+      "count": {
+        "unit": "Ein Trip.",
+        "time": "Ein Trip zählt, sobald er begonnen hat (früheste Station, sonst Check-in eines verknüpften Aufenthalts), im Jahr seines Beginns – das eingetragene Datum, keine Zeitzone.",
+        "source": "Deine Trips (Trip-Liste).",
+        "coverage": "Ein Trip ohne datierte Station zählt im Gesamtwert, aber in keinem Jahr.",
+        "exclusions": "Trips, die noch nicht begonnen haben."
+      },
+      "distance": {
+        "unit": "Kilometer der ganzen Route jedes gezählten Trips, über alle Verkehrsmittel – Straße, Fähre, Bahn, zu Fuß, Rad.",
+        "time": "Wie bei „Trips“: ein Trip zählt mit seiner ganzen Strecke im Jahr seines Beginns.",
+        "source": "Die Etappen deiner Trips; die Distanz stammt aus Aufzeichnung, berechneter Route, gezeichneter Linie oder Luftlinie.",
+        "coverage": "Auf einem laufenden Trip ist die noch vor dir liegende Strecke enthalten – die Fußnote nennt sie, „Gefahren, heute, geplant“ trennt sie.",
+        "exclusions": "Selbst gefahren ist nur die Straße (die Zeile darunter); Fährkilometer sind nie gefahrene Kilometer. Tagestouren zählen hier nicht."
+      },
+      "nights": {
+        "unit": "Eine Nacht: die Nächte eines verknüpften Aufenthalts einmal, die einer Übernachtungsstation ohne Aufenthalt nach ihren Daten (ohne Daten: eine).",
+        "time": "Wie bei „Trips“: alle Nächte eines gezählten Trips im Jahr seines Beginns.",
+        "source": "Übernachtungsstationen deiner Trips und die mit ihnen verknüpften Aufenthalte.",
+        "coverage": "Hat eine Übernachtung keine bekannte Länge, sagt die Kachel es – die Zahl ist dann eine Untergrenze.",
+        "exclusions": "Ein Aufenthalt, der an zwei Stationen hängt, zählt einmal; ein stornierter gar nicht. Dieselbe Nacht steht auch in den Unterkunfts-Statistiken – nie doppelt in einer gemeinsamen Summe."
+      },
+      "countries": {
+        "unit": "Ein Land, in dem eine Station eines gezählten Trips steht.",
+        "time": "Wie bei „Trips“.",
+        "source": "Die Koordinaten der Stationen über die Ländergrenzen; an der Küste das Land eines verknüpften Aufenthalts.",
+        "coverage": "Eine Station, die weder Punkt noch Aufenthalt einem Land zuordnen, zählt in keinem Land. Streckenkorrekturen zählen nicht.",
+        "exclusions": "Trips, die noch nicht begonnen haben. Auf einem laufenden Trip zählen hier auch Länder noch vor dir – „Gefahren, heute, geplant“ trennt sie."
+      },
+      "longestByKm": {
+        "unit": "Die fünf Trips mit der längsten Gesamtroute; der Name führt zum Trip.",
+        "time": "Wie bei „Trips“.",
+        "source": "Die Etappen jedes Trips, über alle Verkehrsmittel.",
+        "coverage": "Wie bei „Strecke“: ein laufender Trip steht mit seiner ganzen geplanten Route hier.",
+        "exclusions": "Trips, die noch nicht begonnen haben."
+      },
+      "longestByNights": {
+        "unit": "Die fünf Trips mit den meisten Nächten; der Name führt zum Trip.",
+        "time": "Wie bei „Trips“.",
+        "source": "Übernachtungsstationen und verknüpfte Aufenthalte, nach der Nachtregel von „Nächte“.",
+        "coverage": "Nächte ohne bekannte Länge zählen mit ihrem Mindestwert.",
+        "exclusions": "Trips, die noch nicht begonnen haben."
+      },
+      "vehicles": {
+        "unit": "Gezählte Trips je Fahrzeugart.",
+        "time": "Wie bei „Trips“.",
+        "source": "Die Fahrzeugart, die am Trip eingetragen ist; der Beleg nennt sie je Trip.",
+        "coverage": "Ohne eingetragenes Fahrzeug steht ein Trip unter „Ohne Angabe“.",
+        "exclusions": "Trips, die noch nicht begonnen haben."
+      }
+    },
+    "vehiclesTotalAfter_one": " Trip – der Beleg nennt das Fahrzeug",
+    "vehiclesTotalAfter_other": " Trips – der Beleg nennt das Fahrzeug je Trip"
   },
   "strava": {
     "title": "Strava",
@@ -216,23 +492,25 @@
     "next": "Als Nächstes {{station}}",
     "enterTonight": "Heutige Nacht eintragen",
     "open": "Trip öffnen",
-    "openDetails": "Trip-Details öffnen",
-    "lastRoadtrip": "Letzter Trip",
     "figKm": "km",
     "figNights_one": "Nacht",
     "figNights_other": "Nächte",
     "figStations_one": "Station",
     "figStations_other": "Stationen",
-    "figRoadtrips_one": "Trip",
-    "figRoadtrips_other": "Trips",
-    "figDrives_one": "Etappe",
-    "figDrives_other": "Etappen",
+    "figTours_one": "Tour",
+    "figTours_other": "Touren",
     "kmUnknown": "Noch keine Etappe — dafür braucht es zwei Stationen.",
     "nightsApprox": "Mindestens eine Station hat kein Abfahrtsdatum.",
     "emptyTitle": "Noch kein Trip",
     "emptyCta": "Ersten Trip anlegen",
     "count_one": "{{count}} Trip",
-    "count_other": "{{count}} Trips"
+    "count_other": "{{count}} Trips",
+    "openDetails": "Trip-Details öffnen",
+    "lastRoadtrip": "Letzter Trip",
+    "figRoadtrips_one": "Trip",
+    "figRoadtrips_other": "Trips",
+    "figDrives_one": "Etappe",
+    "figDrives_other": "Etappen"
   },
   "newDialog": {
     "title": "Neuer Trip",
@@ -246,7 +524,11 @@
     "trip": "Gehört zu einer Reise?",
     "tripHint": "Dann erscheint der Trip auch dort.",
     "noTrip": "Keine Reise",
-    "submit": "Anlegen und erste Station setzen"
+    "submit": "Anlegen und erste Station setzen",
+    "odometerHint": "In ganzen Kilometern, z. B. 84 210.",
+    "odometerInvalid": "Bitte ganze Kilometer eingeben, von 0 bis 10.000.000.",
+    "odometerMissing": "einen gültigen Kilometerstand",
+    "tripsFailed": "Deine Reisen konnten nicht geladen werden – die Zuordnung geht auch später."
   },
   "detail": {
     "edit": "Bearbeiten",
@@ -258,24 +540,23 @@
     "figDays": "Tage",
     "figDaysAhead_one": "davon einer noch vor dir",
     "figDaysAhead_other": "davon {{count}} noch vor dir",
+    "figNights": "Nächte",
+    "figNightsSub": "{{stay}} Unterkunft · {{free}} frei",
     "figPlaces": "Geschlafen in",
     "figPlacesValue_one": "{{count}} Ort",
     "figPlacesValue_other": "{{count}} Orten",
     "figCountries": "Länder",
+    "figTours": "Tagestouren",
     "odometer": "Kilometerstand {{from}} → {{to}}",
     "odometerOpen": "noch offen",
+    "approxHint": "„≈“ heißt: Mindestens eine Station hat kein Abfahrtsdatum und zählt als eine Nacht, bis du es einträgst.",
     "mapHint": "Station anklicken — sie wird in der Karte markiert.",
     "noRouting": "Ohne Routing-Anbieter erscheinen neue Etappen als gerade Linien.",
     "toursTitle": "Tagestouren auf diesem Trip",
     "toursEmpty": "Noch keine Tagestour. Starte eine an einer Station.",
-    "noAlbum": "Dieser Trip ist noch keiner Reise zugeordnet und hat daher noch kein Album.",
     "tourAt": "an Station {{station}}",
     "noElevation": "Die Aufzeichnung hat keine Höhendaten.",
     "noMoving": "Die Aufzeichnung hat keine Zeitstempel.",
-    "gallery": {
-      "detached": "Dieser Trip gehört zu keiner Reise — es gibt kein Album.",
-      "empty": "Noch kein Album verknüpft — Alben hängen an der Reise."
-    },
     "source": {
       "gpx": "GPX",
       "fit": "FIT",
@@ -284,19 +565,21 @@
       "strava": "Strava · nur für dich",
       "healthkit": "Apple Health",
       "healthconnect": "Health Connect"
-    }
-  },
-  "summary": {
-    "title": "KI-Zusammenfassung",
-    "cta": "Lass die KI eine kurze, persönliche Zusammenfassung dieses Trips schreiben — aus seinen Stationen, Etappen und Tagestouren, in deiner Sprache.",
-    "generateButton": "Zusammenfassung erstellen",
-    "regenerate": "Neu generieren",
-    "generating": "Schreibt … das kann ein paar Minuten dauern",
-    "generated": "Zusammenfassung erstellt",
-    "error": "Zusammenfassung fehlgeschlagen",
-    "unavailable": "KI-Dienst nicht erreichbar. Ollama richtet der Admin unter Admin → Parser ein.",
-    "disabled": "Die KI-Zusammenfassung ist abgeschaltet – der Admin hat das KI-Modell unter Admin → Parser deaktiviert.",
-    "cloudNotConsented": "Der KI-Anbieter liegt außerhalb des Netzwerks, und der Administrator hat dem Senden von Reisedaten dorthin nicht zugestimmt."
+    },
+    "noAlbum": "Dieser Trip ist noch keiner Reise zugeordnet und hat daher noch kein Album.",
+    "gallery": {
+      "detached": "Dieser Trip gehört zu keiner Reise — es gibt kein Album.",
+      "empty": "Noch kein Album verknüpft — Alben hängen an der Reise."
+    },
+    "figSoFar": "bisher {{driven}} km gefahren · {{ahead}} km geplant",
+    "distanceSourceKm": "{{km}} km {{source}}",
+    "distanceSource": {
+      "track": "GPS-Spur",
+      "routed": "Route",
+      "drawn": "gezeichnet",
+      "straight": "Luftlinie"
+    },
+    "distanceRule": "Strecke gemessen: {{parts}}. Luftlinie ist die gerade Verbindung der Stationen, Route der Straßenweg des Routing-Anbieters, GPS-Spur eine aufgezeichnete Fahrt. Als gefahren zählt eine Etappe, sobald ihre Zielstation vor heute erreicht ist; „Gefahren“ steht erst, wenn eine GPS-Spur jeden Kilometer belegt."
   },
   "timeline": {
     "day": "Tag {{n}}",
@@ -323,12 +606,15 @@
   "editor": {
     "hint": "Station antippen, um sie zu bearbeiten. Etappe antippen für Fähre oder Linienführung. Jede Änderung wird sofort gespeichert und lässt sich rückgängig machen.",
     "status": {
-      "pending": "Änderungen werden gleich gespeichert",
-      "saving": "Wird gespeichert …",
-      "saved": "Alles gespeichert",
-      "error": "Nicht gespeichert",
+      "pending": "Wird gleich auf dem Server gespeichert",
+      "saving": "Wird auf dem Server gespeichert …",
+      "saved": "Auf dem Server gespeichert",
+      "error": "Nicht auf dem Server gespeichert",
       "waiting": "Wartet — eine Station ist noch nicht vollständig",
-      "retry": "Erneut versuchen"
+      "retry": "Erneut versuchen",
+      "conflict": "Nicht gespeichert – die Stationsliste hat sich auf dem Server geändert",
+      "merge": "Zusammenführen",
+      "discard": "Änderungen verwerfen"
     },
     "whatHere": "Was war hier?",
     "choice": {
@@ -369,10 +655,31 @@
       "noPlace": "{{name}}: Ort fehlt noch",
       "beforePrevious": "{{name}} liegt vor der vorherigen Station — Datum prüfen",
       "noDeparture": "{{name}}: Abfahrt fehlt",
-      "noStay": "{{name}}: Unterkunft noch nicht verknüpft"
+      "noStay": "{{name}}: Unterkunft noch nicht verknüpft",
+      "endBeforeStart": "{{name}}: Abfahrt liegt vor der Ankunft"
     },
-    "warningsNote": "Nur Hinweise — gespeichert wird trotzdem. Nur eine Station ohne Ort oder ohne verknüpfte Unterkunft wartet.",
-    "viaNote": "Nur für die Linienführung: erscheint nicht als Station auf Karten und in Listen und zählt nirgends mit."
+    "warningsNote": "Nur Hinweise – gespeichert wird trotzdem. Nur eine Station ohne Ort, ohne verknüpfte Unterkunft oder mit Abfahrt vor der Ankunft wartet.",
+    "viaNote": "Nur für die Linienführung: erscheint nicht als Station auf Karten und in Listen und zählt nirgends mit.",
+    "local": {
+      "kept": "lokal auf diesem Gerät gesichert",
+      "failed": "auch auf diesem Gerät nicht gesichert – Seite nicht schließen"
+    },
+    "discardConfirm": {
+      "title": "Änderungen verwerfen?",
+      "message": "Die Änderungen an den Stationen, die noch nicht auf dem Server sind, gehen verloren – auch die Sicherung auf diesem Gerät. Danach siehst du wieder den Stand vom Server.",
+      "confirm": "Verwerfen"
+    },
+    "moved": "„{{name}}“ verschoben",
+    "movedRestores": "Rückgängig stellt die alte Reihenfolge samt ihren Etappen wieder her – gespeichert wird erst danach.",
+    "placeRequired": "Ort der Station",
+    "viaNameHint": "Bei einer Streckenkorrektur kann der Name leer bleiben.",
+    "saveFailed": "Die Stationen konnten nicht gespeichert werden. Deine Änderungen bleiben erhalten.",
+    "errors": {
+      "endBeforeStart": "Die Abfahrt liegt vor der Ankunft. So wird nichts gespeichert – bitte ein Datum korrigieren.",
+      "viaOnTimeline": "Ein Halt aus dem Reiseverlauf kann keine Streckenkorrektur werden. Wähle für ihn eine andere Art."
+    },
+    "removedRestores": "Rückgängig stellt die Station samt ihren Etappen wieder her – gespeichert wird erst danach.",
+    "removedRestoresLine": "Daneben liegt eine aufgezeichnete oder von Hand gezeichnete Linie: sie geht verloren, wenn du nicht rückgängig machst. Gespeichert wird erst danach."
   },
   "legDialog": {
     "title": "Etappe",
@@ -390,7 +697,13 @@
     "apply": "Übernehmen",
     "error": "Die Etappe konnte nicht gespeichert werden.",
     "fallback": "Keine Strecke berechnet. {{reason}}",
-    "fallbackKept": "Die Etappe bleibt, wie sie war. Wähle „Gerade Linie“, wenn du sie als Luftlinie speichern willst."
+    "fallbackKept": "Die Etappe bleibt, wie sie war. Wähle „Gerade Linie“, wenn du sie als Luftlinie speichern willst.",
+    "track": "Aus der Aufzeichnung (so lassen)",
+    "trackHint": "Die Linie folgt der aufgezeichneten Strecke.",
+    "trackModeHint": "Solange die Etappe der Aufzeichnung folgt, bleibt auch ihr Verkehrsmittel. Wähle eine andere Linie, um es zu ändern.",
+    "replacesTrack": "Die Linie aus der Aufzeichnung wird ersetzt. Die Aufzeichnung selbst bleibt unter „Strecke & Aufzeichnungen“ erhalten.",
+    "replacesDrawn": "Die von Hand gezeichnete Linie wird ersetzt.",
+    "applyReplace": "Linie ersetzen"
   },
   "trackArchive": {
     "downloadOne": "Als GPX",
@@ -453,7 +766,14 @@
       "pitch": "Stellplatz",
       "fuel": "Tanken",
       "parking": "Parken",
-      "other": "Sonstiges"
+      "other": "Sonstiges",
+      "charging": "Laden (E-Auto)",
+      "transport": "Nahverkehr & Taxi",
+      "food": "Essen & Trinken",
+      "groceries": "Lebensmittel",
+      "activity": "Eintritt & Aktivitäten",
+      "shopping": "Einkäufe",
+      "fees": "Gebühren"
     },
     "dialog": {
       "titleNew": "Kosten erfassen",
@@ -473,8 +793,69 @@
       "error": {
         "invalid": "Die Angaben wurden abgelehnt — bitte Betrag, Währung, Datum und Station prüfen.",
         "gone": "Der Trip, die Station oder der Eintrag existiert nicht mehr. Bitte die Seite neu laden.",
-        "unreachable": "Der Server ist gerade nicht erreichbar. Nichts wurde gespeichert — bitte erneut versuchen."
+        "unreachable": "Der Server ist gerade nicht erreichbar. Nichts wurde gespeichert — bitte erneut versuchen.",
+        "conflict": "Diese Kosten wurden inzwischen an anderer Stelle geändert, etwa in der App. Nichts wurde überschrieben – bitte die Seite neu laden und die Änderung noch einmal machen."
+      },
+      "amountMissingValid": "einen gültigen Betrag"
+    },
+    "deleteConfirm": {
+      "title": "Kosten löschen?",
+      "message": "„{{name}}“ ({{place}}) wird gelöscht. Das lässt sich nicht rückgängig machen.\nErhalten bleiben: der Trip, seine Stationen und alle anderen Kosten.",
+      "confirm": "Kosten löschen"
+    },
+    "paidBy": "bezahlt von {{name}}",
+    "payer": {
+      "label": "Bezahlt von",
+      "none": "Nicht erfasst",
+      "other": "Anderer Name …",
+      "name": "Name",
+      "unknown": "Gespeicherte Begleitung",
+      "hint": "Hält nur fest, wer bezahlt hat — die Kosten werden nicht aufgeteilt.",
+      "loadFailed": "Deine Begleitungen konnten nicht geladen werden. Einen Namen kannst du trotzdem eintragen.",
+      "missing": "den Namen, wer bezahlt hat"
+    },
+    "fx": {
+      "title": "Wechselkurs",
+      "source": {
+        "ecb": "EZB-Tageskurs",
+        "cdn": "Markt-Tageskurs",
+        "cached": "zwischengespeicherter Kurs",
+        "manual": "von Hand eingetragen"
+      },
+      "recorded": "{{rate}} · {{source}} vom {{day}} · ≈ {{amount}}",
+      "none": "Kein Kurs erfasst — die Kosten zählen nur in ihrer eigenen Währung. Beim Speichern wird der Tageskurs für das Datum gesucht.",
+      "noneUndated": "Kein Kurs: ohne Datum gibt es keinen Tageskurs. Die Kosten zählen dann nur in ihrer eigenen Währung — außer du trägst einen Kurs von Hand ein.",
+      "relookupHint": "Änderst du Betrag, Währung oder Datum, wird beim Speichern ein neuer Tageskurs gesucht.",
+      "enterManual": "Kurs von Hand eingeben",
+      "remove": "Kurs entfernen",
+      "manualLabel": "Kurs: 1 {{currency}} = … {{base}}",
+      "preview": "≈ {{amount}} mit diesem Kurs",
+      "cancelManual": "Doch keinen Kurs von Hand",
+      "removing": "Der Kurs wird beim Speichern entfernt. Die Kosten zählen dann nur in ihrer eigenen Währung.",
+      "undoRemove": "Kurs behalten",
+      "missing": "einen gültigen Kurs",
+      "invalid": "Bitte einen Kurs größer als 0 eingeben.",
+      "rowConverted": "≈ {{amount}} · {{source}}",
+      "outcome": {
+        "lookupFailed": "Gespeichert — aber für diese Kosten war kein Wechselkurs zu finden. Der Betrag zählt nur in {{currency}}; einen Kurs kannst du von Hand nachtragen.",
+        "keptStoredRate": "Gespeichert — ein neuer Tageskurs war nicht zu finden, der bisher gespeicherte Kurs wurde auf den neuen Betrag angewandt."
       }
+    },
+    "receipt": {
+      "title": "Beleg",
+      "count_one": "{{count}} Beleg",
+      "count_other": "{{count}} Belege",
+      "pick": "Beleg (optional)",
+      "pickHint": "Wird nach dem Speichern an die Kosten angehängt.",
+      "attachFailed": "Die Kosten sind gespeichert, aber der Beleg wurde nicht angehängt.",
+      "retry": "Beleg erneut anhängen",
+      "closeWithout": "Ohne Beleg schließen"
+    },
+    "base": {
+      "total": "≈ {{amount}} in Hauswährung",
+      "hint": "Umgerechnet mit dem Kurs, der bei jeder Ausgabe gespeichert ist.",
+      "noneConverted": "Keine Summe in Hauswährung: für keine dieser Kosten ist ein Wechselkurs gespeichert.",
+      "unconverted": "Nicht enthalten, weil kein Kurs gespeichert ist: {{amounts}}"
     }
   },
   "deleteWithCosts": {
@@ -483,11 +864,154 @@
     "message_other": "„{{name}}“ hat {{count}} erfasste Ausgaben und gehört zu keiner Reise, die sie übernehmen könnte. Beim Löschen gehen sie mit.",
     "confirm": "Mit Kosten löschen"
   },
+  "summary": {
+    "title": "KI-Zusammenfassung",
+    "cta": "Lass die KI eine kurze, persönliche Zusammenfassung dieses Trips schreiben — aus seinen Stationen, Etappen und Tagestouren, in deiner Sprache.",
+    "generateButton": "Zusammenfassung erstellen",
+    "regenerate": "Neu generieren",
+    "generating": "Schreibt … das kann ein paar Minuten dauern",
+    "generated": "Zusammenfassung erstellt",
+    "error": "Zusammenfassung fehlgeschlagen",
+    "unavailable": "KI-Dienst nicht erreichbar. Ollama richtet der Admin unter Admin → Parser ein.",
+    "disabled": "Die KI-Zusammenfassung ist abgeschaltet – der Admin hat das KI-Modell unter Admin → Parser deaktiviert.",
+    "cloudNotConsented": "Der KI-Anbieter liegt außerhalb des Netzwerks, und der Administrator hat dem Senden von Reisedaten dorthin nicht zugestimmt."
+  },
   "dates": {
     "heading": "Zeitraum",
     "hint": "Start und Ende des Trips. Ohne Daten entscheiden die Stationen; ein geleertes Feld gibt diese Seite an sie zurück.",
     "save": "Zeitraum speichern",
     "saved": "Zeitraum gespeichert.",
     "saveError": "Der Zeitraum konnte nicht gespeichert werden."
+  },
+  "draft": {
+    "title": "Nicht gespeicherte Änderungen an den Stationen",
+    "body_one": "Auf diesem Gerät liegt eine Fassung mit {{count}} Station, die den Server nicht erreicht hat (zuletzt gesichert {{when}}).",
+    "body_other": "Auf diesem Gerät liegt eine Fassung mit {{count}} Stationen, die den Server nicht erreicht hat (zuletzt gesichert {{when}}).",
+    "restore": "Wiederherstellen",
+    "discard": "Verwerfen",
+    "discardTitle": "Lokale Änderungen verwerfen?",
+    "discardMessage": "Die auf diesem Gerät gesicherte Fassung der Stationen wird gelöscht – eine andere Kopie davon gibt es nicht.",
+    "discardConfirm": "Verwerfen",
+    "firstTitle": "Erst die gesicherten Änderungen?",
+    "firstMessage": "Auf diesem Gerät liegen Änderungen an den Stationen, die den Server nie erreicht haben. Stell sie wieder her, oder verwirf sie bewusst, bevor du neu bearbeitest – sonst würden sie beim ersten Tippen überschrieben.",
+    "discardAndEdit": "Verwerfen und bearbeiten"
+  },
+  "conflict": {
+    "title": "Änderungen zusammenführen",
+    "intro": {
+      "restore": "Seit diese Änderungen gesichert wurden, hat sich auf dem Server etwas geändert. Wo beide Seiten dieselbe Angabe geändert haben, wählst du, was gelten soll. Vorausgewählt ist der Stand vom Server.",
+      "live": "Während du bearbeitet hast, hat sich die Stationsliste auf dem Server geändert – etwa über die App. Nichts wurde überschrieben. Wo beide Seiten dieselbe Angabe geändert haben, wählst du, was gelten soll."
+    },
+    "addedThere_one": "Neu auf dem Server, bleibt erhalten: {{names}}",
+    "addedThere_other": "Neu auf dem Server, bleiben erhalten: {{names}}",
+    "removedThereKept_one": "Auf dem Server entfernt und hier nicht geändert, bleibt entfernt: {{names}}",
+    "removedThereKept_other": "Auf dem Server entfernt und hier nicht geändert, bleiben entfernt: {{names}}",
+    "none": "Keine Angabe wurde auf beiden Seiten geändert – alles lässt sich ohne Rückfrage zusammenführen.",
+    "fieldLegend": "„{{name}}“ – {{field}}",
+    "field": {
+      "title": "Name",
+      "place": "Ort",
+      "startDate": "Ankunft",
+      "endDate": "Abfahrt",
+      "notes": "Notiz",
+      "night": "Übernachtung"
+    },
+    "mine": "Auf diesem Gerät: {{value}}",
+    "theirs": "Auf dem Server: {{value}}",
+    "empty": "leer",
+    "removedThere": "„{{name}}“ wurde auf dem Server entfernt, hier aber geändert",
+    "restoreMine": "Mit den Änderungen von diesem Gerät wiederherstellen",
+    "leaveRemoved": "Entfernt lassen",
+    "removedHere": "„{{name}}“ hast du entfernt, auf dem Server wurde sie geändert",
+    "removeAnyway": "Trotzdem entfernen",
+    "keepServers": "Behalten, wie sie auf dem Server ist",
+    "orderLegend": "Reihenfolge der Stationen",
+    "orderMine": "Reihenfolge von diesem Gerät",
+    "orderTheirs": "Reihenfolge vom Server",
+    "apply": "Übernehmen",
+    "readFailed": "Der aktuelle Stand konnte nicht vom Server gelesen werden. Deine Änderungen bleiben auf diesem Gerät gesichert – versuche „Zusammenführen“ gleich noch einmal."
+  },
+  "reorder": {
+    "title": "„{{name}}“ verschieben?",
+    "between": "Neue Nachbarn: nach „{{before}}“ und vor „{{after}}“.",
+    "first": "Neue Nachbarn: ganz vorne, vor „{{after}}“.",
+    "last": "Neue Nachbarn: ganz hinten, nach „{{before}}“.",
+    "droppedTitle": "Diese Etappen fallen weg",
+    "noLegs": "Keine gespeicherte Etappe fällt weg.",
+    "createdTitle": "Diese Etappen kommen neu dazu – zuerst als gerade Linie",
+    "source": {
+      "track": "aus der Aufzeichnung",
+      "drawn": "von Hand korrigiert",
+      "routed": "entlang der Straße",
+      "straight": "gerade Linie"
+    },
+    "lossTrack": "Die Linie aus der Aufzeichnung geht für diese Etappe verloren. Die Aufzeichnung selbst bleibt unter „Strecke & Aufzeichnungen“ erhalten.",
+    "lossDrawn": "Die von Hand gezeichnete Linie dieser Etappe geht verloren.",
+    "dateConflictsTitle": "Mögliche Datumskonflikte",
+    "dateConflict": "„{{name}}“ ({{date}}) liegt dann hinter „{{previous}}“ ({{previousDate}}), obwohl es früher ist.",
+    "undoNote": "Danach lässt sich das einige Sekunden lang rückgängig machen – gespeichert wird erst, wenn diese Frist vorbei ist.",
+    "confirm": "Verschieben",
+    "confirmLoss": "Verschieben und Linie verwerfen"
+  },
+  "shift": {
+    "open": "Ab hier verschieben …",
+    "openHint": "Diese und alle folgenden Stationen um Tage verschieben – mit Vorschau.",
+    "title": "Ab „{{name}}“ verschieben",
+    "intro": "Diese Station und alle danach rücken um dieselbe Zahl von Tagen. Verknüpfte Unterkünfte behalten ihre Buchungsdaten – sie stehen unten zum Prüfen.",
+    "days": "Um wie viele Tage?",
+    "daysHint": "Eine positive Zahl verschiebt nach hinten (später), eine negative nach vorne (früher).",
+    "daysInvalid": "Bitte eine ganze Zahl eingeben, z. B. 2 oder -1.",
+    "earlier": "Einen Tag früher",
+    "later": "Einen Tag später",
+    "missingDays": "eine Zahl von Tagen ungleich 0",
+    "missingDated": "eine Station mit Datum ab hier",
+    "colStation": "Station",
+    "colBefore": "Bisher",
+    "colAfter": "Neu",
+    "noticesTitle": "Bitte prüfen",
+    "notice": {
+      "beforePrevious": "„{{name}}“ beginnt dann, bevor „{{previous}}“ endet.",
+      "gap_one": "Zwischen „{{previous}}“ und „{{name}}“ liegt dann {{count}} Tag ohne Station.",
+      "gap_other": "Zwischen „{{previous}}“ und „{{name}}“ liegen dann {{count}} Tage ohne Station.",
+      "linkedStay": "Die Unterkunft „{{name}}“ ({{dates}}) behält ihre Buchungsdaten.",
+      "otherStay": "„{{name}}“ fällt dann in den Aufenthalt „{{stay}}“ ({{dates}}).",
+      "outsideTrip": "Der Trip liegt dann teilweise außerhalb seiner Reise „{{trip}}“ ({{dates}}).",
+      "overlapsTrip": "Der Trip überschneidet sich dann mit der Reise „{{trip}}“ ({{dates}}).",
+      "overlapsRoadtrip": "Der Trip überschneidet sich dann mit dem Trip „{{trip}}“ ({{dates}})."
+    },
+    "check": "prüfen",
+    "contextFailed": "Deine Reisen und anderen Trips konnten nicht geladen werden – Überschneidungen damit sind nicht geprüft.",
+    "apply": "Verschieben",
+    "done_one": "{{count}} Station verschoben ({{days}} Tage)",
+    "done_other": "{{count}} Stationen verschoben ({{days}} Tage)",
+    "undoRestores_one": "Rückgängig stellt das bisherige Datum dieser Station wieder her ({{from}} – {{to}}).",
+    "undoRestores_other": "Rückgängig stellt die bisherigen Daten dieser {{count}} Stationen wieder her ({{from}} – {{to}})."
+  },
+  "days": {
+    "title": "Tag für Tag",
+    "viewLabel": "Ansicht",
+    "view": {
+      "stations": "Stationen",
+      "days": "Tage"
+    },
+    "undated": "Ohne Datum",
+    "via": "Unterwegs: {{places}}",
+    "night": "Nacht:",
+    "noNight": "Keine Übernachtung erfasst",
+    "nightsUnknown": "Abfahrt nicht erfasst – Zahl der Nächte offen",
+    "km": "{{km}} km",
+    "kmBy": {
+      "track": "{{km}} km aus der Aufzeichnung",
+      "routed": "{{km}} km entlang der Straße",
+      "drawn": "{{km}} km von Hand gezeichnet",
+      "straight": "{{km}} km Luftlinie"
+    },
+    "ferry": "davon {{km}} km mit der Fähre",
+    "driving": "Fahrzeit {{h}} h {{m}} (berechnet)",
+    "drivingUnknown": "Fahrzeit unbekannt – nicht jede Etappe ist entlang der Straße berechnet",
+    "missingLeg": "Für einen Abschnitt ist noch keine Etappe gespeichert – die Strecke ist unvollständig.",
+    "stayOn_one": "Danach {{count}} weiterer Tag in {{place}}",
+    "stayOn_other": "Danach {{count}} weitere Tage in {{place}}",
+    "drivingEntered": "Fahrzeit {{h}} h {{m}} (eingetragen)"
   }
 }

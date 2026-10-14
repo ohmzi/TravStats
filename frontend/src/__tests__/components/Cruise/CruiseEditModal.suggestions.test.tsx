@@ -1,26 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CruiseEditModal } from "../../../components/Cruise/CruiseEditModal";
 import { cruiseApi, companionsApi, shipsApi, tripsApi } from "../../../lib/api";
 import type { Cruise } from "../../../types";
+import { findNamed, getNamed, queryNamed } from "../../helpers/namedElement";
 
 /**
  * Entry suggestions in the cruise form: values the form can derive from data
  * already in it are filled only where empty, and never over something typed.
  */
 
-vi.mock("../../../lib/api", () => ({
-  cruiseApi: { create: vi.fn(), update: vi.fn() },
-  portsApi: { search: vi.fn().mockResolvedValue([]), create: vi.fn() },
-  shipsApi: {
-    search: vi.fn().mockResolvedValue([]),
-    create: vi.fn(),
-    cruiseLines: vi.fn().mockResolvedValue([]),
-  },
-  companionsApi: { list: vi.fn() },
-  tripsApi: { getAll: vi.fn() },
-}));
+vi.mock("../../../lib/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../lib/api")>();
+  return {
+    ...actual,
+    cruiseApi: { create: vi.fn(), update: vi.fn() },
+    portsApi: { search: vi.fn().mockResolvedValue([]), create: vi.fn() },
+    shipsApi: {
+      search: vi.fn().mockResolvedValue([]),
+      create: vi.fn(),
+      cruiseLines: vi.fn().mockResolvedValue([]),
+    },
+    companionsApi: { list: vi.fn() },
+    tripsApi: { getAll: vi.fn() },
+  };
+});
 
 vi.mock("../../../hooks/useTranslation", () => ({
   useTranslation: () => ({
@@ -45,13 +50,29 @@ vi.mock("@/hooks/useTagSuggestions", () => ({
 const stopDates = (): string[] =>
   screen.getAllByLabelText("stops.date").map((el) => (el as HTMLInputElement).value);
 
+/**
+ * Stops added in these tests have no port. Since forgejo#245 such a day blocks
+ * the save (the server refuses it: a stop is a port, a sea day or an
+ * unresolved port), so they are made sea days first — the dates under test
+ * do not depend on what the day is.
+ */
+function markAddedStopsAtSea(): void {
+  // The days' own checkboxes, found in the DOM rather than by role (M7).
+  for (const box of document.querySelectorAll<HTMLInputElement>(
+    "li details input[type='checkbox']"
+  )) {
+    if (!(box as HTMLInputElement).checked) fireEvent.click(box);
+  }
+}
+
 async function savedPayload(): Promise<Parameters<typeof cruiseApi.create>[0]> {
+  markAddedStopsAtSea();
   // A new cruise needs something that sailed and a start date before it is sent.
   const routeName = screen.getByLabelText("field.routeName") as HTMLInputElement;
   if (!routeName.value) fireEvent.change(routeName, { target: { value: "Nordland" } });
-  const depart = screen.getAllByLabelText("field.depart")[0] as HTMLInputElement;
+  const depart = screen.getByLabelText(/^field\.startDate/) as HTMLInputElement;
   if (!depart.value) fireEvent.change(depart, { target: { value: "2026-07-01" } });
-  await userEvent.click(screen.getByRole("button", { name: /form\.save/i }));
+  await userEvent.click(screen.getByText("form.save", { selector: "button" }));
   await waitFor(() => expect(cruiseApi.create).toHaveBeenCalled());
   const calls = vi.mocked(cruiseApi.create).mock.calls;
   return calls[calls.length - 1][0];
@@ -69,10 +90,10 @@ describe("CruiseEditModal — entry suggestions", () => {
   describe("stop dates", () => {
     it("dates each added stop from the start date and its day of the cruise", async () => {
       render(<CruiseEditModal mode="create" onClose={vi.fn()} onSaved={vi.fn()} />);
-      fireEvent.change(screen.getByLabelText("field.depart"), {
+      fireEvent.change(screen.getByLabelText(/^field\.startDate/), {
         target: { value: "2026-07-01" },
       });
-      const add = screen.getByRole("button", { name: /stops.add/ });
+      const add = screen.getByText(/stops\.add/, { selector: "button" });
       await userEvent.click(add);
       await userEvent.click(add);
 
@@ -86,9 +107,9 @@ describe("CruiseEditModal — entry suggestions", () => {
 
     it("keeps a date the user typed when the start date moves", async () => {
       render(<CruiseEditModal mode="create" onClose={vi.fn()} onSaved={vi.fn()} />);
-      const start = screen.getByLabelText("field.depart");
+      const start = screen.getByLabelText(/^field\.startDate/);
       fireEvent.change(start, { target: { value: "2026-07-01" } });
-      const add = screen.getByRole("button", { name: /stops.add/ });
+      const add = screen.getByText(/stops\.add/, { selector: "button" });
       await userEvent.click(add);
       await userEvent.click(add);
       fireEvent.change(screen.getAllByLabelText("stops.date")[1], {
@@ -128,14 +149,14 @@ describe("CruiseEditModal — entry suggestions", () => {
 
   describe("end date", () => {
     const endInput = (): HTMLInputElement =>
-      screen.getAllByLabelText("field.arrive")[0] as HTMLInputElement;
+      screen.getByLabelText("field.endDate") as HTMLInputElement;
 
     it("follows the last day of the cruise while the user has not touched it", async () => {
       render(<CruiseEditModal mode="create" onClose={vi.fn()} onSaved={vi.fn()} />);
-      fireEvent.change(screen.getByLabelText("field.depart"), {
+      fireEvent.change(screen.getByLabelText(/^field\.startDate/), {
         target: { value: "2026-07-01" },
       });
-      const add = screen.getByRole("button", { name: /stops.add/ });
+      const add = screen.getByText(/stops\.add/, { selector: "button" });
       await userEvent.click(add);
       expect(endInput().value).toBe("");
       await userEvent.click(add);
@@ -146,10 +167,10 @@ describe("CruiseEditModal — entry suggestions", () => {
 
     it("stops following once the user edits it", async () => {
       render(<CruiseEditModal mode="create" onClose={vi.fn()} onSaved={vi.fn()} />);
-      fireEvent.change(screen.getByLabelText("field.depart"), {
+      fireEvent.change(screen.getByLabelText(/^field\.startDate/), {
         target: { value: "2026-07-01" },
       });
-      const add = screen.getByRole("button", { name: /stops.add/ });
+      const add = screen.getByText(/stops\.add/, { selector: "button" });
       await userEvent.click(add);
       await userEvent.click(add);
       await waitFor(() => expect(endInput().value).toBe("2026-07-02"));
@@ -206,10 +227,10 @@ describe("CruiseEditModal — entry suggestions", () => {
       const route = screen.getByLabelText("field.routeName") as HTMLInputElement;
       expect(route.value).toBe("");
 
-      await userEvent.click(screen.getByRole("button", { name: "form.routeNameSuggestion" }));
+      await userEvent.click(getNamed("button", "form.routeNameSuggestion"));
 
       expect(route.value).toBe("Kiel → Oslo → Kiel");
-      expect(screen.queryByRole("button", { name: "form.routeNameSuggestion" })).toBeNull();
+      expect(queryNamed("button", "form.routeNameSuggestion")).toBeNull();
     });
 
     it("offers nothing over a name the cruise already has", async () => {
@@ -224,7 +245,7 @@ describe("CruiseEditModal — entry suggestions", () => {
       // Let the trip list settle, so the assertion below is not made mid-load.
       await act(async () => {});
       expect(screen.getByLabelText("field.routeName")).toHaveValue("Norwegen");
-      expect(screen.queryByRole("button", { name: "form.routeNameSuggestion" })).toBeNull();
+      expect(queryNamed("button", "form.routeNameSuggestion")).toBeNull();
     });
   });
 
@@ -235,7 +256,11 @@ describe("CruiseEditModal — entry suggestions", () => {
       const line = screen.getByLabelText("field.line");
 
       await userEvent.type(line, "ai");
-      await userEvent.click(await screen.findByRole("button", { name: "AIDA Cruises" }));
+      // Scoped to the field's combobox: the suggestion arrives after a 300 ms
+      // debounce, and a document-wide role query over this modal is slow
+      // enough under load to use up findBy's one-second window.
+      const combobox = line.parentElement as HTMLElement;
+      await userEvent.click(await within(combobox).findByRole("button", { name: "AIDA Cruises" }));
 
       expect(shipsApi.cruiseLines).toHaveBeenCalledWith("ai");
       expect(line).toHaveValue("AIDA Cruises");
@@ -255,11 +280,14 @@ describe("CruiseEditModal — entry suggestions", () => {
   describe("tags", () => {
     it("offers the user's own tags and saves the chips as a list", async () => {
       render(<CruiseEditModal mode="create" onClose={vi.fn()} onSaved={vi.fn()} />);
-      await userEvent.type(screen.getByLabelText("field.line"), "AIDA");
-      const tags = screen.getByRole("combobox", { name: "field.tags" });
+      fireEvent.change(screen.getByLabelText("field.line"), { target: { value: "AIDA" } });
+      // By id and within its list: role queries over this form are slow (review M7).
+      const tags = document.getElementById("cruise-form-tags") as HTMLElement;
 
       await userEvent.type(tags, "fj");
-      await userEvent.click(screen.getByRole("option", { name: /Fjords/ }));
+      await userEvent.click(
+        within(screen.getByRole("listbox")).getByRole("option", { name: /Fjords/ })
+      );
       await userEvent.type(tags, "Sea days{Enter}");
 
       expect((await savedPayload()).tags).toEqual(["Fjords", "Sea days"]);
@@ -298,8 +326,8 @@ describe("CruiseEditModal — entry suggestions", () => {
         await act(async () => {
           fireEvent.focus(screen.getByLabelText("field.line"));
         });
-        expect(await screen.findByRole("button", { name: "TUI Cruises" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Hurtigruten" })).toBeInTheDocument();
+        expect(await findNamed("button", "TUI Cruises")).toBeInTheDocument();
+        expect(getNamed("button", "Hurtigruten")).toBeInTheDocument();
       }
     );
   });

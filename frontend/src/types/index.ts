@@ -158,21 +158,8 @@ export interface Flight {
   times?: FlightTimes; // ADR 0002 phase 4 — read through lib/entityTimes.ts
 }
 
-export interface Booking {
-  id: string;
-  userId: string;
-  tripId: string | null;
-  pnr: string | null;
-  price: number | null;
-  /** ISO 4217 alpha-3 code (EUR, USD, GBP, CHF, INR, JPY, …) or null. */
-  currency: string | null;
-}
-
-export interface UpdateBookingInput {
-  pnr?: string | null;
-  price?: number | null;
-  currency?: string | null;
-}
+import type { Booking } from "./booking";
+export type { Booking, UpdateBookingInput } from "./booking";
 
 export type TripStatus = "planned" | "in_progress" | "completed";
 export type TripCategory = "vacation" | "business" | "weekend" | "family" | "other";
@@ -242,6 +229,8 @@ export interface Trip {
   drivenKm?: number;
 
   _count?: import("./tripCounts").TripCounts;
+  /** Sent by `GET /trips/:id`, and by `GET /trips` with `includeInsights`. */
+  cost?: import("./tripCost").TripCost | null;
   bookings?: Booking[];
   flights?: Pick<
     Flight,
@@ -324,6 +313,9 @@ export interface Trip {
   lodgingStays?: (LodgingStay & { lodging: Lodging })[];
   /** Train rides (departure order) and car rentals (pickup order) linked to this trip. */
   railJourneys?: TripRailJourney[];
+  /** Bus rides linked to this trip, in departure order (forgejo#180). */
+  busJourneys?: import("./bus").TripBusJourney[];
+  ferryJourneys?: import("./ferry").TripFerryJourney[];
   rentalBookings?: import("./rental").TripRental[];
   immichAlbums?: LinkedAlbum[];
   /** The trip's roadtrip stations that are not timeline stops; `GET /trips/:id` only. */
@@ -342,6 +334,8 @@ export interface TripPhoto {
 }
 
 export interface FlightInput {
+  /** When online check-in opens, on the departure airport's clock (forgejo#285); null clears. */
+  onlineCheckInOpensAt?: { local: string; zone?: string } | string | null;
   /**
    * Set when the flight arrives from an import — a booking mail, a boarding
    * pass, a file. The server derives the provenance key from it; what counts
@@ -383,6 +377,8 @@ export interface FlightInput {
   // intentional (it's a backend-only marker that should never be re-sent).
   depTimeSemantics?: "UTC" | "DATE_ONLY" | "UNKNOWN" | "LEGACY_FAKE_UTC";
   arrTimeSemantics?: "UTC" | "DATE_ONLY" | "UNKNOWN" | "LEGACY_FAKE_UTC";
+  /** A historical date known only to the year or month (forgejo#256). */
+  datePrecision?: "year" | "month";
   status?: "scheduled" | "flown" | "cancelled" | "historical" | "duplicated";
   dataSource?:
     | "manual"
@@ -459,6 +455,7 @@ export interface ParsedBooking {
   baggageAllowance?: string;
   frequentFlyerNumber?: string;
   bookingClassLetter?: string;
+  onlineCheckInOpensAt?: string; // "YYYY-MM-DDTHH:mm", departure clock (forgejo#285)
   coPassengers?: string[];
   parserTemplate?: string;
   parserConfidence?: number;
@@ -642,15 +639,16 @@ export interface FunStats {
 }
 
 export interface BusinessStats {
-  costPerKm: number;
-  costPerHour: number;
+  /** Null when nothing priced can be divided (forgejo#256) — unknown, never 0. */
+  costPerKm: number | null;
+  costPerHour: number | null;
   /** Null when no counted flight carries a price (forgejo#83). */
   totalCost: number | null;
   totalDistance: number;
   seatClassDistribution: Record<string, number>;
   mostCommonCategory: string | null;
   airportDiversity: number;
-  avgFlightDuration: number;
+  avgFlightDuration: number | null;
   busiestMonth: string | null;
   busiestMonthFlights: number;
   categoryDistribution: Record<string, number>;
@@ -730,12 +728,16 @@ export interface AirportStats {
     name: string | null;
     country: string | null;
   }>;
+  /** How many airports were visited exactly once (forgejo#256); the list is five of them. */
+  rarestAirportsTotal: number;
   newThisYear: Array<{
     code: string;
     name: string | null;
     country: string | null;
     firstVisitDate: string;
   }>;
+  /** The year `newThisYear` is about — today's year in the profile zone (forgejo#256). */
+  newThisYearYear: number;
   farthestFromHome: {
     code: string;
     name: string | null;

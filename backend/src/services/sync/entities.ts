@@ -7,7 +7,9 @@ import type { SyncScope } from "./scope";
  * table that has a `sync_record_change` trigger — migration
  * `20261001193030_sync_change_feed`, plus rental bookings, trip expenses and
  * the companion catalogue from `20261002172714_sync_feed_rentals_expenses_companions`
- * (domains that landed beside the first one). The list is what the Companion reads and
+ * (domains that landed beside the first one), and bus rides from
+ * `20261010040000_sync_feed_bus` (forgejo#180), and standalone notes from
+ * `20261010175834_standalone_notes` (forgejo#137). The list is what the Companion reads and
  * edits today; `syncTriggers.test.ts` holds it against the triggers that
  * actually exist, so a table cannot be added on one side only.
  *
@@ -17,7 +19,8 @@ import type { SyncScope } from "./scope";
  * by the server from the records that ARE carried), the companion join rows
  * (an entry carries its companions as its own `companions` name array, which
  * every write path rewrites together with the join rows), loyalty cards,
- * place lists, bookings, settings (`/app-settings` has
+ * place lists, place reference aliases (`place_external_refs` — a server-side
+ * dedup key a merge leaves, forgejo#232), bookings, settings (`/app-settings` has
  * its own `updatedAt` protocol) and everything derived (country days,
  * achievements, suggestions).
  */
@@ -147,6 +150,20 @@ const ENTITIES: readonly SyncEntity[] = [
     omit: ["geometry"],
     versioned: true,
     reachable: domainShown("rail"),
+  },
+  {
+    // forgejo#180. The frozen road line is derived and fetched with the ride;
+    // the feed carries the ride itself.
+    name: "bus_journey",
+    table: "bus_journeys",
+    ownerSql: DIRECT_OWNER,
+    ownerWhere: (userId) => ({ userId }),
+    find: (args) => prisma.busJourney.findMany(args),
+    visible: inDomain("bus"),
+    tombstoneVisible: inDomain("bus"),
+    omit: ["geometry"],
+    versioned: true,
+    reachable: domainShown("bus"),
   },
   {
     name: "cruise",
@@ -296,6 +313,21 @@ const ENTITIES: readonly SyncEntity[] = [
     tombstoneVisible: always,
     omit: ["storedName", "parsedPayload"],
     versioned: false,
+    reachable: always,
+  },
+  {
+    // A standalone note (forgejo#137) belongs to no domain and to no trip, so
+    // every account sees its own. The photo's stored name is a server
+    // internal; the bytes are fetched from `/notes/:id/photo`.
+    name: "note",
+    table: "notes",
+    ownerSql: DIRECT_OWNER,
+    ownerWhere: (userId) => ({ userId }),
+    find: (args) => prisma.note.findMany(args),
+    visible: always,
+    tombstoneVisible: always,
+    omit: ["photoFilename"],
+    versioned: true,
     reachable: always,
   },
 ];

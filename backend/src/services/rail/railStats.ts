@@ -7,7 +7,9 @@ import {
   type DatedRail,
 } from "../../shared/railCounting";
 import { railRideFacts } from "../../utils/railAchievements";
-import { rideHasClocks } from "../../shared/railClock";
+import { rideHasClocks, rideHoursOnBoard } from "../../shared/railClock";
+import { railStationKey } from "../../shared/railConnections";
+import { computeRailJourneyFigures, type RailJourneyFigures } from "./railJourneyStats";
 
 /**
  * The rail statistics (spec 2026-09-25-rail-domain, phase 2b), computed from
@@ -52,6 +54,14 @@ export interface RailStatsRow extends DatedRail {
    */
   depPrecision?: string | null;
   arrPrecision?: string | null;
+  /** The grouping's inputs (forgejo#261); optional for hand-built test rows. */
+  bookingId?: string | null;
+  depStationId?: number | null;
+  arrStationId?: number | null;
+  depLat?: number;
+  depLon?: number;
+  arrLat?: number;
+  arrLon?: number;
 }
 
 export interface Ranked {
@@ -107,6 +117,8 @@ export interface RailStats {
    * disagree about how many night trains there were.
    */
   rideKinds: { nightTrains: number; highSpeed: number; crossBorder: number; operators: number };
+  /** Journeys, changes, connections, punctuality, nights on board (forgejo#261). */
+  connected: RailJourneyFigures;
 }
 
 function rank(values: Array<string | null>): Ranked[] {
@@ -129,7 +141,8 @@ function stationVisits(rows: readonly RailStatsRow[]): Ranked[] {
       [r.depStationCode, r.depStationName],
       [r.arrStationCode, r.arrStationName],
     ] as const) {
-      const key = code ? `code:${code}` : `name:${name.trim().toLowerCase()}`;
+      // One station identity for the ranking and the connections (forgejo#261).
+      const key = railStationKey({ code, name }) ?? `name:${name}`;
       const entry = byKey.get(key) ?? { label: name, count: 0 };
       byKey.set(key, { ...entry, count: entry.count + 1 });
     }
@@ -144,7 +157,11 @@ const clocked = (r: RailStatsRow): boolean =>
   rideHasClocks({ depPrecision: r.depPrecision ?? null, arrPrecision: r.arrPrecision ?? null });
 
 function delayBuckets(rows: readonly RailStatsRow[]): RailStats["delays"] {
-  const recorded = rows.filter((r) => r.delayMinutes !== null && clocked(r));
+  // An arrival delay needs an arrival: a ride with none has no clock to be
+  // late against (review M3), whatever its null precision column reads as.
+  const recorded = rows.filter(
+    (r) => r.delayMinutes !== null && r.arrivalTime !== null && clocked(r)
+  );
   const buckets = [...DELAY_BUCKETS, null].map((upTo, i) => {
     const lower = i === 0 ? -Infinity : DELAY_BUCKETS[i - 1];
     const count = recorded.filter((r) => {
@@ -179,21 +196,51 @@ function rideKinds(rows: readonly RailStatsRow[]): RailStats["rideKinds"] {
   };
 }
 
-export function computeRailStats(rows: readonly RailStatsRow[]): RailStats {
+/** A ride's hours on board — the tab's sum and the evidence panel's rows (`rideHoursOnBoard`). */
+export function railRideHours(
+  r: Pick<RailStatsRow, "departureTime" | "arrivalTime"> & {
+    depPrecision?: string | null;
+    arrPrecision?: string | null;
+  }
+): number | null {
+  return rideHoursOnBoard({
+    departureTime: r.departureTime,
+    arrivalTime: r.arrivalTime,
+    depPrecision: r.depPrecision ?? null,
+    arrPrecision: r.arrPrecision ?? null,
+  });
+}
+
+/**
+ * The longest ride by distance — the tab's record and the panel's one row.
+ * Ties go to the earlier ride (rows arrive oldest first); a ride with no
+ * distance cannot hold a distance record.
+ */
+export function longestRide<T extends { distanceKm: number | null }>(rows: readonly T[]): T | null {
+  return rows.reduce<T | null>(
+    (best, r) =>
+      r.distanceKm === null || (best !== null && r.distanceKm <= (best.distanceKm as number))
+        ? best
+        : r,
+    null
+  );
+}
+
+/**
+ * @param all every counted ride, for the one figure a period cut cannot answer
+ *            alone: whether a connection was NEW in that period.
+ */
+export function computeRailStats(
+  rows: readonly RailStatsRow[],
+  all: readonly RailStatsRow[] = rows
+): RailStats {
   const sumKm = (source: string): number =>
     rows
       .filter((r) => r.distanceSource === source && r.distanceKm !== null)
       .reduce((sum, r) => sum + (r.distanceKm as number), 0);
   const measured = rows.filter((r) => r.distanceKm !== null);
-  const timed = rows.filter(
-    (r) =>
-      r.arrivalTime !== null && clocked(r) && r.arrivalTime.getTime() >= r.departureTime.getTime()
-  );
-  const longest = measured.reduce<RailStatsRow | null>(
-    (best, r) =>
-      best === null || (r.distanceKm as number) > (best.distanceKm as number) ? r : best,
-    null
-  );
+  const hours = rows.map(railRideHours).filter((h): h is number => h !== null);
+  const longest = longestRide(rows);
   const years = new Map<number, { journeys: number; km: number }>();
   for (const r of rows) {
     const year = railYear(r);
@@ -212,12 +259,8 @@ export function computeRailStats(rows: readonly RailStatsRow[]): RailStats {
       unmeasuredJourneys: rows.length - measured.length,
     },
     hoursOnBoard: {
-      hours:
-        timed.reduce(
-          (sum, r) => sum + ((r.arrivalTime as Date).getTime() - r.departureTime.getTime()),
-          0
-        ) / 3_600_000,
-      measuredJourneys: timed.length,
+      hours: hours.reduce((sum, h) => sum + h, 0),
+      measuredJourneys: hours.length,
     },
     countries: [...new Set(rows.flatMap(railCountries))].sort(),
     operators: rank(rows.map((r) => r.operator)),
@@ -237,8 +280,17 @@ export function computeRailStats(rows: readonly RailStatsRow[]): RailStats {
       .map(([year, v]) => ({ year, ...v }))
       .sort((a, b) => a.year - b.year),
     rideKinds: rideKinds(rows),
+    connected: computeRailJourneyFigures(rows.map(withDefaults), all.map(withDefaults)),
   };
 }
+
+/** The night rule reads class and precision; a hand-built row may leave them out. */
+const withDefaults = (r: RailStatsRow) => ({
+  ...r,
+  travelClass: r.travelClass ?? null,
+  depPrecision: r.depPrecision ?? null,
+  arrPrecision: r.arrPrecision ?? null,
+});
 
 const STATS_SELECT = {
   id: true,
@@ -261,6 +313,13 @@ const STATS_SELECT = {
   travelClass: true,
   depPrecision: true,
   arrPrecision: true,
+  bookingId: true,
+  depStationId: true,
+  arrStationId: true,
+  depLat: true,
+  depLon: true,
+  arrLat: true,
+  arrLon: true,
 } as const;
 
 /**
@@ -287,6 +346,7 @@ export async function loadRailStats(
       (r) =>
         railYear(r) === year &&
         (lastDay === null || stationDayKey(r.departureTime, r.depTimezone) <= lastDay)
-    )
+    ),
+    rows
   );
 }

@@ -1,8 +1,10 @@
 import { z } from "./zod";
+import { normalizeRegistration } from "../shared/aircraftRegistration";
 import { receiptUrlValidator } from "./receiptUrl";
 import { chronologyProblem, departsInFuture } from "../shared/flightChronology";
 import { wallClockExists } from "../shared/wallClockExistence";
 import { partialForUpdate } from "./partialUpdate";
+import { onlineCheckInInputShape } from "./deadlines";
 
 export const airportSchema = z.object({
   icao: z.string().nullable().optional(),
@@ -133,7 +135,14 @@ const baseFlightSchema = z.object({
   flightNumber: normalizedFlightNumber,
   callsign: z.string().nullable().optional(),
   aircraft: z.string().nullable().optional(),
-  aircraftRegistration: z.string().max(20).nullable().optional(),
+  // One airframe, one key (forgejo#256): every write stores the normalised
+  // mark, so "d-aixa" and "D-AIXA" are one hull (`shared/aircraftRegistration`).
+  aircraftRegistration: z
+    .string()
+    .max(20)
+    .nullable()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : normalizeRegistration(v))),
   aircraftModeS: z.string().max(10).nullable().optional(),
   departure: z.object({
     icao: z.string().nullable().optional(),
@@ -184,6 +193,15 @@ const baseFlightSchema = z.object({
   arrivalFold: foldField,
   depTimeSemantics: z.enum(["UTC", "DATE_ONLY", "UNKNOWN"]).optional(),
   arrTimeSemantics: z.enum(["UTC", "DATE_ONLY", "UNKNOWN"]).optional(),
+  datePrecision: z
+    .enum(["year", "month"])
+    .optional()
+    .describe(
+      "For an UNKNOWN-semantics historical entry: the date is known only to the YEAR " +
+        "or the MONTH, and the wall clock sent is its placeholder (the 1st, 00:00). " +
+        "Stored as dep_precision/arr_precision so no reading ever files the " +
+        "placeholder on another day."
+    ),
   actualDepartureLocal: localDateTime.optional().nullable(),
   actualDepartureTz: ianaTimezone
     .optional()
@@ -297,6 +315,8 @@ const baseFlightSchema = z.object({
   aerodataboxQualityTags: z.array(z.string().max(64)).max(20).optional().default([]),
   baggageBelt: z.string().max(20).nullable().optional(),
   checkInDesk: z.string().max(40).nullable().optional(),
+  // When online check-in opens (forgejo#285); a bare `{local}` is read at the departure airport.
+  ...onlineCheckInInputShape,
   // Special flights (Sonder-Flüge) — flight subtype, see schema.prisma
   specialType: z.enum(SPECIAL_FLIGHT_TYPES).nullable().optional(),
   eventLat: z.number().min(-90).max(90).nullable().optional(),
@@ -447,6 +467,9 @@ const requireStatusTimeAxisSanity = (
 };
 
 export const createFlightSchema = baseFlightSchema
+  // Create only (#355): an update moves a flight between trips through the
+  // trip routes, whose ownership checks this schema cannot see.
+  .extend({ tripId: z.string().uuid().nullable().optional() })
   .superRefine(requirePairedTimezone)
   .superRefine(requireExistingWallClock)
   .superRefine(requireChronologicalOrder)

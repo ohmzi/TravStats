@@ -56,7 +56,13 @@ function detail(roadtripName: string, trip: RoadtripDetail["trip"]): RoadtripDet
     tours: [],
     routingAvailable: true,
     expenses: [],
-    costs: { total: {}, byStation: [], byLeg: [], unpinned: {} },
+    costs: {
+      total: {},
+      totalBase: { currency: "EUR", amount: 0, unconverted: {} },
+      byStation: [],
+      byLeg: [],
+      unpinned: {},
+    },
   };
 }
 

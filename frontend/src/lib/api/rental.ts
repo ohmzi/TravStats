@@ -5,6 +5,7 @@ import type {
   RentalInvoiceReading,
   RentalStationHit,
 } from "../../types/rental";
+import type { RentalInvoicePart } from "../rental/rentalInvoiceDiff";
 
 /**
  * `/api/v1/rentals` — the rental logbook (spec 2026-10-01-rental-domain-design).
@@ -42,6 +43,12 @@ export interface RentalListQuery {
 }
 
 export const rentalApi = {
+  /** The common providers, as suggestions for the free-text field (forgejo#196). */
+  async listProviders(): Promise<{ id: string; name: string }[]> {
+    const res = await api.get<Envelope<{ id: string; name: string }[]>>("/rentals/providers");
+    return Array.isArray(res.data.data) ? res.data.data : [];
+  },
+
   async list(query: RentalListQuery = {}): Promise<RentalPage> {
     const res = await api.get<
       Envelope<RentalBooking[]> & { meta: { total: number; summary: RentalListSummary } }
@@ -104,6 +111,11 @@ export const rentalApi = {
           invoice: RentalInvoiceReading;
           replaceUserDistance?: boolean;
           mailSentAt?: string | null;
+          /** The invoice's parts the review took over; `false` leaves one as it is (forgejo#237). */
+          adopt?: Partial<Record<RentalInvoicePart, boolean>> & {
+            /** Indexes of `invoice.fees` taken over; absent = all, `[]` = none. */
+            fees?: number[];
+          };
         }
   ): Promise<{ rental: RentalBooking; outcome: string }> {
     const res = await api.post<Envelope<RentalBooking> & { meta: { outcome: string } }>(

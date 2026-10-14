@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { appLocale } from "../../lib/units";
 import type { JSX } from "react";
 import { pushRelayApi, type PushRelayState } from "../../lib/api";
 import { logger } from "../../lib/logger";
@@ -9,7 +10,7 @@ import { todayZoneNow } from "../../hooks/useTodayZone";
 const PRIVACY_URL = "https://travstats.de/datenschutz";
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { timeZone: todayZoneNow() });
+  return new Date(iso).toLocaleString(appLocale(), { timeZone: todayZoneNow() });
 }
 
 export default function PushSettings(): JSX.Element {
@@ -110,14 +111,14 @@ export default function PushSettings(): JSX.Element {
         >
           {t("pushRelay:relayUrl")}
         </label>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
             id="push-relay-url"
             type="url"
             value={url}
             disabled={busy}
             onChange={(e) => setUrl(e.target.value)}
-            className="flex-1 rounded-sm border px-2 py-1 text-sm"
+            className="min-w-48 flex-1 rounded-sm border px-2 py-1 text-sm"
             style={{ borderColor: "var(--border)", background: "transparent" }}
           />
           <button
@@ -130,7 +131,7 @@ export default function PushSettings(): JSX.Element {
                 "pushRelay:invalidUrl"
               )
             }
-            className="rounded-sm border px-3 py-1 text-sm"
+            className="shrink-0 rounded-sm border px-3 py-1 text-sm"
             style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
           >
             {t("pushRelay:saveUrl")}

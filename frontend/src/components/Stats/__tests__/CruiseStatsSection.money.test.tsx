@@ -24,6 +24,10 @@ import type { CruiseStatsResponse } from "../../../lib/api/stats";
 
 const api = vi.hoisted(() => ({ getCruiseStats: vi.fn() }));
 vi.mock("../../../lib/api/stats", () => ({ statsApi: api }));
+// The insights block (forgejo#257) makes its own request and has its own suite
+// (`insights/__tests__/CruiseInsightsSection.test.tsx`); this one is about the
+// blocks above it, so it is left out rather than given a second fixture.
+vi.mock("../insights/CruiseInsightsSection", () => ({ default: () => null }));
 
 const cruiseList = vi.hoisted(() => ({ list: vi.fn() }));
 vi.mock("../../../lib/api/cruise", () => ({ cruiseApi: cruiseList }));
@@ -126,6 +130,16 @@ async function renderTab(): Promise<void> {
   await screen.findByText("cruise:stats.money.title");
 }
 
+/**
+ * A block's or tile's own heading. Its title also names an entry of the
+ * section's "So wird gezählt", so the text alone matches twice.
+ */
+function heading(text: string): HTMLElement {
+  const found = screen.getAllByText(text).find((el) => el.tagName === "H3");
+  if (!found) throw new Error(`no heading "${text}"`);
+  return found;
+}
+
 describe("CruiseStatsSection money block population", () => {
   beforeEach(() => {
     api.getCruiseStats.mockReset();
@@ -136,7 +150,7 @@ describe("CruiseStatsSection money block population", () => {
 
   it("puts only the sailed cruise in the per-currency rows", async () => {
     await renderTab();
-    const rows = screen.getByText("cruise:stats.money.byCurrency").parentElement;
+    const rows = heading("cruise:stats.money.byCurrency").parentElement;
     expect(rows?.textContent).toMatch(/500/);
     // The booking's 9.000 belongs to no figure in this section. Both cruises
     // are priced in EUR, so folding the unfiltered list produces ONE row of
@@ -163,7 +177,7 @@ describe("CruiseStatsSection money block population", () => {
 
   it("agrees with the server's total instead of contradicting it", async () => {
     await renderTab();
-    const tile = screen.getByText("cruise:stats.money.baseTotal").parentElement;
+    const tile = heading("cruise:stats.money.baseTotal").parentElement;
     expect(tile?.textContent).toMatch(/500/);
     expect(tile?.textContent).not.toMatch(/9[.,]?000/);
   });

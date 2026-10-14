@@ -1,11 +1,12 @@
 import { Router, Response, NextFunction } from "express";
+import { propagateDelete, shareSnapshot } from "../services/sharing/propagate";
 import type { z } from "zod";
 
 import { prisma } from "../db";
 import { Prisma } from "../prisma";
 import { authenticate, requireWriteScope, AuthRequest } from "../middleware/auth";
 import { rentalCreationLimiter } from "../middleware/rateLimit";
-import { AppError } from "../middleware/errorHandler";
+import { AppError, zodTimeIssue } from "../middleware/errorHandler";
 import {
   createRentalSchema,
   rentalQuerySchema,
@@ -56,7 +57,10 @@ const requireUser = (req: AuthRequest): string => {
  * A refused write body as a stable code plus the first offending field — the
  * form maps both to its own sentence in the reader's language.
  */
-function invalidInput(error: z.ZodError): AppError {
+function invalidInput(error: z.ZodError): AppError | z.ZodError {
+  // A time-model refusal (an offset-less deadline) keeps its 422 and its own
+  // code — the error handler reads it off the ZodError (ADR 0002).
+  if (zodTimeIssue(error)) return error;
   const field = error.issues[0]?.path[0];
   return new AppError(
     error.message,
@@ -209,7 +213,10 @@ router.post(
       await assertRoadtripOwned(userId, input.routeId);
       const documentIds = await takeDocumentIds(userId, req.body);
 
-      const rental = await createRentalRow(userId, input, { manual: true });
+      const rental = await createRentalRow(userId, input, {
+        manual: true,
+        viaToken: Boolean(req.apiToken),
+      });
       await linkDocuments(userId, documentIds, { type: "rentalBooking", id: rental.id });
       logger.info({ operation: "rental_create", rentalBookingId: rental.id, userId });
       res.status(201).json({ success: true, data: withRentalReadFields(rental) });
@@ -231,7 +238,10 @@ router.patch("/:id", async (req: AuthRequest, res: Response, next: NextFunction)
     await assertReferencesOwned(userId, { tripId: input.tripId });
     await assertRoadtripOwned(userId, input.routeId);
 
-    const rental = await updateRentalRow(userId, existing, input, { manual: true });
+    const rental = await updateRentalRow(userId, existing, input, {
+      manual: true,
+      viaToken: Boolean(req.apiToken),
+    });
     res.json({ success: true, data: withRentalReadFields(rental) });
   } catch (err) {
     next(err);
@@ -246,7 +256,11 @@ router.delete("/:id", async (req: AuthRequest, res: Response, next: NextFunction
       select: { id: true, tripId: true },
     });
     if (!existing) throw new AppError("Rental not found", 404, "RENTAL_NOT_FOUND");
-    await prisma.rentalBooking.delete({ where: { id: existing.id } });
+    await prisma.$transaction(async (tx) => {
+      const gone = await shareSnapshot(tx, "rental", existing.id);
+      await tx.rentalBooking.delete({ where: { id: existing.id } });
+      await propagateDelete(tx, userId, gone);
+    });
     await restatusTrips(existing.tripId);
     res.status(204).send();
   } catch (err) {

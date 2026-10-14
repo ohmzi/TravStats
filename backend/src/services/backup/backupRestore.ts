@@ -16,8 +16,10 @@ import { AppError } from "../../middleware/errorHandler";
 import { encryptionKeyFingerprint } from "../../utils/encryption";
 import { reconcileInterruptedBackups } from "./reconcileBackups";
 import { resetSyncHistory } from "../sync/state";
+import { deleteAllShareLinks } from "../shareLinks/deleteAll";
 import { runSyncSchemaCheck } from "../sync/schemaCheck";
 import { CLEAN_SCHEMA_PREAMBLE, PsqlRestoreError, feedPsql } from "./restorePsql";
+import { sweepAfterFilesRestore } from "../files/restoreSweep";
 import {
   listLocalMigrations,
   migrationEpilogue,
@@ -90,6 +92,9 @@ export async function afterDatabaseRestore(
 ): Promise<void> {
   await restoreInstanceIdentity(identityBefore);
   await resetSyncHistory(`restore of backup ${backupId}`);
+  // A dump taken before a revoke would bring the revoked link back to life.
+  // A restored instance starts with no public links (forgejo#281, T14).
+  await deleteAllShareLinks(`restore of backup ${backupId}`);
 }
 
 /**
@@ -626,6 +631,10 @@ export async function restoreBackup(
       logger.info({ operation: "restore_files", message: "Restoring files" });
       const uploadsDir = path.join(__dirname, "../../../uploads");
       await extractUploadsArchive(filesBackupPath, uploadsDir);
+      // tar merges: nothing it unpacked was judged against the rows now in
+      // the database. The files of accounts that no longer exist go here,
+      // not an hour from now (forgejo#287).
+      await sweepAfterFilesRestore(filesBackupPath);
       logger.info({ operation: "restore_files_complete", message: "Files restored" });
     }
 

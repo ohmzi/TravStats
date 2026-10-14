@@ -35,6 +35,11 @@ const ALLOWED: Array<{ file: string; fragment: string; why: string }> = [
     fragment: "Sie lassen sich erst bearbeiten, wenn sie geladen sind.",
     why: "third person plural: the SETTINGS, not the reader",
   },
+  {
+    file: "passport.json",
+    fragment: "Sie können von Überflügen oder ungenauen Positionen stammen",
+    why: "third person plural: the LOCATIONS (Dawarich points), not the reader",
+  },
 ];
 
 const FORMAL = /\b(Sie|Ihre|Ihr|Ihnen|Ihrem|Ihren|Ihrer|Ihres)\b/;

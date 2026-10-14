@@ -56,13 +56,43 @@ import {
   resolveRoundTripFlightCount,
 } from "./metricEvidenceFlightUnique";
 import {
+  resolveRentalCount,
+  resolveRentalDaysTotal,
+  resolveRentalOneWayCount,
+  resolveRentalOdometerDocumentedCount,
+  resolveRentalKmTotal,
+  resolveRentalCostedCount,
+  resolveRentalBrokeredCount,
+  resolveRentalKmPerDaySampleCount,
+  resolveRentalCostPerKmSampleCount,
+  resolveRentalVehicleComparedCount,
+  resolveRentalDrivenModelsCount,
+  resolveRentalLongest,
+  resolveRentalFarthest,
+  resolveRentalNewProvidersCount,
+} from "./metricEvidenceRental";
+import {
+  resolveBusRideCount,
+  resolveBusDistanceKmTotal,
+  resolveBusCountriesCount,
+  resolveBusNightRideCount,
+  resolveBusTerminalsCount,
+  resolveBusHoursOnBoard,
+  resolveBusTransferCount,
+  resolveBusLongestRide,
+  resolveBusLongestReturn,
+} from "./metricEvidenceBus";
+import {
   resolveTravelAccountHotelNights,
   resolveTravelAccountSeaNights,
   resolveTravelAccountAirNights,
-  resolveTravelAccountHomeNights,
+  resolveTravelAccountRailNights,
+  resolveTravelAccountBusNights,
+  resolveTravelAccountUnassignedNights,
   resolveTravelAccountContestedNights,
   resolveTravelAccountFullyCoveredTripCount,
   resolveTravelAccountTripsWithDatesCount,
+  resolveTravelAccountTripDaysTotal,
   resolveTravelAccountUncoveredDayCount,
   resolveTravelAccountJournalEntryCount,
 } from "./metricEvidenceTravelAccount";
@@ -111,13 +141,67 @@ import {
   resolveRailNightTrainCount,
   resolveRailHighSpeedRideCount,
   resolveRailCrossBorderRideCount,
+  resolveRailJourneyCount,
+  resolveRailDocumentedTransferJourneyCount,
+  resolveRailNightTrainNights,
+  resolveRailNewConnectionsCount,
+  resolveRailHoursOnBoard,
+  resolveRailTransferCount,
+  resolveRailLongestRide,
 } from "./metricEvidenceRail";
+import { WRAPPED_RESOLVERS } from "./metricEvidenceWrapped";
+import { DOMAIN_RECORD_RESOLVERS } from "./metricEvidenceDomainRecords";
+import { BADGE_RESOLVERS } from "./badges/badgeEvidence";
 import {
   resolvePassportCountryCount,
   resolvePassportContinentCount,
   resolvePassportAirportCount,
   resolvePassportEntryCount,
 } from "./metricEvidencePassport";
+import {
+  resolveFlightNewAirportsCount,
+  resolveFlightNewConnectionsCount,
+  resolveFlightRepeatedConnectionsCount,
+  resolveFlightTransferCount,
+} from "./metricEvidenceFlightInsights";
+import {
+  resolveCruiseNewPortsCount,
+  resolveCruisePortRevisitCount,
+  resolveCruiseMeasuredPortStayCount,
+  resolveCruiseDocumentedExcursionCount,
+  resolveCruisePortDaysTotal,
+  resolveCruiseEquatorCruiseCount,
+  resolveCruiseDatelineCruiseCount,
+  resolveCruiseBirthdayAtSeaCruiseCount,
+  resolveCruiseNewYearAtSeaCruiseCount,
+  resolveCruiseCanalCruiseCount,
+  resolveCruisePolarCruiseCount,
+} from "./metricEvidenceCruiseInsights";
+import { INSIGHT_RESOLVERS } from "./metricEvidenceInsights";
+import { PLACE_DETAIL_RESOLVERS } from "./metricEvidencePlaceDetail";
+import { ROADTRIP_LIST_RESOLVERS } from "./metricEvidenceRoadtrip";
+import {
+  resolveCruiseDatedCount,
+  resolveCruiseNightsTotal,
+  resolveCruiseListedPortCallsTotal,
+  resolveCruiseDeckRecordedCount,
+  resolveCruiseOnTripCount,
+} from "./metricEvidenceCruiseDetail";
+import {
+  resolveCruisePortCallsTotal,
+  resolveCruiseCataloguePortCallsTotal,
+  resolveCruiseRiverCount,
+  resolveCruiseSailedDeckCount,
+} from "./metricEvidenceCruiseDepth";
+import {
+  resolveLodgingPricedNightsTotal,
+  resolveLodgingPaidNightsTotal,
+  resolveLodgingChainNightsTotal,
+  resolveLodgingTopChainNights,
+  resolveLodgingRatedStaysCount,
+  resolveLodgingLocatedStaysCount,
+} from "./metricEvidenceLodgingDetail";
+import { FLIGHT_WITNESS_RESOLVERS } from "./metricEvidenceFlightWitnesses";
 
 /**
  * `EvidenceResolver` for `kind: "metric"` (Task 7,
@@ -189,10 +273,13 @@ const METRIC_RESOLVERS: Record<string, MetricResolver> = {
   travelAccountHotelNights: resolveTravelAccountHotelNights,
   travelAccountSeaNights: resolveTravelAccountSeaNights,
   travelAccountAirNights: resolveTravelAccountAirNights,
-  travelAccountHomeNights: resolveTravelAccountHomeNights,
+  travelAccountRailNights: resolveTravelAccountRailNights,
+  travelAccountBusNights: resolveTravelAccountBusNights,
+  travelAccountUnassignedNights: resolveTravelAccountUnassignedNights,
   travelAccountContestedNights: resolveTravelAccountContestedNights,
   travelAccountFullyCoveredTripCount: resolveTravelAccountFullyCoveredTripCount,
   travelAccountTripsWithDatesCount: resolveTravelAccountTripsWithDatesCount,
+  travelAccountTripDaysTotal: resolveTravelAccountTripDaysTotal,
   travelAccountUncoveredDayCount: resolveTravelAccountUncoveredDayCount,
   travelAccountJournalEntryCount: resolveTravelAccountJournalEntryCount,
   crossDomainEventCount: resolveCrossDomainEventCount,
@@ -205,6 +292,36 @@ const METRIC_RESOLVERS: Record<string, MetricResolver> = {
   railNightTrainCount: resolveRailNightTrainCount,
   railHighSpeedRideCount: resolveRailHighSpeedRideCount,
   railCrossBorderRideCount: resolveRailCrossBorderRideCount,
+  railJourneyCount: resolveRailJourneyCount,
+  railDocumentedTransferJourneyCount: resolveRailDocumentedTransferJourneyCount,
+  railNightTrainNights: resolveRailNightTrainNights,
+  railNewConnectionsCount: resolveRailNewConnectionsCount,
+  railHoursOnBoard: resolveRailHoursOnBoard,
+  railTransferCount: resolveRailTransferCount,
+  railLongestRide: resolveRailLongestRide,
+  rentalCount: resolveRentalCount,
+  rentalDaysTotal: resolveRentalDaysTotal,
+  rentalOneWayCount: resolveRentalOneWayCount,
+  rentalOdometerDocumentedCount: resolveRentalOdometerDocumentedCount,
+  rentalKmTotal: resolveRentalKmTotal,
+  rentalCostedCount: resolveRentalCostedCount,
+  rentalBrokeredCount: resolveRentalBrokeredCount,
+  rentalKmPerDaySampleCount: resolveRentalKmPerDaySampleCount,
+  rentalCostPerKmSampleCount: resolveRentalCostPerKmSampleCount,
+  rentalVehicleComparedCount: resolveRentalVehicleComparedCount,
+  rentalDrivenModelsCount: resolveRentalDrivenModelsCount,
+  rentalLongest: resolveRentalLongest,
+  rentalFarthest: resolveRentalFarthest,
+  rentalNewProvidersCount: resolveRentalNewProvidersCount,
+  busRideCount: resolveBusRideCount,
+  busDistanceKmTotal: resolveBusDistanceKmTotal,
+  busCountriesCount: resolveBusCountriesCount,
+  busNightRideCount: resolveBusNightRideCount,
+  busTerminalsCount: resolveBusTerminalsCount,
+  busHoursOnBoard: resolveBusHoursOnBoard,
+  busTransferCount: resolveBusTransferCount,
+  busLongestRide: resolveBusLongestRide,
+  busLongestReturn: resolveBusLongestReturn,
   passportCountryCount: resolvePassportCountryCount,
   passportContinentCount: resolvePassportContinentCount,
   passportAirportCount: resolvePassportAirportCount,
@@ -235,6 +352,51 @@ const METRIC_RESOLVERS: Record<string, MetricResolver> = {
   placeCitiesCount: resolvePlaceCitiesCount,
   placeListCount: resolvePlaceListCount,
   placeWishlistCount: resolvePlaceWishlistCount,
+  flightNewAirportsCount: resolveFlightNewAirportsCount,
+  flightNewConnectionsCount: resolveFlightNewConnectionsCount,
+  flightRepeatedConnectionsCount: resolveFlightRepeatedConnectionsCount,
+  flightTransferCount: resolveFlightTransferCount,
+  cruiseNewPortsCount: resolveCruiseNewPortsCount,
+  cruisePortRevisitCount: resolveCruisePortRevisitCount,
+  cruiseMeasuredPortStayCount: resolveCruiseMeasuredPortStayCount,
+  cruiseDocumentedExcursionCount: resolveCruiseDocumentedExcursionCount,
+  cruisePortDaysTotal: resolveCruisePortDaysTotal,
+  cruiseEquatorCruiseCount: resolveCruiseEquatorCruiseCount,
+  cruiseDatelineCruiseCount: resolveCruiseDatelineCruiseCount,
+  cruiseBirthdayAtSeaCruiseCount: resolveCruiseBirthdayAtSeaCruiseCount,
+  cruiseNewYearAtSeaCruiseCount: resolveCruiseNewYearAtSeaCruiseCount,
+  cruiseCanalCruiseCount: resolveCruiseCanalCruiseCount,
+  cruisePolarCruiseCount: resolveCruisePolarCruiseCount,
+  // The populations behind the cruise and lodging tiles that show an average,
+  // a share or an extreme (forgejo#257/#258) — release 1 serves sums only.
+  cruiseDatedCount: resolveCruiseDatedCount,
+  cruiseNightsTotal: resolveCruiseNightsTotal,
+  cruiseListedPortCallsTotal: resolveCruiseListedPortCallsTotal,
+  cruiseDeckRecordedCount: resolveCruiseDeckRecordedCount,
+  cruiseOnTripCount: resolveCruiseOnTripCount,
+  cruisePortCallsTotal: resolveCruisePortCallsTotal,
+  cruiseCataloguePortCallsTotal: resolveCruiseCataloguePortCallsTotal,
+  cruiseRiverCount: resolveCruiseRiverCount,
+  cruiseSailedDeckCount: resolveCruiseSailedDeckCount,
+  lodgingPricedNightsTotal: resolveLodgingPricedNightsTotal,
+  lodgingPaidNightsTotal: resolveLodgingPaidNightsTotal,
+  lodgingChainNightsTotal: resolveLodgingChainNightsTotal,
+  lodgingTopChainNights: resolveLodgingTopChainNights,
+  lodgingRatedStaysCount: resolveLodgingRatedStaysCount,
+  lodgingLocatedStaysCount: resolveLodgingLocatedStaysCount,
+  // The statistics expansion (forgejo#258/#259/#260/#264), one shape for all.
+  ...INSIGHT_RESOLVERS,
+  // The places tab's rhythm/quality/fun cards and the roadtrip list tiles
+  // (forgejo#259, #260) — client folds whose rows the server reads the same way.
+  ...PLACE_DETAIL_RESOLVERS,
+  ...ROADTRIP_LIST_RESOLVERS,
+  // The flights behind the flight tab's "most" figures (forgejo#256).
+  ...FLIGHT_WITNESS_RESOLVERS,
+  // The year in review's chapters and the overview's records (forgejo#265).
+  ...WRAPPED_RESOLVERS,
+  ...DOMAIN_RECORD_RESOLVERS,
+  // Every badge that opens its own proof (forgejo#265).
+  ...BADGE_RESOLVERS,
 };
 
 /**
@@ -286,5 +448,11 @@ export async function resolveMetricEvidence(
   // 400 here would tell a caller that an unserved key exists.
   if (!resolve) return null;
   rejectUnhonouredDomains(key, scope);
+  // A date range is honoured only where the registry says so (forgejo#265):
+  // every other resolver reads the period as a year or lifetime, and must not
+  // quietly answer a narrower question as a wider one.
+  if (scope.period.kind === "range" && !EVIDENCE_MEASURES[key]?.scopes.includes("range")) {
+    throw new AppError(`${key} evidence does not support period=range.`, 400);
+  }
   return resolve(userId, scope, page);
 }

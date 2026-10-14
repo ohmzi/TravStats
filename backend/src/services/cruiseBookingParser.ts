@@ -12,7 +12,10 @@ import {
   ollamaTarget,
   type LlmTarget,
 } from "./llm/llmProvider";
-import { parseTuiCruisesConfirmation } from "./cruise/tuiCruisesTemplate";
+import { readWithV2CruiseTemplates } from "./cruise/v2Cruise";
+import { templateRegistry } from "./parsers/templates/registry";
+import type { TemplateEnvelope } from "./parsers/templates/v2/envelope";
+import { loadActiveWorkshopTemplates } from "./parsers/userTemplates/v2UserTemplates";
 import { isLlmAvailable, recordLlmProbe } from "./parsers/llmAvailability";
 import { resolveReachableLlmTarget } from "./llm/reachableTarget";
 
@@ -477,6 +480,25 @@ function unwrapCruiseArray(parsed: unknown): unknown[] | null {
   return null;
 }
 
+/**
+ * The deterministic readers: every active v2 `cruise` template (plan
+ * 2026-10-09 P4b — the TUI Cruises reader that used to be compiled in is one
+ * of them), then the caller's own workshop templates (forgejo#124), the first
+ * that reads a voyage wins. Empty when none does.
+ *
+ * Personal templates come LAST, as in the lodging chain: a repository template
+ * is measured against a corpus, a workshop one by a single preview.
+ */
+function readCruiseTemplates(
+  text: string,
+  userTemplates: readonly TemplateEnvelope[]
+): ParsedCruise[] {
+  return readWithV2CruiseTemplates(
+    [...templateRegistry.getActiveV2({ domain: "cruise" }), ...userTemplates],
+    text
+  );
+}
+
 let cachedParser: CruiseBookingParser | undefined;
 
 export function getCruiseBookingParser(options?: CruiseBookingParserOptions): CruiseBookingParser {
@@ -492,6 +514,10 @@ export async function parseCruiseBookingText(
    *  subject to the admin switch alone. */
   userId?: string
 ): Promise<CruiseParseResult> {
+  // The caller's own workshop templates, read once before the chain runs —
+  // only theirs, only `cruise`, only `active` (forgejo#124).
+  const userTemplates =
+    userId === undefined ? [] : await loadActiveWorkshopTemplates(userId, "cruise");
   // Resolve the Ollama endpoint from admin settings first, mirroring the flight
   // text parser (services/parsers/config.ts). The Settings "Test" button reads
   // the same admin-configured URL, so the cruise parser MUST consult it too —
@@ -520,7 +546,7 @@ export async function parseCruiseBookingText(
     ...(options?.model !== undefined ? { model: options.model } : {}),
   };
   if (order === "template_first") {
-    const templated = parseTuiCruisesConfirmation(text);
+    const templated = readCruiseTemplates(text, userTemplates);
     if (templated.length > 0) {
       return {
         cruises: templated,
@@ -537,7 +563,7 @@ export async function parseCruiseBookingText(
    * `resolveCruiseParserOptions` below hands back the ADMIN's Ollama, or
    * `OLLAMA_URL`, for whoever asks, so this has to come before it.
    *
-   * The AIDA and TUI templates are free and run untouched; this is the step
+   * The cruise templates are free and run untouched; this is the step
    * after them. The answer is the one an instance with no model configured
    * already gives, so the routes take their existing "template only / not
    * recognised" path, and `fallbackReason` says which refusal it was.
@@ -545,7 +571,7 @@ export async function parseCruiseBookingText(
   const refusal = await llmRefusalFor(userId);
   if (refusal) {
     // Under `llm_first` the template has not been tried yet.
-    const templated = order === "llm_first" ? parseTuiCruisesConfirmation(text) : [];
+    const templated = order === "llm_first" ? readCruiseTemplates(text, userTemplates) : [];
     if (templated.length > 0) {
       return { cruises: templated, parserUsed: "template", ollamaAvailable: false };
     }
@@ -565,7 +591,7 @@ export async function parseCruiseBookingText(
   if (!ollamaAvailable) {
     // Under `llm_first` the template has not been tried yet, and an
     // unreachable model must not cost a booking the template can read.
-    const templated = order === "llm_first" ? parseTuiCruisesConfirmation(text) : [];
+    const templated = order === "llm_first" ? readCruiseTemplates(text, userTemplates) : [];
     if (templated.length > 0) {
       return { cruises: templated, parserUsed: "template", ollamaAvailable: false };
     }
@@ -590,7 +616,7 @@ export async function parseCruiseBookingText(
       { err: reason, provider: parser.provider.kind },
       "[Cruise Parser] Model parse failed"
     );
-    const templated = order === "llm_first" ? parseTuiCruisesConfirmation(text) : [];
+    const templated = order === "llm_first" ? readCruiseTemplates(text, userTemplates) : [];
     if (templated.length > 0) {
       return { cruises: templated, parserUsed: "template", ollamaAvailable: true };
     }
@@ -604,7 +630,7 @@ export async function parseCruiseBookingText(
   if (cruises.length === 0 && order === "llm_first") {
     // Same rule as lodging: the model finding nothing is not a reason to
     // leave a template hit on the table.
-    const templated = parseTuiCruisesConfirmation(text);
+    const templated = readCruiseTemplates(text, userTemplates);
     if (templated.length > 0) {
       return { cruises: templated, parserUsed: "template", ollamaAvailable: true };
     }

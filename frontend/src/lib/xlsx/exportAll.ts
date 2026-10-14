@@ -13,6 +13,10 @@ import type { Lodging } from "../../types/lodging";
 import type { Place } from "../../types/place";
 import type { RailJourney } from "../../types/rail";
 import { railSheet } from "./railSheet";
+import { busSheet } from "./busSheet";
+import type { BusJourney } from "../../types/bus";
+import { rentalSheet } from "./rentalSheet";
+import type { RentalBooking } from "../../types/rental";
 import {
   flightSheet,
   cruiseSheet,
@@ -47,6 +51,10 @@ export interface ExportInput {
   places?: readonly Place[];
   /** Only passed when the rail domain is visible (beta gate + user). */
   rail?: readonly RailJourney[];
+  /** Only passed when the bus domain is visible (beta gate + user), forgejo#180. */
+  bus?: readonly BusJourney[];
+  /** Only passed when the rental domain is visible (beta gate + user), forgejo#267. */
+  rentals?: readonly RentalBooking[];
   roadtrips?: readonly RoadtripDetail[];
   /** Day tours only — a roadtrip is on its own sheet. Each carries its points
    *  when the caller fetched them; without, the points sheet is left out. */
@@ -156,6 +164,10 @@ export function buildSheets(t: T, input: ExportInput, locale = "de"): AnySheetDa
   }
   const rail = input.rail ?? [];
   if (rail.length > 0) sheets.push(sheet(railSheet(t), rail));
+  const bus = input.bus ?? [];
+  if (bus.length > 0) sheets.push(sheet(busSheet(t), bus));
+  const rentals = input.rentals ?? [];
+  if (rentals.length > 0) sheets.push(sheet(rentalSheet(t), rentals));
 
   return sheets;
 }

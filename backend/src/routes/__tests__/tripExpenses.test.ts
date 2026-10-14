@@ -2,8 +2,13 @@ import request from "supertest";
 
 import app from "../../index";
 import { prisma } from "../../db";
+import * as fx from "../../services/fx/resolver";
 import { hashPassword } from "../../utils/password";
 import { generateToken } from "../../utils/jwt";
+import {
+  getInstanceSettings,
+  updateInstanceSettings,
+} from "../../services/instanceSettingsService";
 
 /**
  * Expenses (forgejo#140): a ferry ticket, a toll, a pitch fee, fuel — on a
@@ -33,6 +38,13 @@ describe("expenses", () => {
     cookie = `auth_token=${generateToken(userId)}`;
     otherCookie = `auth_token=${generateToken(otherId)}`;
   });
+
+  // No network: a dated expense looks a rate up on create (forgejo#150).
+  // Answered as unavailable here; `tripExpenses.details.test.ts` covers rates.
+  beforeEach(() => {
+    jest.spyOn(fx, "convertToBase").mockResolvedValue(null);
+  });
+  afterEach(() => jest.restoreAllMocks());
 
   beforeEach(async () => {
     await prisma.trip.deleteMany({ where: { userId: { in: [userId, otherId] } } });
@@ -207,6 +219,8 @@ describe("expenses", () => {
       expect(detail.body.expenses).toHaveLength(3);
       expect(detail.body.costs).toEqual({
         total: { NOK: 350, EUR: 17.5 },
+        // No rate recorded for the NOK: it stays beside the base figure.
+        totalBase: { currency: "EUR", amount: 17.5, unconverted: { NOK: 350 } },
         byStation: [{ stopId: stationIds[2], byCurrency: { NOK: 350 } }],
         byLeg: [{ fromStopId: stationIds[0], toStopId: stationIds[2], byCurrency: { EUR: 12.5 } }],
         unpinned: { EUR: 5 },
@@ -431,6 +445,24 @@ describe("expenses", () => {
   });
 
   describe("in the statistics", () => {
+    // A section's expense lives on its roadtrip page, behind the roadtrip
+    // gate, and the statistics read the trips page's own gate (forgejo#274
+    // review I1) — so the case shows roadtrips, as the app would.
+    let betaBefore: boolean;
+    beforeAll(async () => {
+      betaBefore = (await getInstanceSettings()).betaFeaturesEnabled;
+      await updateInstanceSettings({ betaFeaturesEnabled: true });
+      await prisma.userSettings.upsert({
+        where: { userId },
+        create: { userId, enabledDomains: ["flight", "roadtrip"], data: {} },
+        update: { enabledDomains: ["flight", "roadtrip"] },
+      });
+    });
+    afterAll(async () => {
+      await updateInstanceSettings({ betaFeaturesEnabled: betaBefore });
+      await prisma.userSettings.deleteMany({ where: { userId } });
+    });
+
     it("counts per year and per trip, per currency, never summed across them", async () => {
       await post(`/roadtrips/${roadtripId}/expenses`, {
         kind: "ferry",

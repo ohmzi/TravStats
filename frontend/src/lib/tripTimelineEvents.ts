@@ -21,8 +21,11 @@ import { dayOf, readsAsUtc, timeValueAtZone, type TimeValue } from "../shared/ti
 import type { Trip, TripJournalEntry, TripStop } from "../types";
 import type { Place, PlaceVisit } from "../types/place";
 import type { TripRailJourney } from "../types/rail";
+import type { TripFerryJourney } from "../types/ferry";
+import type { TripBusJourney } from "../types/bus";
 import type { TripRental } from "../types/rental";
 import type { TripRoadtripStationDto } from "../types/tripRoadtripStation";
+import type { MemberNote, Note, TripNotes } from "./api/notes";
 
 /**
  * The trip timeline's entries — every dated thing a trip holds, in one
@@ -108,11 +111,46 @@ export type TimelineEvent =
     }
   | {
       id: string;
+      kind: "bus";
+      /** `when.utc` — kept for callers that only need an instant to compare. */
+      date: string;
+      when: TimeValue;
+      ride: TripBusJourney;
+    }
+  | {
+      id: string;
+      kind: "ferry";
+      /** `when.utc` — kept for callers that only need an instant to compare. */
+      date: string;
+      when: TimeValue;
+      ride: TripFerryJourney;
+    }
+  | {
+      id: string;
       kind: "rental-pickup" | "rental-return";
       /** `when.utc` — kept for callers that only need an instant to compare. */
       date: string;
       when: TimeValue;
       rental: TripRental;
+    }
+  | {
+      id: string;
+      kind: "note";
+      /** `when.utc` — kept for callers that only need an instant to compare. */
+      date: string;
+      /** On the clock of the zone the note was written in (forgejo#146). */
+      when: TimeValue;
+      /** The reader's own note — editable — or another member's shareable one. */
+      mine: true;
+      note: Note;
+    }
+  | {
+      id: string;
+      kind: "note";
+      date: string;
+      when: TimeValue;
+      mine: false;
+      note: MemberNote;
     }
   | {
       id: string;
@@ -173,6 +211,29 @@ function railEvents(trip: Trip): TimelineEvent[] {
     const when = railDeparture(journey);
     if (!when) continue;
     out.push({ id: `rail-${journey.id}`, kind: "rail", date: when.utc, when, journey });
+  }
+  return out;
+}
+
+/**
+ * Bus rides as entries (forgejo#180): one per ride, at its departure on the
+ * terminal's clock — a bus row carries rail's columns, so rail's reader serves.
+ */
+function busEvents(trip: Trip): TimelineEvent[] {
+  const out: TimelineEvent[] = [];
+  for (const ride of trip.busJourneys ?? []) {
+    const when = railDeparture(ride);
+    if (!when) continue;
+    out.push({ id: `bus-${ride.id}`, kind: "bus", date: when.utc, when, ride });
+  }
+  return out;
+}
+function ferryEvents(trip: Trip): TimelineEvent[] {
+  const out: TimelineEvent[] = [];
+  for (const ride of trip.ferryJourneys ?? []) {
+    const when = railDeparture(ride);
+    if (!when) continue;
+    out.push({ id: `ferry-${ride.id}`, kind: "ferry", date: when.utc, when, ride });
   }
   return out;
 }
@@ -341,12 +402,42 @@ function lodgingEvents(trip: Trip): TimelineEvent[] {
   return out;
 }
 
+/**
+ * Standalone notes on the trip's days (forgejo#146) — the server already
+ * matched them by their own day; each sits at its moment on its own clock.
+ */
+function noteEvents(notes: TripNotes | null): TimelineEvent[] {
+  if (!notes) return [];
+  return [
+    ...notes.notes.map((note): TimelineEvent => ({
+      id: `note-${note.id}`,
+      kind: "note",
+      date: note.times.occurredAt.utc,
+      when: note.times.occurredAt,
+      mine: true,
+      note,
+    })),
+    ...notes.memberNotes.map((note): TimelineEvent => ({
+      id: `member-note-${note.id}`,
+      kind: "note",
+      date: note.times.occurredAt.utc,
+      when: note.times.occurredAt,
+      mine: false,
+      note,
+    })),
+  ];
+}
+
 export function buildTimelineEvents(
   trip: Trip,
-  placeVisits: ReadonlyArray<{ place: Place; visit: PlaceVisit }>
+  placeVisits: ReadonlyArray<{ place: Place; visit: PlaceVisit }>,
+  notes: TripNotes | null = null
 ): TimelineEvent[] {
   const out: TimelineEvent[] = [
+    ...noteEvents(notes),
     ...railEvents(trip),
+    ...busEvents(trip),
+    ...ferryEvents(trip),
     ...rentalEvents(trip),
     ...flightEvents(trip),
     ...cruiseEvents(trip),

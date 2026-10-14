@@ -63,6 +63,7 @@ const cruiseOnlyTrip = {
   startDate: null,
   endDate: null,
   _count: { flights: 0, cruises: 1 },
+  cost: { spendByCurrency: { EUR: 1290 }, unpricedEntries: 0 },
 } as unknown as Trip;
 
 function renderCard(trip: Trip): void {
@@ -118,6 +119,7 @@ describe("TripCard totals on a cruise-only trip", () => {
           distanceKm: 0,
         },
       ],
+      cost: { spendByCurrency: {}, unpricedEntries: 1 },
     } as unknown as Trip;
 
     renderCard(bare);

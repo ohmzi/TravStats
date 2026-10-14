@@ -21,6 +21,7 @@ import { stayTimesSchema } from "../../../schemas/times";
 import { z } from "zod";
 
 import { registry } from "../registry";
+import { deadlineDayColumns } from "./deadlineColumns";
 import { includedRow, prismaColumns } from "../prismaColumns";
 import { documentIdsBodySchema } from "../../../schemas/document";
 import { captureFieldsSchema } from "../../photos/captureFields";
@@ -29,6 +30,7 @@ import { photoFileQuerySchema } from "../../../schemas/photoVariant";
 import {
   createLodgingSchema,
   lodgingQuerySchema,
+  stayListQuerySchema,
   proposeLodgingSchema,
   updateLodgingSchema,
   createStaySchema,
@@ -95,6 +97,7 @@ const stay = registry.register(
         .nullable()
         .describe("ISO 4217. The currency the stay was actually paid in."),
       tripId: z.string().uuid().nullable(),
+      ...deadlineDayColumns,
       bookingId: z.string().uuid().nullable(),
       createdAt: z.string().datetime(),
       updatedAt: z.string().datetime(),
@@ -179,6 +182,87 @@ registry.registerPath({
       },
     },
     400: { description: "Invalid query", content: errorContent },
+  },
+});
+
+const stayListItem = registry.register(
+  "StayListItem",
+  stay
+    .extend({
+      lodging: z.object({
+        id: z.string().uuid(),
+        name: z.string(),
+        type: z.enum(LODGING_TYPES),
+        city: z.string().nullable(),
+        country: z.string().nullable(),
+        chainId: z.number().int().nullable(),
+        isoCountryCode: z.string().nullable(),
+      }),
+      trip: z.object({ id: z.string().uuid(), name: z.string() }).nullable(),
+    })
+    .describe("A stay together with the house it belongs to and the trip it is linked to.")
+    .openapi("StayListItem")
+);
+
+registry.registerPath({
+  method: "get",
+  path: "/lodging/stays",
+  summary: "List stays across all lodgings, in check-in order",
+  description:
+    "The chronological view: every stay of the account, newest check-in first (`order=asc` " +
+    "reverses it), undated stays last. `from` / `to` (calendar days) narrow it to the stays " +
+    "whose span touches that window - a coarse superset, so an adjacent check-out/check-in " +
+    "day is included; the exact overlap rule is the client's. `meta.total` is the size of " +
+    "the filtered set before the page slice.",
+  tags: ["Lodging"],
+  request: { query: stayListQuerySchema },
+  responses: {
+    200: {
+      description: "One page of stays, each with its house and trip",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.array(stayListItem),
+            meta: z.object({
+              total: z.number().int().describe("Stays matching the filters, before the page slice"),
+              limit: z.number().int(),
+              offset: z.number().int(),
+            }),
+          }),
+        },
+      },
+    },
+    400: { description: "Invalid query", content: errorContent },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/lodging/{id}/delete-facts",
+  summary: "What deleting a lodging takes with it besides its stays",
+  description:
+    "Counts, in one request, the photographs of the lodging and the kept originals " +
+    "(documents) of all of its stays - both are deleted with it. 404 for a lodging " +
+    "that is not the caller's.",
+  tags: ["Lodging"],
+  request: { params: z.object({ id: z.string().uuid() }) },
+  responses: {
+    200: {
+      description: "Counts of what is deleted with the lodging",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.object({
+              photoCount: z.number().int(),
+              documentCount: z.number().int(),
+            }),
+          }),
+        },
+      },
+    },
+    404: { description: "Lodging not found", content: errorContent },
   },
 });
 

@@ -16,7 +16,17 @@
   "deleteTrip": "Delete Journey",
   "removeFromTrip": "Remove from journey",
   "deleteTripConfirm": "“{{name}}” will be permanently deleted, along with its photos, stops, companions, journal entries, tours built from its stops with their recorded tracks, and the documents filed here. Flights, cruises, stays and trips are kept, and so are day tours with points of their own — they become standalone tours.",
-  "deleteTripConfirmWithRail": "“{{name}}” will be permanently deleted, along with its photos, stops, companions, journal entries, tours built from its stops with their recorded tracks, and the documents filed here. Flights, cruises, rail journeys, stays and trips are kept, and so are day tours with points of their own — they become standalone tours.",
+  "deleteTripConfirmKept": "“{{name}}” will be permanently deleted, along with its photos, stops, companions, journal entries, tours built from its stops with their recorded tracks, and the documents filed here. {{kept}} are kept, and so are day tours with points of their own — they become standalone tours.",
+  "deleteTripKept": {
+    "and": "and",
+    "flights": "flights",
+    "cruises": "cruises",
+    "rail": "rail journeys",
+    "bus": "bus rides",
+    "rental": "rental cars",
+    "stays": "stays",
+    "roadtrips": "trips"
+  },
   "showOnMap": "Show on Map",
   "flightCount_one": "{{count}} Flight",
   "flightCount_other": "{{count}} Flights",
@@ -24,6 +34,8 @@
   "cruiseCount_other": "{{count}} Cruises",
   "pnrLabel": "Booking ref.",
   "totalCost": "Total Cost",
+  "costUnpriced_one": "{{count}} entry without a price",
+  "costUnpriced_other": "{{count}} entries without a price",
   "costPerKm": "Cost/km",
   "distance": "Distance",
   "status": {
@@ -143,7 +155,8 @@
       "tags": "Tags",
       "rail": "Rail",
       "rental": "Rental cars",
-      "albums": "Albums"
+      "albums": "Albums",
+      "bus": "Bus"
     },
     "tabs": {
       "overview": "Overview",
@@ -168,8 +181,7 @@
     "logistics": {
       "flights": "Flights",
       "cruises": "Cruises",
-      "bookings": "Bookings",
-      "totalBooked": "Total"
+      "bookings": "Bookings"
     },
     "timeline": {
       "addEntry": "+ Add entry",
@@ -196,13 +208,23 @@
       "seat": "Seat",
       "itinerary": "Itinerary",
       "atSea": "Day at sea",
-      "openJournal": "Open in full"
+      "openJournal": "Open in full",
+      "note": {
+        "by": "by {{name}}",
+        "allNotes": "All notes",
+        "memberHint": "A note marked shareable on this shared trip. Only the person who wrote it can change it.",
+        "loadFailed": "The notes for this trip could not be loaded.",
+        "retry": "Try again",
+        "truncated": "Not every note of this trip is shown – there are more than 200."
+      }
     },
     "stopNotFound": "This stop no longer exists on this journey.",
     "journalEntryNotFound": "This journal entry no longer exists on this journey.",
     "noLogistics": "This journey's connections and bookings appear here – none is linked yet.",
     "railCount_one": "{{count}} ride",
     "railCount_other": "{{count}} rides",
+    "busCount_one": "{{count}} ride",
+    "busCount_other": "{{count}} rides",
     "rentalCount_one": "{{count}} rental",
     "rentalCount_other": "{{count}} rentals",
     "albumsCount_one": "{{count}} album",
@@ -264,7 +286,29 @@
     "currency": "Currency",
     "save": "Save",
     "cancel": "Cancel",
-    "saved": "Booking updated"
+    "saved": "Booking updated",
+    "createTitle": "Add package booking",
+    "add": "+ Package booking",
+    "operator": "Operator",
+    "bookedOn": "Booked on",
+    "bookedOnHint": "The price is converted at this day's rate.",
+    "travellers": "Number of travellers",
+    "travellersInvalid": "Please enter a whole number from 1 to 50.",
+    "forPersons_one": "for {{count}} person",
+    "forPersons_other": "for {{count}} people",
+    "created": "Booking added",
+    "delete": "Delete booking",
+    "deleteConfirm": "Delete this booking? Its flights, stays and cruises are kept and simply no longer belong to a booking.",
+    "deleted": "Booking deleted",
+    "entriesFailed": "Booking saved, but the selected entries could not be filed on it. Please try again.",
+    "entries": {
+      "hint": "What does this booking cover?",
+      "flights": "Flights",
+      "stays": "Stays",
+      "cruises": "Cruises",
+      "none": "This trip has no flights, stays or cruises yet that the booking could cover.",
+      "otherBooking": "(on another booking)"
+    }
   },
   "addExisting": {
     "title": "Add an existing entry",
@@ -386,7 +430,9 @@
     "deleteError": "Failed to delete photo",
     "empty": "No photos yet — upload the first memories of this journey.",
     "fromLibrary": "From the photo library",
-    "fromLibraryAlt": "Photo from the photo library"
+    "fromLibraryAlt": "Photo from the photo library",
+    "tooLarge": "“{{name}}” is too large — a photo may be at most {{maxMb}} MB. It was not uploaded.",
+    "tooLargeServer": "A photo is too large — at most {{maxMb}} MB per photo is allowed. Nothing was uploaded."
   },
   "insights": {
     "longest": "Longest journey",
@@ -486,7 +532,9 @@
         "noDatedStops": "This section's stops have no dates, so no time window for Dawarich can be derived.",
         "windowInvalid": "The time window ends before it starts.",
         "windowEmpty": "Dawarich has no location data for this time window.",
-        "tooFewPoints": "Dawarich has only one location point for this time window – too few for a track."
+        "tooFewPoints": "Dawarich has only one location point for this time window – too few for a track.",
+        "doesNotCoverLeg": "This recording does not come near both stations of this leg — probably another day or place. The leg stays as it was.",
+        "gapInLeg": "The recording stops between the two stations; part of the way was never recorded. The leg stays as it was."
       },
       "pointCount_one": "{{count}} point",
       "pointCount_other": "{{count}} points",
@@ -585,6 +633,12 @@
       "message_one": "“{{name}}” has {{count}} recorded cost and belongs to no journey that could take it over. Deleting removes it too.",
       "message_other": "“{{name}}” has {{count}} recorded costs and belongs to no journey that could take them over. Deleting removes them too.",
       "confirm": "Delete with costs"
+    },
+    "assignErrors": {
+      "notOwned": "A chosen stop does not belong to this trip or tour. Reload the page and choose again.",
+      "noCoordinate": "A chosen stop has no place. Give it a place on the timeline first; then it can be assigned.",
+      "inOtherSection": "A chosen stop already belongs to another route section. Take it out there first.",
+      "claimedMeanwhile": "Another change just assigned a stop to a section. Nothing was saved — try again."
     }
   },
   "head": {
@@ -609,5 +663,88 @@
   "photoWindow": {
     "title": "Photos from the journey",
     "alt": "Photo from the journey"
-  }
+  },
+  "export": {
+    "button": "Export trip",
+    "title": "Export trip",
+    "intro": "Downloads the trip with all its entries as a .travstats file. Another TravStats instance can read it under “Add trip”.",
+    "leavesServer": "The file leaves the server: whoever gets it can read everything in it. Choose only what should go along.",
+    "options": {
+      "documents": "Include documents",
+      "documentsHint": "Kept originals such as tickets and invoices.",
+      "photos": "Include photos",
+      "photosHint": "The photos uploaded to the trip.",
+      "private": "Include personal details",
+      "privateHint": "Seat, cabin, your own price, ratings, notes, journal and the names of your companions."
+    },
+    "download": "Download",
+    "downloading": "Creating the file …",
+    "done": "The file was downloaded.",
+    "errors": {
+      "failed": "The file could not be created. Please try again.",
+      "notFound": "This trip no longer exists.",
+      "rateLimited": "Too many exports in a short time. Please wait a few minutes."
+    }
+  },
+  "dawarichStays": {
+    "title": "Dawarich stays",
+    "description": "Every six hours, your own Dawarich location history is checked for possible stays in the last seven days. These are suggestions only: a visit is recorded after your confirmation. This does not enable Immich scanning or country detection.",
+    "enable": "Detect stays automatically",
+    "ownConnection": "Save your own Dawarich connection first. A shared connection cannot be used for this.",
+    "scan": "Scan now",
+    "running": "Scanning …",
+    "inbox": "Review suggestions",
+    "window": "Checked window",
+    "dataThrough": "Newest returned point",
+    "scanCount": "Points: {{points}} · New suggestions: {{created}}",
+    "error": "The action could not be completed. Please check the connection and reload.",
+    "filter": "Show suggestions",
+    "loading": "Loading suggestions …",
+    "empty": "No suggestions in this view.",
+    "unnamed": "Possible stay",
+    "evidence": "{{count}} location points · longest gap {{gap}} minutes",
+    "provenance": "Origin and evidence",
+    "detected": "Detected",
+    "resolved": "Reviewed",
+    "points": "Dawarich point IDs",
+    "place": "Place",
+    "newPlace": "Create a new place",
+    "name": "Name",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "localTime": "Times are local to the chosen place. Its coordinates determine the time zone.",
+    "start": "Start",
+    "end": "End",
+    "trip": "Trip",
+    "noTrip": "No trip",
+    "accept": "Review and accept",
+    "reject": "Dismiss",
+    "openVisit": "Open entry",
+    "tripConflict": "The existing visit belongs to another trip. Please check the trip selection.",
+    "invalidInterval": "The end must follow the start; a confirmed stay cannot be in the future.",
+    "ambiguousTime": "This local time is ambiguous or does not exist because of a clock change. Please correct it.",
+    "result": {
+      "running": "Scanning",
+      "succeeded": "Scan completed",
+      "partial": "Only part of the data was returned",
+      "failed": "Scan failed",
+      "interrupted": "Scan interrupted; please start again"
+    },
+    "status": {
+      "pending": "To review",
+      "accepted": "Accepted",
+      "rejected": "Dismissed"
+    },
+    "uncertainty": {
+      "sourceUnknown": "Dawarich does not reliably distinguish recorded GPS from reconstructed photo locations here. These points do not establish an overnight stay.",
+      "accuracyUnknown": "Some points have no known accuracy.",
+      "signalGaps": "There are gaps between points. Presence during these gaps is not established.",
+      "outliersIgnored": "Isolated jumps were left out of detection.",
+      "truncated": "Dawarich returned only part of the requested window.",
+      "tripAmbiguous": "Several trips match this window. Please choose the correct one.",
+      "placeAmbiguous": "Several saved places are nearby. Please check the place."
+    },
+    "existingVisit": "An existing visit was found in this window. Acceptance checks whether this suggestion can be linked to it."
+  },
+  "deleteTripConfirmWithRail": "“{{name}}” will be permanently deleted, along with its photos, stops, companions, journal entries, tours built from its stops with their recorded tracks, and the documents filed here. Flights, cruises, rail journeys, stays and trips are kept, and so are day tours with points of their own — they become standalone tours."
 }

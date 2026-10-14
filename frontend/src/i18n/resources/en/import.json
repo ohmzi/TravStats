@@ -56,7 +56,7 @@
     "triggerLabel": "Add trip",
     "document": {
       "title": "Read travel documents",
-      "description": "Your operator's mail with its PDF — flights, hotels and dates are all in there."
+      "description": "Your tour operator's PDF — invoice or travel documents — or the e-mail it came with. Flights, hotels and price become one trip you review first."
     },
     "fromExisting": {
       "title": "Build from existing entries",
@@ -102,12 +102,147 @@
       "flight": "Import as a flight",
       "cruise": "Import as a cruise",
       "lodging": "Import as accommodation",
-      "rail": "Import as a rail journey"
+      "rail": "Import as a rail journey",
+      "package": "Import as a trip",
+      "place": "Import as a place"
     },
-    "dismiss": "Close"
+    "dismiss": "Close",
+    "package": "These are a tour operator's travel documents — import them under Trips.",
+    "place": "This is a document about a place — import it under Places."
   },
   "readBy": {
     "local": "Read by the AI model {{model}} on your network.",
     "cloud": "Read by the AI model {{model}} at {{host}} (cloud provider)."
+  },
+  "package": {
+    "title": "Trip from tour operator documents",
+    "intro": "Read with the template for {{issuer}}. Nothing is saved until you accept.",
+    "loading": "Comparing with your logbook …",
+    "sections": {
+      "trip": "Trip",
+      "booking": "Booking",
+      "flights": "Flights",
+      "stays": "Accommodation",
+      "cruise": "Cruise",
+      "warnings": "Please check",
+      "document": "Document"
+    },
+    "tripName": "Trip name",
+    "tripAction": {
+      "create": "New trip",
+      "attach": "Existing trip is completed"
+    },
+    "matchedBy": {
+      "bookingReference": "found by its booking number",
+      "dateOverlap": "found by its dates"
+    },
+    "bookingAction": {
+      "create": "New booking",
+      "attach": "Existing booking"
+    },
+    "reference": "Booking number {{reference}}",
+    "price": "Total price {{price}}",
+    "noPrice": "No price in the document",
+    "storedPrice": "{{price}} is saved — that price stays.",
+    "action": {
+      "create": "New",
+      "attach": "Will be linked",
+      "skip": "Skipped"
+    },
+    "reason": {
+      "duplicate": "already on this trip",
+      "onOtherTrip": "belongs to another trip",
+      "unresolvedAirport": "airport unclear",
+      "excluded": "deselected",
+      "undated": "no date"
+    },
+    "lodgingReuse": "existing accommodation",
+    "airport": {
+      "pick": "Choose the airport for “{{city}}”",
+      "pickPlaceholder": "Please choose …",
+      "code": "IATA code for “{{city}}”",
+      "apply": "Apply"
+    },
+    "warning": {
+      "airportAmbiguous": "“{{subject}}” matches several airports — please choose.",
+      "airportUnknown": "“{{subject}}” is not a known airport — please enter its IATA code.",
+      "priceConflict": "Booking {{subject}} already has a different price; it is kept.",
+      "flightOnOtherTrip": "Flight {{subject}} already belongs to another trip and stays there.",
+      "stayOnOtherTrip": "“{{subject}}” already belongs to another trip and stays there.",
+      "cruiseUndated": "The cruise “{{subject}}” has no date in the document and is not created.",
+      "documentFiledElsewhere": "The document is already filed with another entry and is not moved."
+    },
+    "document": {
+      "file": "The document is filed with the trip.",
+      "alreadyOnTrip": "The document is already on this trip.",
+      "filedElsewhere": "The document is filed with another entry."
+    },
+    "nothingNew": "Everything in this document is already there.",
+    "commit": "Accept trip",
+    "committing": "Saving …",
+    "saved": "Trip saved.",
+    "errors": {
+      "preview": "The comparison failed. Please try again.",
+      "commit": "The trip could not be saved. Nothing was created.",
+      "readingInvalid": "The template read values that do not make a trip. Nothing was created.",
+      "readingMissing": "This document was not read as tour operator documents.",
+      "flightInvalid": "Flight {{flight}} cannot be created like this (e.g. arrival before departure). Nothing was created.",
+      "documentFiled": "The document was filed elsewhere in the meantime. Nothing was created."
+    },
+    "empty": {
+      "noTemplate": "There is no tour operator template for this document yet. Nothing was read.",
+      "invalidReading": "The template for {{issuer}} recognises the document but reads it incompletely. Nothing was read."
+    }
+  },
+  "tripFile": {
+    "routeTitle": "Import trip",
+    "routeDescription": "Read a .travstats file that you or someone else exported from TravStats.",
+    "action": "Choose file",
+    "title": "Import trip",
+    "intro": "Exported on {{date}} with TravStats {{version}}. Nothing is saved until you confirm.",
+    "loading": "Comparing with your logbook …",
+    "included": "In the file: {{list}}",
+    "includedNone": "Only the trip's facts — no documents, photos or personal details.",
+    "includes": {
+      "documents": "documents",
+      "photos": "photos",
+      "private": "personal details"
+    },
+    "sections": {
+      "trip": "Trip",
+      "bookings": "Bookings",
+      "entries": "Entries",
+      "files": "Files"
+    },
+    "kind": {
+      "flight": "Flight",
+      "stay": "Stay",
+      "cruise": "Cruise",
+      "rail": "Rail",
+      "bus": "Bus",
+      "rental": "Rental car",
+      "visit": "Place",
+      "stop": "Stop"
+    },
+    "files": {
+      "documents": "Documents: {{create}} new, {{skip}} already there",
+      "photos": "Photos: {{create}} new, {{skip}} already there",
+      "journal": "Journal: {{create}} new, {{skip}} already there"
+    },
+    "nothingNew": "Everything in this file is already there.",
+    "commit": "Import trip",
+    "committing": "Saving …",
+    "saved": "Trip imported: {{created}} new, {{attached}} attached, {{skipped}} skipped.",
+    "documentsRefused_one": "{{count}} document was not imported because its format is not supported.",
+    "documentsRefused_other": "{{count}} documents were not imported because their format is not supported.",
+    "errors": {
+      "invalid": "This is not a valid .travstats file.",
+      "version": "This file comes from a newer TravStats version and cannot be read here yet.",
+      "tooLarge": "The file is too large to import.",
+      "unsafe": "The file contains forbidden paths and was refused.",
+      "rateLimited": "Too many imports in a short time. Please wait a few minutes.",
+      "preview": "The file could not be read. Please try again.",
+      "commit": "The trip could not be saved. Nothing was imported."
+    }
   }
 }

@@ -5,11 +5,9 @@
   "src/__tests__/components/Cruise/CruiseEditModal.test.tsx",
   "src/__tests__/components/FlightEditModal.test.tsx",
   "src/__tests__/components/FlightPanel.test.tsx",
-  "src/__tests__/components/FlightReviewModal.fieldSources.test.tsx",
   "src/__tests__/components/FlightReviewModal.finalStep.test.tsx",
   "src/__tests__/components/NavigationBar.test.tsx",
   "src/__tests__/components/Trips/TripsTab.test.tsx",
-  "src/__tests__/pages/SettingsPage.betaGate.test.tsx",
   "src/components/Dashboard/__tests__/DashboardLayout.addButton.test.tsx",
   "src/components/Dashboard/tabs/__tests__/AllTab.tours.test.tsx",
   "src/components/Dashboard/tabs/cruiseColorMode.views.test.tsx",
@@ -30,7 +28,6 @@
   "src/hooks/__tests__/useDashboardTours.test.ts",
   "src/hooks/__tests__/usePlacesAccess.test.ts",
   "src/hooks/__tests__/useSessionValidation.test.tsx",
-  "src/hooks/__tests__/useSuggestions.test.ts",
   "src/hooks/__tests__/useTourTracks.test.ts",
   "src/pages/__tests__/DashboardPage.test.tsx"
 ]

@@ -5,6 +5,8 @@ import { useEnabledDomains } from "../../hooks/useEnabledDomains";
 import { usePlacesVisible } from "../../hooks/usePlacesVisible";
 import { useRailVisible } from "../../hooks/useRailVisible";
 import { useRentalVisible } from "../../hooks/useRentalVisible";
+import { useFerryVisible } from "../../hooks/useFerryVisible";
+import { useBusVisible } from "../../hooks/useBusVisible";
 import { AVAILABLE_DOMAINS, DOMAINS } from "../../shared/domains";
 import type { IconName } from "../ui/Icon";
 
@@ -83,17 +85,20 @@ export function useNavItems(): {
     "passport",
     "dataQuality",
     "stats",
+    "notes",
   ]);
   const user = useAuthStore((s) => s.user);
   const { isEnabled } = useEnabledDomains();
   const placesVisible = usePlacesVisible();
   const railVisible = useRailVisible();
   const rentalVisible = useRentalVisible();
+  const busVisible = useBusVisible();
+  const ferryVisible = useFerryVisible();
   const isAdmin = user?.isAdmin ?? false;
 
   return useMemo(() => {
     // `poi` asks through `usePlacesVisible`, the one home of the places rule.
-    // `rail` and `rental` ask their own hooks: the beta gate AND the domain choice.
+    // `rail`, `rental` and `bus` ask their own hooks: the beta gate AND the domain choice.
     const domainChildren: NavLeaf[] = AVAILABLE_DOMAINS.filter((key) =>
       key === "poi"
         ? placesVisible
@@ -101,7 +106,11 @@ export function useNavItems(): {
           ? railVisible
           : key === "rental"
             ? rentalVisible
-            : isEnabled(key)
+            : key === "bus"
+              ? busVisible
+              : key === "ferry"
+                ? ferryVisible
+                : isEnabled(key)
     ).map((key) => ({
       kind: "leaf",
       id: `domain-${key}`,
@@ -134,6 +143,17 @@ export function useNavItems(): {
         path: "/achievements",
         label: t("dashboard:achievements"),
         icon: "trophy",
+      },
+      // Standalone notes (forgejo#137) belong to no domain and no trip, so the
+      // entry is there whatever domains are on — a moment needs no flight.
+      // A collection like the others here: something the user keeps, not a
+      // logbook of one kind of travel.
+      {
+        kind: "leaf",
+        id: "notes",
+        path: "/notes",
+        label: t("notes:title"),
+        icon: "pencil",
       },
       // Built from flights alone, so it is offered only when flights are on —
       // an entry leading to a page that explains why it is empty is worse than
@@ -203,5 +223,5 @@ export function useNavItems(): {
     ];
 
     return { primary, more };
-  }, [t, isEnabled, placesVisible, railVisible, rentalVisible, isAdmin]);
+  }, [t, isEnabled, placesVisible, railVisible, rentalVisible, busVisible, ferryVisible, isAdmin]);
 }

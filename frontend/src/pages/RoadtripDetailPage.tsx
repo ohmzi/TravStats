@@ -16,7 +16,10 @@ import RoadtripSummaryPanel from "../components/Roadtrips/RoadtripSummaryPanel";
 import RoadtripTimelineTab from "../components/Roadtrips/RoadtripTimelineTab";
 import RoadtripLogisticsTab from "../components/Roadtrips/RoadtripLogisticsTab";
 import { Placeholder } from "../components/Trips/TripDetailPanels";
-import StationEditor, { type EditorStart } from "../components/Roadtrips/StationEditor";
+import StationEditor, {
+  type EditorSaveState,
+  type EditorStart,
+} from "../components/Roadtrips/StationEditor";
 import StationTimeline from "../components/Roadtrips/StationTimeline";
 import type { SaveStatus } from "../components/Roadtrips/useStationAutosave";
 import { useTranslation } from "../hooks/useTranslation";
@@ -46,6 +49,7 @@ const STATUS_COLOR: Record<SaveStatus, string> = {
   saving: "var(--ts-muted)",
   error: "var(--ts-bad)",
   waiting: "var(--ts-warn)",
+  conflict: "var(--ts-bad)",
 };
 
 /**
@@ -99,7 +103,7 @@ export default function RoadtripDetailPage(): JSX.Element {
   const [loadError, setLoadError] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [legEdit, setLegEdit] = useState<LegEdit | null>(null);
-  const [save, setSave] = useState<{ status: SaveStatus; flush: () => Promise<void> }>({
+  const [save, setSave] = useState<{ status: SaveStatus; flush: () => Promise<unknown> }>({
     status: "saved",
     flush: async () => {},
   });
@@ -154,8 +158,11 @@ export default function RoadtripDetailPage(): JSX.Element {
     void load();
   }, [load]);
 
+  // Upstream's richer `EditorSaveState` (forgejo#244): the page reads only the
+  // status and the flush it always showed; `local`/`discard`/`merge` belong to
+  // the editor's own status component.
   const onStatus = useCallback(
-    (status: SaveStatus, flush: () => Promise<void>) => setSave({ status, flush }),
+    (state: EditorSaveState) => setSave({ status: state.status, flush: state.flush }),
     []
   );
 

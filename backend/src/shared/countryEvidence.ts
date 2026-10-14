@@ -1,6 +1,10 @@
 /**
  * What proves you were in a country — one rule, one home.
  *
+ * forgejo#299 (2026-10-13): raw country-day tracks no longer enter this fold.
+ * Their old tier rules below are historical; observations are now returned
+ * separately by the passport until ground presence can actually be proved.
+ *
  * Design: `docs/superpowers/specs/2026-09-02-country-counting-design.md`.
  * Written after the owner looked at his own figures and said the count was too
  * high. It was too high AND too low at once, which is why it looked plausible:
@@ -242,8 +246,12 @@ export function parseCountryTier(value: unknown): CountryTier | null {
  * `rail` is a station end of a completed train ride (2.7): the traveller stood
  * on the ground there. A change of trains grades `transited`, never
  * `connection` — see `services/stats/railEvidence.ts`.
+ *
+ * `bus` is a terminal end of a completed bus ride (forgejo#265), graded like
+ * rail's — see `services/stats/busEvidence.ts`.
  */
-export type EvidenceKind = "flight" | "lodging" | "port" | "place" | "rail" | "roadtrip" | "track";
+export type EvidenceKind =
+  "flight" | "lodging" | "port" | "place" | "rail" | "bus" | "roadtrip" | "track";
 
 /**
  * How long the traveller was on the ground in a country — spec §3.4b.

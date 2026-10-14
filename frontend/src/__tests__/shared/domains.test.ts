@@ -11,6 +11,8 @@ describe("frontend domain registry", () => {
       "roadtrip",
       "rail",
       "rental",
+      "bus",
+      "ferry",
     ]);
   });
   it("exposes AVAILABLE_DOMAINS only with available=true", () => {
@@ -28,6 +30,8 @@ describe("frontend domain registry", () => {
       "roadtrip",
       "rail",
       "rental",
+      "bus",
+      "ferry",
     ]);
   });
   it("isValidDomain", () => {

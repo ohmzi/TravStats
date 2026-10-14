@@ -38,11 +38,16 @@ const RailDetailPage = lazy(() => import("./pages/RailDetailPage"));
 const RailConnectionPage = lazy(() => import("./pages/RailConnectionPage"));
 const RentalsPage = lazy(() => import("./pages/RentalsPage"));
 const RentalDetailPage = lazy(() => import("./pages/RentalDetailPage"));
+const FerryPage = lazy(() => import("./pages/FerryPage"));
+const FerryDetailPage = lazy(() => import("./pages/FerryDetailPage"));
+const BusPage = lazy(() => import("./pages/BusPage"));
+const BusDetailPage = lazy(() => import("./pages/BusDetailPage"));
 const CruiseDetailPage = lazy(() => import("./pages/CruiseDetailPage"));
 const LodgingListPage = lazy(() => import("./pages/LodgingListPage"));
 const PlacesListPage = lazy(() => import("./pages/PlacesListPage"));
 const PlaceDetailPage = lazy(() => import("./pages/PlaceDetailPage"));
 const PlaceListsPage = lazy(() => import("./pages/PlaceListsPage"));
+const PlacesNearbyPage = lazy(() => import("./pages/PlacesNearbyPage"));
 const PlaceListDetailPage = lazy(() => import("./pages/PlaceListDetailPage"));
 const CuratedChecklistPage = lazy(() => import("./pages/CuratedChecklistPage"));
 import { PlacesRouteGuard } from "./components/places/PlacesRouteGuard";
@@ -63,6 +68,7 @@ const RoadtripDetailPage = lazy(() => import("./pages/RoadtripDetailPage"));
 const RoadtripResyncPage = lazy(() => import("./pages/RoadtripResyncPage"));
 const StravaCallbackPage = lazy(() => import("./pages/StravaCallbackPage"));
 const AchievementsPage = lazy(() => import("./pages/AchievementsPage"));
+const NotesPage = lazy(() => import("./pages/NotesPage"));
 const AdvancedStatsPage = lazy(() => import("./pages/AdvancedStatsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const DesignPage = lazy(() => import("./pages/DesignPage"));
@@ -395,6 +401,66 @@ function AppContent() {
                 }
               />
               <Route
+                path="/bus"
+                element={
+                  isAuthenticated ? (
+                    // Two gates, outer first: the instance beta switch (busDomain), then the user's own domain choice.
+                    <BetaFeatureRouteGuard feature="busDomain" redirectTo="/dashboard">
+                      <DomainRouteGuard domain="bus">
+                        <BusPage />
+                      </DomainRouteGuard>
+                    </BetaFeatureRouteGuard>
+                  ) : (
+                    <Navigate to="/login" />
+                  )
+                }
+              />
+              <Route
+                path="/ferry"
+                element={
+                  isAuthenticated ? (
+                    // Two gates, outer first: the instance beta switch (ferryDomain), then the user's own domain choice.
+                    <BetaFeatureRouteGuard feature="ferryDomain" redirectTo="/dashboard">
+                      <DomainRouteGuard domain="ferry">
+                        <FerryPage />
+                      </DomainRouteGuard>
+                    </BetaFeatureRouteGuard>
+                  ) : (
+                    <Navigate to="/login" />
+                  )
+                }
+              />
+              <Route
+                path="/bus/:id"
+                element={
+                  isAuthenticated ? (
+                    // The same two gates as the logbook, in the same order.
+                    <BetaFeatureRouteGuard feature="busDomain" redirectTo="/dashboard">
+                      <DomainRouteGuard domain="bus">
+                        <BusDetailPage />
+                      </DomainRouteGuard>
+                    </BetaFeatureRouteGuard>
+                  ) : (
+                    <Navigate to="/login" />
+                  )
+                }
+              />
+              <Route
+                path="/ferry/:id"
+                element={
+                  isAuthenticated ? (
+                    // The same two gates as the logbook, in the same order.
+                    <BetaFeatureRouteGuard feature="ferryDomain" redirectTo="/dashboard">
+                      <DomainRouteGuard domain="ferry">
+                        <FerryDetailPage />
+                      </DomainRouteGuard>
+                    </BetaFeatureRouteGuard>
+                  ) : (
+                    <Navigate to="/login" />
+                  )
+                }
+              />
+              <Route
                 path="/cruises/:id"
                 element={
                   isAuthenticated ? (
@@ -440,6 +506,19 @@ function AppContent() {
                   them higher regardless of order, but keeping them adjacent is
                   what makes the relationship readable — a place can never be
                   shadowed by being named "lists". */}
+              {/* Saved places around a lodging or a point (forgejo#233). */}
+              <Route
+                path="/places/nearby"
+                element={
+                  isAuthenticated ? (
+                    <PlacesRouteGuard>
+                      <PlacesNearbyPage />
+                    </PlacesRouteGuard>
+                  ) : (
+                    <Navigate to="/login" />
+                  )
+                }
+              />
               <Route
                 path="/places/lists"
                 element={
@@ -655,6 +734,11 @@ function AppContent() {
               <Route
                 path="/achievements"
                 element={isAuthenticated ? <AchievementsPage /> : <Navigate to="/login" />}
+              />
+              {/* Standalone notes (forgejo#137): no domain gate — a note needs none. */}
+              <Route
+                path="/notes"
+                element={isAuthenticated ? <NotesPage /> : <Navigate to="/login" />}
               />
               {/* The loyalty page of the 2.7 betas. Its programmes are managed
                   in Einstellungen → Bonusprogramme since 2026-09-26; links to

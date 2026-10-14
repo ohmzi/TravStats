@@ -33,7 +33,13 @@
   "onTime": "pünktlich",
   "edit": "Bearbeiten",
   "delete": "Löschen",
-  "deleteConfirm": "Diese Fahrt wirklich löschen?",
+  "deleteConfirmNamed": "Die Fahrt {{route}} wirklich löschen?",
+  "deleteSurvivors": {
+    "trip": "Reise „{{name}}“",
+    "otherLegs_one": "{{count}} weitere Fahrt derselben Buchung",
+    "otherLegs_other": "{{count}} weitere Fahrten derselben Buchung",
+    "bookingLegs": "ggf. andere Fahrten derselben Buchung"
+  },
   "deleted": "Fahrt gelöscht",
   "deleteError": "Die Fahrt konnte nicht gelöscht werden.",
   "saved": "Fahrt gespeichert",
@@ -68,6 +74,8 @@
     "departureTime": "Abfahrt (Ortszeit am Bahnhof)",
     "arrivalTime": "Ankunft (Ortszeit am Bahnhof)",
     "timeHint": "Die Uhrzeit, die auf dem Ticket steht. Die Zeitzone ergibt sich aus dem Bahnhof.",
+    "dayOnly": "Nur das Datum ist bekannt",
+    "delayNeedsClock": "Eine Verspätung braucht die Uhrzeiten der Fahrt.",
     "distance": "Entfernung in km",
     "distanceHint": "Leer lassen: TravStats misst entlang der von Transitous übernommenen Strecke, sonst die Luftlinie. Eintragen, wenn das Ticket die Strecke nennt.",
     "seat": "Platz",
@@ -95,7 +103,14 @@
       "invalidField": "Die Angabe „{{field}}“ wurde nicht angenommen. Bitte prüf sie.",
       "invalid": "Eine Angabe wurde nicht angenommen. Bitte prüf die Felder."
     },
-    "suggestionsFailed": "Vorschläge aus deinen bisherigen Fahrten konnten nicht geladen werden — das Formular funktioniert trotzdem."
+    "suggestionsFailed": "Vorschläge aus deinen bisherigen Fahrten konnten nicht geladen werden — das Formular funktioniert trotzdem.",
+    "missing": {
+      "depCoordinates": "gültige Koordinaten des Abfahrtsbahnhofs",
+      "arrCoordinates": "gültige Koordinaten des Ankunftsbahnhofs",
+      "departureTime": "Abfahrtszeit",
+      "depName": "Name des Abfahrtsbahnhofs",
+      "arrName": "Name des Ankunftsbahnhofs"
+    }
   },
   "tracedLine": "entlang der Strecke, Transitous",
   "roadtripLine": "entlang der Trip-Route",
@@ -194,11 +209,14 @@
     "trainsLabel_other": "Züge",
     "totalDuration": "Gesamtdauer",
     "legs": "Züge dieser Verbindung",
-    "transfer": "Umstieg in {{station}} · {{wait}} Aufenthalt",
-    "transferUnknown": "Umstieg in {{station}}",
     "whole": "Ganze Verbindung ansehen: {{route}}",
     "loadError": "Die Verbindung konnte nicht geladen werden.",
-    "notFound": "Diese Verbindung gibt es nicht (mehr)."
+    "notFound": "Diese Verbindung gibt es nicht (mehr).",
+    "totalDistance": "Gesamtstrecke",
+    "distanceUnknown": "Entfernung unbekannt",
+    "distancePartial_one": "Teilstrecke: Entfernung für {{count}} Abschnitt fehlt",
+    "distancePartial_other": "Teilstrecke: Entfernung für {{count}} Abschnitte fehlt",
+    "distanceMixed": "Gemischte Quellen: Streckenwerte und Schätzungen"
   },
   "trip": {
     "open": "Fahrt öffnen",
@@ -243,7 +261,10 @@
       "rankings": "Ranglisten",
       "delays": "Verspätungen",
       "records": "Rekorde",
-      "years": "Fahrten pro Jahr"
+      "years": "Fahrten pro Jahr",
+      "journeys": "Bahnreisen und Umstiege",
+      "connections": "Verbindungen",
+      "punctuality": "Pünktlichkeit"
     },
     "nightTrains": "Nachtzüge",
     "nightTrainsDesc": "Schlaf- oder Liegewagen, Nachtzug-Gattung oder über Nacht unterwegs",
@@ -252,7 +273,158 @@
     "crossBorder": "Grenzüberschreitend",
     "crossBorderDesc": "Abfahrt und Ankunft in verschiedenen Ländern",
     "operatorsCount": "Bahngesellschaften",
-    "operatorsCountDesc": "verschiedene, Schreibweisen zusammengefasst"
+    "operatorsCountDesc": "verschiedene, Schreibweisen zusammengefasst",
+    "journeysLinked": "Bahnreisen",
+    "journeysLinkedDesc_one": "davon {{count}} mit Umstieg",
+    "journeysLinkedDesc_other": "davon {{count}} mit Umstieg",
+    "transfers": "Umstiegszeit im Schnitt",
+    "transfersDesc_one": "{{count}} gemessener Umstieg · kürzester {{shortest}}, längster {{longest}}",
+    "transfersDesc_other": "{{count}} gemessene Umstiege · kürzester {{shortest}}, längster {{longest}}",
+    "transfersNone": "Kein verknüpfter Umstieg erfasst — Umstiege zählen nur zwischen Fahrten derselben Buchung.",
+    "minutesValue": "{{minutes}} min",
+    "nightNights": "Nächte im Nachtzug",
+    "nightNightsDesc": "an Bord geschlafen, nach dem Kalender der Bahnhöfe",
+    "nightNightsUndated_one": "dazu {{count}} Nachtzug ohne bekannten Ankunftstag",
+    "nightNightsUndated_other": "dazu {{count}} Nachtzüge ohne bekannten Ankunftstag",
+    "newConnections": "Neue Verbindungen",
+    "newConnectionsDesc": "zum ersten Mal gefahren, Hin- und Rückrichtung zusammen",
+    "favouriteConnections": "Lieblingsverbindungen",
+    "noFavouriteConnections": "Noch keine Verbindung mehr als einmal gefahren.",
+    "newConnectionsByYear": "Neue Verbindungen pro Jahr",
+    "noNewConnections": "Keine Verbindung mit zwei bekannten Bahnhöfen.",
+    "punctualityByOperator": "Pünktlichkeit nach Bahngesellschaft",
+    "punctualityByConnection": "Pünktlichkeit nach Verbindung",
+    "punctualityHint_one": "{{count}} gemessene Fahrt · Ø {{average}} min",
+    "punctualityHint_other": "{{count}} gemessene Fahrten · Ø {{average}} min",
+    "noPunctuality": "Bei keiner Fahrt mit Uhrzeit ist eine Verspätung erfasst.",
+    "help": {
+      "journeys": {
+        "unit": "Zähleinheit ist die Reise, nicht der Zug: Fahrten derselben Buchung, die am selben Bahnhof innerhalb von vier Stunden aneinander anschließen, sind eine Reise. Eine Fahrt zurück zu einem Bahnhof, an dem die Reise schon war, beginnt eine neue (Rückfahrt). Die Zeile unter der Zahl nennt, wie viele davon einen Umstieg haben.",
+        "time": "Gezählt wird im Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs – je Fahrt, nicht je Reise.",
+        "source": "Deine Bahnfahrten mit Status „Gefahren“, verbunden über die gemeinsame Buchung. Als derselbe Umstiegsbahnhof gilt derselbe Katalogeintrag, derselbe Name oder ein Bahnhof im Umkreis von einem Kilometer.",
+        "coverage": "Ein Anschluss wird nur erkannt, wenn Ankunft und nächste Abfahrt minutengenau bekannt sind; sonst steht jede Fahrt als eigene Reise. Ein Tipp auf die Zahl zeigt die Reisen.",
+        "exclusions": "Gezählt werden nur abgeschlossene Fahrten – geplante, laufende und stornierte nicht. Fahrten ohne gemeinsame Buchung werden nie verbunden, auch wenn sie zeitlich passen."
+      },
+      "transfers": {
+        "unit": "Die Wartezeit zwischen Ankunft und nächster Abfahrt innerhalb einer Reise, in Minuten. Groß steht der Durchschnitt aller Umstiege, darunter ihre Zahl, der kürzeste und der längste.",
+        "time": "Gemessen wird aus den minutengenauen Zeiten beider Fahrten, als echte vergangene Zeit – Zeitzonen verschieben nichts. Im Jahr der Abfahrt der Fahrten nach dem Kalender des Abfahrtsbahnhofs.",
+        "source": "Die Reisen aus abgeschlossenen Fahrten, wie sie die Reise-Regel bildet: ein Umstieg ist dieselbe Buchung, derselbe Bahnhof und höchstens vier Stunden Wartezeit.",
+        "coverage": "Fahrten mit reinem Datum oder ohne Verknüpfung haben keinen messbaren Umstieg und bleiben draußen. Gibt es keinen, sagt die Karte das, statt eine Null zu zeigen. Ein Tipp auf die Zahl zeigt die Reisen mit der Zahl ihrer gemessenen Umstiege.",
+        "exclusions": "Geplante, laufende und stornierte Fahrten zählen nicht. Längere Pausen als vier Stunden sind kein Umstieg, sondern trennen zwei Reisen."
+      },
+      "nights": {
+        "unit": "Eine Nacht je Kalendernacht an Bord eines Nachtzugs, vom Abfahrtstag bis zur Nacht vor dem Ankunftstag. Nachtzug ist eine Fahrt im Schlaf- oder Liegewagen, in einer Nachtzug-Gattung (NJ, EN, NZ) oder eine, die über Nacht mindestens sechs Stunden unterwegs war.",
+        "time": "Nach dem Kalender der Bahnhöfe: Abfahrtstag am Abfahrtsbahnhof, Ankunftstag am Ankunftsbahnhof. Die Nächte zählen im Jahr, in dem die Fahrt abfuhr.",
+        "source": "Abgeschlossene Bahnfahrten mit Wagenklasse, Zuggattung sowie Ab- und Ankunftszeit.",
+        "coverage": "Ein Nachtzug ohne bekannten Ankunftstag hat eine Nacht, die kein Kalender fassen kann: er fehlt in der Zahl und wird darunter eigens genannt. Eine Fahrt mit reinem Datum gilt nur über Wagenklasse oder Gattung als Nachtzug, nie über die Uhrzeit. Ein Tipp auf die Zahl zeigt die Fahrten.",
+        "exclusions": "Geplante, laufende und stornierte Fahrten zählen nicht. In der Nachtbilanz der Übersicht zählt eine Nacht, für die auch eine Unterkunft (oder eine Kreuzfahrtkabine) erfasst ist, bei der Unterkunft – hier steht sie trotzdem."
+      },
+      "newConnections": {
+        "unit": "Eine Verbindung ist das Bahnhofspaar, beide Richtungen zusammen. Die Zahl ist die Menge der Verbindungen, die im gezeigten Zeitraum zum ersten Mal gefahren wurden.",
+        "time": "Als neu zählt sie in dem Jahr, in dem die erste abgeschlossene Fahrt darauf abfuhr, nach dem Kalender des Abfahrtsbahnhofs. Die Liste „Neue Verbindungen pro Jahr“ zeigt alle Jahre, unabhängig vom gewählten Zeitraum.",
+        "source": "Alle abgeschlossenen Fahrten über alle Jahre, denn nur sie zeigen, ob eine Verbindung schon früher gefahren wurde. Ein Bahnhof gilt über seinen Code, sonst über seinen Namen als derselbe.",
+        "coverage": "Jede abgeschlossene Fahrt mit zwei verschiedenen Bahnhöfen hat eine Verbindung. Ein Tipp auf die Zahl zeigt die ersten Fahrten.",
+        "exclusions": "Eine später wieder gefahrene Verbindung ist nicht noch einmal neu. Eine Fahrt, die am selben Bahnhof endet, an dem sie begann, liegt auf keiner Verbindung. Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "favourites": {
+        "unit": "Verbindungen, die mindestens zweimal gefahren wurden, beide Richtungen zusammen; gezählt werden Fahrten. Gezeigt werden die fünf häufigsten.",
+        "time": "Die Fahrten im gezeigten Zeitraum, nach dem Jahr der Abfahrt am Abfahrtsbahnhof.",
+        "source": "Abgeschlossene Fahrten; ein Bahnhof gilt über seinen Code, sonst über seinen Namen als derselbe. Der Name führt zur jüngsten Fahrt, und deren Schreibweise der Bahnhöfe steht dort.",
+        "coverage": "Jede abgeschlossene Fahrt mit zwei verschiedenen Bahnhöfen zählt mit.",
+        "exclusions": "Eine einmal gefahrene Verbindung ist kein Favorit. Fahrten mit gleichem Start- und Zielbahnhof sowie geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "punctuality": {
+        "unit": "Der Anteil der Fahrten, die ohne Verspätung ankamen (Verspätung null oder früher), je Betreiber und je Verbindung. Die Zahl unter jedem Balken nennt die Stichprobe und die mittlere Verspätung; frühe Ankünfte zählen negativ.",
+        "time": "Die Fahrten im gezeigten Zeitraum, nach dem Jahr der Abfahrt am Abfahrtsbahnhof.",
+        "source": "Abgeschlossene Fahrten mit erfasster Ankunftsverspätung. Ein Betreiber gilt unabhängig von Groß- und Kleinschreibung und Leerzeichen als derselbe; eine Verbindung umfasst beide Richtungen.",
+        "coverage": "Gezählt wird unter den Fahrten mit erfasster Verspätung und minutengenauen Zeiten samt Ankunft. Eine Fahrt ohne erfasste Verspätung zählt nie als pünktlich, sie bleibt außerhalb der Stichprobe; die Zeile über der Betreiberliste nennt, aus wie vielen aller Fahrten die Stichprobe stammt.",
+        "exclusions": "Fahrten ohne Betreiber fehlen in der Betreiberliste, Fahrten mit gleichem Start- und Zielbahnhof in der Verbindungsliste. Je Liste stehen höchstens zehn Einträge, die mit der größten Stichprobe zuerst. Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "rides": {
+        "unit": "Eine Fahrt: ein Zug von der Abfahrt bis zur Ankunft. Jede Fahrt zählt einmal, auch wenn sie Teil einer Reise mit Umstieg ist – die Reisen stehen weiter unten.",
+        "time": "Gezählt im Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs; ohne Zeitzone am Bahnhof nach UTC. Im Jahresvergleich zählt bei einem laufenden Jahr in beiden Jahren dieselbe Spanne bis zum selben Tag.",
+        "source": "Deine Bahnfahrten mit Status „Gefahren“.",
+        "coverage": "Jede gezählte Fahrt hat ein Abfahrtsdatum und zählt daher immer mit. Ein Tipp auf die Zahl zeigt die Fahrten.",
+        "exclusions": "Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "km": {
+        "unit": "Ein Kilometer, summiert über die Fahrten mit bekannter Strecke. Die Zeile darunter teilt die Summe nach Herkunft: nachgezeichnete Gleislinie, Linie aus einem Trip, Angabe vom Ticket, Luftlinie.",
+        "time": "Gezählt im Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs; ohne Zeitzone am Bahnhof nach UTC. Im Jahresvergleich zählt bei einem laufenden Jahr in beiden Jahren dieselbe Spanne bis zum selben Tag.",
+        "source": "Je Fahrt genau eine gespeicherte Strecke: die nachgezeichnete Gleislinie, die Linie eines umgewandelten Trips, die Zahl vom Ticket oder die Luftlinie zwischen den Bahnhöfen.",
+        "coverage": "Fahrten ohne Strecke bleiben draußen und stehen als „ohne Strecke“ in der Zeile darunter. Die Luftlinie ist eine Untergrenze – die Gleise sind meist 10 bis 30 % länger.",
+        "exclusions": "Nichts wird geschätzt; eine Fahrt ohne Strecke zählt nicht als 0 km. Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "hours": {
+        "unit": "Eine Stunde an Bord: die Zeit von Abfahrt bis Ankunft einer Fahrt, summiert über alle gemessenen Fahrten.",
+        "time": "Die Dauer läuft zwischen den echten Zeitpunkten an beiden Bahnhöfen, eine Zeitzonengrenze verfälscht sie also nicht. Gezählt im Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs; ohne Zeitzone am Bahnhof nach UTC. Im Jahresvergleich zählt bei einem laufenden Jahr in beiden Jahren dieselbe Spanne bis zum selben Tag.",
+        "source": "Abgeschlossene Bahnfahrten mit Abfahrts- und Ankunftszeit.",
+        "coverage": "Nur Fahrten mit Uhrzeit an Abfahrt und Ankunft; eine Fahrt mit reinem Datum oder ohne Ankunft hat keine Dauer. Die Zeile darunter nennt die Stichprobe – gemessene Fahrten von allen. Ein Tipp auf die Zahl zeigt die gemessenen Fahrten mit ihren Stunden.",
+        "exclusions": "Eine Fahrt, deren Ankunft vor ihrer Abfahrt liegt, zählt nicht mit. Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "countries": {
+        "unit": "Ein Land, in dem eine Fahrt abfuhr oder ankam; jedes Land zählt einmal.",
+        "time": "Gezählt im Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs; ohne Zeitzone am Bahnhof nach UTC. Im Jahresvergleich zählt bei einem laufenden Jahr in beiden Jahren dieselbe Spanne bis zum selben Tag.",
+        "source": "Der Ländercode von Abfahrts- und Ankunftsbahnhof deiner gezählten Fahrten.",
+        "coverage": "Ein Bahnhof ohne bekannten Ländercode trägt kein Land bei.",
+        "exclusions": "Länder, die ein Zug nur durchfährt, zählen nicht – bekannt sind nur die beiden Bahnhöfe. Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "nightTrains": {
+        "unit": "Eine Fahrt, die ein Nachtzug war: im Schlaf- oder Liegewagen, mit der Zuggattung NJ, EN oder NZ, oder eine Fahrt, die nach mindestens sechs Stunden an Bord an einem späteren Kalendertag ankommt, als sie abfuhr.",
+        "time": "Abfahrts- und Ankunftstag nach dem Kalender des jeweiligen Bahnhofs. Gezählt im Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs; ohne Zeitzone am Bahnhof nach UTC. Im Jahresvergleich zählt bei einem laufenden Jahr in beiden Jahren dieselbe Spanne bis zum selben Tag.",
+        "source": "Wagenklasse, Zuggattung und Uhrzeiten deiner gezählten Fahrten.",
+        "coverage": "Ohne Uhrzeit an beiden Enden kann nur Klasse oder Zuggattung einen Nachtzug belegen.",
+        "exclusions": "Eine Fahrt, die unter sechs Stunden über Mitternacht fährt, ist kein Nachtzug. Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "highSpeed": {
+        "unit": "Eine Fahrt mit einer Zuggattung, die auf ihren Hauptstrecken 200 km/h oder mehr fährt – etwa ICE, TGV, Eurostar, Frecciarossa, Italo, AVE, Railjet oder Shinkansen.",
+        "time": "Gezählt im Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs; ohne Zeitzone am Bahnhof nach UTC. Im Jahresvergleich zählt bei einem laufenden Jahr in beiden Jahren dieselbe Spanne bis zum selben Tag.",
+        "source": "Das erste Wort der Zuggattung deiner gezählten Fahrten, ohne Rücksicht auf Groß- und Kleinschreibung.",
+        "coverage": "Eine Fahrt ohne Zuggattung gilt nicht als Hochgeschwindigkeit – nicht als langsam, sondern als nicht belegt.",
+        "exclusions": "Gattungen außerhalb der festen Liste zählen nicht, auch wenn der Zug schnell fuhr. Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "crossBorder": {
+        "unit": "Eine Fahrt, deren Abfahrts- und Ankunftsbahnhof in verschiedenen Ländern liegen.",
+        "time": "Gezählt im Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs; ohne Zeitzone am Bahnhof nach UTC. Im Jahresvergleich zählt bei einem laufenden Jahr in beiden Jahren dieselbe Spanne bis zum selben Tag.",
+        "source": "Der Ländercode von Abfahrts- und Ankunftsbahnhof.",
+        "coverage": "Beide Länder müssen bekannt sein; ein Bahnhof ohne Ländercode belegt keine Grenze.",
+        "exclusions": "Eine Fahrt, die ein anderes Land nur durchquert und im Abfahrtsland endet, zählt nicht. Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "operatorsCount": {
+        "unit": "Eine Bahngesellschaft; jede zählt einmal. Schreibweisen werden zusammengefasst – Groß- und Kleinschreibung und Leerzeichen spielen keine Rolle.",
+        "time": "Gezählt im Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs; ohne Zeitzone am Bahnhof nach UTC. Im Jahresvergleich zählt bei einem laufenden Jahr in beiden Jahren dieselbe Spanne bis zum selben Tag.",
+        "source": "Der Betreiber, der an deinen gezählten Fahrten steht.",
+        "coverage": "Fahrten ohne Betreiber tragen keine Gesellschaft bei.",
+        "exclusions": "Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "rankings": {
+        "unit": "Fahrten je Betreiber und je Zuggattung; je Bahnhof zählen Abfahrten und Ankünfte, eine Fahrt also zweimal. Gezeigt werden jeweils die zehn häufigsten.",
+        "time": "Gezählt im Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs; ohne Zeitzone am Bahnhof nach UTC. Im Jahresvergleich zählt bei einem laufenden Jahr in beiden Jahren dieselbe Spanne bis zum selben Tag.",
+        "source": "Betreiber, Zuggattung und Bahnhöfe deiner gezählten Fahrten. Betreiber und Gattung stehen so in der Liste, wie sie geschrieben sind (ohne Leerzeichen am Rand); ein Bahnhof wird über seinen Code erkannt, sonst über seinen Namen.",
+        "coverage": "Fahrten ohne Betreiber oder ohne Gattung fehlen in der jeweiligen Liste.",
+        "exclusions": "Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "delays": {
+        "unit": "Eine Fahrt mit erfasster Ankunftsverspätung, eingeordnet in Stufen: pünktlich (0 Minuten oder früher), bis 5, bis 15, bis 30, bis 60 und über 60 Minuten.",
+        "time": "Verspätung in Minuten an der Ankunft. Gezählt im Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs; ohne Zeitzone am Bahnhof nach UTC. Im Jahresvergleich zählt bei einem laufenden Jahr in beiden Jahren dieselbe Spanne bis zum selben Tag.",
+        "source": "Die je Fahrt gespeicherte Ankunftsverspätung.",
+        "coverage": "Nur Fahrten mit erfasster Verspätung, Ankunftszeit und Uhrzeit an beiden Enden; die Zeile oben nennt die Stichprobe. Eine Fahrt ohne Verspätungsangabe gilt nie als pünktlich.",
+        "exclusions": "Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "longest": {
+        "unit": "Die Fahrt mit der größten bekannten Strecke im Zeitraum, in Kilometern; die Zeile nennt, woher die Strecke stammt.",
+        "time": "Gezählt im Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs; ohne Zeitzone am Bahnhof nach UTC. Im Jahresvergleich zählt bei einem laufenden Jahr in beiden Jahren dieselbe Spanne bis zum selben Tag.",
+        "source": "Die gespeicherte Strecke deiner gezählten Fahrten (Gleislinie, Trip-Linie, Ticket oder Luftlinie).",
+        "coverage": "Nur Fahrten mit Strecke können den Rekord halten; bei gleicher Länge gilt die frühere Fahrt. Ein Tipp auf den Rekord zeigt die Fahrt.",
+        "exclusions": "Geplante, laufende und stornierte Fahrten zählen nicht."
+      },
+      "byYear": {
+        "unit": "Fahrten je Jahr; daneben die Kilometer der Fahrten dieses Jahres mit bekannter Strecke.",
+        "time": "Jahr der Abfahrt nach dem Kalender des Abfahrtsbahnhofs. Die Liste erscheint unter „Alle Jahre“, sobald es mindestens zwei Jahre gibt.",
+        "source": "Deine Bahnfahrten mit Status „Gefahren“.",
+        "coverage": "Eine Fahrt ohne Strecke zählt als Fahrt, trägt aber keine Kilometer bei.",
+        "exclusions": "Geplante, laufende und stornierte Fahrten zählen nicht."
+      }
+    }
   },
   "roadtripConversion": {
     "title": "Als Bahnfahrten übernehmen",
@@ -291,7 +463,8 @@
       "stationOffLine": "ein Bahnhof liegt nicht auf der Strecke dieses Zuges",
       "untracedShape": "Transitous kennt für diesen Zug nur gerade Linien zwischen den Halten",
       "railRoutingUnavailable": "der Streckenrouter (OpenRailRouting) dieser Instanz hat nicht geantwortet",
-      "railRoutingNoRoute": "der Streckenrouter (OpenRailRouting) kennt keine Gleisverbindung zwischen diesen Bahnhöfen"
+      "railRoutingNoRoute": "der Streckenrouter (OpenRailRouting) kennt keine Gleisverbindung zwischen diesen Bahnhöfen",
+      "railRoutingNotConfigured": "kein Bahn-Routingdienst eingerichtet ist"
     }
   },
   "import": {
@@ -352,6 +525,17 @@
           "noSeat": "Die Reservierung nennt weder Wagen noch Platz — nichts einzutragen."
         }
       }
+    },
+    "booking": {
+      "appliesToAll": "Diese Buchungsangaben gelten für alle Fahrten unten. Der Gesamtpreis wird nur bei der ersten gespeicherten Fahrt eingetragen, damit er nicht mehrfach zählt.",
+      "incomplete": "Nicht alle Buchungsangaben wurden im Dokument erkannt. Ergänze sie hier oder lass sie leer — es wird nichts erfunden.",
+      "notRecognised": "Nicht im Dokument erkannt",
+      "edited": "Von dir geändert",
+      "noClass": "Keine Angabe",
+      "problem": {
+        "price": "Der Gesamtpreis ist kein Betrag. Schreib ihn z. B. als 59,90 oder lass das Feld leer.",
+        "currency": "Zum Gesamtpreis fehlt die Währung (drei Buchstaben, z. B. EUR)."
+      }
     }
   },
   "summary": {
@@ -363,5 +547,70 @@
     "stations_other": "Bahnhöfe",
     "withoutOperator_one": "{{count}} ohne Betreiber",
     "withoutOperator_other": "{{count}} ohne Betreiber"
+  },
+  "transfer": {
+    "wait": "Umstieg in {{station}} · {{wait}} Umstiegszeit",
+    "unknown": "Umstieg in {{station}} · Umstiegszeit unbekannt",
+    "unknownWhy": "Eine der beiden Zeiten fehlt oder ist nur als Datum bekannt.",
+    "conflict": "Zeitkonflikt: Der nächste Zug fährt {{wait}} vor der Ankunft dieses Zugs ab.",
+    "stationChange": "Bahnhofswechsel: {{from}} → {{to}} · ca. {{distance}} Luftlinie",
+    "shortHint": "Hinweis: weniger als {{minutes}} Min. zum Umsteigen. Ob der Anschluss klappt, kann TravStats nicht wissen.",
+    "separate": "Eigene Fahrt – kein Umstieg",
+    "markTight": "Als knapp markiert",
+    "markFailed": "Die Markierung konnte nicht gespeichert werden. Bitte versuch es erneut.",
+    "orderUnknown": "Umstieg unbekannt: Eine Fahrt dieses Tages ist nur mit Datum erfasst, daher ist die Reihenfolge der Züge nicht bekannt.",
+    "stationUnconfirmed": "Bahnhofswechsel? {{from}} → {{to}}: anderer Bahnhofsname – Lage unbekannt",
+    "distanceM": "{{value}} m",
+    "distanceKm": "{{value}} km"
+  },
+  "connectionView": {
+    "coach": "Wagen {{coach}}",
+    "seat": "Platz {{seat}}",
+    "noReservation": "keine Reservierung erfasst",
+    "reference": "Auftragsnummer {{reference}}",
+    "documents": "Dokumente:",
+    "noDocuments": "Keine Dokumente abgelegt",
+    "documentsLoading": "Dokumente werden geladen …",
+    "documentsFailed": "Die Dokumente dieser Fahrt konnten nicht geladen werden.",
+    "documentsBelow": "Dokumente dieser Fahrt: im Abschnitt „Dokumente“ weiter unten."
+  },
+  "shareLink": {
+    "title": "DB-Teilen-Link",
+    "description": "Du hast eine Verbindung aus bahn.de oder dem DB Navigator geteilt? Füg den Link ein — die Fahrten werden gelesen und du bestätigst jede einzeln.",
+    "caveat": "Die Bahn lässt das Auslesen geteilter Links von außen meist nicht zu. Klappt es nicht, nimm das Ticket-PDF oder die Buchungsmail.",
+    "label": "Teilen-Link der Bahn",
+    "read": "Link lesen",
+    "reading": "Lese …",
+    "factsKept": "Aus dem Link selbst gelesen und übernommen: {{route}}, {{when}}, {{travelClass}}.",
+    "fallbackIntro": "So geht es weiter:",
+    "useDocument": "Ticket-PDF oder Buchungsmail hochladen",
+    "typeIt": "Von Hand eintragen",
+    "typeWithFacts": "Von Hand eintragen, mit den gelesenen Angaben",
+    "reason": {
+      "invalidLink": "Das ist kein lesbarer Bahn-Link. Ein Teilen-Link sieht so aus: https://www.bahn.de/buchung/start?vbid=…",
+      "unsupportedLink": "Links dieser Seite kann TravStats nicht lesen — bisher nur Teilen-Links von bahn.de.",
+      "blocked": "bahn.de hat die Anfrage abgewiesen (Schutz gegen automatische Zugriffe). Am Link liegt es vermutlich nicht — die Verbindung lässt sich auf diesem Weg gerade nicht abrufen.",
+      "expired": "bahn.de kennt diese Verbindung nicht (mehr). Geteilte Links laufen nach einiger Zeit ab.",
+      "rateLimited": "bahn.de hat gerade zu viele Anfragen gezählt. Versuch es später noch einmal.",
+      "providerError": "bahn.de hat mit einem Fehler geantwortet.",
+      "timeout": "bahn.de hat nicht rechtzeitig geantwortet.",
+      "unreachable": "bahn.de war vom Server aus nicht erreichbar.",
+      "unreadable": "bahn.de hat geantwortet, aber nicht mit einer Verbindung, die TravStats lesen kann.",
+      "noTrain": "Die geteilte Verbindung enthält keine Zugfahrt.",
+      "noConnectionInLink": "Das ist ein Suchlink, keine geteilte Verbindung: Er nennt Bahnhöfe und Zeit, aber keinen Zug.",
+      "requestRateLimited": "Zu viele Abfragen in kurzer Zeit — warte eine Minute.",
+      "requestFailed": "Der Link konnte nicht an den Server geschickt werden."
+    }
+  },
+  "routeRefresh": {
+    "action": "Streckenverlauf erneut laden",
+    "busy": "Streckenverlauf wird geladen …",
+    "done": "Streckenverlauf geprüft.",
+    "failed": "Streckenverlauf konnte nicht geladen werden. Bitte später erneut versuchen.",
+    "rateLimited": "Zu viele Anfragen. Bitte später erneut versuchen.",
+    "conflict": "Die Bahnfahrt wurde inzwischen geändert. Bitte neu laden.",
+    "denied": "Die Berechtigung fehlt oder die Sitzung ist abgelaufen.",
+    "missing": "Diese Bahnfahrt wurde nicht gefunden.",
+    "network": "Der Server ist nicht erreichbar oder die Anfrage dauerte zu lange. Bitte erneut versuchen."
   }
 }

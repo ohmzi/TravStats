@@ -3,6 +3,7 @@ import { render, fireEvent, screen, waitFor, act } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import FlightEditModal from "../../components/FlightEditModal";
 import type { Flight } from "../../types";
+import { findNamed, getNamed } from "../helpers/namedElement";
 
 const mocks = vi.hoisted(() => ({ companionsList: vi.fn() }));
 
@@ -579,7 +580,7 @@ describe("FlightEditModal", () => {
 
       await userEvent.click(screen.getByTestId("tag-remove-long-haul"));
       await userEvent.type(screen.getByRole("combobox", { name: "flights:form.tags" }), "lo");
-      await userEvent.click(screen.getByRole("option", { name: /lounge/ }));
+      await userEvent.click(getNamed("option", /lounge/));
       fireEvent.click(screen.getByText("flights:edit.saveChanges"));
 
       await waitFor(() => expect(onSave).toHaveBeenCalled());
@@ -684,7 +685,10 @@ describe("FlightEditModal", () => {
       fireEvent.change(timeInput, { target: { value: "" } });
       fireEvent.click(getByText("flights:edit.saveChanges"));
 
-      expect(await screen.findByText("errors:missingTimes")).toBeInTheDocument();
+      // Since forgejo#245 the edit form answers like the create form: the
+      // missing step is named beside the save, and the cursor goes to it.
+      expect(getNamed("button", "flights:form.missing.departureTime")).toBeInTheDocument();
+      await waitFor(() => expect(document.activeElement).toBe(timeInput));
       expect(onSave).not.toHaveBeenCalled();
     });
 
@@ -849,7 +853,8 @@ describe("FlightEditModal", () => {
       fireEvent.click(screen.getByLabelText("flights:historicalCheckbox"));
       fireEvent.click(getByText("flights:edit.saveChanges"));
 
-      expect(await screen.findByText("errors:missingTimes")).toBeInTheDocument();
+      // Named beside the save (forgejo#245), not invented.
+      expect(await findNamed("button", "flights:form.missing.departureTime")).toBeInTheDocument();
       expect(onSave).not.toHaveBeenCalled();
     });
 

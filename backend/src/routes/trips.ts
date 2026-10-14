@@ -1,7 +1,6 @@
 import { Router, Response, NextFunction } from "express";
 import { z } from "zod";
 import { prisma } from "../db";
-import { Prisma } from "../prisma";
 import { authenticate, requireWriteScope, AuthRequest } from "../middleware/auth";
 import { rejectDemo } from "../middleware/demoGuard";
 import { AppError } from "../middleware/errorHandler";
@@ -10,8 +9,6 @@ import {
   createTripSchema,
   updateTripSchema,
   assignFlightsSchema,
-  createBookingSchema,
-  updateBookingSchema,
 } from "../schemas/trip";
 import { assertMergedTripDates } from "../services/trip/tripDateOrder";
 import logger from "../utils/logger";
@@ -34,9 +31,12 @@ import {
 } from "../services/tripSummaryService";
 import { emailParseLimiter } from "../middleware/rateLimit";
 import { assertLlmCloudConsent, assertLlmEnabled } from "../services/llm/llmGate";
-import { fxColumnsFor, getBaseCurrency } from "../services/fx/snapshot";
-import { mostExpensiveTrip } from "../services/trip/tripCostSuperlative";
-import { TRIPS_LIST_INCLUDE, TRIP_RAIL_SELECT } from "../services/trip/tripsListInclude";
+import { tripPageCost, tripsPageCosts } from "../services/trip/tripCostSuperlative";
+import {
+  TRIPS_LIST_INCLUDE,
+  TRIP_BUS_SELECT,
+  TRIP_RAIL_SELECT,
+} from "../services/trip/tripsListInclude";
 import { withTripListFigures } from "../services/trip/tripListFigures";
 import { TRIP_DETAIL_RENTALS } from "../services/trip/tripsListInclude";
 import {
@@ -46,6 +46,7 @@ import {
   cruiseCountriesByTrip,
   lodgingCountriesByTrip,
   journeyStopsByTrip,
+  rideCountriesByTrip,
 } from "./trips/tripCountries";
 import { resolveTrip } from "./trips/resolveTrip";
 import { refusesCoverImage } from "./trips/refusesCoverImage";
@@ -57,6 +58,8 @@ import { withTripTimes } from "../services/trips/timesDto";
 import { withTripDetailTimes } from "../services/trips/tripDetailTimes";
 import { withJourneySpan } from "../services/trips/journeySpan";
 import { roadtripStationsForTrip } from "../services/trips/tripRoadtripStations";
+import { detachTrip } from "../services/sharing/detach";
+import { propagateWrites, shareSnapshots } from "../services/sharing/propagate";
 
 // Re-exported for the Immich trip routers, which import it from here.
 export { resolveTrip };
@@ -131,11 +134,8 @@ router.get(
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.userId!;
-      // Opt-in: the cost superlative below runs an UNCAPPED query over every
-      // trip the user has, specifically so it is not limited by the `take`s
-      // in the main query below — computing it on every caller of this very
-      // popular endpoint (StayEditor, PlaceDetailPage, FlightsTablePage, …)
-      // would tax pages that never show it. Only the trips page asks.
+      // Opt-in: the costs below run their own UNCAPPED query (never the
+      // `take`s here); the many other callers of this list never show them.
       const { includeInsights } = tripsListQuerySchema.parse(req.query);
       const listed = await prisma.trip.findMany({
         where: { userId },
@@ -151,26 +151,26 @@ router.get(
       // port-to-port hop. One grouped query over every cruise on the page keeps
       // this at a constant query count, like the airport lookup above.
       const cruiseIds = trips.flatMap((t) => t.cruises.map((c) => c.id));
-      const [facts, cruiseCountries, lodgingCountries, roadtripStops, legSums] = await Promise.all([
-        airportFactsFor(trips.flatMap((t) => t.flights)),
-        cruiseCountriesByTrip(trips.map((t) => t.id)),
-        lodgingCountriesByTrip(trips.map((t) => t.id)),
-        journeyStopsByTrip(trips.map((t) => t.id)),
-        cruiseIds.length > 0
-          ? prisma.cruiseLeg.groupBy({
-              by: ["cruiseId"],
-              where: { cruiseId: { in: cruiseIds } },
-              _sum: { distanceKm: true },
-            })
-          : Promise.resolve([]),
-      ]);
+      const [facts, cruiseCountries, lodgingCountries, roadtripStops, rideCountries, legSums] =
+        await Promise.all([
+          airportFactsFor(trips.flatMap((t) => t.flights)),
+          cruiseCountriesByTrip(trips.map((t) => t.id)),
+          lodgingCountriesByTrip(trips.map((t) => t.id)),
+          journeyStopsByTrip(trips.map((t) => t.id)),
+          rideCountriesByTrip(trips.map((t) => t.id)),
+          cruiseIds.length > 0
+            ? prisma.cruiseLeg.groupBy({
+                by: ["cruiseId"],
+                where: { cruiseId: { in: cruiseIds } },
+                _sum: { distanceKm: true },
+              })
+            : Promise.resolve([]),
+        ]);
       const distanceByCruise = new Map(
         legSums.map((row) => [row.cruiseId, row._sum.distanceKm ?? 0])
       );
-      // Uncapped by design (see the comment above `includeInsights`) — it
-      // runs its OWN query over every trip the user has, never the 500/200
-      // caps this handler applies above.
-      const mostExpensive = includeInsights ? await mostExpensiveTrip(userId) : undefined;
+      // Every card's cost and the superlative: one load, one rule (forgejo#274).
+      const insights = includeInsights ? await tripsPageCosts(userId) : undefined;
       res.json({
         trips: trips.map((t) => {
           // A trip's car stops, read once and used by both country lists.
@@ -187,121 +187,18 @@ router.get(
               facts,
               cruiseCountries.get(t.id) ?? [],
               lodgingCountries.get(t.id) ?? [],
-              stops.flatMap((s) => (s.country ? [s.country] : []))
+              stops.flatMap((s) => (s.country ? [s.country] : [])),
+              rideCountries.get(t.id) ?? []
             ),
             // The band's ONE flag (owner ruling 2026-10-14): the country the
             // journey was mostly spent in — a separate list from `countries`
             // above, which stays a counted set.
             destinationCountries: journeyPrimaryCountry(t.flights, facts, stops),
+            ...(insights && { cost: insights.tripCosts[t.id] }),
           };
         }),
-        ...(includeInsights && { mostExpensiveTrip: mostExpensive }),
+        ...(insights && { mostExpensiveTrip: insights.mostExpensiveTrip }),
       });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-/** POST /trips/bookings — create a booking (must come before /trips/:id) */
-router.post(
-  "/trips/bookings",
-  authenticate,
-  requireWriteScope,
-  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const userId = req.userId!;
-      const body = createBookingSchema.parse(req.body);
-
-      if (body.tripId) {
-        const trip = await prisma.trip.findFirst({
-          where: { id: body.tripId, userId },
-        });
-        if (!trip) throw new AppError("Trip not found", 404);
-      }
-
-      // FX snapshot (#267). A booking carries no travel date of its own, so the
-      // rate is taken for the day it was recorded. That is the only day it has,
-      // and it is honest as long as it is stored alongside the rate rather than
-      // implied.
-      const bookingCurrency = body.currency ?? "EUR";
-      const bookingFx = await fxColumnsFor(
-        { amount: body.price ?? null, currency: bookingCurrency, date: new Date() },
-        await getBaseCurrency(userId)
-      );
-
-      const booking = await prisma.booking.create({
-        data: {
-          userId,
-          tripId: body.tripId ?? null,
-          pnr: body.pnr ?? null,
-          price: body.price ?? null,
-          currency: bookingCurrency,
-          ...bookingFx,
-        },
-      });
-
-      if (body.flightIds && body.flightIds.length > 0) {
-        await prisma.flight.updateMany({
-          where: { id: { in: body.flightIds }, userId },
-          data: {
-            bookingId: booking.id,
-            ...(body.tripId ? { tripId: body.tripId } : {}),
-          },
-        });
-        if (body.tripId) {
-          await recomputeTripStatus(body.tripId);
-        }
-      }
-
-      res.status(201).json({ booking });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-/** PATCH /trips/bookings/:id — edit pnr/price/currency. Never touches the
- *  booking's flights (their prices stay whatever they are). */
-router.patch(
-  "/trips/bookings/:id",
-  authenticate,
-  requireWriteScope,
-  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const userId = req.userId!;
-      const body = updateBookingSchema.parse(req.body);
-
-      const existing = await prisma.booking.findFirst({
-        where: { id: req.params.id, userId },
-      });
-      if (!existing) throw new AppError("Booking not found", 404);
-
-      const data: Prisma.BookingUpdateInput = {};
-      if (body.pnr !== undefined) data.pnr = body.pnr;
-      if (body.price !== undefined) data.price = body.price;
-      if (body.currency !== undefined) data.currency = body.currency;
-
-      // Re-snapshot only when the amount or its unit actually moved (#267).
-      if (body.price !== undefined || body.currency !== undefined) {
-        Object.assign(
-          data,
-          await fxColumnsFor(
-            {
-              amount: body.price !== undefined ? body.price : existing.price,
-              currency: body.currency !== undefined ? body.currency : existing.currency,
-              date: existing.createdAt,
-            },
-            await getBaseCurrency(userId)
-          )
-        );
-      }
-
-      const booking = await prisma.booking.update({
-        where: { id: existing.id },
-        data,
-      });
-      res.json({ booking });
     } catch (error) {
       next(error);
     }
@@ -413,6 +310,9 @@ router.get(
           lodgingStays: { include: { lodging: true }, orderBy: { checkIn: "asc" } },
           // Train rides for the timeline and logistics — without the frozen line.
           railJourneys: { select: TRIP_RAIL_SELECT, orderBy: { departureTime: "asc" } },
+          // Bus rides for the timeline and the map, between the hotels (forgejo#180).
+          busJourneys: { select: TRIP_BUS_SELECT, orderBy: { departureTime: "asc" } },
+          ferryJourneys: { orderBy: { departureTime: "asc" } },
           rentalBookings: TRIP_DETAIL_RENTALS,
         },
       });
@@ -425,12 +325,16 @@ router.get(
       // off), and the countries tile stayed at 0 because `trips.countries` is a
       // stored column nobody derives and `overflownCountries` is empty for
       // manually created flights.
-      const [facts, cruiseCountries, lodgingCountries, roadtripStops] = await Promise.all([
-        airportFactsFor(trip.flights),
-        cruiseCountriesByTrip([trip.id]),
-        lodgingCountriesByTrip([trip.id]),
-        journeyStopsByTrip([trip.id]),
-      ]);
+      // `cost`: the server's figure (forgejo#274), the page sums nothing itself.
+      const [facts, cruiseCountries, lodgingCountries, roadtripStops, rideCountries, cost] =
+        await Promise.all([
+          airportFactsFor(trip.flights),
+          cruiseCountriesByTrip([trip.id]),
+          lodgingCountriesByTrip([trip.id]),
+          journeyStopsByTrip([trip.id]),
+          rideCountriesByTrip([trip.id]),
+          tripPageCost(userId, trip.id),
+        ]);
       // The trip's car stops, read once and used by both country lists.
       const stops = roadtripStops.get(trip.id) ?? [];
       // The stored zone first, then the catalogue — with `times` (ADR 0002).
@@ -441,7 +345,8 @@ router.get(
         facts,
         cruiseCountries.get(trip.id) ?? [],
         lodgingCountries.get(trip.id) ?? [],
-        stops.flatMap((s) => (s.country ? [s.country] : []))
+        stops.flatMap((s) => (s.country ? [s.country] : [])),
+        rideCountries.get(trip.id) ?? []
       );
       // The band's ONE flag (owner ruling 2026-10-14) — the detail surface, so
       // a reader who opens the card sees the same flag the card did.
@@ -461,6 +366,7 @@ router.get(
           countries,
           destinationCountries,
           journalEntries,
+          cost,
         })
       );
       res.json({ trip: { ...detail, roadtripStations } });
@@ -645,6 +551,9 @@ router.delete(
           },
           data: { tripId: null },
         });
+        // A shared trip leaves its group first: the others keep their copies
+        // and are told (design 2026-10-09, decision 5).
+        await detachTrip(tx, userId, existing);
         await tx.trip.delete({ where: { id: existing.id } });
       });
       logger.info({ tripId: req.params.id, userId }, "[Trips] Deleted trip");
@@ -678,6 +587,7 @@ router.post(
         throw new AppError("One or more flights not found", 404);
       }
 
+      const before = await shareSnapshots(prisma, "flight", flightIds);
       if (action === "add") {
         await prisma.flight.updateMany({
           where: { id: { in: flightIds }, userId },
@@ -690,6 +600,8 @@ router.post(
         });
       }
 
+      // Into a shared trip: copied to the others; out of one: they are told.
+      await propagateWrites(prisma, userId, "flight", flightIds, before);
       await recomputeTripStatus(trip.id);
 
       res.json({

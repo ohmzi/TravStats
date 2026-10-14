@@ -24,6 +24,8 @@ export interface InstanceSettings {
   betaFeaturesEnabled: boolean;
   /** May the instance ask Open-Meteo, Wikipedia and OpenStreetMap for its users. */
   openDataEnabled: boolean;
+  /** May users create public share links (forgejo#281). Off deletes every link. */
+  shareLinksEnabled: boolean;
   frontendUrl: string | null;
   publicUrl: string | null;
   lanUrl: string | null;
@@ -77,6 +79,7 @@ export interface InstanceSettingsPatch {
   allowRegistration?: boolean;
   betaFeaturesEnabled?: boolean;
   openDataEnabled?: boolean;
+  shareLinksEnabled?: boolean;
   frontendUrl?: string;
   publicUrl?: string;
   lanUrl?: string;
@@ -641,7 +644,7 @@ export const adminApi = {
     params: { level?: string; category?: string; search?: string; offset?: number; limit?: number }
   ): Promise<LogReadResponse> => {
     const { data } = await api.get<LogReadResponse>(
-      `/admin/logging/files/${encodeURIComponent(filename)}`,
+      `/admin/logging/files/${encodeURIComponent(filename)}/entries`,
       { params }
     );
     return data;

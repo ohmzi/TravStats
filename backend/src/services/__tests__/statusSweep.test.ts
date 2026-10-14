@@ -1,4 +1,5 @@
 import { prisma } from "../../db";
+import { localDay } from "../../shared/time/instant";
 import { sweepStatuses } from "../statusSweep";
 
 const H = 60 * 60 * 1000;
@@ -93,7 +94,7 @@ describe("sweepStatuses", () => {
     expect(row?.nextApiCheckAt).toBeNull();
   });
 
-  it("moves cruises through scheduled -> in_progress -> flown and leaves passthroughs", async () => {
+  it("moves cruises through scheduled -> in_progress -> completed and leaves passthroughs", async () => {
     const running = await prisma.cruise.create({
       data: { userId, status: "scheduled", startDate: past(24), endDate: future(72) },
     });
@@ -107,8 +108,19 @@ describe("sweepStatuses", () => {
     expect((await prisma.cruise.findUnique({ where: { id: running.id } }))?.status).toBe(
       "in_progress"
     );
-    expect((await prisma.cruise.findUnique({ where: { id: done.id } }))?.status).toBe("flown");
+    expect((await prisma.cruise.findUnique({ where: { id: done.id } }))?.status).toBe("completed");
     expect((await prisma.cruise.findUnique({ where: { id: hist.id } }))?.status).toBe("historical");
+  });
+
+  // #357: a row a stale writer stored with the retired flight word converges.
+  it("rewrites a cruise stored as legacy 'flown' to 'completed'", async () => {
+    const legacy = await prisma.cruise.create({
+      data: { userId, status: "flown", startDate: past(300), endDate: past(60) },
+    });
+    await sweepStatuses();
+    expect((await prisma.cruise.findUnique({ where: { id: legacy.id } }))?.status).toBe(
+      "completed"
+    );
   });
 
   // Lodging joined the sweep when its status became derived (Alex, 2026-07-12).
@@ -268,6 +280,70 @@ describe("sweepStatuses", () => {
     expect(await statusOf(future_.id)).toBe("scheduled");
     expect(await statusOf(cancelled.id)).toBe("cancelled");
     expect(counts.rail).toBeGreaterThanOrEqual(4);
+  });
+  describe("bus rides", () => {
+    const terminals = {
+      operator: "Test",
+      depStationName: "Seoul",
+      depLat: 37.5048,
+      depLon: 127.0046,
+      depTimezone: "Asia/Seoul",
+      arrStationName: "Sokcho",
+      arrLat: 38.1911,
+      arrLon: 128.5918,
+      arrTimezone: "Asia/Seoul",
+    };
+    const bus = (over: Record<string, unknown>) =>
+      prisma.busJourney.create({
+        data: {
+          userId,
+          ...terminals,
+          depPrecision: "minute",
+          arrPrecision: "minute",
+          departureTime: past(1),
+          arrivalTime: future(1),
+          status: "scheduled",
+          ...over,
+        },
+      });
+    const statusOf = async (id: string) =>
+      (await prisma.busJourney.findUnique({ where: { id } }))?.status;
+    // Seoul has no daylight saving, so a fixed +09:00 is its midnight all year.
+    const seoulMidnight = (daysAgo: number) => {
+      const day = localDay(new Date(Date.now() - daysAgo * 24 * H), "Asia/Seoul");
+      return new Date(`${day}T00:00:00+09:00`);
+    };
+
+    it("converges bus rides over their two instants and leaves a cancellation alone", async () => {
+      const running = await bus({});
+      const arrived = await bus({ arrivalTime: past(0.5) });
+      const later = await bus({
+        status: "completed",
+        departureTime: future(24),
+        arrivalTime: future(26),
+      });
+      const cancelled = await bus({ status: "cancelled", arrivalTime: past(0.5) });
+
+      const counts = await sweepStatuses();
+
+      expect(await statusOf(running.id)).toBe("in_progress");
+      expect(await statusOf(arrived.id)).toBe("completed");
+      expect(await statusOf(later.id)).toBe("scheduled");
+      expect(await statusOf(cancelled.id)).toBe("cancelled");
+      expect(counts.bus).toBeGreaterThanOrEqual(3);
+    });
+
+    it("a date-only ride is not over until its DAY is, on the terminal's calendar", async () => {
+      const dateOnly = { depPrecision: "day", arrPrecision: null, arrivalTime: null };
+      const today = await bus({ ...dateOnly, departureTime: seoulMidnight(0) });
+      const yesterday = await bus({ ...dateOnly, departureTime: seoulMidnight(1) });
+
+      await sweepStatuses();
+
+      // Stored at the start of its day, yet still running: the day has not ended.
+      expect(await statusOf(today.id)).toBe("in_progress");
+      expect(await statusOf(yesterday.id)).toBe("completed");
+    });
   });
   it("converges rentals over the booked pickup and return and leaves a cancellation alone", async () => {
     const station = {

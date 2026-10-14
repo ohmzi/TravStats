@@ -5,12 +5,16 @@
  */
 
 import { useState } from "react";
+import { UnreachableNote } from "./SettingsShared";
+import { quotaLine } from "./quotaCopy";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useIsDemoAccount } from "../../hooks/useIsDemoAccount";
 import { settingsApi, adminApi } from "../../lib/api";
 import type { ProviderQuota } from "../../lib/api/settings";
 import { Icon } from "../ui/Icon";
 import Pill from "../ui/Pill";
+import Toggletip from "../ui/Toggletip";
+import HelpIcon from "../Help/HelpIcon";
 import { token } from "../ui/tokens";
 import { SettingRow } from "../ui/SettingRow";
 import DemoLockedNotice from "./DemoLockedNotice";
@@ -47,6 +51,8 @@ export interface ApiKeyCardProps {
   /** Per-provider quota observation. Different providers report this
    *  very differently — see `ProviderQuota` for the variants. */
   quota?: ProviderQuota;
+  /** One sentence: what happens when this provider does not answer. */
+  whenUnreachable?: string;
   /** Capability tags to render as small badges next to the label. */
   capabilities?: ApiCardCapability[];
   onChange?: (value: string) => void;
@@ -75,6 +81,7 @@ export default function ApiKeyCard({
   provider,
   label,
   description,
+  whenUnreachable,
   getKeyUrl,
   isShared,
   hasAccess,
@@ -194,19 +201,23 @@ export default function ApiKeyCard({
   const hasOwnKey =
     hasOwnKeyProp ?? (provider === "opensky" && openskyFields ? !!openskyFields.clientId : !!value);
 
+  // What each state means opens from the pill itself — by tap and keyboard,
+  // not only as a hover title (forgejo#249).
   const statusPill = hasOwnKey ? (
-    <Pill color={token("good")} title={t("settings:apiKeys.ownTooltip")}>
-      {t("settings:apiKeys.own")}
-    </Pill>
+    <Toggletip content={t("settings:apiKeys.ownTooltip")} data-testid="api-key-status">
+      <Pill color={token("good")}>{t("settings:apiKeys.own")}</Pill>
+    </Toggletip>
   ) : hasAccess ? (
     // Access via a shared key or the environment.
-    <Pill color={token("accent")} title={t("settings:apiKeys.sharedTooltip")}>
-      {t("settings:apiKeys.shared")}
-    </Pill>
+    <Toggletip content={t("settings:apiKeys.sharedTooltip")} data-testid="api-key-status">
+      <Pill color={token("accent")}>{t("settings:apiKeys.shared")}</Pill>
+    </Toggletip>
   ) : (
-    <Pill color={token("muted")} dashed title={t("settings:apiKeys.notConfiguredTooltip")}>
-      {t("settings:apiKeys.notConfigured")}
-    </Pill>
+    <Toggletip content={t("settings:apiKeys.notConfiguredTooltip")} data-testid="api-key-status">
+      <Pill color={token("muted")} dashed>
+        {t("settings:apiKeys.notConfigured")}
+      </Pill>
+    </Toggletip>
   );
 
   const details = (
@@ -214,45 +225,13 @@ export default function ApiKeyCard({
       {capabilities && capabilities.length > 0 && (
         <span className="flex flex-wrap gap-1">
           {capabilities.map((cap) => (
-            <Pill
-              key={cap}
-              color={token("accent")}
-              title={t(`settings:apiKeys.capabilities.${cap}.tooltip`)}
-            >
-              {t(`settings:apiKeys.capabilities.${cap}.label`)}
-            </Pill>
+            <Toggletip key={cap} content={t(`settings:apiKeys.capabilities.${cap}.tooltip`)}>
+              <Pill color={token("accent")}>{t(`settings:apiKeys.capabilities.${cap}.label`)}</Pill>
+            </Toggletip>
           ))}
         </span>
       )}
-      {quota && (
-        <span className="t-caption block">
-          {quota.kind === "observed" && (
-            <>
-              {t("settings:apiKeys.quota.label")}:{" "}
-              <span style={{ fontWeight: 600, color: "var(--ts-text)" }}>
-                {quota.remaining ?? "?"}
-              </span>
-              {quota.limit !== null && <span> / {quota.limit}</span>}{" "}
-              {t("settings:apiKeys.quota.unitsSuffix")}
-              {quota.requestsLimit != null && quota.requestsRemaining != null && (
-                <>
-                  {" · "}
-                  {t("settings:apiKeys.quota.requestsLabel")}: {quota.requestsRemaining} /{" "}
-                  {quota.requestsLimit}
-                </>
-              )}
-            </>
-          )}
-          {quota.kind === "not_reported" && (
-            <>
-              {t("settings:apiKeys.quota.notReported")}
-              {quota.knownLimitHint &&
-                ` (${t("settings:apiKeys.quota.staticHint", { limit: quota.knownLimitHint })})`}
-            </>
-          )}
-          {quota.kind === "rate_limit_only" && t("settings:apiKeys.quota.rateLimitOnly")}
-        </span>
-      )}
+      {quota && <span className="t-caption block">{quotaLine(quota, t)}</span>}
     </>
   );
 
@@ -373,7 +352,12 @@ export default function ApiKeyCard({
           }}
         >
           <Icon name={testResult.success ? "check" : "x"} size={14} />
-          <span title={testResult.message || undefined}>{testResultText(testResult)}</span>
+          <span>{testResultText(testResult)}</span>
+          {/* The provider's own words, for whoever has to fix the key —
+              reachable by tap and keyboard, not only by hover (forgejo#249). */}
+          {testResult.message && (
+            <HelpIcon content={testResult.message} subject={testResultText(testResult)} />
+          )}
         </div>
       )}
     </div>
@@ -387,6 +371,7 @@ export default function ApiKeyCard({
           sub={
             <span className="flex flex-col" style={{ gap: 4 }}>
               <span>{description}</span>
+              {whenUnreachable && <UnreachableNote>{whenUnreachable}</UnreachableNote>}
               {details}
             </span>
           }
@@ -422,6 +407,7 @@ export default function ApiKeyCard({
           {statusPill}
         </div>
         <p className="t-caption">{description}</p>
+        {whenUnreachable && <UnreachableNote>{whenUnreachable}</UnreachableNote>}
         {details}
       </div>
       {isDemo ? <DemoLockedNotice /> : editor}

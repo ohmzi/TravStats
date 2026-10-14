@@ -13,6 +13,8 @@ import { useRentalImportAdapter } from "../import/adapters/rentalAdapter";
 import { useRentalVisible } from "../../hooks/useRentalVisible";
 import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 import { PHONE_COLUMN_TOP } from "../map/phoneChrome";
+import { useBusVisible } from "../../hooks/useBusVisible";
+import { BusFormModal } from "../bus/BusFormModal";
 import { flightsApi } from "../../lib/api/flights";
 import { getUpcoming, type UpcomingEntry } from "../../lib/api/upcoming";
 import { useToastStore } from "../../store/toastStore";
@@ -28,6 +30,7 @@ import DomainImportPanel from "../import/DomainImportPanel";
 import { useLodgingImportAdapter } from "../import/adapters/lodgingAdapter";
 import { DashboardEmptyState } from "./DashboardEmptyState";
 import { PlaceFormModal } from "../places/PlaceFormModal";
+import { QuickVisitHost } from "../places/QuickVisitHost";
 import type { Flight, FlightInput } from "../../types";
 import type { FlightSubmitOptions } from "../FlightForm/useFlightForm";
 import type { ImportDocument } from "../import/documentHandoff";
@@ -76,6 +79,10 @@ export function DashboardLayout({
     setAddingDomainState(domain);
   };
   const openOtherImport = (domain: ParseDomain, document: ImportDocument): void => {
+    // A package tour is imported on the trips page and a place document in
+    // the place import; neither is in `openableImports`, so no dialog here
+    // offers the jump.
+    if (domain === "package" || domain === "place") return;
     setAddingDomainState(domain);
     setHandedOver(document);
   };
@@ -84,6 +91,7 @@ export function DashboardLayout({
   const railAdapter = useRailImportAdapter();
   const rentalAdapter = useRentalImportAdapter();
   const rentalVisible = useRentalVisible();
+  const busVisible = useBusVisible();
   const [showSpecialModal, setShowSpecialModal] = useState(false);
   const { isEnabled } = useEnabledDomains();
   const placesVisible = usePlacesVisible();
@@ -173,6 +181,7 @@ export function DashboardLayout({
     roadtrip: isEnabled("roadtrip"),
     rail: isEnabled("rail"),
     rental: isEnabled("rental"),
+    bus: isEnabled("bus"),
   };
 
   // What the "+" menu offers. One entry differs from `enabledDomains`, on
@@ -192,6 +201,7 @@ export function DashboardLayout({
     poi: placesVisible,
     rail: railVisible,
     rental: rentalVisible,
+    bus: busVisible,
     tour: toursVisible,
   };
 
@@ -395,6 +405,21 @@ export function DashboardLayout({
         onOpenOtherImport={openOtherImport}
         openableDomains={openableImports}
       />
+      {/* "Besuch erfassen" from a place pin's card (forgejo#231); the map
+          reloads afterwards so the pin shows the visit. */}
+      {placesVisible && <QuickVisitHost onSaved={() => onDataChanged?.()} />}
+      {/* Bus has no import: the pick opens the ride form itself, as places do.
+          The form's button stays disabled after a save, so closing is ours. */}
+      {addingDomain === "bus" && (
+        <BusFormModal
+          journey={null}
+          onClose={() => setAddingDomain(null)}
+          onSaved={() => {
+            setAddingDomain(null);
+            onDataChanged?.();
+          }}
+        />
+      )}
       {addingDomain === "poi" && (
         <PlaceFormModal
           place={null}

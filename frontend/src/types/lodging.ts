@@ -252,6 +252,9 @@ export interface StayInput {
   guests?: number | null;
   companions?: string[];
   notes?: string | null;
+  /** A bare `YYYY-MM-DD` (until the end of that day) or `{local, zone?}`; null clears (forgejo#285). */
+  freeCancellationUntil?: string | { local: string; zone?: string } | null;
+  paymentDueOn?: string | null;
 }
 
 /** Chain creation only — there is no update-chain endpoint. `name` is the one required field. */
@@ -363,6 +366,41 @@ export interface LodgingListQuery {
   offset?: number;
   sort?: LodgingSortKey | "checkIn";
   order?: "asc" | "desc";
+}
+
+/**
+ * A stay as `GET /lodging/stays` serves it: the stay itself plus the house it
+ * belongs to and the trip it is linked to (forgejo#226) - what a list across
+ * houses needs to tell two stays apart without a request per row.
+ */
+export interface LodgingStayListItem extends LodgingStay {
+  lodging: {
+    id: string;
+    name: string;
+    type: LodgingType;
+    city: string | null;
+    country: string | null;
+    chainId: number | null;
+    isoCountryCode: string | null;
+  };
+  trip: { id: string; name: string } | null;
+}
+
+/** The query of `GET /lodging/stays`. `from` / `to` are calendar days (`YYYY-MM-DD`). */
+export interface StayListQuery {
+  from?: string;
+  to?: string;
+  tripId?: string;
+  limit?: number;
+  offset?: number;
+  order?: "asc" | "desc";
+}
+
+/** One page of `GET /lodging/stays`: the rows, and the size of the set they came from. */
+export interface StayPage {
+  rows: LodgingStayListItem[];
+  /** Stays matching the filters, BEFORE the page slice. */
+  total: number;
 }
 
 /** One page of `GET /lodging`: the rows, and the size of the set they came from. */

@@ -50,6 +50,21 @@ const BOOKKEEPING_INSTANTS = new Set([
   "nextApiCheckAt",
   "aerodataboxLastUpdatedUtc",
   "summaryGeneratedAt",
+  // Trip sharing: when a consent was answered, a notice read or undone.
+  "decidedAt",
+  "readAt",
+  "undoneAt",
+  // A scheduled job's own clock: when the nightly photo scan last ran for an
+  // account and when it runs next (forgejo#94) — a server slot, no place's.
+  "ranAt",
+  "nextRunAt",
+  // Public share links (forgejo#281): when a link stops answering and when it
+  // was last opened — the server's own clock, no place's; and when the phone
+  // recorded the flight's last position, an instant shown on the visitor's
+  // clock because a position in the air belongs to no ground zone.
+  "effectiveExpiresAt",
+  "lastViewedAt",
+  "recordedAt",
 ]);
 
 const doc = buildOpenApiDocument() as unknown as { paths: Json; components: { schemas: Json } };

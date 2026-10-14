@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import AppShell from "../components/ui/AppShell";
 
+import UnconfirmedCountries from "../components/Passport/UnconfirmedCountries";
 import CountryTable from "../components/Passport/CountryTable";
 import EvidenceSummary from "../components/Passport/EvidenceSummary";
 import { countryName } from "../components/Passport/countryName";
@@ -12,6 +13,7 @@ import { useAuthStore } from "../store/authStore";
 import { useEnabledDomains } from "../hooks/useEnabledDomains";
 import { logger } from "../lib/logger";
 import type { Passport, PassportContinentGroup } from "../types/passport";
+import Toggletip from "../components/ui/Toggletip";
 
 /**
  * The passport.
@@ -219,14 +221,14 @@ export default function PassportPage(): JSX.Element {
                           style={{ fontVariantNumeric: "tabular-nums" }}
                         >
                           {passport.summary.countries}
-                          <span
-                            className="text-base"
-                            style={{ color: "var(--text-muted)" }}
-                            title={t("passport:summary.countriesTotalExplained")}
+                          <Toggletip
+                            content={t("passport:summary.countriesTotalExplained")}
+                            triggerClassName="text-base"
+                            triggerStyle={{ color: "var(--text-muted)" }}
                           >
                             {" / "}
                             {passport.summary.countriesTotal}
-                          </span>
+                          </Toggletip>
                         </dd>
                         <dd className="text-[11px]" style={{ color: "var(--text-muted)" }}>
                           {t("passport:summary.countriesTotal")}
@@ -392,6 +394,10 @@ export default function PassportPage(): JSX.Element {
                   <CountryTable countries={passport.countries} locale={locale} />
                 </>
               )}
+              <UnconfirmedCountries
+                countries={passport.unconfirmedCountries ?? []}
+                locale={locale}
+              />
             </div>
           </>
         )}

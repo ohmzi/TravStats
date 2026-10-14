@@ -3,6 +3,8 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { RATE_LIMITS } from "../config/constants";
 import type { ApiErrorCode } from "./errorHandler";
 
+export { skipGlobalRateLimit } from "./globalRateLimitSkip";
+
 /**
  * Rate-limit bucket key.
  *
@@ -26,38 +28,7 @@ import type { ApiErrorCode } from "./errorHandler";
  * express-rate-limit 8 refuses a keyGenerator that reads `req.ip` without
  * it (ERR_ERL_KEY_GEN_IPV6, logged on every limiter's first request).
  */
-/**
- * Loopback, the Docker bridge and the RFC 1918 private ranges.
- *
- * Lives here rather than in `index.ts` beside the global limiter because it is
- * the one part of that limiter worth testing on its own, and `index.ts` sits on
- * its frozen size ceiling.
- */
-const LAN_IP_RE = /^(?:::1|::ffff:)?(?:127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/;
-
-/**
- * Whether the global `/api` limiter lets a request through uncounted.
- *
- * Self-hosted LAN deployments — Unraid, a home-lab compose stack — behave the
- * same as dev and are not throttled. **Outside development the skip is off
- * entirely**, and that is the correction: a production instance behind a
- * reverse proxy that is not named in `TRUST_PROXY` sees the PROXY's address in
- * `req.ip`, which is private, so every visitor on Earth presented as LAN and
- * the cap was lifted for all of them at once — a limiter silently absent
- * exactly where it is the only thing standing in front of the login route
- * (security audit of 2026-09-19, finding 5). It was measured NOT to be
- * happening on the public preview, which sets `TRUST_PROXY` and logs the real
- * client address; it is every instance that forgets to that this protects.
- *
- * `NODE_ENV` is read per request, not captured at build time, so a test can
- * ask both questions of the same limiter.
- */
-export function skipGlobalRateLimit(ip: string | undefined): boolean {
-  if (process.env.NODE_ENV === "production") return false;
-  return LAN_IP_RE.test(ip ?? "");
-}
-
-const userOrIpKey = (req: Request): string => {
+export const userOrIpKey = (req: Request): string => {
   const r = req as { userId?: string; apiToken?: { id: string }; isSharedDemo?: boolean };
   if (r.apiToken) return `pat:${r.apiToken.id}`;
   // The shared demo account is not A user, it is EVERY visitor of a public
@@ -91,7 +62,7 @@ const userOrIpKey = (req: Request): string => {
  * concurrent agent users on the same PAT pool.
  */
 const PAT_MULTIPLIER = 10;
-const patAwareMax =
+export const patAwareMax =
   (baseMax: number) =>
   (req: Request): number => {
     const r = req as { apiToken?: { id: string } };
@@ -272,20 +243,19 @@ export const lodgingImportLimiter = rateLimit({
   keyGenerator: userOrIpKey,
 });
 
-/**
- * Per-user limit for the recording archive (`/track-archive`): the ZIP of
- * every recording is built in memory from every track's line, and an import
- * parses up to a few hundred files. Thirty in a quarter of an hour covers a
- * person trying, checking the preview and applying several times over.
- */
-export const trackArchiveLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: patAwareMax(30),
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many recording archive requests, please try again later" },
-  keyGenerator: userOrIpKey,
-});
+/** Per-user limits for the ZIP routes (`/track-archive`, the `.travstats` trip file): 30 per
+ *  15 min covers trying, previewing and applying several times over. One bucket each. */
+const archiveLimiter = (what: string) =>
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: patAwareMax(30),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: `Too many ${what} requests, please try again later` },
+    keyGenerator: userOrIpKey,
+  });
+export const trackArchiveLimiter = archiveLimiter("recording archive");
+export const tripFileLimiter = archiveLimiter("trip file");
 
 /** Flight creation, per user (`FLIGHT_CREATION_MAX` an hour); every request counts. */
 export const flightCreationLimiter = rateLimit({
@@ -320,6 +290,16 @@ export const railCreationLimiter = rateLimit({
   windowMs: RATE_LIMITS.FLIGHT_CREATION_WINDOW_MS,
   max: patAwareMax(RATE_LIMITS.RAIL_CREATION_MAX),
   message: "Too many train journeys saved, please try again later",
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userOrIpKey,
+});
+
+/** Bus ride creation: rail's budget, its own bucket and message (rail's reasons). */
+export const busCreationLimiter = rateLimit({
+  windowMs: RATE_LIMITS.FLIGHT_CREATION_WINDOW_MS,
+  max: patAwareMax(RATE_LIMITS.BUS_CREATION_MAX),
+  message: "Too many bus rides saved, please try again later",
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userOrIpKey,
@@ -539,9 +519,15 @@ export const emailParseLimiter = rateLimit({
  * Rate limiter for stats calculation endpoints (expensive DB aggregations)
  * Allows 30 requests per minute per IP
  */
+// Sized from a measurement (forgejo#88 acceptance, 2026-10-10, production
+// build): Settings → Konto costs 2 per visit, achievements 1, dashboard,
+// logbooks, trips and stats 0 — so 30/min is ~15 settings visits a minute.
+// The 429s seen came from development (StrictMode doubles every effect), so
+// it steps aside there; not in test, where its suite must see it bite.
 export const statsLimiter = rateLimit({
   windowMs: RATE_LIMITS.STATS_WINDOW_MS,
   max: RATE_LIMITS.STATS_MAX_REQUESTS,
+  skip: skipInDevelopment,
   message: "Too many stats requests, please try again later",
   standardHeaders: true,
   legacyHeaders: false,
@@ -696,6 +682,17 @@ export const passwordResetLimiter = rateLimit({
   windowMs: RATE_LIMITS.PASSWORD_RESET_WINDOW_MS,
   max: RATE_LIMITS.PASSWORD_RESET_MAX,
   message: "Too many password reset attempts, please try again later",
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipOutsideProduction,
+});
+
+/** Is a reset link still good — once per reset-page open. Own bucket, so reading the page does
+ *  not spend the five real attempts; a 32-byte token caps volume, not guessing. */
+export const passwordResetCheckLimiter = rateLimit({
+  windowMs: RATE_LIMITS.PASSWORD_RESET_WINDOW_MS,
+  max: 30,
+  message: "Too many password reset checks, please try again later",
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipOutsideProduction,

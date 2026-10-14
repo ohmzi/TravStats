@@ -8,7 +8,7 @@ import { bookingsToCandidates } from "../services/lodging/lodgingCandidates";
 import { getAdminParserSettings } from "../services/parserSettings";
 import { clearLlmAvailabilityCache, settleLlmProbes } from "../services/parsers/llmAvailability";
 import { clearReachableTargetCache } from "../services/llm/reachableTarget";
-import type { ParsedLodgingBooking } from "../services/lodging/bookingComTemplate";
+import type { ParsedLodgingBooking } from "../services/lodging/parsedLodgingBooking";
 
 jest.mock("../services/parserSettings", () => ({
   getAdminParserSettings: jest.fn(async () => ({ ollamaUrl: null, ollamaModel: null })),
@@ -817,6 +817,11 @@ describe("parseLodgingBookingText — the budget is wall-clock (AUD-058)", () =>
 
 describe("bookingsToCandidates", () => {
   const booking: ParsedLodgingBooking = {
+    pricePerNight: null,
+    board: null,
+    guests: null,
+    type: null,
+    chainName: null,
     hotelName: "Musterhotel",
     checkIn: "2026-01-05",
     checkOut: "2026-01-07",

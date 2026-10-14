@@ -33,7 +33,13 @@
   "onTime": "on time",
   "edit": "Edit",
   "delete": "Delete",
-  "deleteConfirm": "Really delete this journey?",
+  "deleteConfirmNamed": "Really delete the journey {{route}}?",
+  "deleteSurvivors": {
+    "trip": "trip “{{name}}”",
+    "otherLegs_one": "{{count}} other journey of the same booking",
+    "otherLegs_other": "{{count}} other journeys of the same booking",
+    "bookingLegs": "any other journeys of the same booking"
+  },
   "deleted": "Journey deleted",
   "deleteError": "The journey could not be deleted.",
   "saved": "Journey saved",
@@ -68,6 +74,8 @@
     "departureTime": "Departure (local time at the station)",
     "arrivalTime": "Arrival (local time at the station)",
     "timeHint": "The time printed on the ticket. The time zone follows from the station.",
+    "dayOnly": "Only the date is known",
+    "delayNeedsClock": "A delay needs the ride's times.",
     "distance": "Distance in km",
     "distanceHint": "Leave empty: TravStats measures along the line taken from Transitous, otherwise the straight line. Fill it in when the ticket names the distance.",
     "seat": "Seat",
@@ -95,7 +103,14 @@
       "invalidField": "“{{field}}” was not accepted. Please check it.",
       "invalid": "An entry was not accepted. Please check the fields."
     },
-    "suggestionsFailed": "Suggestions from your earlier rides could not be loaded — the form works all the same."
+    "suggestionsFailed": "Suggestions from your earlier rides could not be loaded — the form works all the same.",
+    "missing": {
+      "depCoordinates": "valid coordinates of the departure station",
+      "arrCoordinates": "valid coordinates of the arrival station",
+      "departureTime": "departure time",
+      "depName": "name of the departure station",
+      "arrName": "name of the arrival station"
+    }
   },
   "tracedLine": "along the line, Transitous",
   "roadtripLine": "along the trip route",
@@ -194,11 +209,14 @@
     "trainsLabel_other": "Trains",
     "totalDuration": "Total time",
     "legs": "Trains of this journey",
-    "transfer": "Change at {{station}} · {{wait}} wait",
-    "transferUnknown": "Change at {{station}}",
     "whole": "View the whole journey: {{route}}",
     "loadError": "The journey could not be loaded.",
-    "notFound": "This journey does not exist (any more)."
+    "notFound": "This journey does not exist (any more).",
+    "totalDistance": "Total distance",
+    "distanceUnknown": "Distance unknown",
+    "distancePartial_one": "Partial distance: {{count}} leg has no distance",
+    "distancePartial_other": "Partial distance: {{count}} legs have no distance",
+    "distanceMixed": "Mixed sources: recorded distances and estimates"
   },
   "trip": {
     "open": "Open journey",
@@ -243,7 +261,10 @@
       "rankings": "Rankings",
       "delays": "Delays",
       "records": "Records",
-      "years": "Rides per year"
+      "years": "Rides per year",
+      "journeys": "Journeys and changes",
+      "connections": "Connections",
+      "punctuality": "Punctuality"
     },
     "nightTrains": "Night trains",
     "nightTrainsDesc": "sleeper or couchette, a night-train category, or overnight on board",
@@ -252,7 +273,158 @@
     "crossBorder": "Across a border",
     "crossBorderDesc": "departure and arrival in different countries",
     "operatorsCount": "Operators",
-    "operatorsCountDesc": "distinct, spellings merged"
+    "operatorsCountDesc": "distinct, spellings merged",
+    "journeysLinked": "Rail journeys",
+    "journeysLinkedDesc_one": "{{count}} of them with a change",
+    "journeysLinkedDesc_other": "{{count}} of them with a change",
+    "transfers": "Average change time",
+    "transfersDesc_one": "{{count}} measured change · shortest {{shortest}}, longest {{longest}}",
+    "transfersDesc_other": "{{count}} measured changes · shortest {{shortest}}, longest {{longest}}",
+    "transfersNone": "No linked change recorded — changes count only between rides of the same booking.",
+    "minutesValue": "{{minutes}} min",
+    "nightNights": "Nights on a night train",
+    "nightNightsDesc": "slept on board, on the stations' calendars",
+    "nightNightsUndated_one": "plus {{count}} night train with no known arrival day",
+    "nightNightsUndated_other": "plus {{count}} night trains with no known arrival day",
+    "newConnections": "New connections",
+    "newConnectionsDesc": "ridden for the first time, both directions together",
+    "favouriteConnections": "Favourite connections",
+    "noFavouriteConnections": "No connection ridden more than once yet.",
+    "newConnectionsByYear": "New connections per year",
+    "noNewConnections": "No connection with two known stations.",
+    "punctualityByOperator": "Punctuality by operator",
+    "punctualityByConnection": "Punctuality by connection",
+    "punctualityHint_one": "{{count}} measured ride · avg {{average}} min",
+    "punctualityHint_other": "{{count}} measured rides · avg {{average}} min",
+    "noPunctuality": "No ride with times carries a recorded delay.",
+    "help": {
+      "journeys": {
+        "unit": "The unit is the journey, not the train: rides of the same booking that continue at the same station within four hours are one journey. A ride back to a station the journey already visited starts a new one (a return). The line under the number says how many of them have a change.",
+        "time": "Counted in the year they left on the departure station's calendar – per ride, not per journey.",
+        "source": "Your train rides with status “Travelled”, linked through their shared booking. The same change station means the same catalogue entry, the same name, or a station within one kilometre.",
+        "coverage": "A connection is only recognised when the arrival and the next departure are known to the minute; otherwise each ride stands as a journey of its own. Tap the number to see the journeys.",
+        "exclusions": "Only completed rides count – not scheduled, ongoing or cancelled ones. Rides without a shared booking are never joined, however well their times line up."
+      },
+      "transfers": {
+        "unit": "The wait between an arrival and the next departure within one journey, in minutes. The large figure is the average of all changes; below it their number, the shortest and the longest.",
+        "time": "Measured from both rides' times to the minute, as real elapsed time – time zones shift nothing. In the year the rides left on the departure station's calendar.",
+        "source": "The journeys made of completed rides, as the journey rule forms them: a change is the same booking, the same station and a wait of at most four hours.",
+        "coverage": "Date-only or unlinked rides have no measurable change and stay out. When there is none, the card says so rather than showing a zero. Tap the number to see the journeys with the number of their measured changes.",
+        "exclusions": "Scheduled, ongoing and cancelled rides do not count. A pause longer than four hours is not a change; it separates two journeys."
+      },
+      "nights": {
+        "unit": "One night per calendar night on board a night train, from the departure day up to the night before the arrival day. A night train is a ride in a sleeper or couchette, in a night-train category (NJ, EN, NZ), or one that ran at least six hours overnight.",
+        "time": "On the stations' calendars: the departure day at the departure station, the arrival day at the arrival station. The nights count in the year the ride left.",
+        "source": "Completed train rides with their class, train category and departure and arrival times.",
+        "coverage": "A night train with no known arrival day had a night no calendar can hold: it is missing from the number and named separately below it. A date-only ride is a night train only by its class or category, never by the clock. Tap the number to see the rides.",
+        "exclusions": "Scheduled, ongoing and cancelled rides do not count. In the overview's night account a night that also has a stay (or a cruise cabin) goes to the stay – here it is still shown."
+      },
+      "newConnections": {
+        "unit": "A connection is the pair of stations, both directions together. The number is how many connections were ridden for the first time in the period shown.",
+        "time": "It is new in the year its first completed ride left, on the departure station's calendar. The “New connections per year” list shows every year, whatever period is selected.",
+        "source": "Every completed ride across all years, since only they show whether a connection was ridden before. A station is the same by its code, else by its name.",
+        "coverage": "Every completed ride between two different stations is on a connection. Tap the number to see the first rides.",
+        "exclusions": "A connection ridden again later is not new again. A ride that ends at the station it started from is on no connection. Scheduled, ongoing and cancelled rides do not count."
+      },
+      "favourites": {
+        "unit": "Connections ridden at least twice, both directions together; rides are counted. The five most frequent are shown.",
+        "time": "The rides in the period shown, by the year they left on the departure station's calendar.",
+        "source": "Completed rides; a station is the same by its code, else by its name. The name opens the most recent ride, whose spelling of the stations is shown.",
+        "coverage": "Every completed ride between two different stations counts.",
+        "exclusions": "A connection ridden once is not a favourite. Rides that start and end at the same station, and scheduled, ongoing and cancelled rides, do not count."
+      },
+      "punctuality": {
+        "unit": "The share of rides that arrived without delay (a delay of zero or early), per operator and per connection. The line under each bar gives the sample and the mean delay; early arrivals count negative.",
+        "time": "The rides in the period shown, by the year they left on the departure station's calendar.",
+        "source": "Completed rides with a recorded arrival delay. An operator is the same regardless of case and spacing; a connection covers both directions.",
+        "coverage": "Counted among the rides with a recorded delay and times to the minute, arrival included. A ride with no recorded delay never counts as on time; it stays out of the sample. The line above the operator list says out of how many rides the sample comes.",
+        "exclusions": "Rides without an operator are missing from the operator list, rides that start and end at the same station from the connection list. Each list shows at most ten entries, largest sample first. Scheduled, ongoing and cancelled rides do not count."
+      },
+      "rides": {
+        "unit": "A ride: one train from departure to arrival. Each ride counts once, even when it is part of a journey with a change – journeys are shown further down.",
+        "time": "Counted in the year of departure on the departure station's calendar; a station without a time zone is read in UTC. In the year comparison, a running year is set against the same span of the other year, up to the same day.",
+        "source": "Your train rides with the status “completed”.",
+        "coverage": "Every counted ride has a departure date and therefore always counts. Tap the number to see the rides.",
+        "exclusions": "Scheduled, ongoing and cancelled rides do not count."
+      },
+      "km": {
+        "unit": "A kilometre, summed over the rides with a known distance. The line below splits the sum by origin: traced track, line from a trip, figure from the ticket, straight line.",
+        "time": "Counted in the year of departure on the departure station's calendar; a station without a time zone is read in UTC. In the year comparison, a running year is set against the same span of the other year, up to the same day.",
+        "source": "Exactly one stored distance per ride: the traced track, the line of a converted trip, the ticket's figure or the straight line between the stations.",
+        "coverage": "Rides without a distance stay out and are listed as “without distance” in the line below. The straight line is a lower bound – the track is usually 10 to 30 % longer.",
+        "exclusions": "Nothing is estimated; a ride without a distance does not count as 0 km. Scheduled, ongoing and cancelled rides do not count."
+      },
+      "hours": {
+        "unit": "An hour on board: the time from departure to arrival of a ride, summed over every measured ride.",
+        "time": "The duration runs between the real instants at both stations, so a time-zone border does not distort it. Counted in the year of departure on the departure station's calendar; a station without a time zone is read in UTC. In the year comparison, a running year is set against the same span of the other year, up to the same day.",
+        "source": "Completed train rides with a departure and an arrival time.",
+        "coverage": "Only rides with a clock time at departure and arrival; a date-only ride or one without an arrival has no duration. The line below names the sample – measured rides out of all. Tap the number to see the measured rides with their hours.",
+        "exclusions": "A ride whose arrival lies before its departure does not count. Scheduled, ongoing and cancelled rides do not count."
+      },
+      "countries": {
+        "unit": "A country a ride departed from or arrived in; each country counts once.",
+        "time": "Counted in the year of departure on the departure station's calendar; a station without a time zone is read in UTC. In the year comparison, a running year is set against the same span of the other year, up to the same day.",
+        "source": "The country code of the departure and arrival station of your counted rides.",
+        "coverage": "A station without a known country code adds no country.",
+        "exclusions": "Countries a train only passes through do not count – only the two stations are known. Scheduled, ongoing and cancelled rides do not count."
+      },
+      "nightTrains": {
+        "unit": "A ride that was a night train: in a sleeper or couchette, with the train category NJ, EN or NZ, or a ride that arrives on a later calendar day than it left after at least six hours on board.",
+        "time": "Departure and arrival day on each station's calendar. Counted in the year of departure on the departure station's calendar; a station without a time zone is read in UTC. In the year comparison, a running year is set against the same span of the other year, up to the same day.",
+        "source": "Travel class, train category and times of your counted rides.",
+        "coverage": "Without a clock time at both ends only the class or the train category can prove a night train.",
+        "exclusions": "A ride that crosses midnight in under six hours is not a night train. Scheduled, ongoing and cancelled rides do not count."
+      },
+      "highSpeed": {
+        "unit": "A ride with a train category that runs at 200 km/h or more on its main lines – such as ICE, TGV, Eurostar, Frecciarossa, Italo, AVE, Railjet or Shinkansen.",
+        "time": "Counted in the year of departure on the departure station's calendar; a station without a time zone is read in UTC. In the year comparison, a running year is set against the same span of the other year, up to the same day.",
+        "source": "The first word of the train category of your counted rides, regardless of case.",
+        "coverage": "A ride without a train category is not counted as high-speed – not as slow, but as unproven.",
+        "exclusions": "Categories outside the fixed list do not count, even if the train was fast. Scheduled, ongoing and cancelled rides do not count."
+      },
+      "crossBorder": {
+        "unit": "A ride whose departure and arrival stations lie in different countries.",
+        "time": "Counted in the year of departure on the departure station's calendar; a station without a time zone is read in UTC. In the year comparison, a running year is set against the same span of the other year, up to the same day.",
+        "source": "The country code of the departure and arrival station.",
+        "coverage": "Both countries must be known; a station without a country code proves no border.",
+        "exclusions": "A ride that only passes through another country and ends in the country it left from does not count. Scheduled, ongoing and cancelled rides do not count."
+      },
+      "operatorsCount": {
+        "unit": "A rail operator; each counts once. Spellings are merged – case and spaces do not matter.",
+        "time": "Counted in the year of departure on the departure station's calendar; a station without a time zone is read in UTC. In the year comparison, a running year is set against the same span of the other year, up to the same day.",
+        "source": "The operator recorded on your counted rides.",
+        "coverage": "Rides without an operator add no operator.",
+        "exclusions": "Scheduled, ongoing and cancelled rides do not count."
+      },
+      "rankings": {
+        "unit": "Rides per operator and per train category; per station, departures and arrivals count, so one ride counts twice. Each list shows the ten most frequent.",
+        "time": "Counted in the year of departure on the departure station's calendar; a station without a time zone is read in UTC. In the year comparison, a running year is set against the same span of the other year, up to the same day.",
+        "source": "Operator, train category and stations of your counted rides. Operator and category are listed as written (without surrounding spaces); a station is recognised by its code, otherwise by its name.",
+        "coverage": "Rides without an operator or a category are missing from that list.",
+        "exclusions": "Scheduled, ongoing and cancelled rides do not count."
+      },
+      "delays": {
+        "unit": "A ride with a recorded arrival delay, sorted into bands: on time (0 minutes or early), up to 5, up to 15, up to 30, up to 60 and over 60 minutes.",
+        "time": "Delay in minutes at arrival. Counted in the year of departure on the departure station's calendar; a station without a time zone is read in UTC. In the year comparison, a running year is set against the same span of the other year, up to the same day.",
+        "source": "The arrival delay stored for each ride.",
+        "coverage": "Only rides with a recorded delay, an arrival time and a clock time at both ends; the line above names the sample. A ride without a delay is never counted as on time.",
+        "exclusions": "Scheduled, ongoing and cancelled rides do not count."
+      },
+      "longest": {
+        "unit": "The ride with the longest known distance in the period, in kilometres; the line names where the distance comes from.",
+        "time": "Counted in the year of departure on the departure station's calendar; a station without a time zone is read in UTC. In the year comparison, a running year is set against the same span of the other year, up to the same day.",
+        "source": "The stored distance of your counted rides (traced track, trip line, ticket or straight line).",
+        "coverage": "Only rides with a distance can hold the record; on a tie the earlier ride wins. Tap the record to see the ride.",
+        "exclusions": "Scheduled, ongoing and cancelled rides do not count."
+      },
+      "byYear": {
+        "unit": "Rides per year; beside them the kilometres of that year's rides with a known distance.",
+        "time": "Year of departure on the departure station's calendar. The list appears under “All years” once there are at least two years.",
+        "source": "Your train rides with the status “completed”.",
+        "coverage": "A ride without a distance counts as a ride but adds no kilometres.",
+        "exclusions": "Scheduled, ongoing and cancelled rides do not count."
+      }
+    }
   },
   "roadtripConversion": {
     "title": "Take over as train rides",
@@ -291,7 +463,8 @@
       "stationOffLine": "a station is not on this train's route",
       "untracedShape": "Transitous only has straight lines between this train's stops",
       "railRoutingUnavailable": "this instance's rail router (OpenRailRouting) did not answer",
-      "railRoutingNoRoute": "the rail router (OpenRailRouting) knows no track connection between these stations"
+      "railRoutingNoRoute": "the rail router (OpenRailRouting) knows no track connection between these stations",
+      "railRoutingNotConfigured": "no rail routing service is configured"
     }
   },
   "import": {
@@ -352,6 +525,17 @@
           "noSeat": "The reservation names neither coach nor seat — nothing to record."
         }
       }
+    },
+    "booking": {
+      "appliesToAll": "These booking details apply to every ride below. The total is recorded on the first ride saved only, so it is not counted twice.",
+      "incomplete": "Not every booking detail was recognised in the document. Fill it in here or leave it empty — nothing is made up.",
+      "notRecognised": "Not recognised in the document",
+      "edited": "Changed by you",
+      "noClass": "Not stated",
+      "problem": {
+        "price": "The total is not an amount. Write it as e.g. 59.90, or leave the field empty.",
+        "currency": "The total needs a currency (three letters, e.g. EUR)."
+      }
     }
   },
   "summary": {
@@ -363,5 +547,70 @@
     "stations_other": "Stations",
     "withoutOperator_one": "{{count}} without an operator",
     "withoutOperator_other": "{{count}} without an operator"
+  },
+  "transfer": {
+    "wait": "Change at {{station}} · {{wait}} to change",
+    "unknown": "Change at {{station}} · transfer time unknown",
+    "unknownWhy": "One of the two times is missing or known only by its date.",
+    "conflict": "Time conflict: the next train leaves {{wait}} before this one arrives.",
+    "stationChange": "Change of station: {{from}} → {{to}} · approx. {{distance}} as the crow flies",
+    "shortHint": "Hint: less than {{minutes}} min to change. Whether the connection works out, TravStats cannot know.",
+    "separate": "A separate ride – not a change",
+    "markTight": "Marked as tight",
+    "markFailed": "The mark could not be saved. Please try again.",
+    "orderUnknown": "Change unknown: a ride on this day is recorded by its date only, so the order of the trains is not known.",
+    "stationUnconfirmed": "Change of station? {{from}} → {{to}}: different station name – location unknown",
+    "distanceM": "{{value}} m",
+    "distanceKm": "{{value}} km"
+  },
+  "connectionView": {
+    "coach": "Coach {{coach}}",
+    "seat": "Seat {{seat}}",
+    "noReservation": "no reservation recorded",
+    "reference": "Booking reference {{reference}}",
+    "documents": "Documents:",
+    "noDocuments": "No documents filed",
+    "documentsLoading": "Loading documents …",
+    "documentsFailed": "The documents of this ride could not be loaded.",
+    "documentsBelow": "Documents of this ride: in the “Documents” section below."
+  },
+  "shareLink": {
+    "title": "DB share link",
+    "description": "Shared a connection from bahn.de or the DB Navigator? Paste the link — the rides are read and you confirm each one.",
+    "caveat": "Deutsche Bahn usually does not let shared links be read from outside. If it fails, use the ticket PDF or the booking mail.",
+    "label": "Deutsche Bahn share link",
+    "read": "Read link",
+    "reading": "Reading …",
+    "factsKept": "Read from the link itself and carried over: {{route}}, {{when}}, {{travelClass}}.",
+    "fallbackIntro": "Ways to go on:",
+    "useDocument": "Upload the ticket PDF or booking mail",
+    "typeIt": "Enter by hand",
+    "typeWithFacts": "Enter by hand, with what was read",
+    "reason": {
+      "invalidLink": "This is not a readable Deutsche Bahn link. A share link looks like this: https://www.bahn.de/buchung/start?vbid=…",
+      "unsupportedLink": "TravStats cannot read links from this site — only bahn.de share links so far.",
+      "blocked": "bahn.de refused the request (protection against automated access). The link itself is probably fine — the connection just cannot be fetched this way right now.",
+      "expired": "bahn.de does not know this connection (any more). Shared links expire after a while.",
+      "rateLimited": "bahn.de counted too many requests just now. Try again later.",
+      "providerError": "bahn.de answered with an error.",
+      "timeout": "bahn.de did not answer in time.",
+      "unreachable": "bahn.de could not be reached from the server.",
+      "unreadable": "bahn.de answered, but not with a connection TravStats can read.",
+      "noTrain": "The shared connection contains no train ride.",
+      "noConnectionInLink": "This is a search link, not a shared connection: it names stations and a time, but no train.",
+      "requestRateLimited": "Too many lookups in a short time — wait a minute.",
+      "requestFailed": "The link could not be sent to the server."
+    }
+  },
+  "routeRefresh": {
+    "action": "Fetch line again",
+    "busy": "Fetching line…",
+    "done": "Route checked.",
+    "failed": "Could not fetch the line. Please try again later.",
+    "rateLimited": "Too many requests. Please try again later.",
+    "conflict": "The journey changed in the meantime. Please reload.",
+    "denied": "Permission is missing or your session expired.",
+    "missing": "This rail journey could not be found.",
+    "network": "The server is unreachable or the request timed out. Please try again."
   }
 }

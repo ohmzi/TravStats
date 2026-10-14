@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../hooks/useTranslation";
 import type { UpcomingEntry } from "../../lib/api/upcoming";
 import { Icon } from "../ui/Icon";
-import { nextUpCountdown, nextUpCountdownKey } from "./nextUpCountdown";
+import { entryCountdown, nextUpCountdownKey } from "./nextUpCountdown";
 
 /**
  * "Als Nächstes" as a card in the map's right column — the layout Claude
@@ -28,6 +28,9 @@ const DOMAIN_ICON: Record<UpcomingEntry["domain"], string> = {
   roadtrip: "🚐",
   rail: "🚆",
   rental: "🚗",
+  // B2 (spec 2026-10-07 §8): /upcoming names a bus ride only once B2 lands.
+  bus: "🚌",
+  ferry: "⛴",
   trip: "🧳",
 };
 
@@ -40,6 +43,9 @@ const DOMAIN_DETAIL_ROUTE: Record<UpcomingEntry["domain"], string> = {
   roadtrip: "/roadtrips",
   rail: "/rail",
   rental: "/rentals",
+  // B2 (spec 2026-10-07 §8): the bus logbook route, once /upcoming carries rides.
+  bus: "/bus",
+  ferry: "/ferry",
   trip: "/trips",
 };
 
@@ -52,7 +58,7 @@ interface MapNextUpCardProps {
 export function MapNextUpCard({ entry, nowMs }: MapNextUpCardProps): JSX.Element {
   const { t } = useTranslation(["dashboard"]);
   const navigate = useNavigate();
-  const { key, options } = nextUpCountdownKey(nextUpCountdown(entry.startsAt, nowMs));
+  const { key, options } = nextUpCountdownKey(entryCountdown(entry, nowMs));
 
   return (
     <div

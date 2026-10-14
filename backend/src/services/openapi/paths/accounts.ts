@@ -82,6 +82,27 @@ registry.registerPath({
 
 registry.registerPath({
   method: "post",
+  path: "/auth/reset-password/check",
+  summary: "Whether a password-reset link is still good",
+  description:
+    "Asked when the reset page opens, so an expired link is said before a new password is typed. " +
+    "The answer concerns only the token the caller holds and names no account. Rate-limited.",
+  tags: authTag,
+  request: {
+    body: { content: { "application/json": { schema: z.object({ token: z.string() }) } } },
+  },
+  responses: {
+    200: {
+      description: "The token's state",
+      content: { "application/json": { schema: z.object({ valid: z.boolean() }) } },
+    },
+    400: badInput,
+    429: { description: "Too many checks", content: errorContent },
+  },
+});
+
+registry.registerPath({
+  method: "post",
   path: "/auth/reset-password",
   summary: "Finish password recovery with the emailed token",
   tags: authTag,
@@ -263,6 +284,16 @@ const devicePushInput = registry.register(
     flightChanges: z.boolean().optional(),
     reminders: z.boolean().optional(),
     locale: z.enum(["de", "en"]).optional(),
+    mutedTripIds: z
+      .array(z.string())
+      .max(500)
+      .optional()
+      .describe(
+        "Trips whose departure reminders this phone does not want (forgejo#286) — the " +
+          "trip page's per-trip reminder switch. Reminders only: flight-change notices " +
+          "still arrive. Replaces the stored list when sent; omitted keeps it (empty on " +
+          "first registration). Ids of trips that are not this account's simply never match."
+      ),
   })
 );
 
@@ -273,6 +304,9 @@ const devicePushState = registry.register(
     flightChanges: z.boolean(),
     reminders: z.boolean(),
     locale: z.enum(["de", "en"]),
+    mutedTripIds: z
+      .array(z.string())
+      .describe("Trips this phone gets no departure reminders for (forgejo#286)"),
     serverPushEnabled: z.boolean().describe("Whether this server's admin has switched push on"),
   })
 );

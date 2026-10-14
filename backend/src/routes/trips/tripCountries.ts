@@ -2,7 +2,11 @@ import { prisma } from "../../db";
 import { toCountryCode } from "../../shared/countryEvidence";
 import { isStation } from "../../shared/tour/roadtrip";
 import { getCountryResolver } from "../../services/geo/countryFromCoordinates";
-import { STATION_SELECT, stationCountry } from "../../services/roadtrip/roadtripSummary";
+import {
+  STATION_SELECT,
+  stationCountries,
+  stationCountry,
+} from "../../services/roadtrip/roadtripSummary";
 import { flownCountries, type VisitableFlight } from "../../services/trip/flightVisits";
 
 /**
@@ -77,7 +81,8 @@ export function tripCountries(
   facts: Map<string, { country: string | null; timezone: string | null }>,
   cruiseCountries: string[] = [],
   lodgingCountries: string[] = [],
-  roadtripCountries: string[] = []
+  roadtripCountries: string[] = [],
+  rideCountries: string[] = []
 ): string[] {
   // A list the user filled in themselves is theirs — returned untouched.
   if (stored.length) return stored;
@@ -95,6 +100,9 @@ export function tripCountries(
     // A roadtrip in the trip reaches every country its stations stand in,
     // free pitches and pass-throughs included — not only where a stay was.
     ...roadtripCountries,
+    // Train and bus rides: a rail- or coach-only trip crossed borders too
+    // (forgejo#288 sweep) — the terminals' own countries, never guessed.
+    ...rideCountries,
   ];
 
   // The two catalogues speak different languages — airports store ISO alpha-2,
@@ -172,6 +180,29 @@ export async function lodgingCountriesByTrip(tripIds: string[]): Promise<Map<str
     out.set(stay.tripId, acc);
   }
 
+  return out;
+}
+
+/**
+ * Countries reached by each trip's roadtrips, keyed by trip id — by the one
+ * station-country rule the roadtrip page uses (`stationCountries`), so a
+ * trip and its roadtrip never disagree about where it went.
+ */
+export async function roadtripCountriesByTrip(tripIds: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (tripIds.length === 0) return out;
+
+  const roadtrips = await prisma.tripRoute.findMany({
+    where: { tripId: { in: tripIds }, kind: "roadtrip" },
+    select: { tripId: true, stops: { select: STATION_SELECT } },
+  });
+  if (roadtrips.length === 0) return out;
+
+  const resolver = await getCountryResolver();
+  for (const r of roadtrips) {
+    if (!r.tripId) continue;
+    out.set(r.tripId, [...(out.get(r.tripId) ?? []), ...stationCountries(r.stops, resolver)]);
+  }
   return out;
 }
 
@@ -400,4 +431,28 @@ function flightArrivalWinner(
     }
   }
   return winner;
+}
+
+/**
+ * Countries at the two ends of each trip's train and bus rides, keyed by trip
+ * id. Only what the row records (`depCountry`/`arrCountry` come from the
+ * geocoder and are null when unknown): a ride with no country adds none. A
+ * cancelled ride never went there.
+ */
+export async function rideCountriesByTrip(tripIds: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (tripIds.length === 0) return out;
+  const where = { tripId: { in: tripIds }, status: { not: "cancelled" } };
+  const select = { tripId: true, depCountry: true, arrCountry: true } as const;
+  const [rail, bus] = await Promise.all([
+    prisma.railJourney.findMany({ where, select }),
+    prisma.busJourney.findMany({ where, select }),
+  ]);
+  for (const ride of [...rail, ...bus]) {
+    if (!ride.tripId) continue;
+    const acc = out.get(ride.tripId) ?? [];
+    for (const country of [ride.depCountry, ride.arrCountry]) if (country) acc.push(country);
+    out.set(ride.tripId, acc);
+  }
+  return out;
 }

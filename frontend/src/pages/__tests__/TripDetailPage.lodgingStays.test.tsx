@@ -14,6 +14,20 @@ const getByIdMock = vi.fn();
 // The page renders the summary card, which asks the instance whether it has a
 // text model at all (`GET /parser-capabilities`). The network guard fails any
 // test that lets that request out (forgejo#110).
+// Shared trips (2026-10-09): the trip overview, the settings and the inbox
+// read the sharing API on mount; answered empty so no request escapes.
+vi.mock("@/lib/api/sharing", () => ({
+  sharingApi: {
+    tripSharing: vi
+      .fn()
+      .mockResolvedValue({ groupId: null, members: [], candidates: [], bookingTotals: [] }),
+    listConsents: vi.fn().mockResolvedValue({ incoming: [], outgoing: [] }),
+    listCompanions: vi.fn().mockResolvedValue({ companions: [], linkableUsers: [] }),
+    listNotices: vi.fn().mockResolvedValue([]),
+    inboxCount: vi.fn().mockResolvedValue(0),
+  },
+}));
+
 vi.mock("../../hooks/useHasLlm", () => ({ useHasLlm: () => true }));
 
 // The documents section fetches its entry's kept originals on mount. It has
@@ -35,6 +49,12 @@ vi.mock("../../lib/api", () => ({
 // for the trip's place visits unconditionally. Unmocked that went out as a
 // real request, which the suite's network guard fails rather than prints
 // (forgejo#110).
+// Notes on the trip's days (forgejo#146) have their own suite
+// (`tripNotesTimeline.test.tsx`); answered empty so no request escapes.
+vi.mock("../../hooks/useTripNotes", () => ({
+  useTripNotes: () => ({ notes: null, failed: false, reload: () => {} }),
+}));
+
 vi.mock("../../lib/api/places", () => ({
   listPlaces: () => Promise.resolve([]),
 }));
@@ -59,6 +79,7 @@ vi.mock("../../components/Trips/TripMapWithTours", () => ({
 }));
 
 import TripDetailPage from "../TripDetailPage";
+import { findNamed, getNamed, queryNamed } from "../../__tests__/helpers/namedElement";
 
 function makeTrip(overrides: Partial<Trip> = {}): Trip {
   return {
@@ -92,6 +113,77 @@ function makeTrip(overrides: Partial<Trip> = {}): Trip {
   };
 }
 
+const STAY: NonNullable<Trip["lodgingStays"]>[number] = {
+  id: "stay-1",
+  lodgingId: "lodging-1",
+  userId: "user-1",
+  tripId: "trip-1",
+  bookingId: null,
+  checkInTime: null,
+  checkOutTime: null,
+  checkIn: "2024-05-13T15:00:00.000Z",
+  checkOut: "2024-05-15T11:00:00.000Z",
+  datePrecision: "DAY" as const,
+  nights: null,
+  status: "completed",
+  roomNumber: null,
+  roomCategory: null,
+  board: null,
+  pricePerNight: null,
+  currency: "EUR",
+  totalPrice: null,
+  totalPriceBase: null,
+  fxRate: null,
+  fxRateDate: null,
+  fxBaseCurrency: null,
+  fxSource: null,
+  isAwardStay: false,
+  ratingRoom: null,
+  ratingBreakfast: null,
+  ratingService: null,
+  ratingOverall: null,
+  roomAmenities: [],
+  bookingReference: null,
+  membershipId: null,
+  membershipOptOut: false,
+  receiptUrl: null,
+  guests: null,
+  companions: [],
+  notes: null,
+  parserTemplate: null,
+  parserConfidence: null,
+  dataSource: null,
+  createdAt: "2024-01-01T00:00:00.000Z",
+  updatedAt: "2024-01-01T00:00:00.000Z",
+  lodging: {
+    id: "lodging-1",
+    userId: "user-1",
+    type: "hotel",
+    name: "Grand Hotel Zürich",
+    chainId: null,
+    chain: null,
+    address: null,
+    city: "Zürich",
+    country: "CH",
+    isoCountryCode: null,
+    lat: null,
+    lon: null,
+    stars: null,
+    amenities: [],
+    visited: true,
+    notes: null,
+    dataSource: null,
+    createdAt: "2024-01-01T00:00:00.000Z",
+    updatedAt: "2024-01-01T00:00:00.000Z",
+    stays: [],
+    overallRating: null,
+    stayCount: 1,
+    nights: 2,
+    totalSpendBase: 0,
+    totalSpendBaseByCurrency: {},
+  },
+};
+
 async function renderTripDetail(trip: Trip): Promise<void> {
   getByIdMock.mockResolvedValue(trip);
   render(
@@ -113,92 +205,38 @@ describe("TripDetailPage — linked lodging stays on the timeline", () => {
 
   it("renders a check-in AND a check-out entry, each linking to the hotel", async () => {
     const trip = makeTrip({
-      lodgingStays: [
-        {
-          id: "stay-1",
-          lodgingId: "lodging-1",
-          userId: "user-1",
-          tripId: "trip-1",
-          bookingId: null,
-          checkInTime: null,
-          checkOutTime: null,
-          checkIn: "2024-05-13T15:00:00.000Z",
-          checkOut: "2024-05-15T11:00:00.000Z",
-          datePrecision: "DAY" as const,
-          nights: null,
-          status: "completed",
-          roomNumber: null,
-          roomCategory: null,
-          board: null,
-          pricePerNight: null,
-          currency: "EUR",
-          totalPrice: null,
-          totalPriceBase: null,
-          fxRate: null,
-          fxRateDate: null,
-          fxBaseCurrency: null,
-          fxSource: null,
-          isAwardStay: false,
-          ratingRoom: null,
-          ratingBreakfast: null,
-          ratingService: null,
-          ratingOverall: null,
-          roomAmenities: [],
-          bookingReference: null,
-          membershipId: null,
-          membershipOptOut: false,
-          receiptUrl: null,
-          guests: null,
-          companions: [],
-          notes: null,
-          parserTemplate: null,
-          parserConfidence: null,
-          dataSource: null,
-          createdAt: "2024-01-01T00:00:00.000Z",
-          updatedAt: "2024-01-01T00:00:00.000Z",
-          lodging: {
-            id: "lodging-1",
-            userId: "user-1",
-            type: "hotel",
-            name: "Grand Hotel Zürich",
-            chainId: null,
-            chain: null,
-            address: null,
-            city: "Zürich",
-            country: "CH",
-            isoCountryCode: null,
-            lat: null,
-            lon: null,
-            stars: null,
-            amenities: [],
-            visited: true,
-            notes: null,
-            dataSource: null,
-            createdAt: "2024-01-01T00:00:00.000Z",
-            updatedAt: "2024-01-01T00:00:00.000Z",
-            stays: [],
-            overallRating: null,
-            stayCount: 1,
-            nights: 2,
-            totalSpendBase: 0,
-            totalSpendBaseByCurrency: {},
-          },
-        },
-      ],
+      lodgingStays: [STAY],
     });
     await renderTripDetail(trip);
 
     // Switch to the Timeline tab (default tab is Overview).
     await userEvent.click(screen.getByText("trips:detail.tabs.timeline"));
 
-    const checkInLink = await screen.findByRole("link", {
-      name: /trips:detail.timeline.lodgingCheckIn/,
-    });
-    const checkOutLink = screen.getByRole("link", {
-      name: /trips:detail.timeline.lodgingCheckOut/,
-    });
+    const checkInLink = await findNamed("link", /trips:detail.timeline.lodgingCheckIn/);
+    const checkOutLink = getNamed("link", /trips:detail.timeline.lodgingCheckOut/);
     expect(checkInLink).toHaveAttribute("href", "/lodging/lodging-1");
     expect(checkOutLink).toHaveAttribute("href", "/lodging/lodging-1");
+  });
+
+  it("shows the stay's deadlines on its check-in entry only (forgejo#285)", async () => {
+    const trip = makeTrip({
+      lodgingStays: [
+        {
+          ...STAY,
+          times: {
+            freeCancellationOn: { date: "2024-05-10", zone: "Europe/Zurich", precision: "day" },
+            paymentDue: { date: "2024-05-01", zone: null, precision: "day" },
+          },
+        },
+      ],
+    });
+    await renderTripDetail(trip);
+    await userEvent.click(screen.getByText("trips:detail.tabs.timeline"));
+    const checkIn = await findNamed("link", /trips:detail.timeline.lodgingCheckIn/);
+    expect(checkIn).toHaveTextContent("common:deadlines.freeCancellation");
+    expect(checkIn).toHaveTextContent("common:deadlines.paymentDue");
+    const checkOut = getNamed("link", /trips:detail.timeline.lodgingCheckOut/);
+    expect(checkOut).not.toHaveTextContent("common:deadlines.freeCancellation");
   });
 
   it("renders no lodging entry when the trip has no linked stays", async () => {
@@ -207,9 +245,7 @@ describe("TripDetailPage — linked lodging stays on the timeline", () => {
 
     await userEvent.click(screen.getByText("trips:detail.tabs.timeline"));
 
-    expect(
-      screen.queryByRole("link", { name: /trips:detail.timeline.lodgingCheckIn/ })
-    ).not.toBeInTheDocument();
+    expect(queryNamed("link", /trips:detail.timeline.lodgingCheckIn/)).not.toBeInTheDocument();
     expect(screen.getByText("trips:detail.timeline.noEvents")).toBeInTheDocument();
   });
 });

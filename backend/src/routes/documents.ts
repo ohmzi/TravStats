@@ -57,6 +57,11 @@ const ENTRY_LIST_PATHS: Record<EntryType, string> = {
   trip: "/trips/:id/documents",
   railJourney: "/rail/:id/documents",
   rentalBooking: "/rentals/:id/documents",
+  busJourney: "/bus/:id/documents",
+  ferryJourney: "/ferry/:id/documents",
+  // An expense lives under three path families (trip, roadtrip, section);
+  // its receipts under the one that needs no owner to be named.
+  tripExpense: "/expenses/:id/documents",
 };
 
 const toDate = (value: string | null | undefined): Date | null | undefined =>
@@ -153,6 +158,7 @@ router.post(
         source: fields.source ?? "upload",
         kind: fields.kind ?? null,
         issuedOn: toDate(fields.issuedOn) ?? null,
+        rentalCategory: fields.rentalCategory ?? null,
         entry:
           fields.entryType && fields.entryId
             ? { type: fields.entryType, id: fields.entryId }
@@ -245,6 +251,7 @@ router.patch(
         kind: input.kind,
         issuedOn: toDate(input.issuedOn),
         entry: input.entry,
+        rentalCategory: input.rentalCategory,
       });
       res.json({ success: true, data: toDocumentDto(document) });
     } catch (error) {

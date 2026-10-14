@@ -3,6 +3,7 @@ import { prisma } from "../db";
 import logger from "../utils/logger";
 import { llmGenerate, llmProbe, ollamaTarget, type LlmTarget } from "./llm/llmProvider";
 import { assertLlmEnabled } from "./llm/llmGate";
+import { localDay } from "../shared/time/instant";
 import { llmProvenance, roadtripLlmProvenance } from "./tripSummaryProvenance";
 import { resolveReachableLlmTarget } from "./llm/reachableTarget";
 import { deriveTripStatus, tripStatusBounds } from "../shared/statusDerivation";
@@ -169,8 +170,16 @@ const ENTITY_NOUNS: Record<SummaryLanguage, Record<string, string>> = {
     stays: "Hotels",
     places: "Orte",
     stops: "Stopps",
+    rides: "Bahn- und Busfahrten",
   },
-  en: { flights: "flights", cruises: "cruises", stays: "hotels", places: "places", stops: "stops" },
+  en: {
+    flights: "flights",
+    cruises: "cruises",
+    stays: "hotels",
+    places: "places",
+    stops: "stops",
+    rides: "train and bus rides",
+  },
 };
 
 /**
@@ -182,6 +191,7 @@ export function briefEntityNouns(brief: SummaryBrief, language: SummaryLanguage)
   const present: string[] = [];
   if (brief.flights.length > 0) present.push("flights");
   if (brief.cruises.length > 0) present.push("cruises");
+  if (brief.rides.length > 0) present.push("rides");
   if (brief.stays.length > 0) present.push("stays");
   if (brief.places.length > 0) present.push("places");
   if (brief.stops.length > 0) present.push("stops");
@@ -299,6 +309,14 @@ export interface SummaryBrief {
   tags: string[];
   flights: Array<{ from: string; to: string; date: string | null }>;
   cruises: Array<{ line: string | null; start: string | null; end: string | null }>;
+  /** Train and bus rides (forgejo#288 sweep): a trip of coaches was told as an empty one. */
+  rides: Array<{
+    mode: "train" | "bus";
+    from: string;
+    to: string;
+    date: string | null;
+    service: string | null;
+  }>;
   stays: Array<{
     lodging: string;
     nights: number | null;
@@ -326,6 +344,8 @@ export interface SummaryBrief {
 export const TRIP_BRIEF_INCLUDE = {
   flights: { orderBy: { departureTime: "asc" } },
   cruises: { orderBy: { startDate: "asc" } },
+  railJourneys: { orderBy: { departureTime: "asc" } },
+  busJourneys: { orderBy: { departureTime: "asc" } },
   lodgingStays: { include: { lodging: true }, orderBy: { checkIn: "asc" } },
   placeVisits: { include: { place: true }, orderBy: { visitedAt: "asc" } },
   stops: { orderBy: [{ orderIdx: "asc" }, { startDate: "asc" }] },
@@ -385,6 +405,27 @@ export function briefFromTrip(trip: TripForBrief): SummaryBrief {
       start: isoDate(c.startDate),
       end: isoDate(c.endDate),
     })),
+    // Both read on the departure terminal's own day (ADR 0002), in time order.
+    rides: [
+      ...trip.railJourneys.map((r) => ({
+        mode: "train" as const,
+        from: r.depStationName,
+        to: r.arrStationName,
+        at: r.departureTime,
+        zone: r.depTimezone,
+        service: [r.trainCategory, r.trainNumber].filter(Boolean).join(" ") || r.operator || null,
+      })),
+      ...trip.busJourneys.map((r) => ({
+        mode: "bus" as const,
+        from: r.depStationName,
+        to: r.arrStationName,
+        at: r.departureTime,
+        zone: r.depTimezone,
+        service: [r.operator, r.lineName].filter(Boolean).join(" ") || null,
+      })),
+    ]
+      .sort((a, b) => a.at.getTime() - b.at.getTime())
+      .map(({ at, zone, ...ride }) => ({ ...ride, date: localDay(at, zone ?? "UTC") })),
     stays: trip.lodgingStays.map((s) => ({
       lodging: s.lodging.name,
       nights: nightsBetween(isoDate(s.checkIn), isoDate(s.checkOut)),
@@ -530,7 +571,7 @@ export interface SummariseResult {
   /** Always "llm" here — the provenance stored with the text (forgejo#132 item 8). */
   summarySource: "llm";
   summaryGeneratedAt: string;
-  /** The entries the brief handed the model: flights, cruises, stays, visits, stops, journal. */
+  /** The entries the brief handed the model: flights, cruises, rides, stays, visits, stops, journal. */
   summaryEntryCount: number;
 }
 
@@ -539,6 +580,7 @@ export function briefEntryCount(brief: SummaryBrief): number {
   return (
     brief.flights.length +
     brief.cruises.length +
+    brief.rides.length +
     brief.stays.length +
     brief.places.length +
     brief.stops.length +
@@ -688,6 +730,9 @@ export function briefFromRoadtrip(route: TripRouteForBrief, status: string): Sum
     stops: route.stops
       .filter(isStation)
       .map((s) => ({ title: s.title, domain: null, start: isoDate(s.startDate) })),
+    // A roadtrip brief carries no train or bus rides (upstream's `rides` field
+    // on the shared brief) — a roadtrip is one vehicle by definition.
+    rides: [],
     journal: [],
     notes: clip(route.notes, TRIP_NOTES_MAX),
   };

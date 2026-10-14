@@ -57,6 +57,29 @@ function activeLanguage(): string | undefined {
 }
 
 /**
+ * The BCP-47 locale for the language the app is speaking right now. For a
+ * number or date formatted outside a component that has `i18n.language` at
+ * hand. Never the browser's: a German page in an en-US browser printed
+ * "14,808 km" (forgejo#88 acceptance, 2026-10-10).
+ */
+export function appLocale(language?: string): string {
+  return localeForLanguage(language ?? activeLanguage());
+}
+
+/**
+ * A plain number in the app's language — the replacement for a bare
+ * `toLocaleString()`, which follows the browser instead. A source scan
+ * (`__tests__/lint/noLocalelessNumberFormat.test.ts`) refuses the bare form.
+ */
+export function formatNumber(
+  value: number,
+  options?: Intl.NumberFormatOptions,
+  language?: string
+): string {
+  return value.toLocaleString(appLocale(language), options);
+}
+
+/**
  * Format distance with unit label. Pass the active i18n language so the
  * thousands separator follows the user's selection rather than the
  * browser/OS locale (which is what `toLocaleString(undefined, …)` does).
@@ -71,6 +94,25 @@ export function formatDistance(
   const label = getDistanceLabel(unit, t);
   const locale = localeForLanguage(language);
   return `${converted.toLocaleString(locale, { maximumFractionDigits: 0 })} ${label}`;
+}
+
+/**
+ * A SHORT distance in the reader's unit — the gap between a photo stop and a
+ * logged visit. `formatDistance` rounds to whole units, which turns 350 m into
+ * "0 km" and claims the two places coincide. Kilometres below one are given in
+ * metres; miles and nautical miles keep one decimal and never print 0.
+ */
+export function formatShortDistance(
+  km: number,
+  unit: DistanceUnit,
+  t: (key: string) => string,
+  language?: string
+): string {
+  if (unit === "kilometers" && km < 1) {
+    return `${formatNumber(Math.round(km * 1000), undefined, language)} m`;
+  }
+  const value = Math.max(convertDistance(km, unit), 0.1);
+  return `${formatNumber(value, { maximumFractionDigits: 1 }, language)} ${getDistanceLabel(unit, t)}`;
 }
 
 /**
@@ -215,7 +257,7 @@ export function formatCurrency(
   } catch {
     // Intl rejects unknown / malformed codes — render the raw value with
     // the currency code as suffix so the data is still readable.
-    return `${value.toLocaleString()} ${currency}`;
+    return `${formatNumber(value)} ${currency}`;
   }
 }
 

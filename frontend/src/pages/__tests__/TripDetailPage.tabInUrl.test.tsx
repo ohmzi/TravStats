@@ -14,11 +14,39 @@ import type { Trip } from "../../types";
  */
 const getByIdMock = vi.fn();
 
+const mockToursVisible = vi.hoisted(() => vi.fn(() => true));
+// Tours sit behind the roadtrips beta key since 2026-09-24; this suite is
+// about what the component does once they are visible.
+// Shared trips (2026-10-09): the trip overview, the settings and the inbox
+// read the sharing API on mount; answered empty so no request escapes.
+vi.mock("@/lib/api/sharing", () => ({
+  sharingApi: {
+    tripSharing: vi
+      .fn()
+      .mockResolvedValue({ groupId: null, members: [], candidates: [], bookingTotals: [] }),
+    listConsents: vi.fn().mockResolvedValue({ incoming: [], outgoing: [] }),
+    listCompanions: vi.fn().mockResolvedValue({ companions: [], linkableUsers: [] }),
+    listNotices: vi.fn().mockResolvedValue([]),
+    inboxCount: vi.fn().mockResolvedValue(0),
+  },
+}));
+
+vi.mock("../../hooks/useToursVisible", () => ({
+  useToursVisible: () => mockToursVisible(),
+  useToursAccess: () => (mockToursVisible() ? "allowed" : "denied"),
+}));
+
 vi.mock("../../hooks/useHasLlm", () => ({ useHasLlm: () => true }));
 vi.mock("../../components/documents/DocumentsSection", () => ({ default: () => null }));
 vi.mock("../../lib/api", () => ({
   tripsApi: { getById: (...args: unknown[]) => getByIdMock(...args) },
 }));
+// Notes on the trip's days (forgejo#146) have their own suite
+// (`tripNotesTimeline.test.tsx`); answered empty so no request escapes.
+vi.mock("../../hooks/useTripNotes", () => ({
+  useTripNotes: () => ({ notes: null, failed: false, reload: () => {} }),
+}));
+
 vi.mock("../../lib/api/places", () => ({ listPlaces: vi.fn().mockResolvedValue([]) }));
 vi.mock("../../lib/api/tours", () => ({
   toursApi: { list: vi.fn().mockResolvedValue([]), create: vi.fn(), remove: vi.fn() },

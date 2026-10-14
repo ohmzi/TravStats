@@ -17,6 +17,7 @@ import { captureFieldsSchema } from "../../photos/captureFields";
 import { PARSER_SUPPORTED_DOMAINS } from "../../../shared/domains";
 import { parseRetentionFields } from "../../../schemas/document";
 import { diagnosticBundleSchema } from "../../diagnostics/bundleSchema";
+import { v2StatusSchema } from "../../parsers/templates/v2/status";
 
 const badInput = { description: "Invalid input", content: errorContent };
 const notFound = { description: "Not found", content: errorContent };
@@ -489,8 +490,14 @@ registry.registerPath({
 
 registry.registerPath({
   method: "get",
-  path: "/uploads/receipts/{filename}",
+  path: "/uploads/receipts/{filename}/content",
   summary: "Fetch a receipt",
+  description:
+    "A receipt uploaded before receipts became documents (newer ones are " +
+    "`/documents/{id}/file`). Answered with `Cache-Control: private, no-store`. " +
+    "The former URL `/uploads/receipts/{filename}` — which ends in the file's " +
+    "extension, so extension-based proxy caches would store it — answers a 308 " +
+    "redirect to this one.",
   tags: miscTag,
   request: { params: z.object({ filename: z.string() }) },
   responses: {
@@ -708,12 +715,32 @@ registry.registerPath({
   responses: { 204: deleted, 404: notFound },
 });
 
+// v1 fields describe airline templates only; `v2` lists every v2 template
+// with its state, and the reason when it is not active.
+const templateStatusContent = {
+  "application/json": {
+    schema: z.object({
+      templates: z.array(
+        z.object({
+          iata: z.string(),
+          airline: z.string(),
+          version: z.string(),
+          source: z.enum(["builtin", "cached"]),
+        })
+      ),
+      total: z.number().int().describe("Number of v1 airline templates loaded"),
+      githubRepo: z.string(),
+      v2: v2StatusSchema,
+    }),
+  },
+};
+
 registry.registerPath({
   method: "get",
   path: "/template-status",
   summary: "Which parser templates are current",
   tags: parseTag,
-  responses: { 200: { description: "Status" } },
+  responses: { 200: { description: "Status", content: templateStatusContent } },
 });
 
 registry.registerPath({
@@ -724,7 +751,7 @@ registry.registerPath({
     "Replaces the instance-wide template registry every user parses with, so it is an operator action: a non-admin account is answered 403.",
   tags: parseTag,
   responses: {
-    200: { description: "Synced" },
+    200: { description: "Synced", content: templateStatusContent },
     403: { description: "Not an admin", content: errorContent },
   },
 });

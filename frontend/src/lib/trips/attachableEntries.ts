@@ -1,5 +1,7 @@
 import axios from "axios";
 
+import { ferryApi } from "../api/ferry";
+import { busApi } from "../api/bus";
 import { cruiseApi } from "../api/cruise";
 import { flightsApi } from "../api/flights";
 import { listLodgings, updateStay } from "../api/lodging";
@@ -211,6 +213,43 @@ async function loadRoadtrips(): Promise<AttachableLoad> {
   };
 }
 
+async function loadBus(): Promise<AttachableLoad> {
+  const rides = await busApi.listAll();
+  return {
+    unlinkable: 0,
+    entries: rides.map((r) => {
+      const departure = railDeparture(r);
+      return {
+        domain: "bus" as const,
+        id: r.id,
+        title: `${r.depStationName} → ${r.arrStationName}`,
+        subtitle: joined([r.operator, r.lineName], " · "),
+        day: departure ? dayOf(departure) : null,
+        endDay: null,
+        tripId: r.tripId,
+      };
+    }),
+  };
+}
+async function loadFerry(): Promise<AttachableLoad> {
+  const rides = await ferryApi.listAll();
+  return {
+    unlinkable: 0,
+    entries: rides.map((r) => {
+      const departure = railDeparture(r);
+      return {
+        domain: "ferry" as const,
+        id: r.id,
+        title: `${r.depStationName} → ${r.arrStationName}`,
+        subtitle: joined([r.operator, r.vesselName], " · "),
+        day: departure ? dayOf(departure) : null,
+        endDay: null,
+        tripId: r.tripId,
+      };
+    }),
+  };
+}
+
 const LOADERS: Record<DomainKey, () => Promise<AttachableLoad>> = {
   flight: loadFlights,
   cruise: loadCruises,
@@ -219,6 +258,8 @@ const LOADERS: Record<DomainKey, () => Promise<AttachableLoad>> = {
   rail: loadRail,
   rental: loadRentals,
   roadtrip: loadRoadtrips,
+  bus: loadBus,
+  ferry: loadFerry,
 };
 
 /** Every linkable entry of one domain, newest first, undated ones last. */
@@ -263,6 +304,12 @@ export async function attachEntry(tripId: string, entry: AttachableEntry): Promi
       // The standalone path: a roadtrip is addressed by its own id, whichever
       // trip (or none) it sits in now.
       await toursApi.update(undefined, entry.id, { tripId });
+      return;
+    case "ferry":
+      await ferryApi.save(entry.id, { tripId });
+      return;
+    case "bus":
+      await busApi.update(entry.id, { tripId });
       return;
   }
 }

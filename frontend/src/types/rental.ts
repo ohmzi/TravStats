@@ -1,4 +1,4 @@
-import type { TimeValue } from "../shared/time";
+import type { LocalDateValue, TimeValue } from "../shared/time";
 
 /**
  * Car rentals — spec docs/superpowers/specs/2026-10-01-rental-domain-design.md.
@@ -32,6 +32,13 @@ export interface RentalTimes {
   return: TimeValue | null;
   actualPickup: TimeValue | null;
   actualReturn: TimeValue | null;
+  /** Deposit days as the statement shows them — no zone (forgejo#238). */
+  depositPaid?: LocalDateValue | null;
+  depositReturned?: LocalDateValue | null;
+  /** Deadlines (forgejo#285): an instant OR a day, never both. */
+  freeCancellationUntil?: TimeValue | null;
+  freeCancellationOn?: LocalDateValue | null;
+  paymentDue?: LocalDateValue | null;
 }
 
 export interface RentalBooking {
@@ -102,6 +109,16 @@ export interface RentalBooking {
     currency: string;
     source: "final" | "booked" | "cancellationFee";
   } | null;
+  /** The deposit (forgejo#238): held, never a cost; in its own currency. Days `YYYY-MM-DD`. */
+  depositAmount: number | null;
+  depositCurrency: string | null;
+  depositPaidOn: string | null;
+  depositReturnedOn: string | null;
+  depositReturnedAmount: number | null;
+  /** Where the booked `price` came from — the booking mail, or typed; null without a price. */
+  priceSource: "booking" | "user" | null;
+  /** Fee lines taken over from the invoice (forgejo#237) — inside `finalAmount`, never added. */
+  invoiceFees: RentalInvoiceFee[];
   /** Returned, and no km from an invoice or a correction yet (D11 b). */
   invoiceMissing: boolean;
   trip?: { id: string; name: string; color: string } | null;
@@ -134,6 +151,11 @@ export interface RentalInput {
   returnLocal: string;
   pickupFold?: "earlier" | "later" | null;
   returnFold?: "earlier" | "later" | null;
+  /** The actual hand-overs, a wall clock or a day on each station's clock; null clears one. */
+  actualPickupLocal?: string | null;
+  actualReturnLocal?: string | null;
+  actualPickupFold?: "earlier" | "later" | null;
+  actualReturnFold?: "earlier" | "later" | null;
   vehicleClass?: string | null;
   acrissCode?: string | null;
   vehicleExample?: string | null;
@@ -146,6 +168,19 @@ export interface RentalInput {
   paymentTiming?: RentalPaymentTiming | null;
   price?: number | null;
   currency?: string | null;
+  /** A labelled correction of the invoice's amount; absent leaves the stored one. */
+  finalAmount?: number | null;
+  finalCurrency?: string | null;
+  invoiceNumber?: string | null;
+  fuelPolicy?: RentalFuelPolicy | null;
+  depositAmount?: number | null;
+  depositCurrency?: string | null;
+  depositPaidOn?: string | null;
+  depositReturnedOn?: string | null;
+  depositReturnedAmount?: number | null;
+  /** A bare day (until its end) or `{local, zone?}` on the pickup clock; null clears (forgejo#285). */
+  freeCancellationUntil?: string | { local: string; zone?: string } | null;
+  paymentDueOn?: string | null;
   inclusions?: RentalInclusion[];
   arrivalFlightNumber?: string | null;
   status?: "scheduled" | "cancelled";
@@ -201,6 +236,15 @@ export interface RentalInvoiceReading {
   actualReturnLocal: string | null;
   finalAmount: number | null;
   finalCurrency: string | null;
+  /** The single fee lines the invoice lists (forgejo#237); part of `finalAmount`. */
+  fees?: RentalInvoiceFee[];
+}
+
+/** One fee line of an invoice — already in its final amount, never a cost on top. */
+export interface RentalInvoiceFee {
+  label: string;
+  amount: number;
+  currency: string;
 }
 
 /** One reviewed document, as `POST /parse-*` with domain `rental` answers it. */
@@ -234,4 +278,6 @@ export interface TripRental {
   pickupPrecision: string;
   returnPrecision: string;
   status: RentalStatus;
+  /** Deadlines among them (forgejo#285); optional — an older server sends none. */
+  times?: Partial<RentalTimes>;
 }

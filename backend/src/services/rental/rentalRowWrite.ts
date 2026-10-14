@@ -1,4 +1,5 @@
 import { prisma } from "../../db";
+import { propagateWrite, shareSnapshot } from "../sharing/propagate";
 import { Prisma } from "../../prisma";
 import type { CreateRentalInput, UpdateRentalInput } from "../../schemas/rental";
 import { resolveCompanions, linkRowsFor } from "../companionService";
@@ -6,12 +7,20 @@ import { fxColumnsFor, getBaseCurrency } from "../fx/snapshot";
 import { recomputeTripStatus } from "../tripStatusService";
 import { resolveRentalStation } from "./rentalStations";
 import {
+  assertDepositConsistent,
   assertOdometerOrder,
+  depositColumns,
   distanceColumns,
   mergeRental,
   type ResolvedStations,
 } from "./rentalWrite";
 import { rentalDayRange, soleOverlappingTrip } from "./rentalLinks";
+import { changedInput } from "./rentalChanges";
+import {
+  deadlinesUnchanged,
+  resolveDeadlineColumns,
+  type DeadlineColumns,
+} from "../deadlines/bookingDeadlines";
 
 /**
  * The one write path of a rental row — the form (`routes/rental.ts`) and the
@@ -40,6 +49,26 @@ export interface WriteOptions {
   externalRef?: string | null;
   /** The send time of the mail a create came from (`lastMailSentAt`). */
   mailSentAt?: Date | null;
+  /** The write came with a personal access token (the Companion) — see `resolveInput.ts`. */
+  viaToken?: boolean;
+}
+
+/**
+ * The deadline columns a write leaves (forgejo#285). A bare `{local}` or a
+ * bare day is read on the PICKUP station's clock — where the rental, and so
+ * its cancellation, happens.
+ */
+function rentalDeadlines(
+  userId: string,
+  input: UpdateRentalInput,
+  pickupZone: string,
+  options: WriteOptions
+): Promise<Partial<DeadlineColumns>> {
+  return resolveDeadlineColumns(input, {
+    userId,
+    placeZone: () => pickupZone,
+    viaToken: options.viaToken ?? false,
+  });
 }
 
 /** Everything but the derived columns, companions and FX, which this file owns. */
@@ -53,7 +82,13 @@ function plainColumns(input: UpdateRentalInput) {
     returnFold: _rf,
     actualPickupLocal: _ap,
     actualReturnLocal: _ar,
+    actualPickupFold: _apf,
+    actualReturnFold: _arf,
     distanceKm: _d,
+    depositPaidOn: _dp,
+    depositReturnedOn: _dr,
+    freeCancellationUntil: _fc,
+    paymentDueOn: _pd,
     status: _s,
     companions: _c,
     ...rest
@@ -73,6 +108,33 @@ export async function resolveStations(input: UpdateRentalInput): Promise<Resolve
           : await resolveRentalStation(input.returnStation, "returnStation"),
     }),
   };
+}
+
+/**
+ * A deadline re-sent as stored is no edit — it must not enter
+ * `userEditedFields` (the rule `rentalChanges.ts` holds for every other field).
+ */
+function withoutUnchangedDeadlines(
+  input: UpdateRentalInput,
+  deadlines: Partial<DeadlineColumns>,
+  stored: StoredRental
+): UpdateRentalInput {
+  const out = { ...input };
+  const sentCancellation: Partial<DeadlineColumns> = {
+    freeCancellationUntil: deadlines.freeCancellationUntil,
+    freeCancellationOn: deadlines.freeCancellationOn,
+    freeCancellationZone: deadlines.freeCancellationZone,
+  };
+  if ("freeCancellationUntil" in deadlines && deadlinesUnchanged(sentCancellation, stored)) {
+    delete out.freeCancellationUntil;
+  }
+  if (
+    "paymentDueOn" in deadlines &&
+    deadlinesUnchanged({ paymentDueOn: deadlines.paymentDueOn }, stored)
+  ) {
+    delete out.paymentDueOn;
+  }
+  return out;
 }
 
 /** The fields a person set by hand, added to the ones already recorded. */
@@ -109,10 +171,12 @@ export async function restatusTrips(...tripIds: Array<string | null | undefined>
 export async function createRentalRow(
   userId: string,
   input: CreateRentalInput,
-  options: WriteOptions
+  options: WriteOptions & { extra?: Partial<Prisma.RentalBookingUncheckedCreateInput> }
 ): Promise<RentalRow> {
   const state = mergeRental(null, input, await resolveStations(input));
   assertOdometerOrder(null, input);
+  assertDepositConsistent(null, input);
+  const deadlines = await rentalDeadlines(userId, input, state.pickupTimezone, options);
   // Linked by itself only when EXACTLY one trip overlaps; a trip the client
   // named (or an explicit null) is never second-guessed.
   const tripId =
@@ -140,6 +204,8 @@ export async function createRentalRow(
         ...plainColumns(input),
         ...state,
         ...distanceColumns(input),
+        ...depositColumns(input),
+        ...deadlines,
         ...(input.finalAmount != null && { finalAmountSource: "user" }),
         ...(finalFx as Prisma.RentalBookingUncheckedCreateInput),
         ...fxColumns,
@@ -149,6 +215,9 @@ export async function createRentalRow(
         lastMailSentAt: options.mailSentAt ?? null,
         companions: companions.map((c) => c.displayName),
         userEditedFields: options.manual ? editedFields(input) : [],
+        // Columns only a document path writes (an invoice's km source), kept
+        // when a spreadsheet moves the rental (forgejo#267).
+        ...options.extra,
       },
     });
     if (companions.length > 0) {
@@ -160,6 +229,7 @@ export async function createRentalRow(
         skipDuplicates: true,
       });
     }
+    await propagateWrite(tx, userId, "rental", created.id);
     return tx.rentalBooking.findUniqueOrThrow({
       where: { id: created.id },
       include: RENTAL_INCLUDE,
@@ -172,21 +242,36 @@ export async function createRentalRow(
 export async function updateRentalRow(
   userId: string,
   existing: StoredRental,
-  input: UpdateRentalInput,
+  sentInput: UpdateRentalInput,
   options: WriteOptions & { extra?: Prisma.RentalBookingUncheckedUpdateInput }
 ): Promise<RentalRow> {
   // The MERGED state, so a one-field PATCH is checked against the stored rest
   // (a return moved before an untouched pickup is refused here).
-  const state = mergeRental(existing, input, await resolveStations(input));
+  const state = mergeRental(existing, sentInput, await resolveStations(sentInput));
+  // From here on only what CHANGED: a value re-sent as stored is no edit, no
+  // new source and no re-derivation (`rentalChanges.ts`, fix round 2).
+  const deadlines = await rentalDeadlines(userId, sentInput, state.pickupTimezone, options);
+  const input = withoutUnchangedDeadlines(
+    changedInput(existing, sentInput, state),
+    deadlines,
+    existing
+  );
   assertOdometerOrder(existing, input);
+  assertDepositConsistent(existing, input);
   const resolved =
     input.companions === undefined ? undefined : await resolveCompanions(userId, input.companions);
   // Re-snapshotted only when an input it depends on moved (silent-failure
   // class 4: a re-derivation never runs for nothing and never downgrades).
+  // A snapshot that failed before (no base amount for a known price) is
+  // taken again on any save — the price stays as it was, and unedited
+  // (re-review, fix round 3: an unchanged re-send no longer re-derives).
+  const fxMissing =
+    existing.price !== null && existing.currency !== null && existing.priceBase === null;
   const fxInputsChanged =
     input.price !== undefined ||
     input.currency !== undefined ||
-    state.pickupTime.getTime() !== existing.pickupTime.getTime();
+    state.pickupTime.getTime() !== existing.pickupTime.getTime() ||
+    fxMissing;
   const fxColumns = fxInputsChanged
     ? await fxColumnsFor(
         {
@@ -197,10 +282,15 @@ export async function updateRentalRow(
         await getBaseCurrency(userId)
       )
     : undefined;
+  const finalFxMissing =
+    existing.finalAmount !== null &&
+    existing.finalCurrency !== null &&
+    existing.finalAmountBase === null;
   const finalChanged =
     input.finalAmount !== undefined ||
     input.finalCurrency !== undefined ||
-    state.returnTime.getTime() !== existing.returnTime.getTime();
+    state.returnTime.getTime() !== existing.returnTime.getTime() ||
+    finalFxMissing;
   const finalFx = finalChanged
     ? await finalFxColumns(
         userId,
@@ -211,6 +301,7 @@ export async function updateRentalRow(
     : {};
 
   const row = await prisma.$transaction(async (tx) => {
+    const before = await shareSnapshot(tx, "rental", existing.id);
     if (resolved !== undefined) {
       await tx.rentalBookingCompanion.deleteMany({ where: { rentalBookingId: existing.id } });
       if (resolved.length > 0) {
@@ -229,6 +320,8 @@ export async function updateRentalRow(
         ...plainColumns(input),
         ...state,
         ...distanceColumns(input),
+        ...depositColumns(input),
+        ...deadlines,
         ...(input.finalAmount !== undefined && {
           finalAmountSource: input.finalAmount === null ? null : "user",
         }),
@@ -239,6 +332,7 @@ export async function updateRentalRow(
         ...options.extra,
       },
     });
+    await propagateWrite(tx, userId, "rental", existing.id, before);
     return tx.rentalBooking.findUniqueOrThrow({
       where: { id: existing.id },
       include: RENTAL_INCLUDE,

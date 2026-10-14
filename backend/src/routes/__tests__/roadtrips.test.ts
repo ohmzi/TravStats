@@ -119,6 +119,9 @@ describe("Roadtrips", () => {
       nights: 3,
       nightsKnown: true,
       placesSlept: 2,
+      // forgejo#260: the stay at the campsite and the free night.
+      nightsByStyle: { pitch: 1, campsite: 2, lodging: 0 },
+      unknownLengthStations: 0,
     });
     expect(res.body.legs).toHaveLength(2);
     // ADR 0002 dual-write: a station's days, read at the station.
@@ -196,6 +199,13 @@ describe("Roadtrips", () => {
       ],
     });
     expect(detail.status).toBe(200);
+    // forgejo#179: the page reads driven against planned from the server.
+    // Every station of this roadtrip lies in July 2026 — nothing is ahead.
+    expect(detail.body.progress).toMatchObject({
+      roadKm: { current: 0, planned: 0 },
+      roadKmBySource: expect.any(Object),
+    });
+    expect(["past", "undated"]).toContain(detail.body.progress.phase);
     expect(seeded.status).toBe(200);
     const [a, b] = seeded.body.stations;
     const reordered = await stations().send({

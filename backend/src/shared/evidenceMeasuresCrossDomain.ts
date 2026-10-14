@@ -86,7 +86,26 @@ export const CROSS_DOMAIN_MEASURES: Record<string, MeasureSpec> = {
     calculator: TRAVEL_ACCOUNT_NIGHTS_CALCULATOR,
     servedIn: 1,
   },
-  travelAccountHomeNights: {
+  travelAccountRailNights: {
+    aggregation: "sum",
+    unit: "nights",
+    scopes: ["allTime"],
+    surface: "TravelAccountSection",
+    calculator: TRAVEL_ACCOUNT_NIGHTS_CALCULATOR,
+    servedIn: 1,
+  },
+  // forgejo#263 — the night-bus bucket, beside the night-train one.
+  travelAccountBusNights: {
+    aggregation: "sum",
+    unit: "nights",
+    scopes: ["allTime"],
+    surface: "TravelAccountSection",
+    calculator: TRAVEL_ACCOUNT_NIGHTS_CALCULATOR,
+    servedIn: 1,
+  },
+  // The remainder — "home nights" until forgejo#266 showed a missing record
+  // proves no night at home.
+  travelAccountUnassignedNights: {
     aggregation: "sum",
     unit: "nights",
     scopes: ["allTime"],
@@ -119,6 +138,15 @@ export const CROSS_DOMAIN_MEASURES: Record<string, MeasureSpec> = {
     servedIn: 1,
   },
   travelAccountUncoveredDayCount: {
+    aggregation: "sum",
+    unit: "days",
+    scopes: ["allTime"],
+    surface: "TravelAccountSection",
+    calculator: TRAVEL_ACCOUNT_TRIPS_CALCULATOR,
+    servedIn: 1,
+  },
+  /** The numerator of the average trip length — the card opens the trips it is taken over. */
+  travelAccountTripDaysTotal: {
     aggregation: "sum",
     unit: "days",
     scopes: ["allTime"],

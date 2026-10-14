@@ -74,6 +74,10 @@ export const USER_EXPORT_SELECT = {
   // Catalogue chains (no owner) are re-seeded and stay out.
   lodgingChains: true,
   places: true,
+  // The other OSM/Google references a place answers to after a merge
+  // (forgejo#232): without them a re-import of the export's source would
+  // bring the merged duplicate back.
+  placeExternalRefs: true,
   placeVisits: { include: { photos: true } },
   placeLists: { include: { entries: true } },
   // Rail (spec 2026-09-25-rail-domain): the rides with their companion links,
@@ -83,10 +87,39 @@ export const USER_EXPORT_SELECT = {
   // their companion links — km and final amount included, which only an
   // invoice could supply again.
   rentalBookings: { include: { companionLinks: true } },
+  // Bus rides (spec 2026-10-07-bus-domain-design): the rides with their
+  // companion links — the terminals' frozen names and zones included.
+  busJourneys: { include: { companionLinks: true } },
+  ferryJourneys: { include: { companionLinks: true } },
   companions: true,
+  // Trip sharing (design 2026-10-09): the consents this account asked for and
+  // gave, the groups it started and the notices addressed to it.
+  shareConsentsAsked: true,
+  shareConsentsGiven: true,
+  shareGroupsCreated: true,
+  shareNotices: true,
+  // Public share links (forgejo#281): what is shared, with what, until when —
+  // never the token hash. The token itself is stored nowhere.
+  publicShareLinks: {
+    select: {
+      id: true,
+      kind: true,
+      flightId: true,
+      tripId: true,
+      year: true,
+      fields: true,
+      expiresAt: true,
+      viewCount: true,
+      lastViewedAt: true,
+      createdAt: true,
+    },
+  },
   // Kept originals (forgejo#116): the rows — what each is, where it is filed,
   // what its parse read. The bytes stay out, as a photo's do.
   documents: true,
+  // Standalone notes (forgejo#137): the text, the moment and its zone, where it
+  // was written. The photo's bytes stay out, as every photo's do.
+  notes: true,
   // The receipt files' rows (the files are in the pg_dump backup's archive).
   receiptUploads: true,
   // Which import each record came from — the provenance an undo reads.
@@ -113,6 +146,7 @@ export const USER_EXPORT_SELECT = {
       data: true,
       appPrefs: true,
       autoCreateTrips: true,
+      homeCountry: true,
       preferredVisionParser: true,
       preferredTextParser: true,
       immichDefaultMode: true,
@@ -139,7 +173,13 @@ export const EXPORT_EXCLUDED_USER_RELATIONS: Record<string, string> = {
   trainingData: "parser training corpus of raw source text, operational",
   parseLogs: "parser training log, operational",
   pendingFlightUpdates: "transient queue of suggested flight changes",
+  clientWriteRefs:
+    "transport bookkeeping: the outbox's idempotency keys (forgejo#283), pruned after 90 days",
   dataQualityFlags: "derived by the data-quality sweep, recomputed from the rows",
+  linkedAsCompanion:
+    "other accounts' companion rows that name this user — their data, not this user's",
+  shareNoticesActed:
+    "notices addressed to other accounts about what this user did — their inbox, not this user's",
 };
 
 /**

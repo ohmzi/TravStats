@@ -25,6 +25,7 @@
  * order and the once-per-run follow-ups.
  */
 
+import { propagateBulk, sharedStateOf } from "../sharing/bulkSync";
 import { recomputeLegsForCruise } from "../cruiseDistance/cruiseLegService";
 import { recheckAchievements } from "../../utils/achievements";
 import { newCtx, errorRow, type Ctx } from "./context";
@@ -33,6 +34,8 @@ import { importFlights } from "./flights";
 import { importLodging, importLodgingStays } from "./lodging";
 import { importPlaceVisits, importPlaces } from "./places";
 import { importRail } from "./rail";
+import { importBus } from "./bus";
+import { importRentals } from "./rentals";
 import { importRoadtripStations } from "./roadtripStations";
 import { importRoadtripExpenses } from "./roadtripExpenses";
 import { importRoadtrips } from "./roadtrips";
@@ -75,6 +78,10 @@ const HANDLERS: Record<string, Handler> = {
   // Rail rides (rail spec) point at trips only, so their place in the order
   // is free; last, as the export writes the sheet last.
   rail: importRail,
+  // Bus rides (forgejo#180) point at trips only — beside rail, as the export writes them.
+  bus: importBus,
+  // Rentals (forgejo#267) point at trips and roadtrips — after both sheets.
+  rental: importRentals,
 };
 
 export function isImportable(key: string): boolean {
@@ -93,6 +100,9 @@ export async function importSheets(
 ): Promise<SheetOutcome[]> {
   const ctx = newCtx(opts);
   const results: SheetOutcome[] = [];
+  // Shared trips (design 2026-10-09): what is shared before the run, so the
+  // run's changes reach the other members once it is done.
+  const sharedBefore = opts.dryRun ? null : await sharedStateOf(opts.userId);
 
   for (const key of Object.keys(HANDLERS)) {
     const sheet = sheets.find((s) => s.key === key);
@@ -113,6 +123,8 @@ export async function importSheets(
     // Stops changed under these cruises; the distance and the map read the
     // legs, which only this recompute writes.
     for (const cruiseId of ctx.touchedCruises) await recomputeLegsForCruise(cruiseId);
+    // Every helper's writes at once, after the legs, so a cruise carries them.
+    if (sharedBefore) await propagateBulk(opts.userId, sharedBefore);
     // Once per run, not per row: a hundred stays are one change to the badges.
     if (ctx.wrote) await recheckAchievements(ctx.userId, "xlsx_import");
   }

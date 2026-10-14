@@ -2,9 +2,16 @@ import { prisma } from "../../db";
 import { Prisma } from "../../prisma";
 import { AppError } from "../../middleware/errorHandler";
 import type { CreateRentalInput, UpdateRentalInput } from "../../schemas/rental";
-import type { RentalCancellationFee, RentalInvoiceInput } from "../../schemas/rentalImport";
+import type {
+  RentalCancellationFee,
+  RentalInvoiceInput,
+  RentalInvoiceAdopt,
+  RentalInvoiceFee,
+  RentalInvoicePart,
+} from "../../schemas/rentalImport";
 import { toLocal } from "../../shared/time/instant";
 import { rentalExternalRef } from "./parser/rentalCandidates";
+import { filledDeadlineFields, type DeadlineField } from "../deadlines/parsedDeadlines";
 import {
   RENTAL_INCLUDE,
   createRentalRow,
@@ -128,6 +135,8 @@ export function mailUpdate(existing: Stored, input: CreateRentalInput): UpdateRe
     if (edited.has(key) || isEmpty(value)) continue;
     // A mail never revives a cancelled booking or re-opens a finished one.
     if (key === "status") continue;
+    // A deadline only FILLS (forgejo#285): one already on the row stands.
+    if (deadlineHeld(existing, key)) continue;
     // A bare day is poorer than a time (§4.4).
     if (
       key === "pickupLocal" &&
@@ -164,11 +173,19 @@ function onlyGaps(existing: Stored, update: UpdateRentalInput): UpdateRentalInpu
   ) as UpdateRentalInput;
 }
 
+/** Whether the stored row already holds the deadline `key` names. */
+function deadlineHeld(existing: Stored, key: string): boolean {
+  if (key === "freeCancellationUntil") {
+    return existing.freeCancellationUntil !== null || existing.freeCancellationOn !== null;
+  }
+  return key === "paymentDueOn" && existing.paymentDueOn !== null;
+}
+
 export async function applyConfirmation(
   userId: string,
   input: CreateRentalInput,
   sentAt: Date | null = null
-): Promise<{ outcome: ImportOutcome; row: RentalRow }> {
+): Promise<{ outcome: ImportOutcome; row: RentalRow; filledDeadlines?: DeadlineField[] }> {
   const existing = input.confirmationNumber
     ? await findBooking(userId, input.provider, { confirmation: input.confirmationNumber })
     : null;
@@ -204,13 +221,13 @@ export async function applyConfirmation(
         });
     return { outcome: older && Object.keys(full).length > 0 ? "stale" : "unchanged", row };
   }
-  return {
-    outcome: "updated",
-    row: await updateRentalRow(userId, existing, update, {
-      manual: false,
-      extra: { lastMailSentAt },
-    }),
-  };
+  const row = await updateRentalRow(userId, existing, update, {
+    manual: false,
+    extra: { lastMailSentAt },
+  });
+  // What this mail filled: the deadline keys it wrote that the row now holds.
+  const filledDeadlines = filledDeadlineFields(row).filter((field) => field in update);
+  return { outcome: "updated", row, filledDeadlines };
 }
 
 export async function applyCancellation(
@@ -254,6 +271,27 @@ export async function applyCancellation(
 }
 
 /**
+ * The invoice's fee lines the review took over (forgejo#237): by index, or all
+ * of them when the client did not say. An index the invoice has no line for
+ * is refused rather than skipped — the client and the server would otherwise
+ * disagree on what was taken over.
+ */
+function adoptedFees(invoice: RentalInvoiceInput, picked?: number[]): RentalInvoiceFee[] {
+  const lines = invoice.fees ?? [];
+  if (picked === undefined) return lines;
+  const unknown = picked.find((i) => i >= lines.length);
+  if (unknown !== undefined) {
+    throw new AppError(
+      `The invoice has no fee line ${unknown}`,
+      400,
+      "RENTAL_INVOICE_FEE_UNKNOWN",
+      "adopt.fees"
+    );
+  }
+  return [...new Set(picked)].sort((a, b) => a - b).map((i) => lines[i]);
+}
+
+/**
  * The invoice fills the booking it names (§4.5): driven km (source `invoice`),
  * the car actually driven, the actual times and the amount charged. A km
  * figure the user typed is replaced only when the review showed both and the
@@ -263,8 +301,12 @@ export async function applyInvoice(
   userId: string,
   invoice: RentalInvoiceInput,
   replaceUserDistance = false,
-  sentAt: Date | null = null
+  sentAt: Date | null = null,
+  adopt: RentalInvoiceAdopt = {}
 ): Promise<{ outcome: ImportOutcome; row: RentalRow }> {
+  // A part the review did not untick is taken (absent = taken, as before).
+  const takes = (part: RentalInvoicePart): boolean => adopt[part] !== false;
+  const fees = adoptedFees(invoice, adopt.fees);
   const existing = await findBooking(userId, invoice.provider, {
     confirmation: invoice.confirmationNumber,
     agreement: invoice.agreementNumber,
@@ -273,6 +315,7 @@ export async function applyInvoice(
   if (!existing) throw new RentalUnknownBookingError();
 
   const conflict =
+    takes("distance") &&
     existing.distanceSource === "user" &&
     invoice.distanceKm !== null &&
     existing.distanceKm !== invoice.distanceKm &&
@@ -286,12 +329,14 @@ export async function applyInvoice(
     );
   }
 
-  const times: UpdateRentalInput = {
-    ...(invoice.actualPickupLocal ? { actualPickupLocal: invoice.actualPickupLocal } : {}),
-    ...(invoice.actualReturnLocal ? { actualReturnLocal: invoice.actualReturnLocal } : {}),
-  };
+  const times: UpdateRentalInput = takes("actualTimes")
+    ? {
+        ...(invoice.actualPickupLocal ? { actualPickupLocal: invoice.actualPickupLocal } : {}),
+        ...(invoice.actualReturnLocal ? { actualReturnLocal: invoice.actualReturnLocal } : {}),
+      }
+    : {};
   const finalFx =
-    invoice.finalAmount !== null
+    takes("finalAmount") && invoice.finalAmount !== null
       ? await finalFxColumns(
           userId,
           invoice.finalAmount,
@@ -303,22 +348,32 @@ export async function applyInvoice(
   // arrives; its send time only moves the newest-mail mark forward.
   const extra: Prisma.RentalBookingUncheckedUpdateInput = {
     lastMailSentAt: newestMail(existing, sentAt),
-    ...(invoice.distanceKm !== null && {
-      distanceKm: invoice.distanceKm,
-      distanceSource: "invoice",
-    }),
-    ...(invoice.odometerOutKm !== null && { odometerOutKm: invoice.odometerOutKm }),
-    ...(invoice.odometerInKm !== null && { odometerInKm: invoice.odometerInKm }),
-    ...(invoice.vehicleDriven && { vehicleDriven: invoice.vehicleDriven }),
+    ...(takes("distance") &&
+      invoice.distanceKm !== null && {
+        distanceKm: invoice.distanceKm,
+        distanceSource: "invoice",
+      }),
+    ...(takes("odometer") &&
+      invoice.odometerOutKm !== null && { odometerOutKm: invoice.odometerOutKm }),
+    ...(takes("odometer") &&
+      invoice.odometerInKm !== null && { odometerInKm: invoice.odometerInKm }),
+    ...(takes("vehicleDriven") &&
+      invoice.vehicleDriven && { vehicleDriven: invoice.vehicleDriven }),
     ...(invoice.invoiceNumber && { invoiceNumber: invoice.invoiceNumber }),
     ...(invoice.agreementNumber &&
       !existing.agreementNumber && { agreementNumber: invoice.agreementNumber }),
-    ...(invoice.finalAmount !== null && {
-      finalAmount: invoice.finalAmount,
-      finalCurrency: invoice.finalCurrency,
-      finalAmountSource: "invoice",
-      ...finalFx,
-    }),
+    // The booked price is never touched: the booking's amount and where it
+    // came from stay beside the invoice's (forgejo#237).
+    ...(takes("finalAmount") &&
+      invoice.finalAmount !== null && {
+        finalAmount: invoice.finalAmount,
+        finalCurrency: invoice.finalCurrency,
+        finalAmountSource: "invoice",
+        ...finalFx,
+      }),
+    // The fee lines the review took over replace the ones an earlier import
+    // of an invoice stored; none taken leaves the stored list as it is.
+    ...(fees.length > 0 && { invoiceFees: fees as unknown as Prisma.InputJsonValue }),
   };
   const row = await updateRentalRow(userId, existing, times, { manual: false, extra });
   return { outcome: "invoiced", row };

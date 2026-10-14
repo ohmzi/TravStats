@@ -2,12 +2,13 @@ import path from "path";
 
 import type { Document, Prisma } from "../../prisma";
 
-import { prisma } from "../../db";
+import { prisma, type DbTransaction } from "../../db";
 import { AppError } from "../../middleware/errorHandler";
 import logger from "../../utils/logger";
 import { documentIdsBodySchema } from "../../schemas/document";
 import {
   DOCUMENT_KINDS,
+  type RentalDocumentCategory,
   ENTRY_TYPES,
   detectDocumentFormat,
   type DocumentFormat,
@@ -17,8 +18,7 @@ import {
   type DocumentKind,
 } from "./documentFormats";
 import {
-  documentFileAgeMs,
-  listStoredNames,
+  DOCUMENT_DIR,
   newStoredName,
   removeDocumentFile,
   sha256Hex,
@@ -27,6 +27,8 @@ import {
 import type { ExtractedValues } from "./documentValues";
 import { storedReading } from "./storedReading";
 import { countPdfPages } from "../pdfPageCount";
+import { sweepUploadDir } from "../files/uploadSweep";
+import { uploadFileAgeMs } from "../files/uploadFiles";
 
 /**
  * Kept originals, filed with the entry they produced (forgejo#116).
@@ -67,6 +69,9 @@ const OWNER_COLUMN = {
   placeVisit: "placeVisitId",
   railJourney: "railJourneyId",
   rentalBooking: "rentalBookingId",
+  busJourney: "busJourneyId",
+  ferryJourney: "ferryJourneyId",
+  tripExpense: "tripExpenseId",
 } as const satisfies Record<EntryType, keyof Document>;
 
 /**
@@ -88,12 +93,6 @@ const FORMAT_HINT_MIME: Partial<Record<DocumentFormat, string>> = {
   emailText: "text/plain",
   pkpass: "application/vnd.apple.pkpass",
 };
-
-/**
- * A file with no row younger than this is left alone by the sweep: it may be an
- * upload whose row is being inserted right now.
- */
-export const ORPHAN_GRACE_MS = 60 * 60 * 1000;
 
 /**
  * Unfiled uploads older than this are removed by the sweep.
@@ -163,6 +162,9 @@ const NO_OWNER: Prisma.DocumentWhereInput = {
   placeVisitId: null,
   railJourneyId: null,
   rentalBookingId: null,
+  busJourneyId: null,
+  ferryJourneyId: null,
+  tripExpenseId: null,
 };
 
 function ownerWhere(entry: EntryRef): Prisma.DocumentWhereInput {
@@ -177,8 +179,13 @@ interface OwnerColumns {
   placeVisitId: string | null;
   railJourneyId: string | null;
   rentalBookingId: string | null;
+  busJourneyId: string | null;
+  ferryJourneyId: string | null;
+  tripExpenseId: string | null;
   linkedAt: Date | null;
   unlinkedAt: Date | null;
+  /** Cleared off a rental; kept (absent) while the document stays with one. */
+  rentalCategory?: null;
 }
 
 function ownerData(entry: EntryRef | null): OwnerColumns {
@@ -190,11 +197,17 @@ function ownerData(entry: EntryRef | null): OwnerColumns {
     placeVisitId: entry?.type === "placeVisit" ? entry.id : null,
     railJourneyId: entry?.type === "railJourney" ? entry.id : null,
     rentalBookingId: entry?.type === "rentalBooking" ? entry.id : null,
+    busJourneyId: entry?.type === "busJourney" ? entry.id : null,
+    ferryJourneyId: entry?.type === "ferryJourney" ? entry.id : null,
+    tripExpenseId: entry?.type === "tripExpense" ? entry.id : null,
     linkedAt: entry ? new Date() : null,
     // The other half of the same fact, and written here for the same reason
     // `linkedAt` is: this is the ONE place the owner columns are decided, so
     // create, link, unlink and update cannot disagree about it.
     unlinkedAt: entry ? null : new Date(),
+    // A rental's evidence label means nothing anywhere else (forgejo#239);
+    // the database refuses it there too (`documents_rental_category_check`).
+    ...(entry?.type !== "rentalBooking" && { rentalCategory: null }),
   };
 }
 
@@ -223,8 +236,14 @@ export async function assertEntryOwned(userId: string, entry: EntryRef): Promise
               ? await prisma.placeVisit.findFirst({ where, select })
               : entry.type === "railJourney"
                 ? await prisma.railJourney.findFirst({ where, select })
-                : await prisma.rentalBooking.findFirst({ where, select });
-  if (!found) throw new AppError("Entry not found", 404);
+                : entry.type === "rentalBooking"
+                  ? await prisma.rentalBooking.findFirst({ where, select })
+                  : entry.type === "busJourney"
+                    ? await prisma.busJourney.findFirst({ where, select })
+                    : entry.type === "ferryJourney"
+                      ? await prisma.ferryJourney.findFirst({ where, select })
+                      : await prisma.tripExpense.findFirst({ where, select });
+  if (!found) throw new AppError("Entry not found", 404, "DOCUMENT_ENTRY_NOT_FOUND");
 }
 
 export interface CreateDocumentInput {
@@ -246,6 +265,8 @@ export interface CreateDocumentInput {
   parsedDomain?: string | null;
   parsedPayload?: Prisma.InputJsonValue | null;
   entry?: EntryRef | null;
+  /** A rental's evidence category (forgejo#239); only with a rentalBooking entry. */
+  rentalCategory?: RentalDocumentCategory | null;
 }
 
 export interface CreateDocumentResult {
@@ -307,6 +328,7 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
     throw new AppError("Unknown document kind", 400);
 
   const entry = input.entry ?? null;
+  assertCategoryFits(input.rentalCategory, entry);
   if (entry) await assertEntryOwned(input.userId, entry);
 
   const sha256 = sha256Hex(input.buffer);
@@ -315,7 +337,20 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
   const sameTarget = await prisma.document.findFirst({
     where: { userId: input.userId, sha256, ...(entry ? ownerWhere(entry) : NO_OWNER) },
   });
-  if (sameTarget) return { document: sameTarget, created: false };
+  if (sameTarget) {
+    // The same file sent again for the same rental under a category: a still
+    // uncategorised copy takes it (review, minor 4). One already filed under
+    // another category keeps it — the answer carries that one, and the client
+    // says so rather than pretending the new choice was applied.
+    if (input.rentalCategory && sameTarget.rentalCategory === null) {
+      const document = await prisma.document.update({
+        where: { id: sameTarget.id },
+        data: { rentalCategory: input.rentalCategory },
+      });
+      return { document, created: false };
+    }
+    return { document: sameTarget, created: false };
+  }
 
   // A retried offline send may arrive with a target after the first attempt
   // went up unfiled: file that one rather than keeping two copies.
@@ -324,9 +359,14 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
       where: { userId: input.userId, sha256, ...NO_OWNER },
     });
     if (unfiled) {
+      // Filed now, so filed with the category the user chose (re-review,
+      // fix round 3) — `assertCategoryFits` already held it to a rental.
       const document = await prisma.document.update({
         where: { id: unfiled.id },
-        data: ownerData(entry),
+        data: {
+          ...ownerData(entry),
+          ...(input.rentalCategory && { rentalCategory: input.rentalCategory }),
+        },
       });
       return { document, created: false };
     }
@@ -352,6 +392,7 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
         parsedDomain: input.parsedDomain ?? null,
         ...(input.parsedPayload != null && { parsedPayload: input.parsedPayload }),
         ...ownerData(entry),
+        rentalCategory: input.rentalCategory ?? null,
       },
     });
     logger.info(
@@ -428,6 +469,29 @@ export async function linkDocuments(
   });
 }
 
+/**
+ * `linkDocuments` for a caller that writes the entry inside its own
+ * transaction (the package-tour commit files the document on a trip created
+ * a moment earlier in the same transaction). The caller has already run
+ * `assertLinkable` for these ids; the `NO_OWNER` guard still keeps a
+ * document filed elsewhere in the meantime where it is, and the count tells
+ * the caller whether that happened.
+ */
+export async function linkDocumentsInTx(
+  tx: Pick<DbTransaction, "document">,
+  userId: string,
+  ids: readonly string[],
+  entry: EntryRef
+): Promise<number> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return 0;
+  const { count } = await tx.document.updateMany({
+    where: { id: { in: unique }, userId, ...NO_OWNER },
+    data: ownerData(entry),
+  });
+  return count;
+}
+
 /** Takes a document off its entry; it becomes unfiled and expires unless filed again. */
 export async function unlinkDocument(userId: string, id: string): Promise<Document> {
   const document = await getOwnDocument(userId, id);
@@ -439,6 +503,28 @@ export interface UpdateDocumentInput {
   issuedOn?: Date | null;
   /** An entry files it there; null takes it off its entry; absent leaves it. */
   entry?: EntryRef | null;
+  /** A rental evidence category; null uncategorises; absent leaves it (forgejo#239). */
+  rentalCategory?: RentalDocumentCategory | null;
+}
+
+/**
+ * A category belongs to a rental's evidence: set on a document filed with
+ * anything else it would be a label nothing reads. 400
+ * `DOCUMENT_CATEGORY_NOT_RENTAL`, `field: rentalCategory`.
+ */
+function assertCategoryFits(
+  category: RentalDocumentCategory | null | undefined,
+  entry: EntryRef | null
+): void {
+  if (category == null) return;
+  if (entry?.type !== "rentalBooking") {
+    throw new AppError(
+      "A rental category needs a document filed with a rental",
+      400,
+      "DOCUMENT_CATEGORY_NOT_RENTAL",
+      "rentalCategory"
+    );
+  }
 }
 
 /**
@@ -471,12 +557,25 @@ export async function updateDocument(
     }
   }
 
+  // The entry the document ends up with decides whether a category may stand:
+  // taken off its rental (or onto anything else) it loses the label.
+  const finalEntry =
+    input.entry === undefined ? entryOf(document) : input.entry === null ? null : input.entry;
+  assertCategoryFits(input.rentalCategory, finalEntry);
+  const category =
+    finalEntry?.type !== "rentalBooking"
+      ? { rentalCategory: null }
+      : input.rentalCategory !== undefined
+        ? { rentalCategory: input.rentalCategory }
+        : {};
+
   return prisma.document.update({
     where: { id: document.id },
     data: {
       ...(input.kind !== undefined && { kind: input.kind }),
       ...(input.issuedOn !== undefined && { issuedOn: input.issuedOn }),
       ...owner,
+      ...category,
     },
   });
 }
@@ -540,7 +639,7 @@ export interface SweepResult {
 export async function sweepDocuments(
   now = new Date(),
   fileAgeMs: (name: string) => Promise<number | null> = (name) =>
-    documentFileAgeMs(name, now.getTime())
+    uploadFileAgeMs(DOCUMENT_DIR, name, now.getTime())
 ): Promise<SweepResult> {
   const cutoff = new Date(now.getTime() - UNLINKED_TTL_DAYS * 24 * 60 * 60 * 1000);
   const expired = await prisma.document.findMany({
@@ -555,29 +654,17 @@ export async function sweepDocuments(
     await removeStoredFiles(expired.map((d) => d.storedName));
   }
 
-  const onDisk = await listStoredNames();
-  const known = new Set(
-    (
-      await prisma.document.findMany({
-        where: { storedName: { in: onDisk } },
-        select: { storedName: true },
-      })
-    ).map((d) => d.storedName)
-  );
-  let orphanFiles = 0;
-  for (const name of onDisk) {
-    if (known.has(name)) continue;
-    // No age means the file vanished between the listing and now: nothing to remove.
-    const age = await fileAgeMs(name);
-    if (age === null || age < ORPHAN_GRACE_MS) continue;
-    await removeDocumentFile(name);
-    orphanFiles++;
-  }
-
+  // The orphan half is the generic sweep's (forgejo#287), which every other
+  // upload directory runs too; the TTL above is the documents' own. An orphan
+  // is quarantined, not deleted — see `services/files/quarantine.ts`.
+  const { quarantined: orphanFiles } = await sweepUploadDir("documents", {
+    now: now.getTime(),
+    fileAgeMs: (_dir, name) => fileAgeMs(name),
+  });
   if (expired.length > 0 || orphanFiles > 0) {
     logger.info(
       { operation: "document_sweep", expiredUnfiled: expired.length, orphanFiles },
-      "Document sweep removed unfiled uploads and orphan files"
+      "Document sweep removed unfiled uploads and quarantined orphan files"
     );
   }
   return { expiredUnfiled: expired.length, orphanFiles };
@@ -596,6 +683,8 @@ export interface DocumentDto {
   /** What to call it on screen: the client's name, or a generic one with the right extension. */
   displayName: string;
   issuedOn: string | null;
+  /** A rental evidence category; null = uncategorised or not a rental's (forgejo#239). */
+  rentalCategory: string | null;
   source: string;
   parsedDomain: string | null;
   entry: EntryRef | null;
@@ -632,6 +721,7 @@ export function toDocumentDto(document: Document): DocumentDto {
     originalName: document.originalName,
     displayName: document.originalName ?? `document${path.extname(document.storedName)}`,
     issuedOn: document.issuedOn ? document.issuedOn.toISOString().slice(0, 10) : null,
+    rentalCategory: document.rentalCategory,
     source: document.source,
     parsedDomain: document.parsedDomain,
     entry: entryOf(document),

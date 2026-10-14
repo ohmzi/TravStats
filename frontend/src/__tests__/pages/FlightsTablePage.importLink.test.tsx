@@ -8,13 +8,17 @@ import {
   countRenderedRows,
   paginationControlsRendered,
 } from "../../pages/__tests__/tablePaginationTestSupport";
+import { findNamed } from "../helpers/namedElement";
 
 // Measured 2026-09-19: these renders take ~1 s each on a developer machine
 // and 6–8 s on the CI runner under coverage instrumentation, past Vitest's
 // 5 s default — the first CI run on the merged main (f1e1085c) failed on
 // exactly that. A hang would still be caught at 20 s; a slow render is not a
 // wrong render.
-vi.setConfig({ testTimeout: 20_000 });
+// The page renders a whole logbook page of rows; under coverage instrumentation on a
+// busy machine 20 s was not enough (it passed alone and failed in the full run), and
+// this setConfig outranks the CLI's --testTimeout, so the time is stated here.
+vi.setConfig({ testTimeout: 60_000 });
 
 /**
  * FlightsTablePage pulls in many heavy siblings (filters, modals, table
@@ -113,7 +117,7 @@ describe("FlightsTablePage", () => {
       </MemoryRouter>
     );
 
-    const link = await screen.findByRole("link", { name: /settings:import.openHub/ });
+    const link = await findNamed("link", /settings:import.openHub/);
     expect(link.getAttribute("href")).toBe("/settings/data?section=import");
   });
 

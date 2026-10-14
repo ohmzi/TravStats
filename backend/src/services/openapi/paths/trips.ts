@@ -37,8 +37,6 @@ import {
   createTripSchema,
   updateTripSchema,
   assignFlightsSchema,
-  createBookingSchema,
-  updateBookingSchema,
   createStopSchema,
   updateStopSchema,
   createJournalSchema,
@@ -69,14 +67,6 @@ const journalUpdateInput = registry.register(
   "TripJournalUpdateInput",
   updateJournalSchema.openapi("TripJournalUpdateInput")
 );
-const bookingCreateInput = registry.register(
-  "BookingCreateInput",
-  createBookingSchema.openapi("BookingCreateInput")
-);
-const bookingUpdateInput = registry.register(
-  "BookingUpdateInput",
-  updateBookingSchema.openapi("BookingUpdateInput")
-);
 
 const tripCostSuperlative = registry.register(
   "TripCostSuperlative",
@@ -98,14 +88,42 @@ const tripCostSuperlative = registry.register(
       }),
     })
     .describe(
-      "Ranked on each trip's total FX base-currency amount across ALL its " +
-        "cost sources, computed over every trip the user has — never the " +
+      "Ranked on each trip's total FX base-currency amount across all its " +
+        "cost sources in the domains the user sees — switched on, and not hidden " +
+        "behind the instance's beta switch; `TripCost` and /stats/travel-account " +
+        "apply the same gate. Computed over every trip the user has — never the " +
         "500-trip / 200-row caps `GET /trips` applies to the list itself. A " +
         "trip carrying any cost item with no FX snapshot (no currency, no " +
         "date, or a failed rate lookup) leaves the comparison rather than " +
         "being ranked on a partial sum; `excluded.count` says how many."
     )
     .openapi("TripCostSuperlative")
+);
+
+/** A trip's own cost — the server's figure, which clients show and never re-add (forgejo#274). */
+const tripCost = registry.register(
+  "TripCost",
+  z
+    .object({
+      spendByCurrency: z
+        .record(z.string(), z.number())
+        .describe("Amounts by the currency they were paid in, NEVER summed across currencies."),
+      unpricedEntries: z
+        .number()
+        .int()
+        .describe(
+          "Entries with no usable price (none recorded on them or their booking, or an " +
+            "amount without a currency). Above 0 the spend is a lower bound, not the total."
+        ),
+    })
+    .describe(
+      "The server's one trip-cost rule (shared/tripCost.ts): a booking price once and " +
+        "all-in, else each entry's own price (a flight's with taxes and fees); train " +
+        "rides, rentals (the invoice, else the booked price — never a deposit) and trip " +
+        "expenses included; cancelled entries out. Rows of a domain the user does not " +
+        "see (switched off, or behind the instance's beta switch) are left out."
+    )
+    .openapi("TripCost")
 );
 
 const tripId = z.object({ id: z.string().uuid() });
@@ -131,9 +149,11 @@ const tripListItem = tripResponse.extend({
         "Trip photos — the rows served by GET /trips/{id}/photos, linked and imported alike"
       ),
     railJourneys: z.number().int().describe("Linked train rides"),
+    busJourneys: z.number().int().describe("Linked bus rides"),
     rentalBookings: z.number().int().describe("Linked rental cars, a cancelled one excluded"),
     roadtrips: z.number().int().describe("Tour sections of kind roadtrip — a subset of `routes`"),
   }),
+  cost: tripCost.optional().describe("Present only when `includeInsights=true` was passed."),
 });
 
 const stopBody = z.object({ stop: tripStopResponse });
@@ -153,7 +173,8 @@ registry.registerPath({
     "flights, cruises and stays each, and `_count` with the size of every " +
     "linked collection including tour sections (`routes`) and photos (`photos`). " +
     "`includeInsights=true` additionally runs an UNCAPPED cost comparison over " +
-    "every trip the user has and returns `mostExpensiveTrip` — not derivable " +
+    "every trip the user has and returns `mostExpensiveTrip` and each trip's " +
+    "`cost`, both from one rule and one load — not derivable " +
     "from the (capped) `trips` array above, so callers that need the true " +
     "cross-trip superlative ask for it explicitly rather than every caller of " +
     "this endpoint paying for it.",
@@ -163,7 +184,7 @@ registry.registerPath({
       includeInsights: z
         .enum(["true", "false"])
         .optional()
-        .describe("Adds `mostExpensiveTrip` to the response. Default false."),
+        .describe("Adds `mostExpensiveTrip` and each trip's `cost`. Default false."),
     }),
   },
   responses: {
@@ -244,11 +265,17 @@ registry.registerPath({
   summary: "Get a trip",
   description:
     "Includes everything linked to it: flights, cruises with their ship, ports " +
-    "and stops, lodging stays with their property, stops, diary entries and photos.",
+    "and stops, lodging stays with their property, stops, diary entries and photos, " +
+    "and the trip's `cost` by the server's rule.",
   tags: ["Trips"],
   request: { params: tripId },
   responses: {
-    200: { description: "Trip", content: { "application/json": { schema: tripResponse } } },
+    200: {
+      description: "Trip",
+      content: {
+        "application/json": { schema: tripResponse.extend({ cost: tripCost.nullable() }) },
+      },
+    },
     404: notFound,
   },
 });
@@ -646,31 +673,4 @@ registry.registerPath({
     "DELETE /trips/{id} does.",
   tags: ["Trips"],
   responses: { 200: { description: "Dissolved" }, 400: badInput },
-});
-
-registry.registerPath({
-  method: "post",
-  path: "/trips/bookings",
-  summary: "Create a booking",
-  description:
-    "A booking is one payment covering several things — the flight and the hotel " +
-    "on one reference. Trip cost counts a booking once, and counts flights and " +
-    "cruises carrying a price but no booking separately, so neither is doubled.",
-  tags: ["Trips"],
-  request: {
-    body: { content: { "application/json": { schema: bookingCreateInput } }, required: true },
-  },
-  responses: { 201: { description: "Created" }, 400: badInput },
-});
-
-registry.registerPath({
-  method: "patch",
-  path: "/trips/bookings/{id}",
-  summary: "Update a booking",
-  tags: ["Trips"],
-  request: {
-    params: tripId,
-    body: { content: { "application/json": { schema: bookingUpdateInput } }, required: true },
-  },
-  responses: { 200: { description: "Updated" }, 400: badInput, 404: notFound },
 });

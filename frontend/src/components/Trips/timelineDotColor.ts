@@ -18,6 +18,12 @@ export function dotColor(ev: Pick<TimelineEvent, "kind">): string {
       return "var(--domain-cruise)";
     case "rail":
       return "var(--domain-rail)";
+    case "ferry":
+      return "var(--ts-domain-ferry)";
+    case "bus":
+      return "var(--ts-domain-bus)";
+    case "note":
+      return "var(--text-muted)";
     case "rental-pickup":
     case "rental-return":
       return "var(--ts-domain-rental)";

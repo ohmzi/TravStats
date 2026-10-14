@@ -6,6 +6,7 @@ import { formatDate } from "../../lib/displayFormat";
 import { localeForLanguage } from "../../lib/units";
 import EvidenceTrigger from "../Stats/EvidenceTrigger";
 import { evidenceKeyForRule } from "./achievementEvidenceKey";
+import { isPlanningRule } from "./achievementPlanning";
 import { progressUnitForRule } from "./achievementProgressUnit";
 import type { Achievement } from "../../types";
 
@@ -120,7 +121,21 @@ export default function AchievementDetailModal({
               defaultValue: achievement.category,
             })}
           </span>
+          {!isMystery && isPlanningRule(achievement.requirementType) && (
+            <span
+              className="rounded-sm px-2 py-1"
+              style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}
+              data-testid="achievement-detail-planning"
+            >
+              {t("achievements:planning.badge")}
+            </span>
+          )}
         </div>
+        {!isMystery && isPlanningRule(achievement.requirementType) && (
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {t("achievements:planning.note")}
+          </p>
+        )}
 
         {achievement.isUnlocked ? (
           <div className="space-y-1" data-testid="achievement-detail-unlocked">
@@ -173,7 +188,10 @@ export default function AchievementDetailModal({
             <EvidenceTrigger
               kind="metric"
               evidenceKey={evidenceKey}
-              renderedValue={achievement.progress ?? null}
+              // A held badge stores its requirement, not the live figure, so
+              // there is nothing to compare the panel's number with: the panel
+              // would call the difference "recomputed" (forgejo#265).
+              renderedValue={achievement.isUnlocked ? null : (achievement.progress ?? null)}
               label={t("achievements:progress.evidence.trigger")}
               className="text-sm underline"
               style={{ color: "var(--accent)" }}

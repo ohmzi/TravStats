@@ -16,7 +16,17 @@
   "deleteTrip": "Reise löschen",
   "removeFromTrip": "Aus Reise entfernen",
   "deleteTripConfirm": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. Flüge, Kreuzfahrten, Unterkünfte und Trips bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren.",
-  "deleteTripConfirmWithRail": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. Flüge, Kreuzfahrten, Bahnfahrten, Unterkünfte und Trips bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren.",
+  "deleteTripConfirmKept": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. {{kept}} bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren.",
+  "deleteTripKept": {
+    "and": "und",
+    "flights": "Flüge",
+    "cruises": "Kreuzfahrten",
+    "rail": "Bahnfahrten",
+    "bus": "Busfahrten",
+    "rental": "Mietwagen",
+    "stays": "Unterkünfte",
+    "roadtrips": "Trips"
+  },
   "showOnMap": "Auf Karte",
   "flightCount_one": "{{count}} Flug",
   "flightCount_other": "{{count}} Flüge",
@@ -24,6 +34,8 @@
   "cruiseCount_other": "{{count}} Kreuzfahrten",
   "pnrLabel": "Buchungsref.",
   "totalCost": "Gesamtkosten",
+  "costUnpriced_one": "{{count}} Eintrag ohne Preis",
+  "costUnpriced_other": "{{count}} Einträge ohne Preis",
   "costPerKm": "Kosten/km",
   "distance": "Strecke",
   "status": {
@@ -143,7 +155,8 @@
       "tags": "Tags",
       "rail": "Bahn",
       "rental": "Mietwagen",
-      "albums": "Alben"
+      "albums": "Alben",
+      "bus": "Bus"
     },
     "tabs": {
       "overview": "Übersicht",
@@ -168,8 +181,7 @@
     "logistics": {
       "flights": "Flüge",
       "cruises": "Kreuzfahrten",
-      "bookings": "Buchungen",
-      "totalBooked": "Gesamt"
+      "bookings": "Buchungen"
     },
     "timeline": {
       "addEntry": "+ Eintrag hinzufügen",
@@ -196,13 +208,23 @@
       "seat": "Sitzplatz",
       "itinerary": "Etappen",
       "atSea": "Seetag",
-      "openJournal": "Ganz öffnen"
+      "openJournal": "Ganz öffnen",
+      "note": {
+        "by": "von {{name}}",
+        "allNotes": "Alle Notizen",
+        "memberHint": "Eine als teilbar markierte Notiz aus dieser geteilten Reise. Ändern kann sie nur, wer sie geschrieben hat.",
+        "loadFailed": "Die Notizen zu dieser Reise konnten nicht geladen werden.",
+        "retry": "Erneut versuchen",
+        "truncated": "Nicht alle Notizen dieser Reise werden gezeigt – es sind mehr als 200."
+      }
     },
     "stopNotFound": "Diesen Halt gibt es in dieser Reise nicht mehr.",
     "journalEntryNotFound": "Diesen Tagebucheintrag gibt es in dieser Reise nicht mehr.",
     "noLogistics": "Hier erscheinen die Verbindungen und Buchungen dieser Reise – noch ist keine verknüpft.",
     "railCount_one": "{{count}} Fahrt",
     "railCount_other": "{{count}} Fahrten",
+    "busCount_one": "{{count}} Fahrt",
+    "busCount_other": "{{count}} Fahrten",
     "rentalCount_one": "{{count}} Miete",
     "rentalCount_other": "{{count}} Mieten",
     "albumsCount_one": "{{count}} Album",
@@ -264,7 +286,29 @@
     "currency": "Währung",
     "save": "Speichern",
     "cancel": "Abbrechen",
-    "saved": "Buchung aktualisiert"
+    "saved": "Buchung aktualisiert",
+    "createTitle": "Pauschalbuchung anlegen",
+    "add": "+ Pauschalbuchung",
+    "operator": "Veranstalter",
+    "bookedOn": "Gebucht am",
+    "bookedOnHint": "Der Preis wird zum Kurs dieses Tages umgerechnet.",
+    "travellers": "Anzahl Personen",
+    "travellersInvalid": "Bitte eine ganze Zahl von 1 bis 50 eingeben.",
+    "forPersons_one": "für {{count}} Person",
+    "forPersons_other": "für {{count}} Personen",
+    "created": "Buchung angelegt",
+    "delete": "Buchung löschen",
+    "deleteConfirm": "Buchung löschen? Flüge, Aufenthalte und Kreuzfahrten bleiben erhalten und gehören dann zu keiner Buchung mehr.",
+    "deleted": "Buchung gelöscht",
+    "entriesFailed": "Buchung gespeichert, aber die gewählten Einträge konnten nicht zugeordnet werden. Bitte erneut versuchen.",
+    "entries": {
+      "hint": "Was deckt diese Buchung ab?",
+      "flights": "Flüge",
+      "stays": "Aufenthalte",
+      "cruises": "Kreuzfahrten",
+      "none": "Diese Reise hat noch keine Flüge, Aufenthalte oder Kreuzfahrten, die der Buchung zugeordnet werden könnten.",
+      "otherBooking": "(gehört zu einer anderen Buchung)"
+    }
   },
   "addExisting": {
     "title": "Vorhandenen Eintrag hinzufügen",
@@ -386,7 +430,9 @@
     "deleteError": "Foto konnte nicht gelöscht werden",
     "empty": "Noch keine Fotos — lade die ersten Erinnerungen dieser Reise hoch.",
     "fromLibrary": "Aus der Fotobibliothek",
-    "fromLibraryAlt": "Foto aus der Fotobibliothek"
+    "fromLibraryAlt": "Foto aus der Fotobibliothek",
+    "tooLarge": "„{{name}}“ ist zu groß — ein Foto darf höchstens {{maxMb}} MB haben. Es wurde nicht hochgeladen.",
+    "tooLargeServer": "Ein Foto ist zu groß — erlaubt sind höchstens {{maxMb}} MB pro Foto. Nichts wurde hochgeladen."
   },
   "insights": {
     "longest": "Längste Reise",
@@ -486,7 +532,9 @@
         "noDatedStops": "Die Stationen dieses Abschnitts haben kein Datum – daraus lässt sich kein Zeitraum für Dawarich ableiten.",
         "windowInvalid": "Der Zeitraum endet vor seinem Beginn.",
         "windowEmpty": "Dawarich hat für diesen Zeitraum keine Standortdaten.",
-        "tooFewPoints": "Dawarich hat für diesen Zeitraum nur einen Standortpunkt – zu wenig für einen Track."
+        "tooFewPoints": "Dawarich hat für diesen Zeitraum nur einen Standortpunkt – zu wenig für einen Track.",
+        "doesNotCoverLeg": "Diese Aufzeichnung kommt nicht in die Nähe beider Stationen dieser Etappe – vermutlich ein anderer Tag oder Ort. Die Etappe bleibt, wie sie war.",
+        "gapInLeg": "Die Aufzeichnung setzt zwischen den beiden Stationen aus; ein Teil des Wegs wurde nie aufgezeichnet. Die Etappe bleibt, wie sie war."
       },
       "pointCount_one": "{{count}} Punkt",
       "pointCount_other": "{{count}} Punkte",
@@ -585,6 +633,12 @@
       "message_one": "„{{name}}“ hat {{count}} erfasste Ausgabe und gehört zu keiner Reise, die sie übernehmen könnte. Beim Löschen geht sie mit.",
       "message_other": "„{{name}}“ hat {{count}} erfasste Ausgaben und gehört zu keiner Reise, die sie übernehmen könnte. Beim Löschen gehen sie mit.",
       "confirm": "Mit Kosten löschen"
+    },
+    "assignErrors": {
+      "notOwned": "Ein gewählter Halt gehört nicht zu dieser Reise oder Tour. Lade die Seite neu und wähle noch einmal.",
+      "noCoordinate": "Ein gewählter Halt hat keinen Ort. Gib ihm im Reiseverlauf erst einen Ort, dann lässt er sich zuordnen.",
+      "inOtherSection": "Ein gewählter Halt gehört schon zu einem anderen Streckenabschnitt. Nimm ihn dort zuerst heraus.",
+      "claimedMeanwhile": "Ein Halt wurde gerade von einer anderen Änderung einem Abschnitt zugeordnet. Nichts wurde gespeichert – versuche es noch einmal."
     }
   },
   "head": {
@@ -609,5 +663,88 @@
   "photoWindow": {
     "title": "Fotos aus der Reise",
     "alt": "Foto aus der Reise"
-  }
+  },
+  "export": {
+    "button": "Reise exportieren",
+    "title": "Reise exportieren",
+    "intro": "Lädt die Reise mit allen Einträgen als .travstats-Datei herunter. Eine andere TravStats-Instanz kann sie unter „Reise hinzufügen“ einlesen.",
+    "leavesServer": "Die Datei verlässt den Server: Wer sie bekommt, kann alles darin lesen. Wähle nur, was mit soll.",
+    "options": {
+      "documents": "Dokumente mitgeben",
+      "documentsHint": "Gespeicherte Belege wie Tickets und Rechnungen.",
+      "photos": "Fotos mitgeben",
+      "photosHint": "Die hochgeladenen Fotos der Reise.",
+      "private": "Persönliche Angaben mitgeben",
+      "privateHint": "Sitzplatz, Kabine, eigener Preis, Bewertungen, Notizen, Tagebuch und die Namen deiner Mitreisenden."
+    },
+    "download": "Herunterladen",
+    "downloading": "Datei wird erstellt …",
+    "done": "Die Datei wurde heruntergeladen.",
+    "errors": {
+      "failed": "Die Datei konnte nicht erstellt werden. Bitte versuche es erneut.",
+      "notFound": "Diese Reise gibt es nicht mehr.",
+      "rateLimited": "Zu viele Exporte in kurzer Zeit. Bitte warte ein paar Minuten."
+    }
+  },
+  "dawarichStays": {
+    "title": "Dawarich-Aufenthalte",
+    "description": "Aus deinen eigenen Dawarich-Positionsdaten werden alle sechs Stunden mögliche Aufenthalte der letzten sieben Tage erkannt. Es entstehen nur Vorschläge: Ein Besuch wird erst nach deiner Bestätigung eingetragen. Dies aktiviert weder den Immich-Scan noch die Ländererkennung.",
+    "enable": "Aufenthalte automatisch erkennen",
+    "ownConnection": "Speichere zuerst deine eigene Dawarich-Verbindung. Eine gemeinsam konfigurierte Verbindung reicht hierfür nicht.",
+    "scan": "Jetzt auswerten",
+    "running": "Auswertung läuft …",
+    "inbox": "Vorschläge prüfen",
+    "window": "Geprüfter Zeitraum",
+    "dataThrough": "Neuester gelieferter Punkt",
+    "scanCount": "Punkte: {{points}} · Neue Vorschläge: {{created}}",
+    "error": "Die Aktion konnte nicht abgeschlossen werden. Bitte prüfe die Verbindung und lade erneut.",
+    "filter": "Vorschläge anzeigen",
+    "loading": "Vorschläge werden geladen …",
+    "empty": "Keine Vorschläge in dieser Ansicht.",
+    "unnamed": "Möglicher Aufenthalt",
+    "evidence": "{{count}} Positionspunkte · größte Lücke {{gap}} Minuten",
+    "provenance": "Herkunft und Belege",
+    "detected": "Erkannt",
+    "resolved": "Bearbeitet",
+    "points": "Dawarich-Punkt-IDs",
+    "place": "Ort",
+    "newPlace": "Neuen Ort anlegen",
+    "name": "Name",
+    "latitude": "Breitengrad",
+    "longitude": "Längengrad",
+    "localTime": "Uhrzeiten gelten lokal am gewählten Ort. Die Zeitzone wird aus seinen Koordinaten ermittelt.",
+    "start": "Beginn",
+    "end": "Ende",
+    "trip": "Reise",
+    "noTrip": "Ohne Reisezuordnung",
+    "accept": "Prüfen und übernehmen",
+    "reject": "Verwerfen",
+    "openVisit": "Eintrag öffnen",
+    "tripConflict": "Der vorhandene Besuch ist einer anderen Reise zugeordnet. Bitte prüfe die Reiseauswahl.",
+    "invalidInterval": "Das Ende muss nach dem Beginn liegen; ein bestätigter Aufenthalt darf nicht in der Zukunft liegen.",
+    "ambiguousTime": "Diese lokale Uhrzeit ist wegen einer Zeitumstellung nicht eindeutig oder existiert nicht. Bitte korrigiere sie.",
+    "result": {
+      "running": "Auswertung läuft",
+      "succeeded": "Auswertung abgeschlossen",
+      "partial": "Nur ein Teil der Daten wurde geliefert",
+      "failed": "Auswertung fehlgeschlagen",
+      "interrupted": "Auswertung unterbrochen; bitte erneut starten"
+    },
+    "status": {
+      "pending": "Zu prüfen",
+      "accepted": "Übernommen",
+      "rejected": "Verworfen"
+    },
+    "uncertainty": {
+      "sourceUnknown": "Dawarich unterscheidet hier nicht zuverlässig zwischen GPS-Aufzeichnung und rekonstruierten Foto-Positionen. Dies ist kein Nachweis einer Übernachtung.",
+      "accuracyUnknown": "Für einige Punkte ist die Positionsgenauigkeit unbekannt.",
+      "signalGaps": "Zwischen den Punkten liegen Signallücken. Die Anwesenheit dazwischen ist nicht belegt.",
+      "outliersIgnored": "Einzelne Positionssprünge wurden bei der Erkennung ausgelassen.",
+      "truncated": "Dawarich hat nur einen Teil des angefragten Zeitraums geliefert.",
+      "tripAmbiguous": "Mehrere Reisen passen zum Zeitraum. Bitte wähle die richtige Zuordnung.",
+      "placeAmbiguous": "Mehrere gespeicherte Orte liegen in der Nähe. Bitte prüfe den Ort."
+    },
+    "existingVisit": "Für diesen Zeitraum wurde bereits ein Besuch gefunden. Bei der Übernahme wird geprüft, ob dein Vorschlag damit verknüpft werden kann."
+  },
+  "deleteTripConfirmWithRail": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. Flüge, Kreuzfahrten, Bahnfahrten, Unterkünfte und Trips bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren."
 }

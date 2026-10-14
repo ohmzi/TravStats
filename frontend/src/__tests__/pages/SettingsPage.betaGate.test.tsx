@@ -1,3 +1,4 @@
+vi.mock("../../components/Settings/DawarichStayScanCard", () => ({ default: () => null }));
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -8,6 +9,20 @@ import { useSettingsStore } from "../../store/settingsStore";
 // per group), so every section in the group loads its data on mount. Each of
 // these escaped to the network once main's guard started counting (forgejo#110).
 // The modules below are the ones the sections import directly.
+// Shared trips (2026-10-09): the trip overview, the settings and the inbox
+// read the sharing API on mount; answered empty so no request escapes.
+vi.mock("@/lib/api/sharing", () => ({
+  sharingApi: {
+    tripSharing: vi
+      .fn()
+      .mockResolvedValue({ groupId: null, members: [], candidates: [], bookingTotals: [] }),
+    listConsents: vi.fn().mockResolvedValue({ incoming: [], outgoing: [] }),
+    listCompanions: vi.fn().mockResolvedValue({ companions: [], linkableUsers: [] }),
+    listNotices: vi.fn().mockResolvedValue([]),
+    inboxCount: vi.fn().mockResolvedValue(0),
+  },
+}));
+
 vi.mock("@/lib/api/twoFactor", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api/twoFactor")>();
   return {
@@ -81,6 +96,10 @@ vi.mock("../../components/Settings/DevicesSection", () => ({
 // MEDIUM-1 (final whole-phase review, 2026-08-29): stubbed the same way
 // DevicesSection is above — its own fetches on mount are irrelevant to
 // whether the beta gate mounts it at all.
+// Fetches the user's settings on mount (P5 home country) — not the subject here.
+vi.mock("../../components/Settings/HomeCountryCard", () => ({
+  default: () => <div data-testid="home-country-card" />,
+}));
 vi.mock("../../components/Settings/DawarichConnectionCard", () => ({
   default: () => <div data-testid="dawarich-connection-card" />,
 }));
@@ -89,6 +108,13 @@ vi.mock("../../components/Settings/StravaConnectionCard", () => ({
 }));
 vi.mock("../../components/Settings/ImmichConnectionCard", () => ({
   default: () => <div data-testid="immich-connection-card" />,
+}));
+vi.mock("../../components/Settings/PhotoJourneyNightlyScanCard", () => ({
+  default: () => <div data-testid="photo-journey-nightly-scan-card" />,
+}));
+// Public share links (forgejo#281) load their list on mount — not the subject here.
+vi.mock("../../components/Settings/ShareLinksSection", () => ({
+  default: () => <div data-testid="share-links-section" />,
 }));
 vi.mock("../../components/Settings/RoutingProviderSection", () => ({
   default: () => <div data-testid="routing-provider-section" />,

@@ -121,6 +121,10 @@ function flightEnds(f: JourneyFlightRow): {
         actualArrival: null,
         runwayDepartureTime: null,
         runwayArrivalTime: null,
+        // Upstream's online check-in columns on the shared `FlightTimeColumns`
+        // — not read here; the span asks only for departure and arrival.
+        onlineCheckInOpensAt: null,
+        onlineCheckInZone: null,
       },
       { dep: null, arr: null }
     );

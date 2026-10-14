@@ -11,6 +11,7 @@
  */
 
 import { getCachedAirports } from "../airportCache";
+import { flightEndZone, tzMapFromAirports } from "./departureClock";
 import { localWallClockOf, type FlightTimeSemantics } from "../../utils/timezone";
 import { normalizeCountrySet } from "../../shared/countryEvidence";
 import type { CountryStat, CountryStatsResponse } from "../../schemas/statsFlights";
@@ -23,6 +24,10 @@ export interface CountryRow {
   arrIcao: string | null;
   departureTime: Date | null;
   depTimeSemantics: string;
+  /** The zone the departure was written with; absent → today's catalogue zone. */
+  depTimezone?: string | null;
+  /** `year`/`month` for a placeholder date (forgejo#256). */
+  depPrecision?: string | null;
 }
 
 /**
@@ -46,18 +51,48 @@ export function isoCodes(values: Iterable<string>): string[] {
   return [...normalizeCountrySet(values)].sort();
 }
 
+/** The code an end is looked up by: IATA, else ICAO — `||`, so an empty IATA falls through. */
+const endCode = (iata: string | null, icao: string | null): string | null => iata || icao || null;
+
+/** The bucket of an end whose country nobody can name — said, never dropped. */
+export const UNKNOWN_COUNTRY = "Unknown";
+
+/**
+ * The countries ONE flight touches, as the distribution counts them — the one
+ * home of that rule, read by `computeCountryStats` and by the country
+ * ranking's evidence (forgejo#256).
+ *
+ * BOTH ends count, and both the same way: an end that names an airport code
+ * counts as the catalogue's country of that airport, else `Unknown` (a code
+ * the catalogue cannot place is still a place); an end that names no code at
+ * all is no evidence of anywhere and counts nowhere. It used to differ by end:
+ * a departure without a code counted as Unknown while an arrival without one
+ * was dropped. A Set, so a domestic leg (or a leg with two unknown ends) is
+ * ONE visit.
+ */
+export function countriesTouchedBy(
+  f: Pick<CountryRow, "depIata" | "depIcao" | "arrIata" | "arrIcao">,
+  airportMap: ReadonlyMap<string, { country?: string | null } | null | undefined>
+): Set<string> {
+  const touched = new Set<string>();
+  for (const code of [endCode(f.depIata, f.depIcao), endCode(f.arrIata, f.arrIcao)]) {
+    if (code) touched.add(airportMap.get(code)?.country || UNKNOWN_COUNTRY);
+  }
+  return touched;
+}
+
 export async function computeCountryStats(
   flights: ReadonlyArray<CountryRow>
 ): Promise<CountryStatsResponse> {
   const airportCodes = new Set<string>();
   for (const f of flights) {
-    if (f.depIata) airportCodes.add(f.depIata);
-    else if (f.depIcao) airportCodes.add(f.depIcao);
-    if (f.arrIata) airportCodes.add(f.arrIata);
-    else if (f.arrIcao) airportCodes.add(f.arrIcao);
+    for (const code of [endCode(f.depIata, f.depIcao), endCode(f.arrIata, f.arrIcao)]) {
+      if (code) airportCodes.add(code);
+    }
   }
 
   const airportMap = await getCachedAirports([...airportCodes]);
+  const tzMap = tzMapFromAirports(airportMap);
 
   const countryCounts = new Map<string, number>();
   const countriesByYear = new Map<number, Set<string>>();
@@ -66,19 +101,7 @@ export async function computeCountryStats(
     // FRA -> LHR reported "Länder besucht: 1" and the United Kingdom
     // appeared nowhere — the KPI says VISITED, and landing somewhere is
     // the clearest way to visit it (#233).
-    const depCode = f.depIata ?? f.depIcao;
-    const arrCode = f.arrIata ?? f.arrIcao;
-    const depAirport = depCode ? airportMap.get(depCode) : undefined;
-    const arrAirport = arrCode ? airportMap.get(arrCode) : undefined;
-
-    // A Set per flight, so a domestic leg is ONE visit to that country
-    // rather than two. Across flights the counts still accumulate, which
-    // keeps `countries` usable as a ranking.
-    const touched = new Set<string>();
-    touched.add(depAirport?.country ?? "Unknown");
-    // Only when an arrival airport is actually on file — otherwise an
-    // incomplete row would invent a second "Unknown" visit.
-    if (arrCode) touched.add(arrAirport?.country ?? "Unknown");
+    const touched = countriesTouchedBy(f, airportMap);
 
     for (const country of touched) {
       countryCounts.set(country, (countryCounts.get(country) ?? 0) + 1);
@@ -87,15 +110,18 @@ export async function computeCountryStats(
     // An undated flight cannot be attributed to a year. It stays in the
     // lifetime tally rather than being guessed into the current one.
     if (!f.departureTime) continue;
-    // The timezone lives on the airport, not the flight — same source the
-    // flight list uses to derive depTimezone. Both endpoints land in the
-    // DEPARTURE year: a red-eye that lands after midnight is still one
-    // journey, and splitting its two ends across two years would count a
-    // country as visited in a year the traveller never flew.
+    // The zone the flight was written with, else today's catalogue zone
+    // (`flightEndZone`, the chain every other flight figure reads) — so a
+    // catalogue correction cannot move a past flight's year here alone
+    // (forgejo#273). Both endpoints land in the DEPARTURE year: a red-eye
+    // that lands after midnight is still one journey, and splitting its two
+    // ends across two years would count a country as visited in a year the
+    // traveller never flew.
     const year = localWallClockOf(
       f.departureTime,
-      depAirport?.timezone ?? null,
-      f.depTimeSemantics as FlightTimeSemantics
+      flightEndZone(f.depTimezone, tzMap, f.depIata, f.depIcao),
+      f.depTimeSemantics as FlightTimeSemantics,
+      f.depPrecision
     ).year;
     if (!Number.isFinite(year)) continue;
     const bucket = countriesByYear.get(year) ?? new Set<string>();

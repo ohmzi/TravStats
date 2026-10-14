@@ -33,6 +33,7 @@ import {
 } from "./allTabLegendRows";
 import { useRailOverlay } from "./railMapOverlay";
 import { useRentalOverlay } from "./rentalMapOverlay";
+import { useBusOverlay } from "./busMapOverlay";
 import { useRailVisible } from "../../../hooks/useRailVisible";
 import { useRentalVisible } from "../../../hooks/useRentalVisible";
 import { MAP_LAYER_COLORS } from "../../../types/mapTheme";
@@ -336,17 +337,23 @@ export function AllTab(): JSX.Element {
     [navigate]
   );
 
+  // Stores the update only; the dialog closes itself after the trip move, and
+  // the map refresh runs after both (`onAfterSave`). A failed refresh used to
+  // be reported as a failed save of an edit that was stored.
   const handleFlightSave = useCallback(
     async (id: string, updates: Partial<FlightInput>): Promise<void> => {
       await flightsApi.update(id, updates);
-      // Refresh GeoJSON so the map reflects the edit; full-flight lookup
-      // will catch up on the next mount.
-      const collection = await flightsApi.getAllGeoJSON();
-      setFlights(collection.features);
-      setEditingFlight(null);
     },
     []
   );
+  // Refresh GeoJSON so the map reflects the edit; full-flight lookup will
+  // catch up on the next mount.
+  const refreshFlightsAfterSave = useCallback((): void => {
+    flightsApi
+      .getAllGeoJSON()
+      .then((collection) => setFlights(collection.features))
+      .catch((err: unknown) => logger.warn({ err }, "AllTab: map refresh after edit failed"));
+  }, []);
 
   // Domain-gating: a disabled domain's data is never fetched, not just
   // hidden at render time.
@@ -506,10 +513,11 @@ export function AllTab(): JSX.Element {
   const rail = useRailOverlay(railOn, visMode === "globe", t);
   const rentalOn = useRentalVisible() && showTours && domainFilter.isVisible("rental");
   const rental = useRentalOverlay(rentalOn, visMode === "globe", t);
+  const bus = useBusOverlay(showTours && domainFilter.isVisible("bus"), visMode === "globe", t);
   const tourDeck = useTourDeckLayers(tourPathData, visMode === "globe", handleTourPick);
   const tourLayers = useMemo<Layer[]>(
-    () => [...tourDeck, ...rail.layers, ...rental.layers],
-    [tourDeck, rail.layers, rental.layers]
+    () => [...tourDeck, ...rail.layers, ...bus.layers, ...rental.layers],
+    [tourDeck, rail.layers, bus.layers, rental.layers]
   );
 
   // The activity toggle stays top-left (it opens the activity sidebar).
@@ -563,6 +571,7 @@ export function AllTab(): JSX.Element {
     // the key is shut — and be missing from the count on the button.
     ...(tourHasData ? tourLegend.rows : []),
     ...rail.legendRows,
+    ...bus.legendRows,
     ...rental.legendRows,
   ];
 
@@ -609,6 +618,7 @@ export function AllTab(): JSX.Element {
       isOpen={true}
       onClose={() => setEditingFlight(null)}
       onSave={handleFlightSave}
+      onAfterSave={refreshFlightsAfterSave}
     />
   );
 

@@ -22,7 +22,17 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response, next: Next
       // decided in JS below, so a DB-level sort would be redundant work.
       include: {
         _count: {
-          select: { flights: true, trips: true, cruises: true, rail: true, rentals: true },
+          select: {
+            flights: true,
+            trips: true,
+            cruises: true,
+            rail: true,
+            rentals: true,
+            bus: true,
+            ferry: true,
+            // Who paid an expense (forgejo#150): a person the user travels with.
+            expensesPaid: true,
+          },
         },
       },
     });
@@ -36,7 +46,10 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response, next: Next
           row._count.trips +
           row._count.cruises +
           row._count.rail +
-          row._count.rentals,
+          row._count.rentals +
+          row._count.bus +
+          row._count.ferry +
+          row._count.expensesPaid,
       }))
       .sort((a, b) => b.usageCount - a.usageCount || a.name.localeCompare(b.name));
 

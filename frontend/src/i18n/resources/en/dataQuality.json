@@ -33,6 +33,10 @@
       "home": {
         "title": "Home",
         "description": "Your home is not fully set up yet. Nothing changes until you confirm it."
+      },
+      "records": {
+        "title": "Check entries",
+        "description": "Duplicate, overlapping or incomplete entries. We change nothing — you decide."
       }
     },
     "photoJourneys": {
@@ -58,14 +62,7 @@
         "trip": "Accepting creates a trip covering these dates.",
         "placeVisit": "Accepting records a visit to this place on the first day.",
         "stayAnswerOnly": "Accepting only marks the question answered. A stay needs a lodging this finding does not name — you create that yourself.",
-        "placeMissingAnswerOnly": "Accepting only marks the question answered. The place this finding named no longer exists — nothing is created.",
-        "visitInTrip": "Accepting creates the place and records a visit in the trip at the time of the first photo.",
-        "visitInTripOwnPlace": "Accepting records a visit to this place in the trip at the time of the first photo — the place already exists."
-      },
-      "nameField": {
-        "label": "Name of the place",
-        "hint": "The lookup found nothing named here — give the place a name so it can be created.",
-        "placeholder": "e.g. Gyeongbokgung"
+        "placeMissingAnswerOnly": "Accepting only marks the question answered. The place this finding named no longer exists — nothing is created."
       },
       "actions": {
         "accept": "Accept",
@@ -87,8 +84,7 @@
         "accepted": {
           "trip": "Trip created.",
           "placeVisit": "Visit recorded at the place.",
-          "none": "Marked as answered. Nothing was created.",
-          "serverVisit": "Visit recorded in the trip."
+          "none": "Marked as answered. Nothing was created."
         },
         "dismissed": "Dismissed. This burst will not be suggested again.",
         "photosLinked": "{{count}} photos linked to the visit.",
@@ -103,7 +99,61 @@
           "trip": "The trip was created, but the suggestion could not be marked as accepted — trying again only links it.",
           "placeVisit": "The visit was recorded, but the suggestion could not be marked as accepted — trying again only links it."
         },
-        "dismissFailed": "The suggestion could not be dismissed."
+        "dismissFailed": "The suggestion could not be dismissed.",
+        "scanFailedImmich": "The photo scan failed: {{reason}}"
+      },
+      "nightlyLink": "Set up the nightly scan",
+      "review": {
+        "title": "Visit suggestions from your trips",
+        "description": "Photos taken during a recorded trip at a spot with no visit. Select several and accept or reject them together; place, name and time can be corrected first. Rejected suggestions do not come back.",
+        "selectAll": "Select all",
+        "selectOne": "Select {{label}}",
+        "selected": "{{count}} selected",
+        "working": "Saving …",
+        "acceptSelected": "Accept selected ({{count}})",
+        "dismissSelected": "Reject selected ({{count}})",
+        "acceptCorrected": "Accept with corrections",
+        "unnamedSelected": "{{count}} selected suggestion has no name yet — enter one under “Correct” or pick one of your places.",
+        "unnamedSelected_other": "{{count}} selected suggestions have no name yet — enter one under “Correct” or pick one of your places.",
+        "nameNeeded": "The lookup found nothing named here — enter a name under “Correct” or pick one of your places.",
+        "correct": "Correct",
+        "correctClose": "Close correction",
+        "reasonLabel": "Reasoning",
+        "reason": {
+          "dwell": "over {{minutes}} min",
+          "nearest": "nearest logged visit: {{name}}, {{distance}}",
+          "noNearest": "no logged visit in this trip"
+        },
+        "alreadyVisited": "Since the scan, “{{name}}” was logged right next to it on the same day. Accepting would record the stop twice — reject it, or pick that place under “Correct”.",
+        "correction": {
+          "place": "Place",
+          "placeNew": "Suggested is a new place at this spot. Or pick one of your places:",
+          "placeOwnSuggested": "Suggested is your own place right next to it. Or pick another:",
+          "placeChosen": "Own place: {{name}}",
+          "resetPlace": "Back to the suggestion",
+          "name": "Name of the place",
+          "localName": "Name in local script (optional)",
+          "time": "Time of the visit (local time)",
+          "timeHint": "Defaults to the first photo.",
+          "timeUnavailable": "No time zone is known for this spot — the visit is recorded at the first photo's time."
+        },
+        "summary": "{{accepted}} accepted, {{dismissed}} rejected, {{failed}} not done.",
+        "failedHeading": "Not done ({{count}}):",
+        "requestFailed": "The server's answer did not arrive — it is unclear which suggestions were saved. The list was reloaded; whatever is still there is open.",
+        "failure": {
+          "NOT_FOUND": "this suggestion no longer exists.",
+          "ALREADY_ANSWERED": "this suggestion was already answered.",
+          "NOT_A_VISIT": "only visit suggestions can be accepted here.",
+          "VISIT_NAME_REQUIRED": "the place needs a name — enter one under “Correct”.",
+          "VISIT_PLACE_NOT_FOUND": "the chosen place no longer exists — pick another under “Correct”.",
+          "TIME_INVALID": "the time could not be read at this place (for example a clock time that does not exist because of a DST change).",
+          "INTERNAL": "unexpected error on the server — please try again."
+        },
+        "creates": {
+          "newPlace": "Accepting creates the place and records a visit in the trip — at the time of the first photo unless you correct it.",
+          "ownPlace": "Accepting records a visit to your own place right next to it in the trip — the place already exists.",
+          "chosenPlace": "Accepting records the visit at “{{name}}”; no new place is created. If it already has a visit that day, the suggestion is linked to it."
+        }
       }
     },
     "messages": {
@@ -198,6 +248,128 @@
         "endBeforeStart": "The end is before the start.",
         "noMembers": "Choose at least one entry."
       }
+    },
+    "workspace": {
+      "title": "Overview",
+      "heading": "Open questions and suggestions",
+      "intro": "Questions and suggestions with evidence and editable fields. Choose the view that suits your task.",
+      "viewLabel": "Choose view",
+      "views": {
+        "cards": "Cards",
+        "list": "List",
+        "journey": "By trip"
+      },
+      "search": "Search",
+      "searchHint": "Trip, place, issue or date …",
+      "refresh": "Refresh",
+      "recheck": "Recheck records",
+      "filterLabel": "Filter by type",
+      "sources": {
+        "all": "All",
+        "review": "Needs review",
+        "trips": "Trip suggestions",
+        "updates": "Flight updates",
+        "photos": "Photo suggestions",
+        "tripContext": "Trip assignments",
+        "dawarich": "GPS stays"
+      },
+      "later": "Deferred",
+      "laterHint": "These items are deferred for this visit only. No data has been changed.",
+      "loadFailed": "Some sections could not be loaded:",
+      "retry": "Retry",
+      "checkFailed": "The check failed. Please try again.",
+      "loading": "Loading inbox …",
+      "shown": "Showing {{count}} items",
+      "incomplete": "This overview is incomplete. Retry the missing sections.",
+      "noMatches": "No matching items. Change the search or filter.",
+      "empty": "All loaded questions and suggestions are resolved.",
+      "itemList": "Inbox items",
+      "back": "Back to list",
+      "previous": "Previous",
+      "next": "Next",
+      "groupCount": "{{count}} open questions and suggestions",
+      "restore": "Return to open items",
+      "postpone": "Later during this visit",
+      "knownTrip": "Linked trip",
+      "proposedTrip": "Possible new trip: {{name}}",
+      "unassigned": "No known trip assignment",
+      "unknownDay": "Travel day not yet known",
+      "flightChanges": "Update {{count}} flight details?",
+      "evidence": "What needs attention?",
+      "why": "Why this suggestion?",
+      "yourAnswer": "Your decision",
+      "questionHint": "This is an open question. The records have not been changed.",
+      "start": "Start",
+      "end": "End",
+      "invalidDates": "Choose valid dates: the end cannot precede the start.",
+      "saveDates": "Save and check trip dates",
+      "tripEffect": "Changes only the trip dates. Linked entries keep their dates. The question is then checked again.",
+      "flightNumber": "Flight number",
+      "saveNumber": "Save and check flight number",
+      "numberEffect": "Adds this flight’s number, then checks the question again.",
+      "editFlight": "Edit flight here",
+      "openRecord": "Open and edit record",
+      "source": "Source",
+      "compare": "Stored and proposed",
+      "stored": "Stored",
+      "proposed": "Your new value",
+      "flightEffect": "Applies the displayed changes to this flight. Review the values before saving.",
+      "applyFlight": "Apply changes to flight",
+      "keepFlight": "Keep stored values",
+      "expired": "This proposal has expired. Please refresh the inbox.",
+      "editProposal": "Edit proposal",
+      "tripName": "Trip name",
+      "photoEvidence": "{{photos}} photos, {{located}} with a location. They are evidence of a possible visit.",
+      "completeFields": "Please complete the name and required dates.",
+      "dismissPhoto": "Dismiss suggestion",
+      "photoLinkFailed": "The entry was created, but linking failed. Accepting again links the same entry.",
+      "saveFailed": "The action could not be confirmed. Your edits have been kept. Check the current state before retrying.",
+      "savedCheckFailed": "Saved. The subsequent check failed; choose “Recheck records”.",
+      "staleSource": "This section could not be refreshed. Reload it before saving a decision.",
+      "working": "Working …",
+      "recordedContext": "Show recorded flights, stays and stops",
+      "contextFailed": "Could not load the trip timeline.",
+      "recorded": "Recorded",
+      "fullTrip": "Open full trip timeline",
+      "proposal": {
+        "new_trip": "These entries may form a trip",
+        "assign": "{{count}} entries may belong to this trip",
+        "extend": "Entries fall outside the trip dates",
+        "place_visit": "Add a possible place visit",
+        "assign_one": "One entry may belong to this trip",
+        "assign_other": "{{count}} entries may belong to this trip"
+      },
+      "acceptProposal": {
+        "new_trip": "Create trip with selected entries",
+        "assign": "Link selected entries",
+        "extend": "Apply dates and assignments",
+        "place_visit": "Record visit"
+      },
+      "dismissProposal": {
+        "new_trip": "These do not form a trip",
+        "assign": "Does not belong to this trip",
+        "extend": "Keep trip as it is",
+        "place_visit": "No visit to this place"
+      },
+      "acceptPhoto": {
+        "visit": "Record visit with these details",
+        "trip": "Create trip with these details",
+        "placeVisit": "Record visit",
+        "stayAnswerOnly": "Acknowledge · does not create a stay",
+        "placeMissingAnswerOnly": "Acknowledge · does not create a visit"
+      },
+      "editHere": "Edit here",
+      "editNamed": "Edit {{name}}",
+      "recordLoadFailed": "Could not load this entry. Please retry.",
+      "stay": "Stay",
+      "gpsProposal": "Add a possible stay from GPS data",
+      "recheckAll": "Recheck",
+      "shown_one": "Showing 1 item",
+      "shown_other": "Showing {{count}} items",
+      "groupCount_one": "1 open item",
+      "groupCount_other": "{{count}} open items",
+      "flightChanges_one": "Update one flight detail?",
+      "flightChanges_other": "Update {{count}} flight details?"
     }
   },
   "flag": {
@@ -219,7 +391,8 @@
       "trip_journal_entry": "Journal entry",
       "lodging_stay": "Stay",
       "profile": "Profile",
-      "home": "Home"
+      "home": "Home",
+      "bus_journey": "Bus ride"
     },
     "status": {
       "open": "Open",
@@ -237,7 +410,8 @@
       }
     },
     "timeUnchanged": "Nothing was changed on the entry. The time stays as it was stored until you fill it in.",
-    "homeSubject": "Your home"
+    "homeSubject": "Your home",
+    "recordUnchanged": "Nothing about the entry was changed, and it keeps counting as before."
   },
   "kinds": {
     "address_country_mismatch": {
@@ -285,6 +459,69 @@
       "body": "So far TravStats only knows your home airport ({{airports}}) and measures distances from there. Confirm where you live and pick up to three airports you fly from.",
       "unchanged": "Until you confirm, every statistic stays exactly as it was.",
       "action": "Set up your home"
+    },
+    "duplicate_candidate": {
+      "title": "Possible duplicate",
+      "question": "This entry looks like a second copy of another — the same {{fields}}. Is it the same journey twice?",
+      "thisSource": "This entry: {{source}}",
+      "copiesTitle": "Looks like:",
+      "copyMeta": "({{source}}, added on {{date}})",
+      "safePath": "If so: open the extra copy, delete it there, then tap “I have corrected it”. If these are two real entries, tap “This is correct as it is”.",
+      "fields": {
+        "flightNumber": "flight number",
+        "trainNumber": "train number",
+        "lineName": "line",
+        "route": "route",
+        "departureDay": "travel day",
+        "departureTime": "departure time",
+        "lodging": "lodging",
+        "stayDates": "check-in and check-out day",
+        "ship": "ship",
+        "cruiseDates": "cruise dates"
+      },
+      "sources": {
+        "unknown": "source unknown",
+        "manual": "typed by hand",
+        "email_import": "from an email",
+        "boarding_pass_scan": "from a boarding pass",
+        "bulk_import": "from an import",
+        "api_lookup": "from a flight lookup"
+      }
+    },
+    "chronology_conflict": {
+      "title": "Entries overlap",
+      "questionFlight": "This flight departs {{minutes}} minutes before the previous one has landed. Both cannot be right — which time is wrong?",
+      "questionStay_one": "This stay shares {{count}} night with a stay at another lodging. Which dates are right?",
+      "questionStay_other": "This stay shares {{count}} nights with a stay at another lodging. Which dates are right?",
+      "this": "This entry",
+      "other": "Other entry",
+      "otherLink": "Overlaps with:",
+      "safePath": "Correct the time or date on the wrong entry. If both are right (two paid lodgings, say), tap “This is correct as it is”."
+    },
+    "flight_number_missing": {
+      "title": "Flight number missing",
+      "question": "No flight number is stored for this {{airline}} flight. Do you know it?",
+      "safePath": "Enter it on the flight. If there is none (a charter without one, say), tap “This is correct as it is”."
+    },
+    "airport_unknown": {
+      "title": "Unknown airport",
+      "question": "The catalogue does not know this airport code. A typo — or an airfield the catalogue is missing?",
+      "side": {
+        "departure": "Departure",
+        "arrival": "Arrival"
+      },
+      "safePath": "Pick the airport again on the flight. If the code is right, tap “This is correct as it is”."
+    },
+    "trip_end_missing": {
+      "title": "Trip without an end",
+      "question": "This trip starts on {{start}} but has no end. When did it end?",
+      "suggestion": "The last linked entry ends on {{day}}.",
+      "safePath": "Enter the end on the trip. If it is still going, tap “This is correct as it is”."
+    },
+    "trip_entries_outside": {
+      "title": "Entries outside the trip",
+      "question": "These entries belong to the trip ({{span}}) but fall outside its days. Are the trip dates right — or does the entry belong to another trip?",
+      "safePath": "Adjust the trip dates or move the entry to another trip."
     }
   },
   "passwordResets": {

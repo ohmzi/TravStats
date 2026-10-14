@@ -27,7 +27,7 @@
     "deleted": "“{{name}}” was deleted.",
     "deleteFailed": "The place could not be deleted.",
     "deleteTitle": "Delete place?",
-    "deleteMessage": "“{{name}}” will be permanently deleted, along with its {{count}} visits. Trips it belongs to are kept.",
+    "deleteMessage": "“{{name}}” will be permanently deleted, along with its {{count}} visits.",
     "columns": {
       "name": "Name",
       "category": "Category",
@@ -51,12 +51,13 @@
       "wishlist": "Wishlist",
       "planned": "Planned"
     },
-    "retry": "Try again",
     "addPlace": "Place",
     "emptyHint": "Add your first place.",
-    "deleteMessage_one": "“{{name}}” will be permanently deleted, along with its one visit. Trips it belongs to are kept.",
-    "deleteMessage_other": "“{{name}}” will be permanently deleted, along with its {{count}} visits. Trips it belongs to are kept.",
-    "deleteMessageNoVisits": "“{{name}}” will be permanently deleted."
+    "deleteMessage_one": "“{{name}}” will be permanently deleted, along with its one visit.",
+    "deleteMessage_other": "“{{name}}” will be permanently deleted, along with its {{count}} visits.",
+    "deleteMessageNoVisits": "“{{name}}” will be permanently deleted.",
+    "addFirst": "Add your first place",
+    "deleteFailedFor": "“{{name}}” was not deleted. {{reason}}"
   },
   "filter": {
     "allStatuses": "All statuses",
@@ -81,12 +82,19 @@
     "onWishlist": "☆ Wishlist",
     "statusHint": "New places go on the wishlist by default and only start counting once you pick “I’ve been here” or record a visit.",
     "notes": "Note",
-    "positionRequired": "A place cannot be saved without a position — search for it, click it on the map, or enter coordinates.",
     "created": "Place added.",
     "updated": "Place saved.",
     "saveFailed": "The place could not be saved.",
     "addToLists": "Add to lists",
-    "listAddFailed": "Could not add to these lists: {{lists}}"
+    "missing": {
+      "position": "Position",
+      "coordinates": "valid coordinates"
+    },
+    "listPartial_one": "Place saved. The list “{{lists}}” did not take it.",
+    "listPartial_other": "Place saved. These lists did not take it: {{lists}}.",
+    "listRetry": "Assign again",
+    "listContinue": "Continue",
+    "forList": "Once saved, the place goes into the list “{{list}}”."
   },
   "detail": {
     "backToList": "Back to the list",
@@ -108,7 +116,6 @@
     "visitFailed": "The visit could not be recorded.",
     "visitDeleteFailed": "The visit could not be deleted.",
     "visitDeleteTitle": "Delete visit?",
-    "visitDeleteMessage": "The visit of {{visit}} will be permanently deleted, along with its photographs. The place itself stays.",
     "notes": "Note",
     "masterData": "Details",
     "position": "Position",
@@ -125,7 +132,11 @@
     "editVisit": "Edit visit",
     "visitUpdated": "Visit saved.",
     "visitUpdateFailed": "The visit could not be saved.",
-    "visitNotFound": "This visit no longer exists at this place."
+    "visitNotFound": "This visit no longer exists at this place.",
+    "visitDeleteMessageNoPhotos": "The visit of {{visit}} will be permanently deleted. The place itself stays.",
+    "visitDeleteMessagePhotos_one": "The visit of {{visit}} will be permanently deleted, along with its proof photo. The place itself stays.",
+    "visitDeleteMessagePhotos_other": "The visit of {{visit}} will be permanently deleted, along with its {{count}} proof photos. The place itself stays.",
+    "deletedViewStale": "Deleted. The view could not be refreshed — reload the page."
   },
   "lists": {
     "title": "Lists",
@@ -154,7 +165,7 @@
     "backToLists": "Back to lists",
     "addPlace": "Add a place",
     "addPlacePlaceholder": "Search a recorded place …",
-    "addNoMatches": "No matching place. Add it under “Places” first.",
+    "addNoMatches": "No matching place in your logbook.",
     "listEmpty": "This list is still empty.",
     "removeFromList": "Remove “{{name}}” from the list",
     "deleteList": "Delete list",
@@ -171,7 +182,15 @@
     "subscribeFailed": "Could not follow that checklist.",
     "moveUp": "Move “{{name}}” up",
     "moveDown": "Move “{{name}}” down",
-    "reorderFailed": "The new order could not be saved."
+    "reorderFailed": "The new order could not be saved.",
+    "nameRequired": "A list needs a name.",
+    "createAndAdd": "Create “{{name}}” as a place and add it",
+    "unassigned": "“{{name}}” is saved but not in this list yet.",
+    "assignAgain": "Assign again",
+    "dismissUnassigned": "Hide",
+    "createTitle": "New list",
+    "createFirst": "Create your first list",
+    "alreadyInList": "“{{name}}” is already in this list."
   },
   "checklist": {
     "notFound": "There is no such checklist.",
@@ -242,11 +261,11 @@
       "link_other": "Link {{count}} photos",
       "linked_one": "{{count}} photo linked.",
       "linked_other": "{{count}} photos linked.",
-      "distance": "{{metres}} m from the place",
       "alt": {
         "trip": "Photo from your trip",
         "library": "Photo from the photo library"
-      }
+      },
+      "distanceShort": "{{metres}} m"
     }
   },
   "stats": {
@@ -289,7 +308,8 @@
       "byMonth": "Visits per month",
       "byWeekday": "Visits per weekday",
       "undatedNote": "{{count}} visits carry no date. They are in the totals but on no chart — they have no day.",
-      "undatedNote_one": "One visit carries no date. It is in the totals but on no chart — it has no day."
+      "undatedNote_one": "One visit carries no date. It is in the totals but on no chart — it has no day.",
+      "charts": "Visits per year, month and weekday"
     },
     "quality": {
       "title": "Ratings",
@@ -310,6 +330,254 @@
       "southernmost": "Southernmost place",
       "onTrips": "Visits on a trip",
       "onTripsDesc": "of {{total}} in total"
+    },
+    "insights": {
+      "title": "Insights",
+      "loadFailed": "The insights could not be loaded.",
+      "lifetime": "across all years",
+      "discoveries": {
+        "title": "Discoveries and returns",
+        "new": "First visits",
+        "again": "Return visits",
+        "yearRow": "{{year}}: {{discoveries}} new · {{revisits}} again",
+        "empty": "Appears once a dated visit is over.",
+        "help": {
+          "unit": "One visit. A first visit is a place's earliest dated visit; every later one is a return.",
+          "time": "Year on the place's own calendar (its time zone), not your device's.",
+          "source": "Your visits to places in your logbook.",
+          "coverage": "{{unordered}} dated visits belong to places with an undated visit — whether they were the first, nobody knows, so they are in neither column. {{withoutDate}} places have no dated visit at all, {{undated}} visits are undated.",
+          "exclusions": "Wishlist places and visits dated in the future do not count."
+        },
+        "before": "first visits · ",
+        "after_one": " return visit",
+        "after_other": " return visits"
+      },
+      "returning": {
+        "title": "Returning after a long break",
+        "years_one": "{{count}} year",
+        "years_other": "{{count}} years",
+        "days_one": "{{count}} day",
+        "days_other": "{{count}} days",
+        "gap": "Longest break ({{from}} → {{to}}):",
+        "empty": "Appears once you return to a place on a second day.",
+        "help": {
+          "unit": "The break between two consecutive visits to the same place; whole years count from anniversary to anniversary.",
+          "time": "Days on the place's own calendar.",
+          "source": "Your dated visits per place. The list names places you visited in several calendar years.",
+          "coverage": "Only visits with a known day measure a break.",
+          "exclusions": "Undated visits, the wishlist and planned visits."
+        }
+      },
+      "variety": {
+        "title": "Variety per trip",
+        "value_one": "{{count}} category",
+        "value_other": "{{count}} categories",
+        "description": "Most different place categories on one trip",
+        "year_one": "{{year}}: {{count}} category in total",
+        "year_other": "{{year}}: {{count}} categories in total",
+        "cities": "Most varied cities: {{cities}}",
+        "empty": "Appears once visits belong to a trip.",
+        "help": {
+          "unit": "One place category (restaurant, landmark, nature …), counted once per trip, city or year.",
+          "time": "A trip counts in the year of its first dated visit; years on the place's own calendar.",
+          "source": "The place's category, the visit's trip, the place's city.",
+          "coverage": "{{withoutTrip}} visits belong to no trip and are missing from the per-trip view.",
+          "exclusions": "The wishlist and planned visits. Cities are told apart by name and country."
+        }
+      },
+      "documentation": {
+        "title": "Documented",
+        "photo": "Visits with a photo",
+        "note": "Visits with a note",
+        "rating": "Visits with a rating",
+        "description": "{{photo}} with a photo · {{note}} with a note · {{rating}} with a rating – of {{count}} visits",
+        "empty": "Appears with the first past visit.",
+        "help": {
+          "unit": "One visit. Photo, note and rating are each counted on their own, never folded into one score.",
+          "time": "Year on the place's own calendar; undated visits count only in the lifetime figure.",
+          "source": "Photos attached to the visit itself, the visit's note and its rating.",
+          "coverage": "A trip photo not attached to any visit does not count here.",
+          "exclusions": "A missing rating is not a bad one — none is ever asked for or filled in."
+        },
+        "photoValue": "{{pct}} with a photo",
+        "noteValue": "{{pct}} with a note",
+        "ratingValue": "{{pct}} with a rating"
+      },
+      "jump": {
+        "title": "Largest jump",
+        "value": "{{km}} km as the crow flies",
+        "empty": "Appears once two visits to different places are recorded in a certain order.",
+        "help": {
+          "unit": "Kilometres in a straight line between two places — explicitly not the distance travelled.",
+          "time": "Two visits that directly follow each other, by day and — on the same day — by time.",
+          "source": "The coordinates of the places you visited.",
+          "coverage": "{{uncertain}} pairs of visits on the same day without a time are in an unknown order and are not measured; {{undated}} visits without a day are in no sequence.",
+          "exclusions": "The wishlist and planned visits."
+        }
+      }
+    },
+    "help": {
+      "visitedPlaces": {
+        "unit": "A place in the logbook that counts as visited — three visits to one café are one place.",
+        "time": "All years: every visited place. A year: a place with a past visit dated in that calendar year (the date entered at the place).",
+        "source": "Your places and their visits (the places list).",
+        "coverage": "A place marked visited without a dated visit counts in the lifetime figure but in no year.",
+        "exclusions": "Places on the wishlist and places whose only visit is still in the future."
+      },
+      "wishlist": {
+        "unit": "A place you have saved but not visited yet.",
+        "time": "Shown only for all years: a wishlist has a state, not a date.",
+        "source": "Your places that do not count as visited.",
+        "coverage": "A place whose only visit is still ahead is listed here: planned is not visited.",
+        "exclusions": "Visited places."
+      },
+      "visits": {
+        "unit": "A visit — three visits to one café are three.",
+        "time": "A visit counts once its date has passed; for a year only visits dated in that year.",
+        "source": "The visits at your visited places.",
+        "coverage": "Undated visits count in the lifetime figure but in no year and in no chart.",
+        "exclusions": "Visits still in the future, and places on the wishlist."
+      },
+      "countries": {
+        "unit": "A country, counted by the place's country code — \"Deutschland\" and \"Germany\" are one country.",
+        "time": "As for \"Places visited\": for a year only places with a visit in that year.",
+        "source": "The country code the place search resolved for each place.",
+        "coverage": "A place without a resolved country code counts in no country.",
+        "exclusions": "Wishlist places; the free-text country name is not read."
+      },
+      "cities": {
+        "unit": "A city, by the name the place search wrote — there is no code for a city.",
+        "time": "As for \"Places visited\".",
+        "source": "The city field of your visited places.",
+        "coverage": "Places without a city count in none; two cities of one name in different countries are one here.",
+        "exclusions": "Wishlist places."
+      },
+      "lists": {
+        "unit": "A list — your own and subscribed checklists alike.",
+        "time": "Shown only for all years: a list is something you keep and belongs to no year.",
+        "source": "Your place lists and the checklists you subscribed to.",
+        "coverage": "Every list counts, an empty one too.",
+        "exclusions": "Checklists you have not subscribed to."
+      },
+      "byCategory": {
+        "unit": "Visited places per category, each place once.",
+        "time": "As for \"Places visited\".",
+        "source": "The category of each visited place.",
+        "coverage": "Every place has exactly one category (unset: \"Other\").",
+        "exclusions": "Wishlist places."
+      },
+      "mostVisited": {
+        "unit": "Visits per place; the name opens the place.",
+        "time": "Past visits count; for a year only that year's.",
+        "source": "The visits of each visited place.",
+        "coverage": "Undated visits count while no year is selected.",
+        "exclusions": "Future visits and places without a counted visit."
+      },
+      "byCountry": {
+        "unit": "Visited places per country, by country code.",
+        "time": "As for \"Places visited\".",
+        "source": "The country code of each visited place.",
+        "coverage": "Places without a resolved country code are missing from this list.",
+        "exclusions": "Wishlist places."
+      },
+      "byCity": {
+        "unit": "Visited places per city, by city name.",
+        "time": "As for \"Places visited\".",
+        "source": "The city field of each visited place.",
+        "coverage": "Places without a city are missing from this list.",
+        "exclusions": "Wishlist places."
+      },
+      "checklists": {
+        "unit": "Ticked entries of a checklist out of all its entries; ordered by share, not by count.",
+        "time": "Shown only for all years: today's state.",
+        "source": "The checklists you subscribed to and their ticked entries.",
+        "coverage": "Only checklists with at least one ticked entry are listed.",
+        "exclusions": "Your own lists have no progress and are not listed."
+      },
+      "busiestMonth": {
+        "unit": "The calendar month with the most visits, summed over all years; on a tie the earlier month.",
+        "time": "The month of the entered visit date — the clock at the place, not your device's.",
+        "source": "Your dated past visits.",
+        "coverage": "A visit recorded in the Companion app close to midnight can land one day off. {{undated}} undated visits are in no month.",
+        "exclusions": "Undated visits, future visits, wishlist places."
+      },
+      "busiestWeekday": {
+        "unit": "The weekday with the most visits; on a tie the earlier one, counting from Sunday.",
+        "time": "The weekday of the entered visit date at the place.",
+        "source": "Your dated past visits.",
+        "coverage": "{{undated}} undated visits are on no weekday.",
+        "exclusions": "Undated visits, future visits, wishlist places."
+      },
+      "busiestDay": {
+        "unit": "Distinct places on one calendar day — two visits to one place that day are one; on a tie the earlier day.",
+        "time": "The day of the entered visit date at the place.",
+        "source": "Your dated past visits.",
+        "coverage": "{{undated}} undated visits belong to no day.",
+        "exclusions": "Undated visits, future visits, wishlist places."
+      },
+      "streak": {
+        "unit": "Consecutive calendar days with at least one visit; on a tie the earlier run.",
+        "time": "Calendar days of the entered visit date at the place — a clock change breaks no run.",
+        "source": "Your dated past visits.",
+        "coverage": "{{undated}} undated visits cannot extend a run.",
+        "exclusions": "Undated visits, future visits, wishlist places."
+      },
+      "charts": {
+        "unit": "Visits per year, per month (all twelve, empty ones too) and per weekday.",
+        "time": "The entered visit date at the place.",
+        "source": "Your dated past visits.",
+        "coverage": "{{undated}} undated visits count in the totals above but in no chart.",
+        "exclusions": "Undated visits, future visits, wishlist places."
+      },
+      "average": {
+        "unit": "Average stars (1–5) over rated visits.",
+        "time": "As for \"Visits\": for a year only that year's visits.",
+        "source": "The rating you gave a visit.",
+        "coverage": "{{rated}} of {{total}} visits are rated.",
+        "exclusions": "A visit without a rating is not a zero and drags nothing down — it is simply left out."
+      },
+      "bestRated": {
+        "unit": "The five highest ratings of single visits; ties by name.",
+        "time": "As for \"Average rating\".",
+        "source": "The ratings of your visits.",
+        "coverage": "A place with several rated visits can appear more than once.",
+        "exclusions": "Unrated visits."
+      },
+      "firstVisit": {
+        "unit": "The earliest dated visit.",
+        "time": "The entered visit date; for a year the earliest of that year.",
+        "source": "Your dated past visits.",
+        "coverage": "An undated visit may have been earlier — nobody knows, so it is not considered.",
+        "exclusions": "Undated visits, future visits, wishlist places."
+      },
+      "favourite": {
+        "unit": "The place with the most visits, from two on; ties by name.",
+        "time": "As for \"Visits\".",
+        "source": "The visits of your visited places.",
+        "coverage": "Undated visits count while no year is selected.",
+        "exclusions": "Future visits and wishlist places."
+      },
+      "categoryCoverage": {
+        "unit": "A place category carried by at least one visited place, out of all categories in the catalogue.",
+        "time": "As for \"Places visited\".",
+        "source": "The category of your visited places and the fixed category catalogue.",
+        "coverage": "Every place has exactly one category.",
+        "exclusions": "Wishlist places."
+      },
+      "extremes": {
+        "unit": "The visited place with the highest or lowest latitude.",
+        "time": "As for \"Places visited\".",
+        "source": "The coordinates of your visited places.",
+        "coverage": "Every place has coordinates; if two share the exact latitude, the evidence names both.",
+        "exclusions": "Wishlist places — even one further north."
+      },
+      "onTrips": {
+        "unit": "A visit filed on a trip — a visit, not a place, belongs to a trip.",
+        "time": "As for \"Visits\".",
+        "source": "The trip entered on a visit.",
+        "coverage": "Out of {{total}} visits; visits without a trip are not in it.",
+        "exclusions": "Future visits; a trip is never guessed from a date."
+      }
     }
   },
   "import": {
@@ -346,7 +614,9 @@
     "actions": {
       "choose": "Choose",
       "create": "Create",
-      "skip": "Skip"
+      "skip": "Skip",
+      "trip_stop": "As trip stop",
+      "stay": "Is my stay"
     },
     "flags": {
       "missing_name": "No name",
@@ -373,7 +643,88 @@
       "failureCodes": {
         "invalid_row": "row unreadable",
         "no_position": "no position",
-        "write_failed": "not saved"
+        "write_failed": "not saved",
+        "invalid_target": "trip or stay not found"
+      },
+      "takeoutExtra": "{{stops}} added as trip stops · {{stays}} recognised as your stays",
+      "stopsSkipped_one": "{{count}} trip stop skipped — the trip already has it on that day",
+      "stopsSkipped_other": "{{count}} trip stops skipped — the trip already has them on that day"
+    },
+    "takeout": {
+      "intro_one": "{{count}} row comes from a Google Maps list. Position, trip and visit day can be suggested — you then decide row by row.",
+      "intro_other": "{{count}} rows come from a Google Maps list. Position, trip and visit day can be suggested — you then decide row by row.",
+      "resolve": "Get suggestions",
+      "running": "Searching … {{done}} of {{total}}",
+      "errors": {
+        "failed": "The suggestions could not be fetched. The rows stay as they were — you can still set their positions yourself.",
+        "lost": "The server lost the search (restart?). Please try again.",
+        "rateLimited": "Too many imports in a short time. Please try again in a few minutes."
+      },
+      "summary": {
+        "google": "placed via Google link",
+        "byName": "via name search",
+        "unplaced": "without position",
+        "dated": "with a visit day from photos"
+      },
+      "trip": {
+        "found": "Trip: “{{name}}” — visits and trip stops are assigned to it.",
+        "no_country": "The list's name names no country, so no trip is assigned and no name search is run.",
+        "no_trip": "You have no trip to this country — no trip is assigned.",
+        "several_trips": "You have several trips to this country — which one it was is your call; none is assigned."
+      },
+      "noKey": "This instance has no Google Places key configured (Settings → Integrations). Positions therefore come only from the name search inside the list's country.",
+      "googleFailed": "Google lookup failed:",
+      "unplacedBecause": "Without position because:",
+      "positionReasons": {
+        "no_cid": "link without a Google id",
+        "no_key": "no Google key",
+        "auth": "Google refuses the key",
+        "quota": "Google quota exhausted",
+        "timeout": "Google did not answer in time",
+        "network": "Google unreachable",
+        "not_found": "Google does not know the place",
+        "provider_error": "unreadable answer",
+        "not_in_country": "not found in the list's country",
+        "no_country": "list names no country",
+        "geocoder_unavailable": "place search unreachable",
+        "limit_reached": "search limit for one run reached"
+      },
+      "sources": {
+        "google_cid": "Position from Google link",
+        "name_search": "Position via name search — please check"
+      },
+      "kinds": {
+        "sight": "Sight",
+        "station": "Station/stop",
+        "fuel": "Fuel station",
+        "shop": "Shop",
+        "airport": "Airport",
+        "lodging": "Accommodation",
+        "city": "whole city — better skipped"
+      },
+      "matchedStay": "your stay “{{name}}”",
+      "dayFromPhotos_one": "from {{count}} photo",
+      "dayFromPhotos_other": "from {{count}} photos",
+      "dayReasons": {
+        "no_trip": "no day: no trip assigned",
+        "no_position": "no day: no position",
+        "no_photos": "no day: no photos there",
+        "ambiguous": "no day: photos on several days equally often"
+      }
+    },
+    "document": {
+      "title": "A place from a document",
+      "description": "A museum ticket or a tour booking: paste its text or choose a PDF, .eml, .msg or .txt file. It is read like any other document, with your place templates from the parser workshop; the place lands in the preview, and only you create it.",
+      "textLabel": "Document text",
+      "placeholder": "Paste the text of the ticket or booking here …",
+      "read": "Read document",
+      "reading": "Reading …",
+      "uploadLabel": "Choose file",
+      "readFailed": "The document could not be read. Please try again.",
+      "fallback": {
+        "noTemplate": "No place template is active yet. In the parser workshop (document type: place), derive one from a ticket of this provider, check it with the preview and activate it.",
+        "notRecognised": "None of your place templates recognises this document. For a new provider, derive one of its own in the parser workshop.",
+        "timedOut": "Reading took too long and was stopped. Please try again."
       }
     }
   },
@@ -381,6 +732,151 @@
     "title": "Gallery",
     "lead": "Cover photo of {{name}}",
     "makeCover": "Use as cover photo",
-    "coverFailed": "The cover photo could not be saved."
+    "coverFailed": "The cover photo could not be saved.",
+    "makeCoverHint": "Tap a photo to make it the cover."
+  },
+  "delete": {
+    "tripsStayUnnamed": "Linked trips are kept.",
+    "photos_one": "Along with it goes one proof photo.",
+    "photos_other": "Along with them go {{count}} proof photos.",
+    "lists_one": "It leaves the list {{names}}; the list itself stays.",
+    "lists_other": "It leaves {{count}} lists ({{names}}); the lists themselves stay.",
+    "stations_one": "One trip station that names it is kept.",
+    "stations_other": "{{count}} trip stations that name it are kept."
+  },
+  "visit": {
+    "action": "Record a visit",
+    "recordTitle": "Record a visit · {{name}}",
+    "when": "When were you there?",
+    "mode": {
+      "today": "Today",
+      "other": "Another date",
+      "unknown": "Date unknown"
+    },
+    "timeOptional": "Time (optional)",
+    "unknownHint": "The visit is saved without a date — it still counts.",
+    "aheadHint": "This day is in the future: the visit is planned and only counts once it has happened. You can add photos afterwards.",
+    "tripsFailed": "Your trips could not be loaded. You can still let the visit be filed by its date.",
+    "photos": "Photos (optional)",
+    "photosHint": "Up to {{max}} photos — they are uploaded as soon as the visit is saved.",
+    "photosPicked_one": "1 photo selected",
+    "photosPicked_other": "{{count}} photos selected",
+    "photoFailed": "The photos could not be uploaded.",
+    "savedPhotoFailed": "Visit saved. {{reason}}",
+    "photoRetry": "Upload photos again",
+    "continueWithoutPhoto": "Continue without photos",
+    "recorded": "Visit to “{{name}}” recorded.",
+    "photosTooMany": "at most {{max}} photos"
+  },
+  "merge": {
+    "action": "Merge a duplicate",
+    "title": "Merge a duplicate · {{name}}",
+    "intro": "“{{name}}” stays. Choose the duplicate that should be folded into it — then decide, for each detail, which one is kept.",
+    "pickLabel": "Choose the duplicate",
+    "pickPlaceholder": "Name or city …",
+    "pickStep": "choose the duplicate",
+    "pickFailed": "Your places could not be loaded.",
+    "pickNone": "No other place matches.",
+    "metres_one": "{{count}} m away",
+    "metres_other": "{{count}} m away",
+    "kilometres_one": "{{count}} km away",
+    "kilometres_other": "{{count}} km away",
+    "pickedLine": "Merging with “{{name}}”.",
+    "pickOther": "Choose another place",
+    "group": {
+      "name": "Name",
+      "localName": "Name in local script",
+      "category": "Category",
+      "position": "Position",
+      "address": "Address",
+      "notes": "Note"
+    },
+    "side": {
+      "target": "This place",
+      "source": "The other",
+      "both": "Both"
+    },
+    "bothNotes": "Keep both notes",
+    "none": "—",
+    "same": "the same on both",
+    "apart": "The two positions are {{metres}} m apart.",
+    "confirm": "Merge",
+    "failed": "The places could not be merged. Nothing was changed.",
+    "merged": "“{{name}}” is merged.",
+    "errors": {
+      "bothCurated": "Both places are checklist entries — merged, one tick would be lost. Nothing was changed.",
+      "same": "A place cannot be merged with itself."
+    },
+    "impact": {
+      "title": "Moving from “{{name}}” to “{{kept}}”:",
+      "visits_one": "1 visit",
+      "visits_other": "{{count}} visits",
+      "photos_one": "1 proof photo",
+      "photos_other": "{{count}} proof photos",
+      "documents_one": "1 document",
+      "documents_other": "{{count}} documents",
+      "lists_one": "the list {{names}}",
+      "lists_other": "{{count}} lists: {{names}} — where the place is in one already, it stays one entry",
+      "stations_one": "1 trip station",
+      "stations_other": "{{count}} trip stations",
+      "counting": "Counting …",
+      "unknown": "What moves could not be counted — every visit, photo, document and list moves along anyway.",
+      "deleted": "Afterwards “{{name}}” is deleted.",
+      "visited": "The place counts as visited, because one of the two was.",
+      "wishlist": "The place stays on the wishlist.",
+      "refKept": "Its source reference is kept as a second reference — a later import still finds it."
+    },
+    "curated": {
+      "twoLists": "“{{kept}}” and “{{other}}” are entries of two checklists ({{lists}}). Merged, one tick would be lost — so both stay.",
+      "sameList": "“{{kept}}” and “{{other}}” are two different entries of the checklist {{list}}. Merged, one tick would be lost — so both stay."
+    }
+  },
+  "nearby": {
+    "title": "Nearby",
+    "subtitle": "Your saved places around a lodging or a point — no location permission needed.",
+    "metres": "{{value}} m",
+    "kilometres": "{{value}} km",
+    "origin": {
+      "title": "Starting point",
+      "mode": {
+        "lodging": "Lodging",
+        "point": "Place or point",
+        "device": "My location"
+      },
+      "lodgingLabel": "Lodging",
+      "lodgingPlaceholder": "Choose a lodging …",
+      "lodgingsFailed": "Your lodgings could not be loaded.",
+      "noLodgings": "No lodging with a location. Choose a place or point.",
+      "unplacedLodgings_one": "One lodging without a location cannot be chosen.",
+      "unplacedLodgings_other": "{{count}} lodgings without a location cannot be chosen.",
+      "pointLabel": "Search a place or set a point",
+      "deviceHint": "Your location is asked for once, for this view only — it is stored nowhere. Without permission, a lodging or a point works just as well.",
+      "deviceUse": "Use my location once",
+      "deviceAsking": "Asking for your location …",
+      "device_denied": "Location not permitted. Choose a lodging or a point instead.",
+      "device_unavailable": "Your location is not available right now. Choose a lodging or a point instead.",
+      "deviceLabel": "your location",
+      "current": "Starting point: {{label}}",
+      "linkedLodgingUnusable": "This lodging has no location — choose another starting point."
+    },
+    "filter": {
+      "title": "Filters",
+      "radius": "Radius",
+      "states": "Show"
+    },
+    "state": {
+      "visited": "Visited",
+      "planned": "Planned",
+      "excluded": "Saved"
+    },
+    "results": {
+      "title": "Places",
+      "count_one": "1 place within {{radius}} of {{label}}",
+      "count_other": "{{count}} places within {{radius}} of {{label}}",
+      "noOrigin": "Choose a starting point — a lodging, a place or a point on the map.",
+      "none": "No saved places within {{radius}}.",
+      "noneFiltered": "No places match the filters.",
+      "wider": "Widen to {{radius}}"
+    }
   }
 }

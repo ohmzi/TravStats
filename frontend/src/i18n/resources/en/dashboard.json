@@ -199,7 +199,8 @@
       "tour": "Tours",
       "roadtrip": "Trips",
       "rail": "Rail",
-      "rental": "Rental cars"
+      "rental": "Rental cars",
+      "bus": "Bus"
     },
     "disabledHint": "Area disabled — Settings → Areas"
   },
@@ -212,7 +213,8 @@
     "tour": "Tour",
     "roadtrip": "Trip",
     "rail": "Train journey",
-    "rental": "Rental car"
+    "rental": "Rental car",
+    "bus": "Bus ride"
   },
   "controls": {
     "mode": "Mode",
@@ -326,7 +328,10 @@
     "tour": "Tour",
     "rentalSame": "Rental car · returned where picked up (one point)",
     "rentalEnds": "Rental car · pickup hollow, return filled",
-    "rentalOneWay": "Rental car · one-way, not the route driven"
+    "rentalOneWay": "Rental car · one-way, not the route driven",
+    "bus": "Bus",
+    "busRoad": "Bus · road route",
+    "busStraight": "Bus · straight line"
   },
   "userMenu": {
     "label": "Account menu"

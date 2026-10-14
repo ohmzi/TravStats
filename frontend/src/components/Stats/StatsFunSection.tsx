@@ -1,6 +1,8 @@
 import type { FunStats } from "../../types";
+import { formatNumber } from "../../lib/units";
 import { useTranslation } from "../../hooks/useTranslation";
 import StatCard from "./StatCard";
+import CountingHelp from "./counting/CountingHelp";
 import { formatDate } from "../../lib/displayFormat";
 
 interface StatsFunSectionProps {
@@ -14,13 +16,28 @@ export default function StatsFunSection({ funStats }: StatsFunSectionProps): JSX
    * and this section is built from the full countable set, never the page's
    * year filter — so the scope it sends is the scope the tile measured.
    *
-   * The four tiles WITHOUT an `evidence` prop are unserved on purpose: the
-   * loyalty score is a `ratio` and the fastest day, the milestone year and
-   * the route master are `extremum` measures, and release 1 serves neither
-   * (`shared/evidenceMeasuresFlightFun.ts`). Wiring a tile whose key has no
-   * resolver ships a pointer cursor over a 404.
+   * The four "most" tiles (loyalty, busiest day, milestone year, route
+   * master) open the FLIGHTS their winner was chosen from
+   * (`evidenceMeasuresFlightWitnesses`, forgejo#256). The busiest day, the
+   * milestone year and the route master show a number of flights, so they
+   * pass it for the panel's recount; the loyalty tile shows a share and
+   * passes none.
    */
   const allTime = { period: "allTime" as const };
+  /** "So wird gezählt" for every tile of the section (forgejo#256). */
+  const help = [
+    { term: t("stats:fun.timezoneHopper"), helpKey: "flightStatsHelp:fun.timezoneHopper" },
+    { term: t("stats:fun.earlyBird"), helpKey: "flightStatsHelp:fun.earlyBird" },
+    { term: t("stats:fun.nightOwl"), helpKey: "flightStatsHelp:fun.nightOwl" },
+    { term: t("stats:fun.weekendWarrior"), helpKey: "flightStatsHelp:fun.weekend" },
+    { term: t("stats:fun.loyaltyScore"), helpKey: "flightStatsHelp:fun.loyalty" },
+    { term: t("stats:fun.shortHaulKing"), helpKey: "flightStatsHelp:fun.shortHaul" },
+    { term: t("stats:fun.longHaulPilot"), helpKey: "flightStatsHelp:fun.longHaul" },
+    { term: t("stats:fun.fastestDay"), helpKey: "flightStatsHelp:fun.fastestDay" },
+    { term: t("stats:fun.co2Footprint"), helpKey: "flightStatsHelp:fun.co2" },
+    { term: t("stats:fun.milestoneYear"), helpKey: "flightStatsHelp:fun.milestoneYear" },
+    { term: t("stats:fun.routeMaster"), helpKey: "flightStatsHelp:fun.routeMaster" },
+  ];
 
   return (
     <div className="mt-8">
@@ -76,6 +93,12 @@ export default function StatsFunSection({ funStats }: StatsFunSectionProps): JSX
           })}
         />
         <StatCard
+          evidence={{
+            kind: "metric",
+            key: "loyaltyAirlineFlights",
+            scope: allTime,
+            renderedValue: null,
+          }}
           title={t("stats:fun.loyaltyScore")}
           value={`${funStats.loyaltyScore}%`}
           description={t("stats:fun.loyaltyScoreDesc", {
@@ -107,6 +130,12 @@ export default function StatsFunSection({ funStats }: StatsFunSectionProps): JSX
         />
         {funStats.fastestDay && (
           <StatCard
+            evidence={{
+              kind: "metric",
+              key: "busiestDayFlights",
+              scope: allTime,
+              renderedValue: funStats.fastestDayFlights,
+            }}
             title={t("stats:fun.fastestDay")}
             value={funStats.fastestDayFlights}
             valueSize="sm"
@@ -124,15 +153,21 @@ export default function StatsFunSection({ funStats }: StatsFunSectionProps): JSX
             renderedValue: funStats.co2FootprintKg,
           }}
           title={t("stats:fun.co2Footprint")}
-          value={`${funStats.co2FootprintKg.toLocaleString()} kg`}
+          value={`${formatNumber(funStats.co2FootprintKg)} kg`}
           valueSize="md"
           description={t("stats:fun.co2FootprintDesc", {
-            kg: funStats.co2FootprintKg.toLocaleString(),
+            kg: formatNumber(funStats.co2FootprintKg),
             elephants: funStats.co2InElephants.toFixed(1),
           })}
         />
         {funStats.milestoneYear && (
           <StatCard
+            evidence={{
+              kind: "metric",
+              key: "milestoneYearFlights",
+              scope: allTime,
+              renderedValue: funStats.milestoneYearFlights,
+            }}
             title={t("stats:fun.milestoneYear")}
             value={funStats.milestoneYear}
             description={t("stats:fun.milestoneYearDesc", {
@@ -143,6 +178,12 @@ export default function StatsFunSection({ funStats }: StatsFunSectionProps): JSX
         )}
         {funStats.routeMaster && (
           <StatCard
+            evidence={{
+              kind: "metric",
+              key: "routeMasterFlights",
+              scope: allTime,
+              renderedValue: funStats.routeMasterCount,
+            }}
             title={t("stats:fun.routeMaster")}
             value={funStats.routeMaster}
             valueSize="sm"
@@ -153,6 +194,7 @@ export default function StatsFunSection({ funStats }: StatsFunSectionProps): JSX
           />
         )}
       </div>
+      <CountingHelp entries={help} testId="fun-counting-help" />
     </div>
   );
 }

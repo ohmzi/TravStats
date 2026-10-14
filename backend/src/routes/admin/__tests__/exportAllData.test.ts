@@ -57,6 +57,16 @@ describe("GET /api/v1/admin/export/all-data", () => {
           },
         },
         trips: { create: [{ name: "Export test trip" }] },
+        notes: {
+          create: [
+            {
+              body: "Export test note",
+              occurredAt: new Date("2026-09-27T17:00:00Z"),
+              occurredZone: "Europe/Berlin",
+              visibility: "shareable",
+            },
+          ],
+        },
         companions: {
           create: [
             {
@@ -108,6 +118,7 @@ describe("GET /api/v1/admin/export/all-data", () => {
       "companions",
       "documents",
       "railJourneys",
+      "busJourneys",
       "tourRoutes",
       "userAchievements",
     ]) {
@@ -123,6 +134,10 @@ describe("GET /api/v1/admin/export/all-data", () => {
     // shells from a select that silently matched nothing.
     expect(user.trips).toHaveLength(1);
     expect(user.companions).toHaveLength(1);
+    // A note travels with its private/shareable flag (forgejo#146).
+    expect(user.notes).toEqual([
+      expect.objectContaining({ body: "Export test note", visibility: "shareable" }),
+    ]);
   });
 
   // Trip suggestions (2026-09-26): the ANSWERS travel with the account, or a
@@ -145,6 +160,31 @@ describe("GET /api/v1/admin/export/all-data", () => {
     expect(user.tripSuggestionAnswers).toEqual([
       expect.objectContaining({ status: "dismissed", memberKeys: ["lodging:a", "lodging:b"] }),
     ]);
+  });
+
+  // Public share links (forgejo#281): listed with what they share and until
+  // when — the token hash stays out, and the token is stored nowhere.
+  it("lists the share links without their token hash", async () => {
+    await prisma.publicShareLink.create({
+      data: {
+        userId: createdUserIds[0],
+        kind: "wrapped",
+        year: 2025,
+        fields: ["totals"],
+        tokenHash: "export-test-hash-must-not-appear",
+        expiresAt: new Date("2099-01-01T00:00:00Z"),
+      },
+    });
+    const res = await request(app)
+      .get("/api/v1/admin/export/all-data")
+      .set("Cookie", adminCookie)
+      .expect(200);
+    const user = res.body.users.find((u: { id: string }) => u.id === createdUserIds[0]);
+    expect(user.publicShareLinks).toEqual([
+      expect.objectContaining({ kind: "wrapped", year: 2025, fields: ["totals"] }),
+    ]);
+    expect(JSON.stringify(res.body)).not.toContain("export-test-hash-must-not-appear");
+    expect(JSON.stringify(user.publicShareLinks)).not.toContain("tokenHash");
   });
 
   // Rail (spec 2026-09-25-rail-domain, phase 2b): the rides, and the stations
@@ -185,6 +225,48 @@ describe("GET /api/v1/admin/export/all-data", () => {
     } finally {
       await prisma.railJourney.deleteMany({ where: { userId: createdUserIds[0] } });
       await prisma.railStation.delete({ where: { id: station.id } });
+    }
+  });
+
+  // Bus rides (spec 2026-10-07-bus-domain-design): the rides with their
+  // companion links. Without the relation in the include, the schema-coverage
+  // test below fails — this one pins that the rows actually come through.
+  it("carries the bus rides with their companion links", async () => {
+    const companion = await prisma.companion.create({
+      data: {
+        userId: createdUserIds[0],
+        canonicalName: "export bus companion",
+        displayName: "Export Bus Companion",
+        searchName: "export bus companion",
+      },
+    });
+    const ride = await prisma.busJourney.create({
+      data: {
+        userId: createdUserIds[0],
+        operator: "Kobus",
+        depStationName: "Seoul Express Bus Terminal",
+        arrStationName: "Sokcho Express Bus Terminal",
+        depLat: 37.5,
+        depLon: 127.0,
+        arrLat: 38.2,
+        arrLon: 128.6,
+        departureTime: new Date("2026-09-20T00:00:00Z"),
+        status: "completed",
+        companionLinks: { create: [{ companionId: companion.id, position: 0 }] },
+      },
+    });
+    try {
+      const res = await request(app)
+        .get("/api/v1/admin/export/all-data")
+        .set("Cookie", adminCookie)
+        .expect(200);
+      const user = res.body.users.find((u: { id: string }) => u.id === createdUserIds[0]);
+      expect(user.busJourneys).toHaveLength(1);
+      expect(user.busJourneys[0].operator).toBe("Kobus");
+      expect(user.busJourneys[0].companionLinks).toHaveLength(1);
+    } finally {
+      await prisma.busJourney.deleteMany({ where: { id: ride.id } });
+      await prisma.companion.deleteMany({ where: { id: companion.id } });
     }
   });
 
@@ -269,6 +351,13 @@ describe("GET /api/v1/admin/export/all-data", () => {
         kind: "ferry",
         amount: 1290,
         currency: "NOK",
+        // forgejo#150: who paid, and the rate it was converted at.
+        payerName: "Anna",
+        amountBase: 111.59,
+        fxRate: 0.0865,
+        fxRateDate: new Date("2026-07-15T00:00:00Z"),
+        fxBaseCurrency: "EUR",
+        fxSource: "cached",
       },
     });
 
@@ -287,8 +376,17 @@ describe("GET /api/v1/admin/export/all-data", () => {
       }),
     ]);
     expect(me.tripExpenses).toEqual([
-      expect.objectContaining({ routeId: route.id, kind: "ferry", currency: "NOK" }),
+      expect.objectContaining({
+        routeId: route.id,
+        kind: "ferry",
+        currency: "NOK",
+        payerName: "Anna",
+        fxRate: 0.0865,
+        fxBaseCurrency: "EUR",
+        fxSource: "cached",
+      }),
     ]);
+    expect(Number(me.tripExpenses[0].amountBase)).toBe(111.59);
     expect(Number(me.tripExpenses[0].amount)).toBe(1290);
   });
 

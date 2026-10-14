@@ -21,6 +21,20 @@ import type { LodgingStay } from "../types/lodging";
 const mounted = vi.hoisted(() => [] as { type: string; id: string }[]);
 
 // The form asks for the user's own lodging vocabulary on mount; no network here.
+// Shared trips (2026-10-09): the trip overview, the settings and the inbox
+// read the sharing API on mount; answered empty so no request escapes.
+vi.mock("@/lib/api/sharing", () => ({
+  sharingApi: {
+    tripSharing: vi
+      .fn()
+      .mockResolvedValue({ groupId: null, members: [], candidates: [], bookingTotals: [] }),
+    listConsents: vi.fn().mockResolvedValue({ incoming: [], outgoing: [] }),
+    listCompanions: vi.fn().mockResolvedValue({ companions: [], linkableUsers: [] }),
+    listNotices: vi.fn().mockResolvedValue([]),
+    inboxCount: vi.fn().mockResolvedValue(0),
+  },
+}));
+
 vi.mock("../hooks/useLodgingEntrySuggestions", () => ({
   useLodgingEntrySuggestions: () => ({
     amenities: [],
@@ -36,6 +50,13 @@ vi.mock("../components/documents/DocumentsSection", () => ({
     return <div data-testid={`documents-${entry.type}`} />;
   },
 }));
+
+// The flight page's day card (forgejo#220) lists the flight's documents for
+// its boarding pass — its own request beside the stubbed section above.
+vi.mock("../lib/api/documents", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/api/documents")>();
+  return { ...actual, documentsApi: { listForEntry: vi.fn().mockResolvedValue([]) } };
+});
 
 // ── the five surfaces' own dependencies ────────────────────────────────────
 const flightsApi = vi.hoisted(() => ({

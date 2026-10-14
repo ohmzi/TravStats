@@ -206,6 +206,37 @@ schedule and WebDAV sync.
 
 See [`.env.prod.example`](.env.prod.example) for the annotated list.
 
+### Behind a reverse proxy or CDN
+
+**Never let a cache rule apply to `/api/`.** Every API response — receipts,
+avatars, photos, documents, exports — belongs to one signed-in user. The app
+marks all of them `Cache-Control: no-store` (or `private` where a browser may
+keep them), but several common proxy settings ignore that header:
+
+- **Nginx Proxy Manager → "Cache Assets"** caches every URL ending in `.png`,
+  `.jpg`, `.svg`, `.js`, `.css` … for 30 minutes, keyed on host and path only,
+  ignores the app's `Cache-Control` and `Set-Cookie`, and strips
+  `Cache-Control` from the response. Whatever it caches is handed to the next
+  visitor, signed in or not.
+- **Cloudflare** caches a fixed list of extensions by default (`.pdf`, `.png`,
+  `.jpg`, `.zip`, `.gz`, `.csv`, `.xlsx` …). It honours `no-store` — unless a
+  proxy in front of the app removed it, which is exactly what the NPM switch
+  above does. "Cache Everything" page/cache rules and "Edge Cache TTL"
+  overrides ignore the header outright.
+
+The API itself serves no private data at a URL that ends in a file
+extension: files live at extension-less URLs (`…/content`, `…/file`),
+older URLs answer only with a redirect, and any other `/api/` path ending in a
+cacheable extension is refused with a 404. That closes the gap for
+extension-based rules, but not for a rule that caches everything. So:
+
+- In Nginx Proxy Manager, leave **Cache Assets** off for the TravStats proxy
+  host.
+- In Cloudflare, scope any cache rule to exclude `/api/*` — or add a rule that
+  bypasses the cache for `/api/*`.
+- In any other proxy (Traefik, Caddy, plain nginx), do not put `proxy_cache`
+  or an equivalent on `/api/`.
+
 ### Runtime-configurable from the admin UI
 
 - Instance name, public URL, user cap, registration mode
@@ -468,3 +499,31 @@ keeps the lights on for AirLabs quota top-ups. ❤️
 <sub>Made with ❤️ and a bit of AI for flight enthusiasts.</sub>
 
 </div>
+
+### Ferry data sources (beta)
+
+Ferry terminal search uses the configured Photon service with OpenStreetMap's
+`amenity=ferry_terminal` filter. The editor can switch back to general place
+search, coordinates or a map pin when a terminal is missing. Provider outages
+are shown separately from an empty search result.
+
+In **Ferries → Add crossing → Read ferry ticket**, upload a text PDF/EML or
+paste ticket text. A preview shows each proposed value with its source text.
+English/German labelled tickets work without AI; unfamiliar layouts can use the
+existing admin-enabled, consented AI provider chain. Scanned PDFs need pasted
+text or manual entry; an EML currently reads the message body. Dates without a
+printed year and ambiguous numeric dates are not guessed. Confirm port positions
+before saving. One crossing is created per save, and an uploaded original is
+attached to it. Cancelling leaves the original in the existing unfiled-document
+inbox, subject to its normal retention rules.
+
+Optional live vessel snapshots use [AISStream](https://aisstream.io/documentation).
+Set `AISSTREAM_API_KEY` on the backend through the normal secret configuration,
+then enter the ship's nine-digit MMSI on a crossing's detail page and request a
+position. This is an explicit current-vessel lookup, not automatic ship matching
+or a historical journey track. Requests wait at most 15 seconds, share requests
+for the same MMSI and cache answers for 30 seconds. Each backend process uses at
+most two simultaneous sockets; account/IP limits also include other processes.
+No signal is distinct from a stopped ship. Receipt time and source time are
+separate; no observation time is invented when the source omits it. No historical
+crossing, distance or status is changed. No API key is sent to the browser.

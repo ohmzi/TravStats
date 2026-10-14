@@ -32,6 +32,10 @@ export const STATION_STAY_SELECT = {
   checkOutAt: true,
   stayZone: true,
   datePrecision: true,
+  freeCancellationUntil: true,
+  freeCancellationOn: true,
+  freeCancellationZone: true,
+  paymentDueOn: true,
   nights: true,
   status: true,
   lodging: {
@@ -121,6 +125,10 @@ export interface StationRow {
     checkOutAt: Date | null;
     stayZone: string | null;
     datePrecision: string;
+    freeCancellationUntil: Date | null;
+    freeCancellationOn: Date | null;
+    freeCancellationZone: string | null;
+    paymentDueOn: Date | null;
     nights: number | null;
     status: string;
     lodging: {
@@ -153,6 +161,7 @@ export function nightsOf(stations: readonly StationRow[]): RoadtripNights {
             datePrecision: s.lodgingStay.datePrecision,
             nights: s.lodgingStay.nights,
             status: s.lodgingStay.status,
+            lodgingType: s.lodgingStay.lodging.type,
           }
         : null,
     }))

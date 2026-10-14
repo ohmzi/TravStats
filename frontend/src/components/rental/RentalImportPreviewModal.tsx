@@ -7,6 +7,8 @@ import { apiErrorMachineCode } from "../../lib/apiError";
 import { logger } from "../../lib/logger";
 import type { RentalImportCandidate, StationResolution } from "../../types/rental";
 import { RentalStationPicker } from "./RentalStationPicker";
+import { ADOPT_ALL, RentalInvoiceReview, type InvoiceAdoption } from "./RentalInvoiceReview";
+import { pickedFeeIndexes } from "../../lib/rental/rentalInvoiceFees";
 import {
   EMPTY_RENTAL_STATION,
   isPlaced,
@@ -67,6 +69,12 @@ export function RentalImportPreviewModal({ candidate, onCancel, onSaved }: Props
   const [kmConflict, setKmConflict] = useState(false);
   // An older mail than the newest one applied: nothing overwritten, said so.
   const [stale, setStale] = useState(false);
+  // Each invoice reading is taken over on its own (forgejo#237); all by default.
+  const [adopt, setAdopt] = useState<InvoiceAdoption>(ADOPT_ALL);
+  // Each fee line of the invoice, too; all ticked to start, as the parts are.
+  const [feePicks, setFeePicks] = useState<boolean[]>(() =>
+    (candidate.invoice?.fees ?? []).map(() => true)
+  );
 
   const declined = candidate.action === "declined";
   const stationsReady = !input || (isPlaced(pickup) && (!oneWay || isPlaced(ret)));
@@ -108,6 +116,7 @@ export function RentalImportPreviewModal({ candidate, onCancel, onSaved }: Props
           invoice: candidate.invoice,
           replaceUserDistance,
           mailSentAt,
+          adopt: { ...adopt, fees: pickedFeeIndexes(feePicks) },
         }));
       }
       if (outcome === "stale") {
@@ -257,7 +266,16 @@ export function RentalImportPreviewModal({ candidate, onCancel, onSaved }: Props
             ) : null}
           </>
         ) : null}
-        {candidate.invoice ? (
+        {candidate.invoice && candidate.existingId ? (
+          <RentalInvoiceReview
+            invoice={candidate.invoice}
+            rentalId={candidate.existingId}
+            adopt={adopt}
+            onAdoptChange={setAdopt}
+            feePicks={feePicks}
+            onFeePicksChange={setFeePicks}
+          />
+        ) : candidate.invoice ? (
           <ul className="space-y-1">
             <li>
               {t("rental:import.invoiceKm")}:{" "}

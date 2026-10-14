@@ -40,6 +40,13 @@ const cruiseStop = registry.register(
       arrivalTime: z.string().datetime().nullable(),
       departureTime: z.string().datetime().nullable(),
       excursionNote: z.string().nullable(),
+      allAboardTime: z
+        .string()
+        .nullable()
+        .describe(
+          "Latest time to be back on board, HH:mm on the port's clock, on the stop's day. " +
+            "Only ever entered by the user, never derived from the departure."
+        ),
       port: includedRow("port").nullable().optional(),
       times: cruiseStopTimesSchema,
     })
@@ -72,7 +79,19 @@ const cruise = registry.register(
       arrivalPortId: z.number().int().nullable(),
       startDate: z.string().datetime().nullable(),
       endDate: z.string().datetime().nullable(),
-      status: z.enum(["scheduled", "flown", "cancelled", "historical"]),
+      status: z
+        .enum(["scheduled", "in_progress", "completed", "cancelled", "historical"])
+        .describe(
+          "Derived from the dates except for cancelled/historical. A sailed cruise is " +
+            "`completed`; the retired `flown` is still accepted on input and read as " +
+            "`completed`, but never returned (#357)."
+        ),
+      kind: z
+        .enum(["ocean", "river"])
+        .describe(
+          "Ocean or river (#359). Set from the ship on create unless given; a river " +
+            "cruise's portless days are not counted as sea days."
+        ),
       cabinNumber: z.string().nullable(),
       cabinType: z.enum(["inside", "oceanview", "balcony", "suite"]).nullable(),
       deck: z.number().int().nullable(),
@@ -94,6 +113,12 @@ const cruise = registry.register(
       arrivalPort: includedRow("port").nullable().optional(),
       trip: includedRow("trip (id, name, color)").nullable().optional(),
       legs: z.array(includedRow("leg")).optional(),
+      _count: z
+        .object({ tracks: z.number().int(), legRoutes: z.number().int() })
+        .optional()
+        .describe(
+          "Recorded GPS tracks and hand-drawn route corrections that a delete takes with it"
+        ),
       createdAt: z.string().datetime(),
       times: cruiseTimesSchema,
     })

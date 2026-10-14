@@ -188,11 +188,7 @@ export default function RoadtripCard({
             borderTop: "1px solid var(--ts-border)",
           }}
         >
-          <Figure
-            value={kmKnown ? nf.format(r.drivenKm) : "—"}
-            label={t("roadtrips:list.figKm")}
-            title={kmKnown ? undefined : t("roadtrips:list.kmUnknown")}
-          />
+          <Figure value={kmKnown ? nf.format(r.drivenKm) : "—"} label={t("roadtrips:list.figKm")} />
           <Figure
             value={`${approximate ? "≈ " : ""}${nf.format(days)}`}
             label={t("common:summary.cardDays", { count: days })}
@@ -203,6 +199,18 @@ export default function RoadtripCard({
             label={t("common:summary.cities", { count: r.cityNames.length })}
           />
         </div>
+        {/* Why a figure is a dash or "≈", said on the card (forgejo#249): the
+            hover title alone never reached a finger or a screen reader. */}
+        {(!kmKnown || !r.nightsKnown) && (
+          <span className="t-caption" data-testid="roadtrip-card-reasons">
+            {[
+              kmKnown ? null : t("roadtrips:list.kmUnknown"),
+              r.nightsKnown ? null : t("roadtrips:list.nightsApprox"),
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          </span>
+        )}
       </div>
     </Link>
   );

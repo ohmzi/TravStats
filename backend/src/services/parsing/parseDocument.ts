@@ -49,6 +49,26 @@ import { conclusiveOtherDomain, scoreDocument, type DomainDetection } from "./do
 import { isLlmEnabledByAdmin } from "../llm/llmGate";
 import { describeLlmTarget, type LlmProviderInfo } from "../llm/llmProvider";
 import { resolveReachableLlmTarget } from "../llm/reachableTarget";
+import { templateRegistry } from "../parsers/templates/registry";
+import { withParseBudget } from "../parsers/templates/v2/budget";
+import { prisma } from "../../db";
+import {
+  parsePackageText,
+  type PackageFallbackCode,
+  type PackageTemplateRef,
+} from "../trip/package/parsePackage";
+import type { PackageContract } from "../trip/package/contract";
+import type { MailAttachment } from "../parsers/pdfAttachmentFlights";
+import type { TemplateEnvelope } from "../parsers/templates/v2/envelope";
+import { loadActiveWorkshopTemplates } from "../parsers/userTemplates/v2UserTemplates";
+import { readPlaceText, type PlaceDocumentReading } from "../places/placeDocumentImport";
+import {
+  detectPackageAttachment,
+  hasPackageTemplates,
+  pdfAttachmentTexts,
+  readPackageFromAttachments,
+  type AttachmentText,
+} from "./packageAttachments";
 
 /** What a caller may ask for. `auto` is the addition — see the header. */
 export const REQUESTABLE_DOMAINS = [...PARSER_SUPPORTED_DOMAINS, "auto"] as const;
@@ -78,8 +98,10 @@ export interface ParseDocumentInput {
    */
   referenceDate?: Date;
   /**
-   * Files that came with a mail — a calendar file, a PDF ticket. Only the rail
-   * reader looks at them: a DB booking mail prints its itinerary nowhere else.
+   * Files that came with a mail — a calendar file, a PDF ticket. The rail
+   * reader looks at them (a DB booking mail prints its itinerary nowhere
+   * else); the flight and package readers open a PDF when the body read
+   * nothing.
    */
   attachments?: RailAttachment[];
   /**
@@ -153,7 +175,45 @@ type RentalBody = {
   domainMismatch?: DomainMismatch;
 };
 
-type DomainBody = FlightBody | CruiseBody | LodgingBody | RailBody | RentalBody;
+/**
+ * A package tour (plan 2026-10-09 P3): one reading per document, which the
+ * client turns into a trip proposal through `/trips/package/preview`. Read by
+ * repository templates only — `parserUsed` is "template" or "none".
+ */
+type PackageBody = {
+  domain: "package";
+  package: PackageContract | null;
+  template: PackageTemplateRef | null;
+  parserUsed: "template" | "none";
+  ollamaAvailable: boolean;
+  fallbackCode?: PackageFallbackCode;
+  fallbackReason?: string;
+  /** The contract paths a recognising template failed, for `invalidReading`. */
+  issues?: string[];
+  /** Present when the reading came from a mail's PDF attachment, not its body. */
+  readFromAttachment?: { filename: string | null };
+  domainMismatch?: DomainMismatch;
+};
+
+/**
+ * A place document (forgejo#124): at most one place import candidate, read by
+ * `place` templates only — the client sends it through `/place-import/preview`
+ * and the user confirms it there.
+ */
+type PlaceBody = {
+  domain: "place";
+  candidates: PlaceDocumentReading["candidates"];
+  /** The template that read it, when one did. */
+  templateId: string | null;
+  parserUsed: "template" | "none";
+  ollamaAvailable: boolean;
+  fallbackCode?: PlaceDocumentReading["fallbackCode"];
+  fallbackReason?: string;
+  domainMismatch?: DomainMismatch;
+};
+
+type DomainBody =
+  FlightBody | CruiseBody | LodgingBody | RailBody | RentalBody | PackageBody | PlaceBody;
 
 /**
  * The domain-shaped payload, plus one field every domain shares:
@@ -193,6 +253,12 @@ export interface ParseDocumentOutcome {
   /** Present only when the domain was detected: the evidence and the runners-up. */
   detection?: DomainDetection;
   body: ParsedDocumentBody;
+  /**
+   * The mail attachment the reading came from, when it was not the mail
+   * itself. A route that keeps the original keeps THESE bytes: a trip is
+   * filed with the operator's invoice, not with the cover mail around it.
+   */
+  sourceAttachment?: MailAttachment;
 }
 
 /**
@@ -209,13 +275,55 @@ export function combineSubjectAndText(subject: string | undefined, text: string)
  * server decides something the caller did not — and `detection` being present
  * is exactly what marks that in the answer.
  */
-function resolveDomain(
+async function resolveDomain(
   requested: RequestedDomain,
-  combined: string
-): { domain: ParserSupportedDomain; detection?: DomainDetection } {
+  combined: string,
+  attachmentTexts: () => Promise<AttachmentText[]>,
+  userId: string | undefined
+): Promise<{ domain: ParserSupportedDomain; detection?: DomainDetection }> {
   if (requested !== "auto") return { domain: requested };
-  const detection = scoreDocument(combined);
+  // The template-only targets are recognised by their templates — the
+  // repository's and, for the user who made them, the workshop's.
+  const templates = [
+    ...templateRegistry.getActiveV2(),
+    ...(userId ? await activeWorkshopDetectionTemplates(userId) : []),
+  ];
+  const detection = scoreDocument(combined, templates);
+  if (detection.domain === "package" || detection.domain === "place") {
+    return { domain: detection.domain, detection };
+  }
+  // A tour operator's mail often prints nothing but "anbei Ihre Unterlagen":
+  // the evidence is the attached invoice, so it is scored too. Only while a
+  // package template is active at all — otherwise no PDF is opened.
+  if (hasPackageTemplates(templates)) {
+    const fromAttachment = detectPackageAttachment(await attachmentTexts(), templates);
+    if (fromAttachment) return { domain: "package", detection: fromAttachment };
+  }
   return { domain: detection.domain, detection };
+}
+
+/** The user's own active workshop templates that detection may count. */
+async function activeWorkshopDetectionTemplates(userId: string): Promise<TemplateEnvelope[]> {
+  const [places, packages] = await Promise.all([
+    loadActiveWorkshopTemplates(userId, "place"),
+    loadActiveWorkshopTemplates(userId, "package"),
+  ]);
+  return [...places, ...packages];
+}
+
+/**
+ * The PDF attachments' text, extracted at most once per parse and only when
+ * asked for: detection and the package reader may both need it.
+ */
+function attachmentTextsOnce(input: ParseDocumentInput): () => Promise<AttachmentText[]> {
+  let pending: Promise<AttachmentText[]> | null = null;
+  return () => {
+    pending ??=
+      input.source === "email" && input.attachments?.length
+        ? pdfAttachmentTexts(input.attachments)
+        : Promise.resolve([]);
+    return pending;
+  };
 }
 
 /**
@@ -267,14 +375,31 @@ async function mismatchBody(
   return { domain: "lodging", candidates: [], ...common };
 }
 
-export async function parseDocument(input: ParseDocumentInput): Promise<ParseDocumentOutcome> {
+/**
+ * Every template tried on this document shares one time budget
+ * (`withParseBudget`), held in the request's async context so a crafted
+ * document can only spend its own.
+ */
+export function parseDocument(input: ParseDocumentInput): Promise<ParseDocumentOutcome> {
+  return withParseBudget(() => parseDocumentUnbudgeted(input));
+}
+
+async function parseDocumentUnbudgeted(input: ParseDocumentInput): Promise<ParseDocumentOutcome> {
   const combined = combineSubjectAndText(input.subject, input.text);
-  const { domain, detection } = resolveDomain(input.domain, combined);
+  const attachmentTexts = attachmentTextsOnce(input);
+  const { domain, detection } = await resolveDomain(
+    input.domain,
+    combined,
+    attachmentTexts,
+    input.userId
+  );
 
   const mismatch = mismatchFor(input.domain, domain, combined);
+  const packageRead =
+    !mismatch && domain === "package" ? await readPackage(input, combined, attachmentTexts) : null;
   const domainBody = mismatch
     ? await mismatchBody(domain, mismatch, input.userId)
-    : await parseAs(domain, input, combined);
+    : (packageRead?.body ?? (await parseAs(domain, input, combined)));
   const body = {
     ...domainBody,
     llmDisabledByAdmin: !(await isLlmEnabledByAdmin()),
@@ -286,7 +411,59 @@ export async function parseDocument(input: ParseDocumentInput): Promise<ParseDoc
     domainSource: detection ? "detected" : "requested",
     ...(detection ? { detection } : {}),
     body,
+    ...(packageRead?.sourceAttachment ? { sourceAttachment: packageRead.sourceAttachment } : {}),
   };
+}
+
+async function homeCountryOf(userId: string | undefined): Promise<string | null> {
+  if (userId === undefined) return null;
+  const settings = await prisma.userSettings.findUnique({
+    where: { userId },
+    select: { homeCountry: true },
+  });
+  return settings?.homeCountry ?? null;
+}
+
+async function readPackage(
+  input: ParseDocumentInput,
+  combined: string,
+  attachmentTexts: () => Promise<AttachmentText[]>
+): Promise<{ body: PackageBody; sourceAttachment?: MailAttachment }> {
+  // First matching template wins, so the user's home market goes first
+  // (owner, 2026-10-09: markets order candidates, they never filter them).
+  // The repository's templates keep the first look; a package template the
+  // user derived in the workshop (forgejo#124) reads what they decline.
+  const templates = [
+    ...templateRegistry.getActiveV2({ homeCountry: await homeCountryOf(input.userId) }),
+    ...(input.userId ? await loadActiveWorkshopTemplates(input.userId, "package") : []),
+  ];
+  const fromBody = parsePackageText(combined, templates);
+  // The body read nothing: the operator's invoice may be the attachment. Its
+  // reading replaces the empty answer; its `invalidReading` replaces only a
+  // "no template", which says less to the template's author.
+  const fromAttachment =
+    fromBody.reading || !hasPackageTemplates(templates)
+      ? null
+      : readPackageFromAttachments(await attachmentTexts(), templates);
+  const chosen =
+    fromAttachment && (fromAttachment.result.reading || fromBody.fallbackCode === "noTemplate")
+      ? fromAttachment
+      : null;
+  const result = chosen?.result ?? fromBody;
+  const body: PackageBody = {
+    domain: "package",
+    package: result.reading,
+    template: result.template,
+    parserUsed: result.reading ? "template" : "none",
+    ollamaAvailable: await isLlmAvailable(
+      input.userId !== undefined ? { userId: input.userId } : {}
+    ),
+    ...(result.fallbackCode !== undefined ? { fallbackCode: result.fallbackCode } : {}),
+    ...(result.fallbackReason !== undefined ? { fallbackReason: result.fallbackReason } : {}),
+    ...(result.issues !== undefined ? { issues: result.issues } : {}),
+    ...(chosen ? { readFromAttachment: { filename: chosen.attachment.filename ?? null } } : {}),
+  };
+  return chosen ? { body, sourceAttachment: chosen.attachment } : { body };
 }
 
 async function parseAs(
@@ -331,6 +508,26 @@ async function parseAs(
       ...(result.fallbackCode !== undefined ? { fallbackCode: result.fallbackCode } : {}),
       ...(result.fallbackReason !== undefined ? { fallbackReason: result.fallbackReason } : {}),
       ...(result.orderReference ? { orderReference: result.orderReference } : {}),
+    };
+  }
+
+  if (domain === "place") {
+    const reading = await readPlaceText(input.userId, combined);
+    return {
+      domain: "place",
+      candidates: reading.candidates,
+      templateId: reading.templateId,
+      parserUsed: reading.candidates.length > 0 ? "template" : "none",
+      ollamaAvailable: await isLlmAvailable(
+        input.userId !== undefined ? { userId: input.userId } : {}
+      ),
+      ...(reading.fallbackCode !== undefined
+        ? {
+            fallbackCode: reading.fallbackCode,
+            // English, for the log; the client words it from the code.
+            fallbackReason: `No place template read the document (${reading.fallbackCode})`,
+          }
+        : {}),
     };
   }
 

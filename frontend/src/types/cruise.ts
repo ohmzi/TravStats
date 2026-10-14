@@ -11,7 +11,13 @@ export interface Ship {
   capacity: number | null;
   status: string;
   isUserAdded: boolean;
+  /** "ocean" | "river" (#359). */
+  kind?: CruiseKind;
 }
+
+/** Ocean or river (#359) — mirrors `backend/src/shared/cruiseKind.ts`. */
+export type CruiseKind = "ocean" | "river";
+export const CRUISE_KINDS: readonly CruiseKind[] = ["ocean", "river"];
 
 export interface Port {
   id: number;
@@ -38,6 +44,9 @@ export interface CruiseStop {
   arrivalTime: string | null;
   departureTime: string | null;
   excursionNote: string | null;
+  /** "All aboard", `HH:mm` on the port's clock — only ever the user's entry
+   *  (forgejo#223). Absent on rows read before the column existed. */
+  allAboardTime?: string | null;
   /** Set on an unresolved port: name-only stop, portId=null, isAtSea=false. */
   unresolvedPortName: string | null;
   /** The real instants and the port's zone (ADR 0002 phase 2); absent on older rows. */
@@ -48,7 +57,8 @@ export interface CruiseStop {
   times?: CruiseStopTimes;
 }
 
-export type CruiseStatus = "scheduled" | "in_progress" | "flown" | "cancelled" | "historical";
+/** A sailed cruise is `completed` (#357); the server never returns the retired `flown`. */
+export type CruiseStatus = "scheduled" | "in_progress" | "completed" | "cancelled" | "historical";
 export type CabinType = "inside" | "oceanview" | "balcony" | "suite";
 
 export interface Cruise {
@@ -66,6 +76,8 @@ export interface Cruise {
   startDate: string | null;
   endDate: string | null;
   status: CruiseStatus;
+  /** Ocean or river (#359); absent on an older server, which means ocean. */
+  kind?: CruiseKind;
   /** Optional user-selectable map color (hex). Null = auto-derived from id. */
   color?: string | null;
   cabinNumber: string | null;
@@ -87,6 +99,10 @@ export interface Cruise {
   trip?: { id: string; name: string; color: string } | null;
   bookingId: string | null;
   stops: CruiseStop[];
+  /** What a delete takes with it besides stops and documents (forgejo#250):
+   *  GPS recordings and route corrections drawn on the map. Absent from
+   *  older servers and fixtures — then nothing is claimed. */
+  _count?: { tracks: number; legRoutes: number };
   times?: CruiseTimes;
   createdAt: string;
   updatedAt: string;
@@ -100,6 +116,9 @@ export interface CruiseStopInput {
   arrivalTime?: string | null;
   departureTime?: string | null;
   excursionNote?: string;
+  /** "All aboard", `HH:mm` on the port's clock (forgejo#223). Typed by the
+   *  user from the ship's programme; never filled from the departure. */
+  allAboardTime?: string | null;
   /** Unresolved port name (import couldn't match the catalog). Cleared when
    *  the user picks a real port. */
   unresolvedPortName?: string | null;
@@ -120,6 +139,15 @@ export interface CruiseStopInput {
    *  Q5). Sent as the time's `fold`, stripped from the stop itself. */
   arrivalFold?: "later";
   departureFold?: "later";
+  /** UI-only: which stop this is while the list is reordered, so the open day
+   *  and the keyboard focus follow a moved stop instead of staying at its old
+   *  position (forgejo#221). The stored stop's id where there is one. Stripped
+   *  on submit like `port`. */
+  uiKey?: string;
+  /** UI-only: what the day was before "Auf See" was ticked, so unticking it
+   *  brings the port (or the unresolved name) back instead of leaving "Hafen
+   *  fehlt" (review M2). Stripped on submit. */
+  beforeSea?: Pick<CruiseStopInput, "portId" | "port" | "unresolvedPortName" | "allAboardTime">;
 }
 
 export interface CruiseInput {
@@ -141,6 +169,8 @@ export interface CruiseInput {
   startDate?: string | null;
   endDate?: string | null;
   status?: CruiseStatus;
+  /** Ocean or river (#359). Absent on create: the ship decides, else ocean. */
+  kind?: CruiseKind;
   /** Optional user-selectable map color (hex). Null = auto-derived from id. */
   color?: string | null;
   cabinNumber?: string | null;
@@ -175,6 +205,8 @@ export type CruiseStopWire = Omit<
   | "departureTime"
   | "arrivalFold"
   | "departureFold"
+  | "uiKey"
+  | "beforeSea"
 > & {
   date?: string | null;
   arrivalTime?: LocalTimeInput | null;

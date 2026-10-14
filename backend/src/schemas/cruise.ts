@@ -2,6 +2,8 @@ import { z } from "./zod";
 import { currencyField } from "./lodging";
 import { partialForUpdate } from "./partialUpdate";
 import { CRUISE_SORT_FIELDS } from "../shared/cruiseListOrder";
+import { normalizeCruiseStatus } from "../shared/statusDerivation";
+import { CRUISE_KINDS } from "../shared/cruiseKind";
 import {
   instantFieldSchema,
   legacyDayFieldSchema,
@@ -9,7 +11,19 @@ import {
 } from "../shared/time/timeInput";
 
 export const CABIN_TYPES = ["inside", "oceanview", "balcony", "suite"] as const;
-const STATUSES = ["scheduled", "flown", "cancelled", "historical"] as const;
+const STATUSES = ["scheduled", "completed", "cancelled", "historical"] as const;
+
+/**
+ * A cruise status as a client may send it: today's vocabulary, plus the
+ * retired `flown` (#357), which is read as `completed` so an older Companion
+ * outbox or a bookmarked filter keeps working. Only `completed` is ever
+ * written or returned.
+ */
+const cruiseStatusInput = <T extends readonly [string, ...string[]]>(values: T) =>
+  z.preprocess((v) => (typeof v === "string" ? normalizeCruiseStatus(v) : v), z.enum(values));
+
+/** A port's wall clock, 00:00–23:59 — the shape of an "all aboard" time. */
+export const ALL_ABOARD_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /**
  * What the list can be FILTERED to — one value wider than what it can be
@@ -61,6 +75,17 @@ const stopTime = z.preprocess(
 
 export const cruiseStopSchema = z
   .object({
+    // The stored stop this one IS, when the client knows it. Stop ids change
+    // on every save (a PATCH recreates the list), so it is a matching hint
+    // and never written: today only `allAboardTime` uses it to survive a
+    // client that does not send that key (`services/cruise/stopCarryOver.ts`).
+    id: z
+      .string()
+      .uuid()
+      .optional()
+      .describe(
+        "The stored stop this one is (a matching hint, never written; ids change on every save)."
+      ),
     portId: z.number().int().positive().nullable().optional(),
     dayNumber: z.number().int().min(1).max(365),
     // Calendar date of the stop. Booking confirmations list a date per stop
@@ -71,6 +96,20 @@ export const cruiseStopSchema = z
     arrivalTime: stopTime,
     departureTime: stopTime,
     excursionNote: z.string().max(500).optional(),
+    // "All aboard" at this port (forgejo#223): `HH:mm` on the port's clock,
+    // as the ship's daily programme prints it. Only ever the user's entry —
+    // nothing derives it from the departure. "" and null clear it; on a PATCH
+    // an ABSENT key keeps the matched stored stop's value (stopCarryOver.ts).
+    allAboardTime: z
+      .preprocess(
+        emptyAsNull,
+        z.string().regex(ALL_ABOARD_TIME, "allAboardTime must be HH:mm").nullable().optional()
+      )
+      .describe(
+        'HH:mm on the port\'s clock. null or "" clears it. ABSENT on a PATCH keeps the value ' +
+          "of the matched stored stop (by id, else same day and port, else the only stop at that " +
+          "port); a sea day never has one."
+      ),
     // Third stop state: an imported port whose name could not be matched to the
     // catalog. Carried as a name-only stop (no portId, not a sea day) so it is
     // never lost; the user resolves it later via the PortPicker.
@@ -120,7 +159,12 @@ const baseCruiseSchema = z.object({
   arrivalPortId: z.number().int().positive().nullable().optional(),
   startDate: cruiseDay,
   endDate: cruiseDay,
-  status: z.enum(STATUSES).default("scheduled"),
+  status: cruiseStatusInput(STATUSES).default("scheduled"),
+  /**
+   * Ocean or river (#359). Absent on create means "from the ship, else
+   * ocean" (`shared/cruiseKind.ts`); absent on update leaves it alone.
+   */
+  kind: z.enum(CRUISE_KINDS).optional(),
   cabinNumber: z.string().max(20).nullable().optional(),
   cabinType: z.enum(CABIN_TYPES).nullable().optional(),
   deck: z.number().int().min(1).max(30).nullable().optional(),
@@ -208,7 +252,10 @@ export const updateCruiseSchema = partialForUpdate(baseCruiseSchema).refine(
 
 export const cruiseQuerySchema = z.object({
   status: z
-    .union([z.enum(CRUISE_QUERY_STATUSES), z.array(z.enum(CRUISE_QUERY_STATUSES))])
+    .union([
+      cruiseStatusInput(CRUISE_QUERY_STATUSES),
+      z.array(cruiseStatusInput(CRUISE_QUERY_STATUSES)),
+    ])
     .optional(),
   /** Exact match on the `cruise_line` COLUMN. For the dropdown, see `shipLine`. */
   cruiseLine: z.union([z.string(), z.array(z.string())]).optional(),

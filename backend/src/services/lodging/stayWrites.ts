@@ -14,6 +14,7 @@
  * forgetting it is the AUD-038 hole.
  */
 
+import { propagateWrite, shareSnapshot } from "../sharing/propagate";
 import { prisma } from "../../db";
 import { AppError } from "../../middleware/errorHandler";
 import type { Prisma } from "../../prisma";
@@ -30,6 +31,7 @@ import type { LocalTimeOrigin } from "../../shared/time/instant";
 import { dayAnchorNow } from "../../shared/time/clock";
 import { profileZoneOf } from "../../shared/time/profileZone";
 import { getBaseCurrency } from "../fx/snapshot";
+import { resolveDeadlineColumns } from "../deadlines/bookingDeadlines";
 import {
   applyFxSnapshot,
   applyManualRate,
@@ -49,6 +51,8 @@ export interface StayProvenance {
    * time the hotel's clock skipped is refused) or an import ("machine").
    */
   origin?: LocalTimeOrigin;
+  /** The write came with a personal access token (the Companion) — see `resolveInput.ts`. */
+  viaToken?: boolean;
 }
 
 /**
@@ -70,13 +74,50 @@ export async function createStayRecord(
   // whose they are. Without this, a stay could be filed under a stranger's
   // trip and would then show up on their timeline (AUD-038).
   await assertReferencesOwned(userId, data);
+  const columns = await buildStayCreateData(
+    userId,
+    await zoneOfLodging(lodgingId),
+    data,
+    provenance
+  );
+  const created = await prisma.lodgingStay.create({ data: { ...columns, lodgingId, userId } });
+  // On a shared trip: copied to the other members (design 2026-10-09).
+  await propagateWrite(prisma, userId, "lodgingStay", created.id);
+  return created;
+}
+
+/** A new stay's columns, without its lodging and owner. */
+export type StayCreateColumns = Omit<
+  Prisma.LodgingStayUncheckedCreateInput,
+  "lodgingId" | "userId"
+>;
+
+/**
+ * Every derivation a new stay goes through, as columns — split from
+ * `createStayRecord` so a caller that writes inside its own transaction (the
+ * package-tour commit, whose lodging may not exist before it) gets the same
+ * row. Reads no reference: the caller has checked the trip/booking ids are the
+ * user's own, and supplies the lodging's zone (null for a lodging without a
+ * place yet).
+ */
+export async function buildStayCreateData(
+  userId: string,
+  lodgingZone: string | null,
+  data: CreateStayData,
+  provenance: StayProvenance = {}
+): Promise<StayCreateColumns> {
   // totalPrice is the source of truth: the UI types it, but an importer or
   // API client may send only a per-night price — derive the total so it is
   // always stored, and the FX snapshot below converts the right amount.
   // `manualFxRate` is a request field, not a stay column — it must not reach
   // the spread below, where Prisma would reject it as an unknown argument.
-  const { manualFxRate, ...body } = data;
+  // The deadlines (forgejo#285) are resolved on the hotel's clock, not spread.
+  const { manualFxRate, freeCancellationUntil, paymentDueOn, ...body } = data;
   const input = { ...body, totalPrice: deriveStayTotalPrice(body) };
+  const deadlineColumns = await resolveDeadlineColumns(
+    { freeCancellationUntil, paymentDueOn },
+    { userId, placeZone: () => lodgingZone, viaToken: provenance.viaToken ?? false }
+  );
   const timeColumns = stayTimeColumns(
     {
       checkIn: legacyDay(input.checkIn),
@@ -84,14 +125,14 @@ export async function createStayRecord(
       checkInTime: input.checkInTime ?? null,
       checkOutTime: input.checkOutTime ?? null,
     },
-    await zoneOfLodging(lodgingId),
+    lodgingZone,
     provenance.origin
   );
 
   const baseCurrency = await getBaseCurrency(userId);
   const fxOutcome = await applyFxSnapshot(input, baseCurrency);
   if (fxOutcome.status === "lookupFailed") {
-    logger.warn({ operation: "lodging_fx_lookup_failed", lodgingId, userId });
+    logger.warn({ operation: "lodging_fx_lookup_failed", userId });
   }
   const fxFields =
     manualFxRate != null
@@ -107,40 +148,37 @@ export async function createStayRecord(
         )
       : resolveFxFields(fxOutcome);
 
-  return prisma.lodgingStay.create({
-    data: {
-      ...input,
-      ...fxFields,
-      ...timeColumns,
-      // Status follows the dates (see deriveLodgingStatus). Whatever the
-      // client sent is only consulted for the one value derivation honours,
-      // "cancelled" — so an old client, an importer or a stale form can no
-      // longer store a status the dates contradict.
-      // With no dates there is nothing to derive from and the deriver
-      // returns `current` — which is correct: an undated stay is recorded
-      // after the fact, so what the client says is a statement, not a cache.
-      status: deriveLodgingStatus({
-        checkIn: input.checkIn ? new Date(input.checkIn) : null,
-        checkOut: input.checkOut ? new Date(input.checkOut) : null,
-        current: input.status,
-        now: await stayStatusNow(userId),
-      }),
-      // Likewise derived, not accepted: the overall score follows the three
-      // components wherever a stay is written — form, CSV, e-mail/PDF — so
-      // an importer cannot leave it null and a client cannot store one that
-      // contradicts them. `current` only carries a source-supplied overall
-      // through for a stay that has no component rating at all.
-      ratingOverall: deriveStayOverallRating({
-        room: input.ratingRoom ?? null,
-        breakfast: input.ratingBreakfast ?? null,
-        service: input.ratingService ?? null,
-        current: input.ratingOverall ?? null,
-      }),
-      ...(provenance.dataSource ? { dataSource: provenance.dataSource } : {}),
-      lodgingId,
-      userId,
-    },
-  });
+  return {
+    ...input,
+    ...fxFields,
+    ...timeColumns,
+    ...deadlineColumns,
+    // Status follows the dates (see deriveLodgingStatus). Whatever the
+    // client sent is only consulted for the one value derivation honours,
+    // "cancelled" — so an old client, an importer or a stale form can no
+    // longer store a status the dates contradict.
+    // With no dates there is nothing to derive from and the deriver
+    // returns `current` — which is correct: an undated stay is recorded
+    // after the fact, so what the client says is a statement, not a cache.
+    status: deriveLodgingStatus({
+      checkIn: input.checkIn ? new Date(input.checkIn) : null,
+      checkOut: input.checkOut ? new Date(input.checkOut) : null,
+      current: input.status,
+      now: await stayStatusNow(userId),
+    }),
+    // Likewise derived, not accepted: the overall score follows the three
+    // components wherever a stay is written — form, CSV, e-mail/PDF — so
+    // an importer cannot leave it null and a client cannot store one that
+    // contradicts them. `current` only carries a source-supplied overall
+    // through for a stay that has no component rating at all.
+    ratingOverall: deriveStayOverallRating({
+      room: input.ratingRoom ?? null,
+      breakfast: input.ratingBreakfast ?? null,
+      service: input.ratingService ?? null,
+      current: input.ratingOverall ?? null,
+    }),
+    ...(provenance.dataSource ? { dataSource: provenance.dataSource } : {}),
+  };
 }
 
 /**
@@ -153,12 +191,13 @@ export async function updateStayRecord(
   userId: string,
   stay: StoredStay,
   data: UpdateStayData,
-  origin: LocalTimeOrigin = "typed"
+  origin: LocalTimeOrigin = "typed",
+  viaToken = false
 ): Promise<StoredStay> {
   // Re-linking is a write too — see the create path (AUD-038).
   await assertReferencesOwned(userId, data);
-  // Same reason as the create path: this one is not a stay column.
-  const { manualFxRate, ...input } = data;
+  // Same reason as the create path: these are not stay columns as sent.
+  const { manualFxRate, freeCancellationUntil, paymentDueOn, ...input } = data;
 
   // The whole merge rule, and the trap in it, live in `stayPatchMerge`.
   const effective = resolveEffectiveStayDates(input, stay);
@@ -300,6 +339,7 @@ export async function updateStayRecord(
     if (key in timeClears) return null;
     return stay[key];
   };
+  const lodgingZone = await zoneOfLodging(stay.lodgingId);
   const timeColumns = stayTimeColumns(
     {
       checkIn: effectiveCheckIn,
@@ -307,16 +347,23 @@ export async function updateStayRecord(
       checkInTime: effectiveTime("checkInTime"),
       checkOutTime: effectiveTime("checkOutTime"),
     },
-    await zoneOfLodging(stay.lodgingId),
+    lodgingZone,
     origin
   );
+  // Only the deadlines sent: absent leaves them, null clears (forgejo#285).
+  const deadlineColumns = await resolveDeadlineColumns(
+    { freeCancellationUntil, paymentDueOn },
+    { userId, placeZone: () => lodgingZone, viaToken }
+  );
 
-  return prisma.lodgingStay.update({
+  const before = await shareSnapshot(prisma, "lodgingStay", stay.id);
+  const updated = await prisma.lodgingStay.update({
     where: { id: stay.id },
     data: {
       ...input,
       ...timeClears,
       ...timeColumns,
+      ...deadlineColumns,
       // totalPrice is authoritative and derived above from the merged view,
       // so it overrides whatever `...input` carried (which may be a stale
       // re-send or absent while only the per-night price changed).
@@ -344,4 +391,6 @@ export async function updateStayRecord(
       }),
     },
   });
+  await propagateWrite(prisma, userId, "lodgingStay", stay.id, before);
+  return updated;
 }

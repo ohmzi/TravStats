@@ -135,6 +135,18 @@ export const BETA_FEATURES = Object.freeze({
     reason: "beta",
   }),
 
+  ferryDomain: Object.freeze({
+    why: "Ferry crossings (forgejo#293) await acceptance with real tickets on RC.",
+    returnsWhen: "The owner accepts ferry crossings for release after RC verification.",
+    reason: "beta",
+  }),
+  busDomain: Object.freeze({
+    why: "Long-distance coach rides are a new domain (spec 2026-10-07-bus-domain-design), built in packages; the Companion app does not handle them yet and no release candidate has carried them.",
+    returnsWhen:
+      "The owner explicitly takes bus out of beta. Packages being done is not that event.",
+    reason: "beta",
+  }),
+
   /**
    * Recorded tracks on a cruise (2.7, board item `cruise-tracks`): a GPS
    * recording replaces a leg's computed sea route on the map and in the

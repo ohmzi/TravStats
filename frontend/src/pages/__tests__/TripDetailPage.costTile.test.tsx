@@ -21,6 +21,20 @@ const getByIdMock = vi.fn();
 // The page renders the summary card, which asks the instance whether it has a
 // text model at all (`GET /parser-capabilities`). The network guard fails any
 // test that lets that request out (forgejo#110).
+// Shared trips (2026-10-09): the trip overview, the settings and the inbox
+// read the sharing API on mount; answered empty so no request escapes.
+vi.mock("@/lib/api/sharing", () => ({
+  sharingApi: {
+    tripSharing: vi
+      .fn()
+      .mockResolvedValue({ groupId: null, members: [], candidates: [], bookingTotals: [] }),
+    listConsents: vi.fn().mockResolvedValue({ incoming: [], outgoing: [] }),
+    listCompanions: vi.fn().mockResolvedValue({ companions: [], linkableUsers: [] }),
+    listNotices: vi.fn().mockResolvedValue([]),
+    inboxCount: vi.fn().mockResolvedValue(0),
+  },
+}));
+
 vi.mock("../../hooks/useHasLlm", () => ({ useHasLlm: () => true }));
 
 // The documents section fetches its entry's kept originals on mount. It has
@@ -33,6 +47,12 @@ vi.mock("../../lib/api", () => ({
   tripsApi: {
     getById: (...args: unknown[]) => getByIdMock(...args),
   },
+}));
+
+// Notes on the trip's days (forgejo#146) have their own suite
+// (`tripNotesTimeline.test.tsx`); answered empty so no request escapes.
+vi.mock("../../hooks/useTripNotes", () => ({
+  useTripNotes: () => ({ notes: null, failed: false, reload: () => {} }),
 }));
 
 vi.mock("../../lib/api/places", () => ({
@@ -119,6 +139,8 @@ const priced = makeTrip({
   bookings: [
     { id: "b1", pnr: "AB12CD", price: 40206, currency: "EUR" },
   ] as unknown as Trip["bookings"],
+  // The tile shows the server's figure (forgejo#274), never its own sum.
+  cost: { spendByCurrency: { EUR: 40206 }, unpricedEntries: 0 },
 });
 
 describe("TripDetailPage cost tiles", () => {
