@@ -153,4 +153,89 @@ describe("roadtrip stations on the trip timeline", () => {
 
     expect(events.map((e) => e.kind)).toEqual(["flight", "stop", "roadtrip-station"]);
   });
+
+  it("puts a station before the flight that TOOK the traveller away from it (owner 2026-10-14)", () => {
+    // The owner's report: a journey showed the flight out of the departure
+    // airport and only THEN presence at the place (the drive back to the
+    // airport). The flight's DEPARTURE airport is the one beside the station,
+    // so the station must sort BEFORE it. Synthetic fixture only (public
+    // repository): invented airports, places and year.
+    const departure = {
+      id: "e5f6a7b8-c9d0-4e1f-8a2b-3c4d5e6f7081",
+      depIata: "QDV",
+      arrIata: "ZAR",
+      departureTime: "2031-06-03T07:40:00.000Z",
+      arrivalTime: "2031-06-03T10:45:00.000Z",
+      depTimezone: "UTC",
+      arrTimezone: "UTC",
+      depTimeSemantics: "UTC",
+      arrTimeSemantics: "UTC",
+      depLat: 34.0,
+      depLon: 22.0,
+      arrLat: 52.0,
+      arrLon: 8.0,
+    } as NonNullable<Trip["flights"]>[number];
+    const backToAirport = stationDto({
+      id: "f6a7b8c9-d0e1-4f2a-9b3c-4d5e6f708192",
+      title: "Qdv Port",
+      lat: 34.05,
+      lon: 22.1,
+      state: "pass",
+      nights: 0,
+      routeOrderIdx: 19,
+      startDate: "2031-06-03T00:00:00.000Z",
+      endDate: "2031-06-03T00:00:00.000Z",
+      routeStartDate: "2031-06-03T00:00:00.000Z",
+      routeEndDate: "2031-06-03T00:00:00.000Z",
+      times: { start: dayAt("2031-06-03"), end: dayAt("2031-06-03") },
+    });
+
+    const events = buildTimelineEvents(
+      trip({ flights: [departure], roadtripStations: [backToAirport] }),
+      []
+    );
+
+    expect(events.map((e) => e.kind)).toEqual(["roadtrip-station", "flight"]);
+  });
+
+  it("keeps the flight before a station at its ARRIVAL airport on the day it landed", () => {
+    // The mirror: the flight's ARRIVAL airport is the one beside the station,
+    // so the flight still sorts first (owner 2026-10-13 ruling, kept).
+    const arrival = {
+      id: "a7b8c9d0-e1f2-4a3b-8c4d-5e6f70819a2b",
+      depIata: "QDV",
+      arrIata: "ZAR",
+      departureTime: "2031-06-03T07:40:00.000Z",
+      arrivalTime: "2031-06-03T10:45:00.000Z",
+      depTimezone: "UTC",
+      arrTimezone: "UTC",
+      depTimeSemantics: "UTC",
+      arrTimeSemantics: "UTC",
+      depLat: 34.0,
+      depLon: 22.0,
+      arrLat: 52.0,
+      arrLon: 8.0,
+    } as NonNullable<Trip["flights"]>[number];
+    const atArrival = stationDto({
+      id: "b8c9d0e1-f2a3-4b4c-9d5e-6f70819a2b3c",
+      title: "Zar Harbour",
+      lat: 52.05,
+      lon: 8.1,
+      state: "pass",
+      nights: 0,
+      routeOrderIdx: 0,
+      startDate: "2031-06-03T00:00:00.000Z",
+      endDate: "2031-06-03T00:00:00.000Z",
+      routeStartDate: "2031-06-03T00:00:00.000Z",
+      routeEndDate: "2031-06-03T00:00:00.000Z",
+      times: { start: dayAt("2031-06-03"), end: dayAt("2031-06-03") },
+    });
+
+    const events = buildTimelineEvents(
+      trip({ flights: [arrival], roadtripStations: [atArrival] }),
+      []
+    );
+
+    expect(events.map((e) => e.kind)).toEqual(["flight", "roadtrip-station"]);
+  });
 });

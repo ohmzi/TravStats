@@ -39,6 +39,25 @@ const visit = (date: string) => ({ kind: "place-visit", when: day(date), id: `vi
 const order = (events: ReadonlyArray<{ kind: string; when: TimeValue }>) =>
   [...events].sort(compareTimelineEvents).map((e) => e.kind);
 
+/** A payload point, the way the event builder carries coordinates on an event. */
+const point = (lat: number, lon: number) => ({ lat, lon });
+
+/** A flight that carries its two airports' points, as the builder now does. */
+const geoFlight = (
+  local: string,
+  arrivalDay: string | null,
+  depPoint: { lat: number; lon: number } | null,
+  arrPoint: { lat: number; lon: number } | null
+) => ({ kind: "flight", when: at(local), arrivalDay, depPoint, arrPoint });
+
+/** A time-less place station that carries its own point. */
+const geoStation = (date: string, point: { lat: number; lon: number } | null) => ({
+  kind: "roadtrip-station",
+  when: day(date),
+  id: `station-${date}`,
+  point,
+});
+
 describe("a flight and the place entries it moved the traveller to", () => {
   it("puts the flight before the Istanbul presence of its own arrival day", () => {
     const events = [
@@ -89,5 +108,94 @@ describe("a flight and the place entries it moved the traveller to", () => {
     // Same ranks, so the instants decide: the day-only stop reads as midnight
     // and stays first, exactly as before this rule.
     expect(order(events)).toEqual(["stop", "flight"]);
+  });
+});
+
+/**
+ * The owner's report (2026-10-14): the SAME pairing rule was one-directional.
+ * A flight that TOOK the traveller away — its DEPARTURE airport, not its
+ * arrival one, is the airport at the place — was treated like an arrival and
+ * drawn before the place's time-less entries, so the place continued to be
+ * shown AFTER the traveller had already flown home. The rule now asks which of
+ * the flight's two airports is NEARER the place (the points the event builder
+ * carries): nearer arrival ⇒ brought the traveller there ⇒ first (unchanged),
+ * nearer departure ⇒ took them away ⇒ last. Coordinates on both sides decide
+ * it; where either is missing the rule keeps today's behaviour exactly.
+ *
+ * Synthetic fixtures only — invented airports, places and years 2031+.
+ */
+describe("a flight and the place entries it took the traveller away from", () => {
+  // Two invented airports far apart, and a place beside the DEPARTURE one.
+  const DEP = point(34.0, 22.0);
+  const ARR = point(52.0, 8.0);
+  const AT_DEPARTURE = point(34.05, 22.1);
+  const AT_ARRIVAL = point(52.05, 8.1);
+
+  it("puts a same-day time-less place entry BEFORE the departure flight (the owner's report)", () => {
+    // The flight leaves at 07:40 and lands later the same day; the place is the
+    // drive back to the departure airport. The place must come first.
+    const events = [
+      geoStation("2031-06-03", AT_DEPARTURE),
+      geoFlight("2031-06-03T07:40", "2031-06-03", DEP, ARR),
+    ];
+    expect(order(events)).toEqual(["roadtrip-station", "flight"]);
+  });
+
+  it("keeps the arrival shape: an arrival flight still sorts FIRST (Sumayya's wedding)", () => {
+    const events = [
+      geoStation("2031-06-03", AT_ARRIVAL),
+      geoFlight("2031-06-03T07:40", "2031-06-03", DEP, ARR),
+    ];
+    expect(order(events)).toEqual(["flight", "roadtrip-station"]);
+  });
+
+  it("leaves an unrelated flight crossing the day exactly as today", () => {
+    // The flight departs late on the 3rd and lands on the 4th: it does not
+    // share the place's day, and neither airport is near the place. Nothing
+    // moves — the timed flight keeps its rank order, as before this rule.
+    const crossing = geoFlight("2031-06-03T23:00", "2031-06-04", DEP, ARR);
+    const place = geoStation("2031-06-03", point(5.0, 5.0));
+    expect(order([place, crossing])).toEqual(["flight", "roadtrip-station"]);
+    // The same order as a flight that carries no points at all — the
+    // coordinates change nothing here.
+    const plain = geoFlight("2031-06-03T23:00", "2031-06-04", null, null);
+    expect(order([place, plain])).toEqual(["flight", "roadtrip-station"]);
+  });
+
+  it("keeps today's behaviour when either side has no coordinates", () => {
+    // The flight carries none: unknown direction ⇒ the arrival rule stands.
+    const noAirports = [
+      geoStation("2031-06-03", AT_DEPARTURE),
+      geoFlight("2031-06-03T07:40", "2031-06-03", null, null),
+    ];
+    expect(order(noAirports)).toEqual(["flight", "roadtrip-station"]);
+    // The place carries none: likewise unknown.
+    const noPlace = [
+      geoStation("2031-06-03", null),
+      geoFlight("2031-06-03T07:40", "2031-06-03", DEP, ARR),
+    ];
+    expect(order(noPlace)).toEqual(["flight", "roadtrip-station"]);
+  });
+
+  it("never overrides a place entry that carries a time", () => {
+    // A station WITH a clock keeps its place in the clock order even when it
+    // sits beside the departure airport.
+    const timed = {
+      kind: "roadtrip-station",
+      when: at("2031-06-03T09:00"),
+      id: "timed-station",
+      point: AT_DEPARTURE,
+    };
+    const events = [timed, geoFlight("2031-06-03T07:40", "2031-06-03", DEP, ARR)];
+    expect(order(events)).toEqual(["flight", "roadtrip-station"]);
+  });
+
+  it("never drags an entry of another day after the departure", () => {
+    // The place is the day BEFORE the flight: the day-first ordering holds.
+    const events = [
+      geoStation("2031-06-02", AT_DEPARTURE),
+      geoFlight("2031-06-03T07:40", "2031-06-03", DEP, ARR),
+    ];
+    expect(order(events)).toEqual(["roadtrip-station", "flight"]);
   });
 });

@@ -675,7 +675,7 @@ describe("trip countries are derived on the list, not only on the detail", () =>
       await uatAirport("XCA", "CA");
       await uatAirport("XUS", "US");
       const trip = await prisma.trip.create({
-        data: { userId, name: "UAT smokey", status: "completed" },
+        data: { userId, name: "UAT band trip 2", status: "completed" },
       });
       await prisma.flight.createMany({
         data: [leg("XCA", "XUS", 0), leg("XUS", "XCA", 9)].map((l) => ({ ...l, tripId: trip.id })),
@@ -697,7 +697,7 @@ describe("trip countries are derived on the list, not only on the detail", () =>
       await uatAirport("XCA", "CA");
       await uatAirport("XUS", "US");
       const trip = await prisma.trip.create({
-        data: { userId, name: "UAT smokey same day", status: "completed" },
+        data: { userId, name: "UAT band trip 2 same day", status: "completed" },
       });
       await prisma.flight.createMany({
         data: [leg("XCA", "XUS", 0), { ...leg("XUS", "XCA", 9), departureTime: midnight(9) }].map(
@@ -721,7 +721,7 @@ describe("trip countries are derived on the list, not only on the detail", () =>
       await uatAirport("XCA", "CA");
       await uatAirport("XMX", "Mexico");
       const trip = await prisma.trip.create({
-        data: { userId, name: "UAT mexico", status: "completed" },
+        data: { userId, name: "UAT band trip 3", status: "completed" },
       });
       await prisma.flight.createMany({
         data: [leg("XCA", "XMX", 0), leg("XMX", "XCA", 9)].map((l) => ({ ...l, tripId: trip.id })),

@@ -1,4 +1,5 @@
 import { formatTimeValueShown } from "./displayFormat";
+import { calculateDistance } from "./geo";
 import { clockOf, dayOf, type LocalDateValue, type TimeValue } from "../shared/time";
 
 /**
@@ -65,6 +66,22 @@ export interface SortableEvent {
    * null when the arrival is not known.
    */
   arrivalDay?: string | null;
+  /**
+   * Flights only: the two airports' points, as the trip payload carries them.
+   * The comparator tells an arrival from a departure by which airport is
+   * NEARER the place it shares a day with (owner ruling 2026-10-14): the nearer
+   * ARRIVAL airport means the flight brought the traveller there (it sorts
+   * first), the nearer DEPARTURE airport means it took them away (it sorts
+   * last). Null — on either end, or with no place point to compare against —
+   * means "cannot tell", and the rule keeps today's behaviour.
+   */
+  depPoint?: { lat: number; lon: number } | null;
+  arrPoint?: { lat: number; lon: number } | null;
+  /**
+   * Place entries only (see PLACE_KINDS): the place's own point, for the same
+   * airport-nearer test. Null when the payload has none.
+   */
+  point?: { lat: number; lon: number } | null;
 }
 
 /**
@@ -75,22 +92,64 @@ export interface SortableEvent {
 const PLACE_KINDS: ReadonlySet<string> = new Set(["stop", "roadtrip-station", "place-visit"]);
 
 /**
- * Whether `a` is the flight that moved the traveller to the place entry `b`
- * (owner ruling 2026-10-13, "Sumayya's wedding"): they share a day, `a` is a
- * flight whose own arrival day is that day, and `b` is a time-less place
- * entry. Only a MISSING clock is settled this way — a place entry that carries
- * a time keeps its place in the clock order, exactly as every rank here does.
- * Returns -1 when `a` goes first, 1 when `b` does, 0 when neither is such a
- * pair.
+ * Which way a flight relates to a place entry — did it BRING the traveller
+ * there, or TAKE them away? Read from the points both events carry (owner
+ * ruling 2026-10-14): the airport nearer the place is the one the traveller was
+ * at, so a nearer ARRIVAL airport means the flight brought them, a nearer
+ * DEPARTURE airport means it took them away. `unknown` when either event
+ * carries no point, or the two airports are the same distance away — the
+ * caller then keeps today's behaviour.
+ */
+function flightDirection(
+  flight: SortableEvent,
+  place: SortableEvent
+): "brought" | "took" | "unknown" {
+  const { depPoint, arrPoint } = flight;
+  const { point } = place;
+  if (!depPoint || !arrPoint || !point) return "unknown";
+  const toDep = calculateDistance(point.lat, point.lon, depPoint.lat, depPoint.lon);
+  const toArr = calculateDistance(point.lat, point.lon, arrPoint.lat, arrPoint.lon);
+  if (toDep < toArr) return "took";
+  if (toArr < toDep) return "brought";
+  return "unknown";
+}
+
+/**
+ * Whether `a` is the flight that moved the traveller to the place entry `b`,
+ * or away from it. Both are owner rulings:
+ *
+ * - 2026-10-13 ("Sumayya's wedding"): the flight that brought the traveller TO
+ *   a place sorts BEFORE that place's time-less entries — a presence in
+ *   Istanbul must not be drawn above the flight from Karachi. That is the
+ *   nearer-ARRIVAL-airport direction.
+ * - 2026-10-14: the same rule's other direction. A flight that TOOK the
+ *   traveller away — its nearer airport is the DEPARTURE one — sorts AFTER the
+ *   place's time-less entries. The owner's report: the journey showed the
+ *   flight out of Keflavik and only THEN presence in Keflavik, because a
+ *   same-day DEPARTURE whose arrival was also that day was treated exactly like
+ *   an arrival.
+ *
+ * They share a day, `a` is a flight whose own arrival day is that day, and `b`
+ * is a time-less place entry. Only a MISSING clock is settled this way — a
+ * place entry that carries a time keeps its place in the clock order, exactly
+ * as every rank here does. When the events carry no points to tell the two
+ * directions apart, the rule keeps today's behaviour (a flight first). Returns
+ * -1 when `a` goes first, 1 when `b` does, 0 when neither is such a pair.
  */
 function flightFirst(a: SortableEvent, b: SortableEvent, day: string): number {
-  const movedBy = (flight: SortableEvent, place: SortableEvent): boolean =>
-    flight.kind === "flight" &&
-    PLACE_KINDS.has(place.kind) &&
-    flight.arrivalDay === day &&
-    !hasExplicitTime(place.when);
-  if (movedBy(a, b)) return -1;
-  if (movedBy(b, a)) return 1;
+  const position = (flight: SortableEvent, place: SortableEvent): number => {
+    if (flight.kind !== "flight") return 0;
+    if (!PLACE_KINDS.has(place.kind)) return 0;
+    if (flight.arrivalDay !== day) return 0;
+    if (hasExplicitTime(place.when)) return 0;
+    // Only a flight that TOOK the traveller away is moved after the place; a
+    // flight that brought them — or one whose points cannot say — stays first.
+    return flightDirection(flight, place) === "took" ? 1 : -1;
+  };
+  const ap = position(a, b);
+  if (ap !== 0) return ap;
+  const bp = position(b, a);
+  if (bp !== 0) return -bp;
   return 0;
 }
 
@@ -127,10 +186,13 @@ function dayRank(ev: SortableEvent): number {
  * Chronological order: by the day AT THE PLACE first, then within a day by
  * four deliberate tie-breaks.
  *
- * 1. The flight that brought the traveller to a place sorts BEFORE the
- *    time-less place entries of its arrival day (`flightFirst`, owner ruling
- *    2026-10-13): the presence in Istanbul is not drawn before the flight from
- *    Karachi.
+ * 1. The flight that moved the traveller to or from a place sorts around the
+ *    time-less place entries of its own arrival day, by which of its two
+ *    airports is nearer the place (`flightFirst`): a flight that brought the
+ *    traveller BEFORE the place (owner ruling 2026-10-13 — the presence in
+ *    Istanbul is not drawn before the flight from Karachi), a flight that took
+ *    them away AFTER it (owner ruling 2026-10-14 — the place is not drawn after
+ *    the flight that left it).
  * 2. A DIARY entry sorts after everything else on the same day — Alex's
  *    request (#175): "Diary entries should always be the last entry of a day".
  * 3. A time-less check-in or check-out is placed by `dayRank` rather than by

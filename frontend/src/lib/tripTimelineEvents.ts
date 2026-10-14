@@ -52,6 +52,15 @@ export type TimelineEvent =
       /** The row itself, so the entry can open in place. It is already on the
        *  trip payload -- see the note on `Trip["flights"]`. */
       flight: NonNullable<Trip["flights"]>[number];
+      /**
+       * The two airports' points, or null when either end is unknown. Carried
+       * here (the builder has the payload; the comparator must stay a pure
+       * function of the two events) so `sort` can tell a flight that BROUGHT
+       * the traveller to a place from one that TOOK them away — owner ruling
+       * 2026-10-14, see `flightFirst` in tripTimeline.ts.
+       */
+      depPoint: { lat: number; lon: number } | null;
+      arrPoint: { lat: number; lon: number } | null;
     }
   | {
       id: string;
@@ -70,6 +79,8 @@ export type TimelineEvent =
       date: string;
       when: TimeValue;
       stop: TripStop;
+      /** The stop's own point, or null when it has none — see the flight note. */
+      point: { lat: number; lon: number } | null;
     }
   | {
       id: string;
@@ -111,6 +122,8 @@ export type TimelineEvent =
       when: TimeValue;
       place: Place;
       visit: PlaceVisit;
+      /** The place's own point, or null when it has none — see the flight note. */
+      point: { lat: number; lon: number } | null;
     }
   | {
       id: string;
@@ -119,7 +132,22 @@ export type TimelineEvent =
       date: string;
       when: TimeValue;
       station: TripRoadtripStationDto;
+      /** The station's own point, or null when it has none — see the flight note. */
+      point: { lat: number; lon: number } | null;
     };
+
+/**
+ * A payload point, or null when either coordinate is missing. The event
+ * carries its own point so the comparator can tell a flight that brought the
+ * traveller to a place from one that took them away (owner ruling 2026-10-14),
+ * and stays a pure function of the two events it is given.
+ */
+function pointOf(
+  lat: number | null | undefined,
+  lon: number | null | undefined
+): { lat: number; lon: number } | null {
+  return typeof lat === "number" && typeof lon === "number" ? { lat, lon } : null;
+}
 
 /** Rentals as entries: the pickup and the return, each on its station's clock. */
 function rentalEvents(trip: Trip): TimelineEvent[] {
@@ -177,6 +205,11 @@ function flightEvents(trip: Trip): TimelineEvent[] {
         ? `${flightEndLabel(when)} → ${flightEndLabel(arrival)}`
         : flightEndLabel(when),
       flight: f,
+      // The airports' points, so the comparator can tell the flight that
+      // TOOK the traveller away from a place from the one that brought them
+      // (owner ruling 2026-10-14).
+      depPoint: pointOf(f.depLat, f.depLon),
+      arrPoint: pointOf(f.arrLat, f.arrLon),
     });
   }
   return out;
@@ -215,7 +248,14 @@ function stopEvents(trip: Trip): TimelineEvent[] {
     // only day a creation instant has), without a clock.
     const when = tripStopStart(s) ?? timeValueAtZone(s.createdAt, null, "day");
     if (!when) continue;
-    out.push({ id: `stop-${s.id}`, kind: "stop", date: when.utc, when, stop: s });
+    out.push({
+      id: `stop-${s.id}`,
+      kind: "stop",
+      date: when.utc,
+      when,
+      stop: s,
+      point: pointOf(s.lat, s.lon),
+    });
   }
   return out;
 }
@@ -267,7 +307,14 @@ function roadtripStationEvents(trip: Trip): TimelineEvent[] {
     if (!own) continue;
     const when = placedWhen(station, own);
     const id = `roadtrip-station-${station.id}`;
-    out.push({ id, kind: "roadtrip-station", date: when.utc, when, station });
+    out.push({
+      id,
+      kind: "roadtrip-station",
+      date: when.utc,
+      when,
+      station,
+      point: pointOf(station.lat, station.lon),
+    });
   }
   return out;
 }
@@ -318,6 +365,7 @@ export function buildTimelineEvents(
       when,
       place,
       visit,
+      point: pointOf(place.lat, place.lon),
     });
   }
   for (const e of trip.journalEntries ?? []) {
