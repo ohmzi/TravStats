@@ -29,6 +29,12 @@ import { toDbDate } from "../../shared/time/localDate";
 import type { LegPair } from "../../shared/tour/legPlan";
 import { replaceStationsInTx } from "../roadtrip/replaceStations";
 import { nightsOf, STATION_SELECT } from "../roadtrip/roadtripSummary";
+import {
+  propagateDeletes,
+  propagateWrite,
+  shareSnapshot,
+  shareSnapshots,
+} from "../sharing/propagate";
 import { stationTimeColumns } from "../timeModel/tripColumns";
 import { sameSet, tripChanged } from "./commitPlanExisting";
 import { candidateStopsWhere } from "./existingState";
@@ -141,6 +147,7 @@ async function writeMatchedRoadtrip(
 
 async function writeStops(
   tx: DbTransaction,
+  userId: string,
   plan: ExistingCommitPlan,
   addedStopIds: readonly string[],
   releasedStopIds: readonly string[]
@@ -169,6 +176,8 @@ async function writeStops(
     if (!stop) throw tripChanged();
     const startDate = toDbDate(update.startDay);
     const endDate = toDbDate(update.endDay);
+    // A timeline stop is shareable: its edit reaches every member's copy.
+    const before = await shareSnapshot(tx, "stop", update.stopId);
     await tx.tripStop.update({
       where: { id: update.stopId },
       data: {
@@ -179,11 +188,15 @@ async function writeStops(
         ...stationTimeColumns({ startDate, endDate, lat: stop.lat, lon: stop.lon }),
       },
     });
+    await propagateWrite(tx, userId, "stop", update.stopId, before);
   }
   if (plan.stopRemoveIds.length > 0) {
+    // A removal is a delete notice to the members holding a copy, which stays.
+    const gone = await shareSnapshots(tx, "stop", plan.stopRemoveIds);
     await tx.tripStop.deleteMany({
       where: { id: { in: plan.stopRemoveIds }, tripId: plan.tripId, routeId: null },
     });
+    await propagateDeletes(tx, userId, [...gone.values()]);
   }
 }
 
@@ -234,6 +247,6 @@ export async function writeExistingTarget(
   // stops are not its business, so neither the candidates guard nor an update
   // runs — and the success panel shows no stops line.
   if (plan.scoped === true) return { roadtrips };
-  await writeStops(tx, plan, addedStopIds, releasedStopIds);
+  await writeStops(tx, userId, plan, addedStopIds, releasedStopIds);
   return { roadtrips, stopsDiff: plan.stopsDiff };
 }

@@ -20,6 +20,7 @@ import { replaceStationsInTx } from "../roadtrip/replaceStations";
 import { editedTripDays, stationTimeColumns } from "../timeModel/tripColumns";
 import { autoRouteNewLegs } from "../tour/routing/autoRouteLegs";
 import { resolveRouteProvider } from "../tour/routing/resolveProvider";
+import { propagateWrite, propagateWrites, shareSnapshots } from "../sharing/propagate";
 import { insertTrip, prepareTripCreate, type PreparedTripCreate } from "../trip/createTrip";
 import { recomputeTripStatus } from "../tripStatusService";
 import { resyncTripAlbum } from "./albumResync";
@@ -105,10 +106,15 @@ async function assignFlights(
   });
   const toMove = rows.filter((row) => row.tripId !== tripId);
   if (toMove.length > 0) {
+    const ids = toMove.map((row) => row.id);
+    // A flight moved here may have been on a SHARED trip: its copies follow
+    // (`movedOut`), so the move propagates like any other writer of a flight.
+    const before = await shareSnapshots(tx, "flight", ids);
     await tx.flight.updateMany({
-      where: { id: { in: toMove.map((row) => row.id) }, userId: plan.userId },
+      where: { id: { in: ids }, userId: plan.userId },
       data: { tripId },
     });
+    await propagateWrites(tx, plan.userId, "flight", ids, before);
   }
   const previous = [...new Set(toMove.flatMap((row) => (row.tripId === null ? [] : [row.tripId])))];
   const trips =
@@ -148,6 +154,9 @@ async function writeStops(tx: DbTransaction, plan: CommitPlan, tripId: string): 
       select: { id: true },
     });
     ids.push(row.id);
+    // A timeline stop is a shareable entry: on a shared trip its creation gets
+    // every member a copy and a `created` notice (a no-op elsewhere).
+    await propagateWrite(tx, plan.userId, "stop", row.id);
   }
   return ids;
 }

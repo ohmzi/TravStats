@@ -130,6 +130,10 @@ export const USER_EXPORT_SELECT = {
   // journeys the photo inbox proposed from it: evidence the passport reads.
   countryDays: true,
   photoJourneys: true,
+  // Reviewable Dawarich stay findings (forgejo#294): the detection and the
+  // user's accept/reject that stops it being offered again. A confirmed stay
+  // is a PlaceVisit (above), but the rejected ones live nowhere else.
+  dawarichStays: true,
   // The answers to trip suggestions: without them a restored account would be
   // asked again every question it already dismissed. The suggestions
   // themselves are derived and never stored.

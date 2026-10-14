@@ -1,15 +1,8 @@
 import type { Achievement } from "../prisma";
 import { prisma } from "../db";
 import { now as clockNow } from "../shared/time/clock";
-import { getCountryResolver } from "../services/geo/countryFromCoordinates";
 import { roadtripInsights } from "../services/stats/insights";
-import {
-  nightsOf,
-  spanOf,
-  stationCountries,
-  STATION_SELECT,
-} from "../services/roadtrip/roadtripSummary";
-import { travelledKm } from "../services/tour/tourDistance";
+import { spanOf, STATION_SELECT } from "../services/roadtrip/roadtripSummary";
 import { SKIP, type BadgeVerdict } from "./badgeSource";
 import type { TourFacts } from "./tourInsights/tourFacts";
 import type { RoadtripInsights } from "./roadtripInsights";
@@ -57,42 +50,50 @@ export async function calculateRoadtripAchievementStats(
   /** The tours a badge check already loaded — read once per check, not per builder. */
   tours?: TourFacts[]
 ): Promise<RoadtripAchievementStats> {
-  // The five core measures keep the fork's rule: a trip's OWN stored days place
-  // its span (owner 2026-10-13), so a trip whose stored start is in the future
-  // is planned whatever its stations say. Upstream's insight-based rewrite is
-  // folded in for the three Part K measures below, which have no fork logic.
-  const rows = await prisma.tripRoute.findMany({
-    where: { userId, kind: "roadtrip" },
-    select: {
-      // The row's own days count here too (owner 2026-10-13): a trip whose
-      // stored start is in the future is planned, whatever its stations say.
-      startDay: true,
-      endDay: true,
-      legs: { select: { distanceKm: true } },
-      stops: { select: STATION_SELECT },
-    },
-  });
+  // WHICH trips count is the fork's rule: a trip's OWN stored days place its
+  // span (owner 2026-10-13), so a trip whose stored start is in the future is
+  // planned whatever its stations say. WHAT they count is forgejo#260's,
+  // read off the insights so a badge and the statistics tab cannot disagree:
+  // of a trip that HAS started only what has happened counts, through the one
+  // timeline rule (`shared/tour/roadtripTimeline.ts`). The fork's query is kept
+  // for the stored days — the insights load their own rows.
+  const [rows, { response, awards }] = await Promise.all([
+    prisma.tripRoute.findMany({
+      where: { userId, kind: "roadtrip" },
+      select: {
+        // The row's own days count here too (owner 2026-10-13): a trip whose
+        // stored start is in the future is planned, whatever its stations say.
+        // `id` keys the insight row the measures are read from.
+        id: true,
+        startDay: true,
+        endDay: true,
+        stops: { select: STATION_SELECT },
+      },
+    }),
+    roadtripInsights(userId, now, { tours }),
+  ]);
+  const measured = new Map(response.roadtrips.map((r) => [r.id, r]));
 
-  const resolver = await getCountryResolver();
   const stats = { ...EMPTY_ROADTRIP_STATS };
   for (const row of rows) {
     const { startDate } = spanOf(row.stops, row);
     if (startDate && Date.parse(startDate) > now.getTime()) continue;
-    const km = travelledKm(row.legs);
+    // Only what has happened: the insight row's `recorded` halves, never the
+    // whole trip — a ferry still ahead is not kilometres already driven.
+    const insight = measured.get(row.id);
+    const km = insight?.km.recorded ?? 0;
     stats.roadtripsCount += 1;
     stats.roadtripKm += km;
-    stats.roadtripFreeNights += nightsOf(row.stops).freeNights;
+    stats.roadtripFreeNights += insight?.nightsByStyle.pitch ?? 0;
     stats.roadtripLongestKm = Math.max(stats.roadtripLongestKm, km);
     stats.roadtripCountriesMax = Math.max(
       stats.roadtripCountriesMax,
-      stationCountries(row.stops, resolver).length
+      insight?.countries.recorded.length ?? 0
     );
   }
 
-  // The three Part K measures (base camps, land-and-water, tour stations) come
-  // from the roadtrip insights — their one home — so upstream's expansion of
-  // the badge set counts here too.
-  const { awards } = await roadtripInsights(userId, now, { tours });
+  // The three Part K measures have no fork logic — their one home is the
+  // roadtrip insights, so upstream's expansion of the badge set counts here too.
   stats.roadtripBaseCamps = awards.baseCampStations;
   stats.roadtripLandAndWater = awards.landAndWaterTrips;
   stats.roadtripTourStations = awards.tourStations;
