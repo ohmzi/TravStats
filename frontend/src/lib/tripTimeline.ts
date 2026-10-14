@@ -119,15 +119,15 @@ function flightDirection(
  * or away from it. Both are owner rulings:
  *
  * - 2026-10-13 ("Sumayya's wedding"): the flight that brought the traveller TO
- *   a place sorts BEFORE that place's time-less entries — a presence in
- *   Istanbul must not be drawn above the flight from Karachi. That is the
- *   nearer-ARRIVAL-airport direction.
+ *   a place sorts BEFORE that place's time-less entries — a presence at the
+ *   place must not be drawn above the flight from the place it left. That is
+ *   the nearer-ARRIVAL-airport direction.
  * - 2026-10-14: the same rule's other direction. A flight that TOOK the
  *   traveller away — its nearer airport is the DEPARTURE one — sorts AFTER the
  *   place's time-less entries. The owner's report: the journey showed the
- *   flight out of Keflavik and only THEN presence in Keflavik, because a
- *   same-day DEPARTURE whose arrival was also that day was treated exactly like
- *   an arrival.
+ *   flight out of the place's own airport and only THEN presence at that place,
+ *   because a same-day DEPARTURE whose arrival was also that day was treated
+ *   exactly like an arrival.
  *
  * They share a day, `a` is a flight whose own arrival day is that day, and `b`
  * is a time-less place entry. Only a MISSING clock is settled this way — a
@@ -189,10 +189,10 @@ function dayRank(ev: SortableEvent): number {
  * 1. The flight that moved the traveller to or from a place sorts around the
  *    time-less place entries of its own arrival day, by which of its two
  *    airports is nearer the place (`flightFirst`): a flight that brought the
- *    traveller BEFORE the place (owner ruling 2026-10-13 — the presence in
- *    Istanbul is not drawn before the flight from Karachi), a flight that took
- *    them away AFTER it (owner ruling 2026-10-14 — the place is not drawn after
- *    the flight that left it).
+ *    traveller BEFORE the place (owner ruling 2026-10-13 — the presence at the
+ *    place is not drawn before the flight from the place it left), a flight
+ *    that took them away AFTER it (owner ruling 2026-10-14 — the place is not
+ *    drawn after the flight that left it).
  * 2. A DIARY entry sorts after everything else on the same day — Alex's
  *    request (#175): "Diary entries should always be the last entry of a day".
  * 3. A time-less check-in or check-out is placed by `dayRank` rather than by

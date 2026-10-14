@@ -141,7 +141,7 @@ describe("a flight and the place entries it took the traveller away from", () =>
     expect(order(events)).toEqual(["roadtrip-station", "flight"]);
   });
 
-  it("keeps the arrival shape: an arrival flight still sorts FIRST (Sumayya's wedding)", () => {
+  it("keeps the arrival shape: an arrival flight still sorts FIRST (an arrival at the place)", () => {
     const events = [
       geoStation("2031-06-03", AT_ARRIVAL),
       geoFlight("2031-06-03T07:40", "2031-06-03", DEP, ARR),
