@@ -19,7 +19,10 @@ import { checkAndUpdateAchievements } from "../achievements";
  * Owner decision 2026-09-26, later the same day: a badge is earned from
  * curated records only. Location history (a Dawarich track day) and places
  * prove nothing for a badge and lift no tier either — one stray GPS fix makes
- * a track day, and the engine never takes an unlock back.
+ * a track day, and the engine never takes an unlock back. Upstream's forgejo#299
+ * (2026-10-13) then took the same cut in the passport itself: a track-proved
+ * country is neither listed nor counted there, only carried as an unconfirmed
+ * observation — which is why these tests read the passport's `unconfirmedCountries`.
  */
 
 const USER = "achievement-countries-evidence";
@@ -193,7 +196,7 @@ describe("achievementCountries — the passport's evidence, the gates' visibilit
     expect(kept).not.toBeNull();
   });
 
-  it("counts no country whose only evidence is a track, while the passport still lists it", async () => {
+  it("counts no country whose only evidence is a track, and the passport keeps it unconfirmed", async () => {
     for (const code of ["EE", "LV", "LT", "FI", "SE"])
       await trackDays(code, "2025-06-01", "2025-06-02");
 
@@ -201,18 +204,26 @@ describe("achievementCountries — the passport's evidence, the gates' visibilit
     const unlocked = await checkAndUpdateAchievements(userId);
     expect(unlocked.map((a) => a.achievement.code)).not.toContain("COUNTRIES_5");
 
-    // The passport page itself is unchanged: a track-proved country is listed
-    // with its tier and counts in the headline.
-    const ee = (await loadPassport(userId)).countries.find((c) => c.code === "EE");
-    expect(ee).toMatchObject({ tier: "slept", counted: true, kinds: ["track"] });
+    // Unverified location days are not country evidence at all (forgejo#299,
+    // upstream 2026-10-13): the passport no longer lists a track-proved country
+    // with a tier — it carries it as an UNCONFIRMED observation instead.
+    const passport = await loadPassport(userId);
+    expect(passport.countries.find((c) => c.code === "EE")).toBeUndefined();
+    expect(passport.unconfirmedCountries.find((c) => c.code === "EE")).toMatchObject({
+      source: "dawarich",
+      reason: "ground-unconfirmed",
+      observedDays: 2,
+    });
   });
 
   it("does not let a track lift a flight connection over a threshold that excludes it", async () => {
     await connectThroughDoha();
     await trackDays("QA", "2024-03-01", "2024-03-02");
 
+    // The same rule from the other side: a track is not evidence, so QA stays
+    // the same-day connection its flights prove and is never counted.
     const qaOnPassport = (await loadPassport(userId)).countries.find((c) => c.code === "QA");
-    expect(qaOnPassport).toMatchObject({ tier: "slept", counted: true });
+    expect(qaOnPassport).toMatchObject({ tier: "connection", counted: false });
 
     const badges = await achievementCountries(userId, new Set());
     expect([...badges].sort()).toEqual(["DE", "SG"]);

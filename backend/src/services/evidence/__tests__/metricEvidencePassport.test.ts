@@ -14,8 +14,10 @@ import { assertDistinctInvariant, assertSumInvariant } from "./invariants";
  * tile's rule, not by the country page's.
  *
  * The guard is agreement: every value equals the figure `/stats/passport` and
- * `/stats/countries/:code` publish, every row listed proves what it credits,
- * and a country only location history proves is SAID to be one.
+ * `/stats/countries/:code` publish, and every row listed proves what it credits.
+ * A country only location history proves is no country here (forgejo#299): it is
+ * not counted, not listed and not credited, and the passport carries it as an
+ * unconfirmed observation rather than an unattributed one.
  */
 const USER = "passportevidence";
 const ALL: EvidenceScope = { period: { kind: "allTime" } };
@@ -125,7 +127,7 @@ describe("passport evidence", () => {
     return res;
   };
 
-  it("lists the rows behind the headline country count, and names what only a track proves", async () => {
+  it("lists the rows behind the headline country count, and keeps location history out of it", async () => {
     const passport = await loadPassport(userId);
     const res = await metric("passportCountryCount");
     assertDistinctInvariant(res);
@@ -144,10 +146,14 @@ describe("passport evidence", () => {
     expect(byDomain("place").map((e) => e.credits)).toEqual([["ES"]]);
     expect(byDomain("rail")[0]?.credits).toEqual(["AT", "DE"]);
 
-    // Norway: counted, and proved by location history alone.
-    expect(counted.has("NO")).toBe(true);
+    // Norway: location history alone — not country evidence (forgejo#299,
+    // upstream 2026-10-13). The passport counts no country from it and lists
+    // none, so no row credits it and none is left unattributed; it is carried
+    // as an unconfirmed observation instead.
+    expect(counted.has("NO")).toBe(false);
     expect(credited.has("NO")).toBe(false);
-    expect(res.unattributed).toEqual([{ count: 1, reason: "locationHistoryOnly" }]);
+    expect(passport.unconfirmedCountries.map((c) => c.code)).toContain("NO");
+    expect(res.unattributed).toEqual([]);
   });
 
   it("agrees with the passport on airports, entries and continents", async () => {

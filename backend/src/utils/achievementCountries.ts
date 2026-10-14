@@ -20,8 +20,10 @@ import { loadPassport } from "../services/stats/passportLoader";
  *    history — a Dawarich track day, EvidenceKind `track`. The engine is
  *    monotonic (an unlock is never taken back), and a single stray GPS fix
  *    makes a track day that grades `visited` or `transited`, so one border
- *    outlier would unlock a country badge forever. The passport PAGE still
- *    lists a track-proved country with its tier; only the badges ignore it.
+ *    outlier would unlock a country badge forever. The passport makes the same
+ *    cut since forgejo#299 (upstream, 2026-10-13): a track-proved country is
+ *    neither listed nor counted there, only carried as an unconfirmed
+ *    observation — so this module reads it with `track: false` all the same.
  * 2. **Places stay out**, for the badge's own reason: a badge means "I
  *    travelled there", and a place is a pin — a McDonald's around the corner
  *    must not move a travel badge.
