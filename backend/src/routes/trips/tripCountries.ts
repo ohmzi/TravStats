@@ -175,31 +175,48 @@ export async function lodgingCountriesByTrip(tripIds: string[]): Promise<Map<str
   return out;
 }
 
-/** One station of a journey's roadtrip: where it stood and for how many days. */
+/** One station of a journey's roadtrip: where it stood and which days it covers. */
 export interface JourneyStop {
   /** The station's country, by the one `stationCountries` rule; null when unknown. */
   country: string | null;
-  /** Inclusive whole days there: the span plus one, or one when undated. */
-  days: number;
+  /**
+   * The distinct calendar days the station covers, as UTC-midnight keys — its
+   * start date through its end date INCLUSIVE. Empty when the station is
+   * undated: `stationWinner` weighs it as one synthetic day instead, so it can
+   * collide neither with a real day nor with another undated station.
+   */
+  days: readonly number[];
   /** The station's start day, the ordering key. Null when undated. */
   at: Date | null;
 }
 
-/** Whole days between two instants, in UTC — the roadtrip `daySpan` rule. */
-function wholeDaysBetween(from: Date, to: Date): number {
-  const start = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate());
-  const end = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
-  return Math.round((end - start) / 86_400_000);
+const DAY_MS = 86_400_000;
+
+/** A date's own UTC calendar day, as that day's midnight — one key per day. */
+function dayKey(date: Date): number {
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
 
 /**
- * The days a station counts as: its span INCLUSIVE, so a single-day stop is
- * one day and a five-day stay is five. A station without both ends counts one
- * — it is a place the journey was, and that is the floor a station can be.
+ * The distinct calendar days a station covers, as UTC-midnight keys: its start
+ * date through its end date INCLUSIVE, so a single-day stop is one day and a
+ * five-day stay is five. A station without both ends covers none — it is a
+ * place the journey was, and `stationWinner` weighs it as one synthetic day.
+ * A station whose end precedes its start still covers its start day, the floor
+ * a dated station can be.
+ *
+ * This is the band's own count of days SPENT, not `shared/tour/roadtrip.ts`'s
+ * `daySpan`, which measures the gap between two days and answers 0 for a
+ * single-day stop. The two are not the same rule and this module does not
+ * borrow that one.
  */
-function stationDays(station: { startDate: Date | null; endDate: Date | null }): number {
-  if (!station.startDate || !station.endDate) return 1;
-  return Math.max(1, wholeDaysBetween(station.startDate, station.endDate) + 1);
+function stationDayKeys(station: { startDate: Date | null; endDate: Date | null }): number[] {
+  if (!station.startDate || !station.endDate) return [];
+  const start = dayKey(station.startDate);
+  const end = Math.max(start, dayKey(station.endDate));
+  const days: number[] = [];
+  for (let day = start; day <= end; day += DAY_MS) days.push(day);
+  return days;
 }
 
 /** startDate first (undated last), stable — the itinerary order the band reads. */
@@ -242,7 +259,7 @@ export async function journeyStopsByTrip(tripIds: string[]): Promise<Map<string,
     if (!route.tripId) continue;
     const stops: JourneyStop[] = route.stops.filter(isStation).map((stop) => ({
       country: stationCountry(stop, resolver),
-      days: stationDays(stop),
+      days: stationDayKeys(stop),
       at: stop.startDate,
     }));
     out.set(route.tripId, [...(out.get(route.tripId) ?? []), ...stops]);
@@ -260,10 +277,12 @@ export async function journeyStopsByTrip(tripIds: string[]): Promise<Map<string,
  * empty list when nothing can be resolved (the card keeps its gradient).
  *
  * The journey's STATIONS decide it, because that is where its own data holds
- * real time. Each station contributes its inclusive days to its country; the
- * country with the most days wins, and a tie goes to the earliest station —
- * `stops` arrives in start-date order, so the first time a country appears is its
- * earliest station's place in the journey.
+ * real time. Each station contributes the distinct calendar days it covers,
+ * unioned per country — a day two stations share counts once, so the weight is
+ * days SPENT, not spans summed. The country with the most distinct days wins; a
+ * tie goes to the country present on the earliest day, then to the earlier
+ * station — `stops` arrives in start-date order, so the first time a country
+ * appears is its earliest station's place in the journey.
  *
  * A journey whose stations resolve NO country falls back to its flights: the
  * country with the most arrivals, a tie settled by the earliest flight. This
@@ -284,13 +303,31 @@ export function journeyPrimaryCountry(
   return winner ? [toCountryCode(winner) ?? winner] : [];
 }
 
-/** The country with the most station-days; a tie goes to the earliest station. */
+/**
+ * The country with the most distinct days spent; a tie goes to the earliest day
+ * the country was present, then to the earliest station.
+ */
 function stationWinner(stops: readonly JourneyStop[]): string | null {
-  const days = new Map<string, number>();
+  // The union of each country's days: a day two stations share is counted once,
+  // which is the whole point — the weight is days SPENT, not spans summed.
+  const days = new Map<string, Set<number>>();
+  // The earliest real day a country was present, for the tie-break. An undated
+  // station offers no day here.
+  const firstDay = new Map<string, number>();
   const firstSeen = new Map<string, number>();
   stops.forEach((stop, index) => {
     if (!stop.country) return;
-    days.set(stop.country, (days.get(stop.country) ?? 0) + stop.days);
+    const covered = days.get(stop.country) ?? new Set<number>();
+    if (stop.days.length) {
+      for (const day of stop.days) covered.add(day);
+      const seen = firstDay.get(stop.country);
+      if (seen === undefined || stop.days[0] < seen) firstDay.set(stop.country, stop.days[0]);
+    } else {
+      // An undated station weighs one synthetic day, keyed off its own index, so
+      // it collides neither with a real day nor with another undated station.
+      covered.add(-(index + 1));
+    }
+    days.set(stop.country, covered);
     if (!firstSeen.has(stop.country)) firstSeen.set(stop.country, index);
   });
 
@@ -300,15 +337,23 @@ function stationWinner(stops: readonly JourneyStop[]): string | null {
       winner = country;
       continue;
     }
-    const leader = days.get(winner) as number;
-    const challenger = days.get(country) as number;
-    if (
-      challenger > leader ||
-      (challenger === leader &&
-        (firstSeen.get(country) as number) < (firstSeen.get(winner) as number))
-    ) {
-      winner = country;
+    const leaderDays = (days.get(winner) as Set<number>).size;
+    const challengerDays = (days.get(country) as Set<number>).size;
+    if (challengerDays !== leaderDays) {
+      if (challengerDays > leaderDays) winner = country;
+      continue;
     }
+    const leaderDay = firstDay.get(winner);
+    const challengerDay = firstDay.get(country);
+    // A country with a real day beats one known only by undated stations; when
+    // both are, the earlier day wins; with no days to compare, the earlier
+    // station does.
+    const earliestDayWins =
+      challengerDay !== undefined && (leaderDay === undefined || challengerDay < leaderDay);
+    const earliestStationWins =
+      challengerDay === leaderDay &&
+      (firstSeen.get(country) as number) < (firstSeen.get(winner) as number);
+    if (earliestDayWins || earliestStationWins) winner = country;
   }
   return winner;
 }

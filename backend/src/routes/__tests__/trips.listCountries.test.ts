@@ -647,6 +647,65 @@ describe("trip countries are derived on the list, not only on the detail", () =>
       expect(await destinationsOf(trip)).toEqual(["PT"]);
     });
 
+    it("counts a country by the distinct days its stations cover, not their summed spans", async () => {
+      // A station's span leaves gaps and overlaps its neighbours', so summing
+      // the spans is not the days the journey spent there. Country IS covers 8
+      // distinct days across four gapped stations (summed: 10); country FI
+      // covers only 5 across eight overlapping stations (summed: 12).
+      const trip = await journey("UAT distinct days", {
+        stations: [
+          { iso: "IS", start: 1, end: 2 },
+          { iso: "IS", start: 20, end: 23 },
+          { iso: "IS", start: 23, end: 24 },
+          { iso: "IS", start: 24, end: 25 },
+          { iso: "FI", start: 26, end: 26 },
+          { iso: "FI", start: 26, end: 26 },
+          { iso: "FI", start: 27, end: 27 },
+          { iso: "FI", start: 27, end: 28 },
+          { iso: "FI", start: 28, end: 28 },
+          { iso: "FI", start: 28, end: 29 },
+          { iso: "FI", start: 28, end: 29 },
+          { iso: "FI", start: 29, end: 30 },
+        ],
+      });
+      // Distinct days: IS {1,2,20,21,22,23,24,25} = 8, FI {26,27,28,29,30} = 5.
+      // The summed spans would hand it to FI; the days actually spent put IS
+      // first.
+      expect(await destinationsOf(trip)).toEqual(["IS"]);
+    });
+
+    it("counts a day two stations share only once", async () => {
+      // Country NO: two stations over the SAME two days — four summed, two
+      // spent. Country SE: three single days. Counting the shared day once
+      // leaves SE with more days.
+      const trip = await journey("UAT overlap counted once", {
+        stations: [
+          { iso: "NO", start: 0, end: 1 },
+          { iso: "NO", start: 0, end: 1 },
+          { iso: "SE", start: 10, end: 10 },
+          { iso: "SE", start: 11, end: 11 },
+          { iso: "SE", start: 12, end: 12 },
+        ],
+      });
+      // NO: distinct {0,1} = 2 (summed 4). SE: 3 distinct. SE wins on days.
+      expect(await destinationsOf(trip)).toEqual(["SE"]);
+    });
+
+    it("counts a day shared by adjacent stations once", async () => {
+      // PT: one station ends the day the next begins — the shared day counts
+      // once, five days across the two. BR: a single six-day span. Summed, the
+      // two agree; counted as days spent, BR is ahead.
+      const trip = await journey("UAT adjacent stations", {
+        stations: [
+          { iso: "PT", start: 0, end: 2 },
+          { iso: "PT", start: 2, end: 4 },
+          { iso: "BR", start: 10, end: 15 },
+        ],
+      });
+      // PT: distinct {0,1,2,3,4} = 5 (summed 6). BR: distinct 6. BR wins.
+      expect(await destinationsOf(trip)).toEqual(["BR"]);
+    });
+
     it("counts each undated station as one day and still resolves a country", async () => {
       const trip = await journey("UAT undated", {
         stations: [

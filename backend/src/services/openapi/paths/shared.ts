@@ -302,9 +302,11 @@ export const tripResponse = registry.register(
         .optional()
         .describe(
           "GET /trips and GET /trips/{id}: the journey band's ONE flag (owner ruling " +
-            "2026-10-14) — the single country the journey spent the most days in. Its " +
-            "roadtrip stations decide it: each station's inclusive days are summed per " +
-            "country, the most wins, and a tie goes to the earliest station. When no " +
+            "2026-10-14) — the single country the journey spent the most distinct days " +
+            "in. Its roadtrip stations decide it: the days each station covers are " +
+            "unioned per country — a day two stations share counts once — and the " +
+            "country with the most distinct days wins. A tie goes to the country " +
+            "present on the earliest day, then to the earlier station. When no " +
             "station resolves a country, the country most of its flights reached is the " +
             "fallback. At most one entry, and empty when nothing could be resolved — the " +
             "band then keeps its gradient. A separate list from `countries`, which stays " +
