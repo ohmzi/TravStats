@@ -380,6 +380,10 @@ describe("trip countries are derived on the list, not only on the detail", () =>
     /** A flight leg, both ends on the catalogue, dated by whole days from a base. */
     const base = Date.UTC(2031, 0, 1, 8);
     const at = (days: number): Date => new Date(base + days * 86_400_000);
+    // `TripRoute.startDay` is a `@db.Date`, so a car leg placed by it sits at
+    // midnight. A flight departing at midnight is the only way the two land on
+    // the SAME instant, which is what an exact same-day tie needs.
+    const midnight = (days: number): Date => new Date(Date.UTC(2031, 0, 1 + days));
     const leg = (depIata: string, arrIata: string, days: number) => ({
       userId,
       depIata,
@@ -391,6 +395,65 @@ describe("trip countries are derived on the list, not only on the detail", () =>
       arrLat: 0,
       arrLon: 0,
     });
+
+    /**
+     * A car leg whose every station stands in ONE country, dated by its own
+     * first day. No station carries a point, so the country comes from the
+     * linked stay's ISO code — exactly the `stationCountries` rule every
+     * roadtrip read uses.
+     */
+    async function carLeg(tripId: string, iso: string, startDay: Date) {
+      const lodging = await prisma.lodging.create({
+        data: {
+          userId,
+          name: `UAT drive ${iso}`,
+          type: "hotel",
+          country: iso,
+          isoCountryCode: iso,
+        },
+      });
+      const stay = await prisma.lodgingStay.create({
+        data: {
+          userId,
+          lodgingId: lodging.id,
+          tripId,
+          checkIn: startDay,
+          checkOut: startDay,
+          status: "completed",
+        },
+      });
+      const route = await prisma.tripRoute.create({
+        data: { userId, tripId, name: `UAT drive ${iso}`, mode: "car", kind: "roadtrip", startDay },
+      });
+      await prisma.tripStop.create({
+        data: {
+          tripId,
+          routeId: route.id,
+          routeOrderIdx: 0,
+          title: `UAT drive ${iso}`,
+          startDate: startDay,
+          endDate: startDay,
+          lat: null,
+          lon: null,
+          lodgingStayId: stay.id,
+        },
+      });
+      return { lodgingId: lodging.id, stayId: stay.id, routeId: route.id };
+    }
+
+    /** Removes what `carLeg` wrote, so no case leaks into the next. */
+    async function dropCarLeg(ids: { lodgingId: string; stayId: string; routeId: string }) {
+      await prisma.tripStop.deleteMany({ where: { routeId: ids.routeId } });
+      await prisma.tripRoute.delete({ where: { id: ids.routeId } });
+      await prisma.lodgingStay.delete({ where: { id: ids.stayId } });
+      await prisma.lodging.delete({ where: { id: ids.lodgingId } });
+    }
+
+    /** The band's list for one trip, read off the LIST endpoint the card uses. */
+    async function destinationsOf(tripId: string): Promise<string[]> {
+      const res = await request(app).get("/api/v1/trips").set("Cookie", authCookie).expect(200);
+      return res.body.trips.find((t: { id: string }) => t.id === tripId).destinationCountries;
+    }
 
     it("reads the destinations in travel order, the last arrival dropped (Karachi 2025)", async () => {
       const codes: Record<string, string> = {
@@ -572,6 +635,126 @@ describe("trip countries are derived on the list, not only on the detail", () =>
         expect(listed.destinationCountries).toEqual([]);
       } finally {
         await prisma.trip.delete({ where: { id: trip.id } });
+      }
+    });
+
+    /**
+     * Home never shows by RULE, not by ordering luck (owner report 2026-10-14).
+     * Dropping the final raw element removes home only while home happens to
+     * sort last — a car leg that begins at or after the final flight leaves the
+     * home arrival in the sequence. These pin the country of the first flight's
+     * DEPARTURE airport being excluded wherever it sits.
+     */
+    it("keeps home out when a car leg's first day is the final flight's day", async () => {
+      await uatAirport("XCA", "CA");
+      await uatAirport("XNZ", "NZ");
+      const trip = await prisma.trip.create({
+        data: { userId, name: "UAT late car leg", status: "completed" },
+      });
+      await prisma.flight.createMany({
+        // The final flight departs at midnight so it ties the car leg exactly,
+        // and the sort's stability leaves the car leg as the final raw element.
+        data: [leg("XCA", "XNZ", 0), { ...leg("XNZ", "XCA", 10), departureTime: midnight(10) }].map(
+          (l) => ({ ...l, tripId: trip.id })
+        ),
+      });
+      // The car leg begins on the SAME day as the final flight, so the
+      // final-element drop takes the car leg and leaves the CA home arrival.
+      const car = await carLeg(trip.id, "NZ", midnight(10));
+      try {
+        expect(await destinationsOf(trip.id)).toEqual(["NZ"]);
+      } finally {
+        await dropCarLeg(car);
+        await prisma.flight.deleteMany({ where: { tripId: trip.id } });
+        await prisma.trip.delete({ where: { id: trip.id } });
+        await prisma.airport.deleteMany({ where: { iata: { in: ["XCA", "XNZ"] } } });
+      }
+    });
+
+    it("keeps home out for a US roadtrip after a CA round trip (Smokey shape)", async () => {
+      await uatAirport("XCA", "CA");
+      await uatAirport("XUS", "US");
+      const trip = await prisma.trip.create({
+        data: { userId, name: "UAT smokey", status: "completed" },
+      });
+      await prisma.flight.createMany({
+        data: [leg("XCA", "XUS", 0), leg("XUS", "XCA", 9)].map((l) => ({ ...l, tripId: trip.id })),
+      });
+      // The car leg starts AFTER the final flight, so the final-element drop
+      // would take the car leg and leave the CA home arrival behind.
+      const car = await carLeg(trip.id, "US", at(10));
+      try {
+        expect(await destinationsOf(trip.id)).toEqual(["US"]);
+      } finally {
+        await dropCarLeg(car);
+        await prisma.flight.deleteMany({ where: { tripId: trip.id } });
+        await prisma.trip.delete({ where: { id: trip.id } });
+        await prisma.airport.deleteMany({ where: { iata: { in: ["XCA", "XUS"] } } });
+      }
+    });
+
+    it("keeps home out when the US roadtrip begins on the final flight's day", async () => {
+      await uatAirport("XCA", "CA");
+      await uatAirport("XUS", "US");
+      const trip = await prisma.trip.create({
+        data: { userId, name: "UAT smokey same day", status: "completed" },
+      });
+      await prisma.flight.createMany({
+        data: [leg("XCA", "XUS", 0), { ...leg("XUS", "XCA", 9), departureTime: midnight(9) }].map(
+          (l) => ({ ...l, tripId: trip.id })
+        ),
+      });
+      // Same instant as the final flight's departure: the sort is stable and
+      // the flight is pushed first, so the car leg is the final raw element.
+      const car = await carLeg(trip.id, "US", midnight(9));
+      try {
+        expect(await destinationsOf(trip.id)).toEqual(["US"]);
+      } finally {
+        await dropCarLeg(car);
+        await prisma.flight.deleteMany({ where: { tripId: trip.id } });
+        await prisma.trip.delete({ where: { id: trip.id } });
+        await prisma.airport.deleteMany({ where: { iata: { in: ["XCA", "XUS"] } } });
+      }
+    });
+
+    it("keeps home out for a Mexico roadtrip after a Mexico round trip", async () => {
+      await uatAirport("XCA", "CA");
+      await uatAirport("XMX", "Mexico");
+      const trip = await prisma.trip.create({
+        data: { userId, name: "UAT mexico", status: "completed" },
+      });
+      await prisma.flight.createMany({
+        data: [leg("XCA", "XMX", 0), leg("XMX", "XCA", 9)].map((l) => ({ ...l, tripId: trip.id })),
+      });
+      const car = await carLeg(trip.id, "MX", at(10));
+      try {
+        expect(await destinationsOf(trip.id)).toEqual(["MX"]);
+      } finally {
+        await dropCarLeg(car);
+        await prisma.flight.deleteMany({ where: { tripId: trip.id } });
+        await prisma.trip.delete({ where: { id: trip.id } });
+        await prisma.airport.deleteMany({ where: { iata: { in: ["XCA", "XMX"] } } });
+      }
+    });
+
+    it("excludes nothing when the first departure's country is unknown", async () => {
+      // XQQ has no catalogue row, so no home can be inferred: the only rule
+      // that applies is the unchanged drop of the final raw element.
+      await uatAirport("XSV", "SE");
+      await uatAirport("XNW", "NO");
+      const trip = await prisma.trip.create({
+        data: { userId, name: "UAT unknown home", status: "completed" },
+      });
+      await prisma.flight.createMany({
+        data: [leg("XQQ", "XSV", 0), leg("XSV", "XNW", 1)].map((l) => ({ ...l, tripId: trip.id })),
+      });
+      try {
+        // Arrivals SE, NO → final element dropped → SE.
+        expect(await destinationsOf(trip.id)).toEqual(["SE"]);
+      } finally {
+        await prisma.flight.deleteMany({ where: { tripId: trip.id } });
+        await prisma.trip.delete({ where: { id: trip.id } });
+        await prisma.airport.deleteMany({ where: { iata: { in: ["XSV", "XNW"] } } });
       }
     });
   });

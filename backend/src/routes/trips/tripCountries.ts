@@ -16,8 +16,9 @@ import { flownCountries, type VisitableFlight } from "../../services/trip/flight
  *
  * `journeyDestinationCountries` is the band's list (owner ruling 2026-10-13),
  * a second reading of the same legs: where they went, in travel order, home
- * dropped. It rides the SAME airport catalogue and roadtrip rule as
- * `tripCountries`, so nothing here resolves a country two ways.
+ * never shown (owner report 2026-10-14). It rides the SAME airport catalogue
+ * and roadtrip rule as `tripCountries`, so nothing here resolves a country
+ * two ways.
  */
 
 /**
@@ -230,23 +231,61 @@ export async function roadtripLegsByTrip(tripIds: string[]): Promise<Map<string,
 }
 
 /**
+ * The journey's home country (owner report 2026-10-14): the country of the
+ * EARLIEST flight's DEPARTURE airport, read through the same `facts` airport
+ * catalogue the arrivals are — so home is resolved one way in this module,
+ * never two. Null when the journey has no flights, or the earliest departure's
+ * country is not on the catalogue; the caller then excludes nothing, which is
+ * the behaviour every trip had before this rule.
+ */
+function homeCountryOf(
+  flights: readonly VisitableFlight[],
+  facts: Map<string, { country: string | null }>
+): string | null {
+  // The same chronological convention the leg walk keeps below: dated flights
+  // first (earliest departure), undated ones after them in the order they came.
+  const earliest = [...flights].sort((a, b) => {
+    const at = a.departureTime ?? null;
+    const bt = b.departureTime ?? null;
+    if (at && bt) return at.getTime() - bt.getTime();
+    if (at === bt) return 0;
+    return at ? -1 : 1;
+  })[0];
+  const code = earliest?.depIata ?? null;
+  return code ? (facts.get(code)?.country ?? null) : null;
+}
+
+/**
  * The places the journey went (owner ruling 2026-10-13): the country of every
  * flight's ARRIVAL airport and of every car leg, in travel order, with the
- * FINAL element of the raw sequence DROPPED — the last flight lands home, and
- * home never shows — then deduped keeping first occurrence.
+ * FINAL element of the raw sequence DROPPED and the journey's HOME country
+ * excluded wherever it sits — home never shows — then deduped keeping first
+ * occurrence.
  *
  * WHY A SECOND LIST. `countries` above is a SET a card's figures count; it is
  * sorted, keeps home, and reads nothing of the route's order. The band's flags
  * are the journey itself — where it went, in the order it went — so they read
- * the arrival of each flight and the ground of each car leg, and the last
- * arrival (home) leaves the list. Karachi 2025 (arrivals `TR,PK,AE,OM,AE,TR,CA`
- * after dropping the final CA) reads `["TR","PK","AE","OM"]`.
+ * the arrival of each flight and the ground of each car leg, and home leaves
+ * the list. Karachi 2025 (arrivals `TR,PK,AE,OM,AE,TR,CA`) reads
+ * `["TR","PK","AE","OM"]`.
+ *
+ * WHY THE DROP IS NOT ENOUGH ON ITS OWN. Dropping the final raw element removes
+ * home only while home happens to sort last. The raw sequence merges the flight
+ * arrivals with each car leg's countries in date order, and a car leg is placed
+ * by its own first day — so a car leg that sorts at or after the final flight's
+ * departure becomes the last element, the home arrival survives the drop, and a
+ * country the traveller flew out of shows (owner report 2026-10-14: Canada on
+ * the Smokey Mountains, Mexico-with-Bros and Karachi trips). So the country of
+ * the first flight's departure airport — the same airport catalogue, resolved
+ * by `homeCountryOf` — is excluded from the arrivals AND the car legs
+ * outright: home never shows, whatever the ordering.
  *
  * SIMPLICITY CASES, all intended: a round trip abroad reads `[<the
- * destination>]` (arrivals MX, CA → drop CA); a car-only journey in one
- * country reads `[]` (its one leg is the whole sequence, and the last element
- * goes); no legs reads `[]`. An empty list is not an error — the card keeps
- * the gradient it drew when no flag was drawable.
+ * destination>]` (arrivals MX, CA → the CA home leaves); a car-only journey in
+ * one country reads `[]` (no flight means no home to infer, and its one leg is
+ * the whole sequence, so the last element goes); no legs reads `[]`. An empty
+ * list is not an error — the card keeps the gradient it drew when no flag was
+ * drawable.
  *
  * PURE, and sharing one country lookup: `facts` is the same airport catalogue
  * `flownCountries` reads, so a flight's country is resolved one way in this
@@ -279,8 +318,18 @@ export function journeyDestinationCountries(
   const raw = legs.flatMap((l) => l.countries);
   // Drop the final element: the last arrival is home, and home never shows.
   const trimmed = raw.slice(0, Math.max(0, raw.length - 1));
+  // The journey's home, folded like everything else so it compares on one
+  // vocabulary and a name in the catalogue ("Canada") still matches its code.
+  const homeRaw = homeCountryOf(flights, facts);
+  const home = homeRaw ? (toCountryCode(homeRaw) ?? homeRaw) : null;
   // Fold to one vocabulary (airports store ISO, a stay's free text may not),
-  // keeping anything unresolvable under its own name, and dedupe the FIRST
-  // occurrence so the order is the order travelled.
-  return [...new Set(trimmed.map((c) => toCountryCode(c) ?? c))];
+  // drop home wherever it survived, and dedupe the FIRST occurrence so the
+  // order is the order travelled.
+  const out: string[] = [];
+  for (const c of trimmed) {
+    const code = toCountryCode(c) ?? c;
+    if (home !== null && code === home) continue;
+    if (!out.includes(code)) out.push(code);
+  }
+  return out;
 }
