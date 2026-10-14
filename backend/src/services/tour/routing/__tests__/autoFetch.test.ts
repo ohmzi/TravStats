@@ -1,6 +1,11 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { AUTOFETCH_MIN_OFF_KM, maybeAutoFetch, shouldAutoFetch } from "../autoFetch";
+import {
+  AUTOFETCH_MIN_OFF_KM,
+  maybeAutoFetch,
+  readAutoFetchStatus,
+  shouldAutoFetch,
+} from "../autoFetch";
 
 /**
  * Task 6 of the osrm-autofetch plan (2026-10-13): the TravStats side's one
@@ -102,6 +107,93 @@ describe("maybeAutoFetch", () => {
     // response is byte-identical to today's (Review Focus 3).
     expect(await maybeAutoFetch(null, { lat: 0, lon: 0 }, { lat: 1, lon: 1 })).toBeNull();
     expect(calls).toHaveLength(1);
+  });
+});
+
+/**
+ * The admin progress panel (owner request 2026-10-14) reads the service's own
+ * `GET /status`. This is a plain read of that endpoint — the same
+ * never-throw, null-on-any-failure contract as `maybeAutoFetch` (a status
+ * view is not worth a 500), normalized through the zod schema so a body this
+ * build cannot read is "no answer", never a half-parsed shape.
+ */
+describe("readAutoFetchStatus", () => {
+  it("GETs .../status and returns the snapshot a running job produces", async () => {
+    const { impl, calls } = recordingFetch(
+      okJson({
+        built: ["us/texas"],
+        job: {
+          state: "downloading",
+          regions: ["us/tennessee"],
+          label: "Tennessee",
+          startedAt: 1_760_000_000,
+        },
+        lastResult: null,
+      })
+    );
+
+    const res = await readAutoFetchStatus("http://10.86.15.1:5013/", impl);
+
+    expect(res).toEqual({
+      built: ["us/texas"],
+      job: {
+        state: "downloading",
+        regions: ["us/tennessee"],
+        label: "Tennessee",
+        startedAt: 1_760_000_000,
+      },
+      lastResult: null,
+    });
+    // A trailing slash on the setting must not double up in the path.
+    expect(calls[0].url).toBe("http://10.86.15.1:5013/status");
+    expect(calls[0].init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("carries the terminal result and the ETA when the service supplies one", async () => {
+    const { impl } = recordingFetch(
+      okJson({
+        built: ["us/ohio"],
+        job: { state: "queued", regions: ["us/ohio"], label: "Ohio", startedAt: 5, etaMinutes: 25 },
+        lastResult: { status: "built", regions: ["us/ohio"], at: 4 },
+      })
+    );
+
+    const res = await readAutoFetchStatus("http://x", impl);
+
+    expect(res?.job?.etaMinutes).toBe(25);
+    expect(res?.lastResult).toEqual({ status: "built", regions: ["us/ohio"], at: 4 });
+  });
+
+  it("returns null, never throwing, for a throw / non-200 / garbage / missing-shape body", async () => {
+    const rejecting = (async () => {
+      throw new Error("ECONNREFUSED");
+    }) as unknown as typeof fetch;
+    expect(await readAutoFetchStatus("http://x", rejecting)).toBeNull();
+
+    const { impl: notOk } = recordingFetch(async () => ({ ok: false }));
+    expect(await readAutoFetchStatus("http://x", notOk)).toBeNull();
+
+    // A 200 that is not the expected object (a proxy page, a future contract)
+    // reads as no answer — the panel shows "unreachable", it never half-parses.
+    const { impl: wrongShape } = recordingFetch(okJson({ nope: 1 }));
+    expect(await readAutoFetchStatus("http://x", wrongShape)).toBeNull();
+
+    // An unknown JOB state — a newer service's phase this build cannot name —
+    // must not leak through as if it were understood.
+    const { impl: unknownState } = recordingFetch(
+      okJson({
+        built: [],
+        job: { state: "teleporting", regions: [], label: "L", startedAt: 1 },
+        lastResult: null,
+      })
+    );
+    expect(await readAutoFetchStatus("http://x", unknownState)).toBeNull();
+  });
+
+  it("makes no call at all when the setting is off", async () => {
+    const { impl, calls } = recordingFetch(okJson({ built: [], job: null, lastResult: null }));
+    expect(await readAutoFetchStatus(null, impl)).toBeNull();
+    expect(calls).toHaveLength(0);
   });
 });
 

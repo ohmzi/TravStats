@@ -458,7 +458,8 @@
       },
       "autofetch": {
         "downloading": "Map data for {{region}} is downloading (~{{minutes}} min) — try again after.",
-        "noMapData": "No map data is available for this area."
+        "noMapData": "No map data is available for this area.",
+        "progressLink": "View download progress"
       }
     },
     "tracks": {

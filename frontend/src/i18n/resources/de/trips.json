@@ -458,7 +458,8 @@
       },
       "autofetch": {
         "downloading": "Kartendaten für {{region}} werden gerade geladen (~{{minutes}} Min.) – versuch es danach erneut.",
-        "noMapData": "Für diese Gegend sind keine Kartendaten verfügbar."
+        "noMapData": "Für diese Gegend sind keine Kartendaten verfügbar.",
+        "progressLink": "Download-Fortschritt ansehen"
       }
     },
     "tracks": {

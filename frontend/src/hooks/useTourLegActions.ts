@@ -3,8 +3,9 @@ import { useCallback, useState, type RefObject } from "react";
 import { apiErrorProse } from "../lib/apiError";
 import { toursApi, type SetTourLegInput } from "../lib/api/tours";
 import { routeFallbackMessage } from "../lib/routeFallbackCopy";
-import { useToastStore } from "../store/toastStore";
-import type { LegMode, TourLeg } from "../types/tour";
+import { useToastStore, type ToastAction } from "../store/toastStore";
+import { useAuthStore } from "../store/authStore";
+import type { LegMode, RouteAutofetch, TourLeg } from "../types/tour";
 import { useTranslation } from "./useTranslation";
 
 export interface UseTourLegActionsOptions {
@@ -58,6 +59,24 @@ function apiErrorStatus(error: unknown): number | null {
  * automatically possible.
  */
 const MAX_PUT_WAYPOINTS = 256;
+
+/**
+ * The link the downloading toast offers an ADMIN (owner request 2026-10-14):
+ * the map-download progress panel lives in Administration → Externe Dienste,
+ * and only the sentence that names a region being downloaded gets the link.
+ * A non-admin keeps today's toast untouched, and a refusal whose answer named
+ * no download (`covered`, `blocked`, an absent answer) offers nothing — a
+ * "progress" link for a download that never started would mislead.
+ */
+function downloadProgressAction(
+  autofetch: RouteAutofetch | null | undefined,
+  isAdmin: boolean,
+  label: string
+): ToastAction | undefined {
+  if (!isAdmin || !autofetch || !autofetch.region) return undefined;
+  if (autofetch.status !== "started" && autofetch.status !== "running") return undefined;
+  return { label, to: "/admin?section=externalServices" };
+}
 
 /**
  * The write that corrects a leg's mode WITHOUT costing its geometry (owner
@@ -116,6 +135,7 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
   const { tripId, routeId, load, mountedRef, trackCoverageByLegId } = options;
   const { t, i18n } = useTranslation(["trips"]);
   const addToast = useToastStore((s) => s.addToast);
+  const isAdmin = useAuthStore((s) => s.user?.isAdmin ?? false);
   const [routingAllInProgress, setRoutingAllInProgress] = useState(false);
   const [modeChangeInFlightLegId, setModeChangeInFlightLegId] = useState<string | null>(null);
 
@@ -173,7 +193,13 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
                 t,
                 i18n.language,
                 autofetch
-              )}`
+              )}`,
+              undefined,
+              downloadProgressAction(
+                autofetch,
+                isAdmin,
+                t("trips:tours.routing.autofetch.progressLink")
+              )
             );
           }
         } catch (err) {
@@ -185,7 +211,7 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
         }
       })();
     },
-    [tripId, routeId, load, addToast, t]
+    [tripId, routeId, load, addToast, t, isAdmin]
   );
 
   /**
@@ -232,7 +258,13 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
             : t("trips:tours.routing.result", {
                 routed: result.routedCount,
                 skipped: result.skippedCount,
-              })
+              }),
+          undefined,
+          downloadProgressAction(
+            result.autofetch,
+            isAdmin,
+            t("trips:tours.routing.autofetch.progressLink")
+          )
         );
       } catch (err) {
         addToast("error", apiErrorProse(err) ?? t("trips:tours.routing.allError"));
@@ -240,7 +272,7 @@ export function useTourLegActions(options: UseTourLegActionsOptions): TourLegAct
         if (mountedRef.current) setRoutingAllInProgress(false);
       }
     })();
-  }, [tripId, routeId, load, addToast, t, mountedRef]);
+  }, [tripId, routeId, load, addToast, t, mountedRef, isAdmin]);
 
   const clear = useCallback(
     (leg: TourLeg): void => {

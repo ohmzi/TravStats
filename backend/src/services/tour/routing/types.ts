@@ -113,6 +113,26 @@ export interface AutoFetchStatus {
   etaMinutes?: number | null;
 }
 
+/**
+ * The job PHASES the host's `osrm-autofetch` `GET /status` reports while it
+ * builds a region — `AUTOFETCH_STATUSES` above is what `POST /ensure` answers
+ * a routing refusal with (covered / started / running / …), a different
+ * vocabulary from the states the running job moves through, so the two must
+ * not share an enum. Declared here, beside the other shared consts, so the
+ * admin progress panel's schema and its copy cannot drift from the service.
+ *
+ * `queued` → `downloading` (fetching the extract) → `building` (osrm-extract/
+ * customize) → `swapping` (publishing the new graph) → `restoring`.
+ */
+export const AUTOFETCH_JOB_STATES = [
+  "queued",
+  "downloading",
+  "building",
+  "swapping",
+  "restoring",
+] as const;
+export type AutoFetchJobState = (typeof AUTOFETCH_JOB_STATES)[number];
+
 /** A provider's "could not route this", with the cause it could identify. */
 export interface RouteFailure {
   failure: RouteFallbackReason;

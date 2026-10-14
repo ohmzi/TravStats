@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CSSProperties, JSX } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import Button from "../ui/Button";
 import Dialog from "../ui/Dialog";
@@ -8,6 +8,7 @@ import { useTranslation } from "../../hooks/useTranslation";
 import { toursApi } from "../../lib/api/tours";
 import { logger } from "../../lib/logger";
 import { routeFallbackMessage } from "../../lib/routeFallbackCopy";
+import { useAuthStore } from "../../store/authStore";
 import type {
   RouteAutofetch,
   RouteFallbackDetail,
@@ -56,6 +57,7 @@ export default function LegDialog({
 }): JSX.Element {
   const { t, i18n } = useTranslation(["roadtrips", "trips", "common"]);
   const navigate = useNavigate();
+  const isAdmin = useAuthStore((s) => s.user?.isAdmin ?? false);
   const nf = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 });
   const [mode, setMode] = useState<Mode>(leg.mode === "ferry" ? "ferry" : "road");
   const [line, setLine] = useState<Line>(
@@ -271,6 +273,22 @@ export default function LegDialog({
                 ),
               })}
             </span>
+            {/* The map download's progress page — admins only, and only when
+                the refusal actually started a download this dialog can point
+                at (owner request 2026-10-14). A non-admin sees exactly the
+                sentence it always did. */}
+            {isAdmin &&
+              (fallback.autofetch?.status === "started" ||
+                fallback.autofetch?.status === "running") &&
+              fallback.autofetch?.region && (
+                <Link
+                  to="/admin?section=externalServices"
+                  className="text-sm font-semibold underline"
+                  style={{ color: "var(--ts-accent)", alignSelf: "flex-start" }}
+                >
+                  {t("trips:tours.routing.autofetch.progressLink")}
+                </Link>
+              )}
             <span className="t-caption">{t("roadtrips:legDialog.fallbackKept")}</span>
           </div>
         )}

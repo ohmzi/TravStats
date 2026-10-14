@@ -2,6 +2,7 @@ import { prisma } from "../../../db";
 import logger from "../../../utils/logger";
 import { Coord } from "../tourDistance";
 import { AUTOFETCH_STATUSES, AutoFetchStatus } from "./types";
+import { autoFetchStatusSnapshotSchema, type AutoFetchStatusSnapshot } from "../../../schemas/tour";
 
 /**
  * The one outbound call to the host's `osrm-autofetch` service (spec
@@ -105,6 +106,37 @@ export async function maybeAutoFetch(
     return data;
   } catch (err) {
     logger.warn({ err }, "autoFetch: ensure call failed");
+    return null;
+  }
+}
+
+/**
+ * Read the service's own `GET /status` (owner request 2026-10-14): whether a
+ * download/build is running, which phase it is in, which regions, and how the
+ * last one ended. This is a plain read for the admin progress panel — the same
+ * contract as `maybeAutoFetch`: the 2.5 s timeout bounds a hung service, and
+ * every failure (off, unreachable, non-200, a body this build cannot parse)
+ * returns `null` rather than throwing, so the admin endpoint answers
+ * "unreachable" instead of a 500.
+ *
+ * The body is normalized through the zod schema, so unknown fields are
+ * dropped and a service answering a shape this build does not understand
+ * reads as no answer, never as a half-parsed snapshot.
+ */
+export async function readAutoFetchStatus(
+  url: string | null,
+  fetchImpl: typeof fetch = fetch
+): Promise<AutoFetchStatusSnapshot | null> {
+  if (!url) return null;
+  try {
+    const res = await fetchImpl(`${url.replace(/\/+$/, "")}/status`, {
+      signal: AbortSignal.timeout(2500),
+    });
+    if (!res.ok) return null;
+    const parsed = autoFetchStatusSnapshotSchema.safeParse(await res.json());
+    return parsed.success ? parsed.data : null;
+  } catch (err) {
+    logger.warn({ err }, "autoFetch: status call failed");
     return null;
   }
 }

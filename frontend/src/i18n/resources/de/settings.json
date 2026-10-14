@@ -612,6 +612,27 @@
     "retry": "Erneut versuchen",
     "saveSuccess": "Routing-Einstellungen gespeichert",
     "saveError": "Routing-Einstellungen konnten nicht gespeichert werden",
+    "fetch": {
+      "title": "Kartendownloads",
+      "description": "Kartendaten, die der Auto-Fetch-Dienst bei Bedarf lädt und aufbaut. Der Fortschritt wird direkt vom Dienst gelesen.",
+      "loadError": "Der Download-Fortschritt konnte nicht gelesen werden.",
+      "notConfigured": "Kein Auto-Fetch-Dienst konfiguriert – setze oben eine Auto-Fetch-URL, um Kartendaten bei Bedarf zu laden.",
+      "unreachable": "Der Auto-Fetch-Dienst hat nicht geantwortet.",
+      "idle": "Es läuft kein Kartendownload.",
+      "phase": {
+        "queued": "In der Warteschlange",
+        "downloading": "Kartendaten werden geladen",
+        "building": "Kartengraph wird aufgebaut",
+        "swapping": "Neue Karte wird aktiviert",
+        "restoring": "Vorherige Karte wird wiederhergestellt"
+      },
+      "regions": "Regionen: {{regions}}",
+      "elapsed": "Läuft seit {{minutes}} Min.",
+      "eta": "Noch etwa {{minutes}} Min.",
+      "built": "Kartendaten verfügbar für: {{regions}}",
+      "lastBuilt": "Letzter Download abgeschlossen: {{regions}} (vor {{minutes}} Min.)",
+      "lastFailed": "Letzter Download fehlgeschlagen: {{error}}"
+    },
     "openrouteservice": {
       "label": "OpenRouteService API-Schlüssel",
       "description": "Kostenlos: 2000 Routing-Anfragen/Tag. Schlüssel der Instanz: gilt für jedes Konto, das unter Einstellungen → Dienste keinen eigenen hinterlegt hat."

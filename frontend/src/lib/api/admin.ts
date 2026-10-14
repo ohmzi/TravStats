@@ -183,6 +183,40 @@ export interface PasswordResetRequest {
   requestedAt: string;
 }
 
+/**
+ * The admin map-download progress panel's read (owner request 2026-10-14):
+ * `GET /admin/route-fetch`, which proxies the host's `osrm-autofetch`
+ * `GET /status`. `configured` is false when no auto-fetch URL is set; when
+ * configured, `reachable` is false if the service did not answer — the
+ * endpoint never errors for that, so the panel has its own state for it.
+ */
+export interface RouteFetchJob {
+  state: "queued" | "downloading" | "building" | "swapping" | "restoring";
+  regions: string[];
+  label: string;
+  /** Epoch seconds. */
+  startedAt: number;
+  /** Absent until the service exposes an ETA on /status; absent = no ETA shown. */
+  etaMinutes?: number | null;
+}
+
+/** How the last download/build ended. */
+export interface RouteFetchLastResult {
+  status: "built" | "failed";
+  regions: string[];
+  error?: string | null;
+  /** Epoch seconds. */
+  at: number;
+}
+
+export interface RouteFetchStatus {
+  configured: boolean;
+  reachable?: boolean;
+  built?: string[];
+  job?: RouteFetchJob | null;
+  lastResult?: RouteFetchLastResult | null;
+}
+
 export const adminApi = {
   /**
    * The open password-reset requests.
@@ -749,6 +783,12 @@ export const adminApi = {
     const { data } = await api.post<{ success: boolean; message: string }>(
       "/admin/webdav-settings/test"
     );
+    return data;
+  },
+
+  /** The on-demand map download's progress (admin-only; see the panel). */
+  getRouteFetchStatus: async (): Promise<RouteFetchStatus> => {
+    const { data } = await api.get<RouteFetchStatus>("/admin/route-fetch");
     return data;
   },
 };

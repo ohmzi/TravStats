@@ -21,6 +21,7 @@ const adminApi = vi.hoisted(() => ({
   getGlobalApiKeys: vi.fn(),
   updateGlobalApiKeys: vi.fn(),
   testApiKey: vi.fn(),
+  getRouteFetchStatus: vi.fn(),
 }));
 vi.mock("../../../lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/api")>()),
@@ -56,6 +57,7 @@ describe("Administration → Externe Dienste — the routing provider", () => {
       routingAutoFetchUrl: null,
       globalOpenrouteserviceApiKey: "abcd****wxyz",
     });
+    adminApi.getRouteFetchStatus.mockResolvedValue({ configured: false });
   });
 
   it("holds the instance's provider choice and its masked key", async () => {
@@ -66,10 +68,20 @@ describe("Administration → Externe Dienste — the routing provider", () => {
     expect(adminApi.getGlobalApiKeys).toHaveBeenCalled();
   });
 
+  it("shows the map-download progress panel beside the routing card", async () => {
+    tours.visible = true;
+    renderSection();
+    // The downloading alert links here for admins (owner request 2026-10-14).
+    expect(await screen.findByText("settings:routing.fetch.title")).toBeInTheDocument();
+    expect(adminApi.getRouteFetchStatus).toHaveBeenCalled();
+  });
+
   it("stays out while tours and roadtrips, its only consumers, are behind the switch", () => {
     tours.visible = false;
     renderSection();
     expect(screen.queryByText("settings:routing.title")).toBeNull();
+    expect(screen.queryByText("settings:routing.fetch.title")).toBeNull();
     expect(adminApi.getGlobalApiKeys).not.toHaveBeenCalled();
+    expect(adminApi.getRouteFetchStatus).not.toHaveBeenCalled();
   });
 });

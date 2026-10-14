@@ -3,7 +3,11 @@ import { isCurrencyCode } from "../shared/currencies";
 import { instantFieldSchema } from "../shared/time/timeInput";
 
 import { LEG_MODES } from "../services/tour/tourDistance";
-import { AUTOFETCH_STATUSES, ROUTING_PROVIDER_IDS } from "../services/tour/routing/types";
+import {
+  AUTOFETCH_JOB_STATES,
+  AUTOFETCH_STATUSES,
+  ROUTING_PROVIDER_IDS,
+} from "../services/tour/routing/types";
 import { TOUR_ACTIVITIES } from "../shared/tour/roadtrip";
 import { tourDayFields } from "./roadtrip";
 
@@ -434,6 +438,44 @@ export const autofetchStatusSchema = z
       "when the feature is off or the service is silent, leaving the response " +
       "exactly as it was before the feature."
   );
+
+/**
+ * What the host's `osrm-autofetch` service answers its own `GET /status` with
+ * — the snapshot the admin progress panel (owner request 2026-10-14) reads
+ * through `GET /admin/route-fetch`. Distinct from `autofetchStatusSchema`
+ * above: this is the service's job view, not a routing refusal's answer.
+ *
+ * `job` is the download/build in flight (its phase is `AUTOFETCH_JOB_STATES`,
+ * the shared enum, so the phase copy cannot drift); `lastResult` is the last
+ * time the job finished — `built` (its regions) or `failed` (its error).
+ * `etaMinutes` is absent on today's service (a sibling change adds it to
+ * `/status`); it is optional and nullable exactly as the wire carries it, and
+ * the panel degrades to phase + elapsed when it is missing.
+ */
+export const autoFetchJobSchema = z.object({
+  state: z.enum(AUTOFETCH_JOB_STATES),
+  regions: z.array(z.string()),
+  label: z.string(),
+  /** Epoch SECONDS (the service's `time.time()`). */
+  startedAt: z.number(),
+  etaMinutes: z.number().nullable().optional(),
+});
+
+export const autoFetchLastResultSchema = z.object({
+  status: z.enum(["built", "failed"]),
+  regions: z.array(z.string()),
+  error: z.string().nullable().optional(),
+  /** Epoch SECONDS. */
+  at: z.number(),
+});
+
+export const autoFetchStatusSnapshotSchema = z.object({
+  built: z.array(z.string()),
+  job: autoFetchJobSchema.nullable(),
+  lastResult: autoFetchLastResultSchema.nullable(),
+});
+
+export type AutoFetchStatusSnapshot = z.infer<typeof autoFetchStatusSnapshotSchema>;
 
 /** Zod wrapper around {@link normalizeRoutingCustomUrl} for use at a request boundary. */
 const routingCustomUrlSchema = z

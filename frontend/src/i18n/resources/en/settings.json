@@ -612,6 +612,27 @@
     "retry": "Retry",
     "saveSuccess": "Routing settings saved",
     "saveError": "Routing settings could not be saved",
+    "fetch": {
+      "title": "Map downloads",
+      "description": "Map data the auto-fetch service is fetching and building on demand. The progress is read from the service itself.",
+      "loadError": "The download progress could not be read.",
+      "notConfigured": "No auto-fetch service is configured — set a Map auto-fetch URL above to download map data on demand.",
+      "unreachable": "The auto-fetch service did not answer.",
+      "idle": "No map download is running.",
+      "phase": {
+        "queued": "Queued",
+        "downloading": "Downloading map data",
+        "building": "Building the map graph",
+        "swapping": "Activating the new map",
+        "restoring": "Restoring the previous map"
+      },
+      "regions": "Regions: {{regions}}",
+      "elapsed": "Running for {{minutes}} min",
+      "eta": "About {{minutes}} min remaining",
+      "built": "Map data available for: {{regions}}",
+      "lastBuilt": "Last download finished: {{regions}} ({{minutes}} min ago)",
+      "lastFailed": "Last download failed: {{error}}"
+    },
     "openrouteservice": {
       "label": "OpenRouteService API key",
       "description": "Free: 2000 routing requests/day. The instance's key: used by every account that has not stored its own under Settings → Services."

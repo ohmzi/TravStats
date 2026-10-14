@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import LegDialog from "../LegDialog";
 import { toursApi } from "../../../lib/api/tours";
 import type { TourLeg } from "../../../types/tour";
+import { useAuthStore } from "../../../store/authStore";
 
 // A recording key-echo, so a test can see WHAT the dialog asked its copy
 // for — the numbers behind a refused answer travel inside one of these
@@ -148,5 +149,64 @@ describe("LegDialog", () => {
     renderDialog(false);
     expect(screen.getByText("roadtrips:legDialog.routedUnavailable")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /roadtrips:legDialog.routed/ })).toBeDisabled();
+  });
+});
+
+/**
+ * The same downloading sentence the toast carries (owner request 2026-10-14),
+ * so the dialog is not the one surface that silently lacks the link. The
+ * link is admin-only — the panel is admin-only — and only the `started` /
+ * `running` answer that names a region offers one.
+ */
+describe("LegDialog — a downloading refusal links to the admin progress page", () => {
+  const ADMIN = { id: "u1", username: "admin", isAdmin: true } as never;
+  const USER = { id: "u2", username: "user", isAdmin: false } as never;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuthStore.setState({ user: null });
+  });
+
+  async function renderDownloading(): Promise<void> {
+    vi.mocked(toursApi.routeLeg).mockResolvedValueOnce({
+      leg: LEG,
+      fallbackReason: "untrustworthy",
+      fallbackDetail: { kind: "anchors", headOffKm: 671.3, tailOffKm: 517.9 },
+      autofetch: { status: "started", region: "Tennessee", etaMinutes: 25 },
+    });
+    renderDialog();
+    fireEvent.click(screen.getByRole("radio", { name: /roadtrips:legDialog.routed/ }));
+    fireEvent.click(screen.getByText("roadtrips:legDialog.apply"));
+    await screen.findByText("roadtrips:legDialog.fallback");
+  }
+
+  it("renders an inline link to the progress page for an admin", async () => {
+    useAuthStore.setState({ user: ADMIN });
+    await renderDownloading();
+
+    const link = screen.getByRole("link");
+    expect(link).toHaveAttribute("href", "/admin?section=externalServices");
+  });
+
+  it("renders no link for a non-admin", async () => {
+    useAuthStore.setState({ user: USER });
+    await renderDownloading();
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("renders no link when the refusal started no download", async () => {
+    useAuthStore.setState({ user: ADMIN });
+    vi.mocked(toursApi.routeLeg).mockResolvedValueOnce({
+      leg: LEG,
+      fallbackReason: "point_not_near_road",
+      fallbackDetail: null,
+    });
+    renderDialog();
+    fireEvent.click(screen.getByRole("radio", { name: /roadtrips:legDialog.routed/ }));
+    fireEvent.click(screen.getByText("roadtrips:legDialog.apply"));
+    await screen.findByText("roadtrips:legDialog.fallback");
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });
