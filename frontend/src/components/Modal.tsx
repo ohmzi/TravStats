@@ -3,9 +3,9 @@ import { createPortal } from "react-dom";
 import type { CSSProperties, JSX, ReactNode } from "react";
 import { useDialogChrome } from "./ui/useDialogChrome";
 import { useScrimDismiss } from "./ui/useScrimDismiss";
+import Button from "./ui/Button";
 import { useDiscardGuard } from "./form/useDiscardGuard";
 import { useTranslation } from "../hooks/useTranslation";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { useCoarsePointer } from "../hooks/useCoarsePointer";
 
 /**
@@ -260,20 +260,12 @@ export function DiscardQuestion({
       closeLabel={t("common:buttons.close")}
       footer={
         <>
-          <button
-            type="button"
-            onClick={onKeepEditing}
-            className="inline-flex justify-center rounded-md border border-border px-4 py-2 text-sm font-medium text-(--text-primary) hover:bg-(--bg-base)"
-          >
+          <Button size="toolbar" onClick={onKeepEditing}>
             {t("common:discard.keepEditing")}
-          </button>
-          <button
-            type="button"
-            onClick={onDiscard}
-            className={`inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white ${DELETE_BUTTON_CLASS}`}
-          >
+          </Button>
+          <Button size="toolbar" variant="danger" onClick={onDiscard}>
             {discardLabel ?? t("common:discard.confirm")}
-          </button>
+          </Button>
         </>
       }
     >

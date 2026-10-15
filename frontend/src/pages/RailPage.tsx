@@ -47,7 +47,6 @@ import { useToastStore } from "../store/toastStore";
 import type { RailConnection, RailJourney, RailStatus } from "../types/rail";
 import ListLoadFailed, { loadFailureLog } from "../components/table/ListLoadFailed";
 import { useDocumentCount } from "../hooks/useDocumentCount";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { railDeleteMessage } from "../lib/rail/railDeleteMessage";
 
 const RAIL_STATUSES: readonly RailStatus[] = ["scheduled", "in_progress", "completed", "cancelled"];
@@ -415,7 +414,7 @@ export default function RailPage(): JSX.Element {
         title={t("rail:delete")}
         message={toDelete ? railDeleteMessage(t, toDelete, { documentCount, otherLegs: null }) : ""}
         confirmText={t("common:buttons.delete")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
     </AppShell>
   );

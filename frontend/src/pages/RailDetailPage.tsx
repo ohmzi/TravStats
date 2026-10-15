@@ -26,7 +26,6 @@ import { useDocumentCount } from "../hooks/useDocumentCount";
 import { useTranslation } from "../hooks/useTranslation";
 import { railApi } from "../lib/api/rail";
 import { classifyLoadFailure, type LoadFailure } from "../lib/api/loadFailure";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { railDeleteMessage } from "../lib/rail/railDeleteMessage";
 import { navigateAfterSave } from "../components/form";
 import { formatAmount } from "../lib/units";
@@ -407,7 +406,7 @@ export default function RailDetailPage(): JSX.Element {
           otherLegs: journey.booking ? journey.booking.railJourneys.length - 1 : null,
         })}
         confirmText={t("common:buttons.delete")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
     </AppShell>
   );

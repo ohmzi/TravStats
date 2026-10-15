@@ -83,6 +83,3 @@ export function survivorsNote(t: Translate, names: readonly string[]): string | 
   if (named.length === 0) return null;
   return t("common:delete.survivors", { names: named.join(", ") });
 }
-
-/** Red confirm button — the same one on every delete dialog. */
-export const DELETE_BUTTON_CLASS = "bg-[var(--danger)] hover:opacity-90";

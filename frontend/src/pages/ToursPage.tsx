@@ -7,7 +7,6 @@ import ConfirmModal from "../components/Training/ConfirmModal";
 import { useTranslation } from "../hooks/useTranslation";
 import { tourIndexApi, type TourSummary } from "../lib/api/tourIndex";
 import { toursApi } from "../lib/api/tours";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { sectionExpenseCount } from "../lib/sectionExpenses";
 import { useToastStore } from "../store/toastStore";
 import { SELECTABLE_LEG_MODES, type LegMode } from "../types/tour";
@@ -330,7 +329,7 @@ export default function ToursPage(): JSX.Element {
             count: costsBlock.count,
           })}
           confirmText={t("trips:tours.deleteWithCosts.confirm")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
         />
       )}
 
@@ -349,7 +348,7 @@ export default function ToursPage(): JSX.Element {
             count: pendingDelete.stopCount,
           })}
           confirmText={t("trips:tours.deleteConfirm.confirm")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
         />
       )}
     </AppShell>

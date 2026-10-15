@@ -154,6 +154,6 @@ describe("PlaceDetailPage — deleting the place", () => {
     placeVisits.list = [];
     const dialog = await openPlaceDeleteDialog();
     const confirm = within(dialog).getByRole("button", { name: "Löschen" });
-    expect(confirm.className).toContain("bg-[var(--danger)]");
+    expect(confirm).toHaveAttribute("data-variant", "danger");
   });
 });

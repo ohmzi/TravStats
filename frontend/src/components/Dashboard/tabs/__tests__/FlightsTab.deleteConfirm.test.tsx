@@ -93,7 +93,7 @@ describe("FlightsTab — delete asks first", () => {
     await waitFor(() => expect(dialog).toHaveTextContent("documents:deleteCascadeNote"));
     await waitFor(() => expect(dialog).toHaveTextContent("flights:deleteParts.recording"));
     const confirm = screen.getByRole("button", { name: "flights:table.deleteConfirm.confirm" });
-    expect(confirm.className).toContain("bg-[var(--danger)]");
+    expect(confirm).toHaveAttribute("data-variant", "danger");
     fireEvent.click(confirm);
     await waitFor(() => expect(deleteFlight).toHaveBeenCalledWith("f1"));
   });

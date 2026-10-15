@@ -4,7 +4,7 @@ import ConfirmModal from "../Training/ConfirmModal";
 import { useDocumentCount } from "../../hooks/useDocumentCount";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useRailVisible } from "../../hooks/useRailVisible";
-import { DELETE_BUTTON_CLASS, withDocumentNote } from "../../lib/deleteConfirm";
+import { withDocumentNote } from "../../lib/deleteConfirm";
 
 interface Props {
   isOpen: boolean;
@@ -58,7 +58,7 @@ export default function TripDeleteConfirm({
       message={withDocumentNote(t(messageKey, { name: tripName }), t, documentCount)}
       confirmText={t("trips:deleteTrip")}
       cancelText={t("trips:modal.cancel")}
-      confirmButtonClass={DELETE_BUTTON_CLASS}
+      destructive
     />
   );
 }

@@ -35,7 +35,6 @@ import { useToastStore } from "../store/toastStore";
 import { cruiseExtractTarget } from "../lib/extractTargets";
 import ConfirmModal from "../components/Training/ConfirmModal";
 import DocumentsSection from "../components/documents/DocumentsSection";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { cruiseDeleteMessage } from "../components/Cruise/cruiseDeleteMessage";
 import { classifyLoadFailure, type LoadFailure } from "../lib/api/loadFailure";
 import { logger } from "../lib/logger";
@@ -426,7 +425,7 @@ export default function CruiseDetailPage(): JSX.Element {
         message={cruiseDeleteMessage(t, cruise, documentCount)}
         confirmText={t("detail.deleteConfirm")}
         cancelText={t("detail.deleteCancel")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
     </AppShell>
   );

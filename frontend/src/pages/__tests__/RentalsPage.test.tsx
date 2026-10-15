@@ -36,17 +36,17 @@ vi.mock("../../components/Training/ConfirmModal", () => ({
     isOpen,
     onConfirm,
     message,
-    confirmButtonClass,
+    destructive,
   }: {
     isOpen: boolean;
     onConfirm: () => void;
     message: string;
-    confirmButtonClass?: string;
+    destructive?: boolean;
   }) =>
     isOpen ? (
       <div>
         <p data-testid="confirm-message">{message}</p>
-        <button type="button" onClick={onConfirm} className={confirmButtonClass}>
+        <button type="button" onClick={onConfirm} data-variant={destructive ? "danger" : "primary"}>
           confirm-delete
         </button>
       </div>
@@ -200,7 +200,7 @@ describe("RentalsPage", () => {
     expect(message).toContain("rental:deleteConfirmNamed");
     expect(message).toContain("common:delete.survivors");
     expect(listForEntry).toHaveBeenCalledWith({ type: "rentalBooking", id: "r1" });
-    expect(screen.getByText("confirm-delete").className).toContain("danger");
+    expect(screen.getByText("confirm-delete")).toHaveAttribute("data-variant", "danger");
   });
 
   it("offers to add a rental when the logbook is empty, and only then", async () => {

@@ -18,7 +18,6 @@ import { useDocumentCount } from "../hooks/useDocumentCount";
 import { useTranslation } from "../hooks/useTranslation";
 import { busApi } from "../lib/api/bus";
 import { classifyLoadFailure, type LoadFailure } from "../lib/api/loadFailure";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { busDeleteMessage } from "../lib/bus/busDeleteMessage";
 import { distanceSourceKey, fallbackReasonKey } from "../lib/bus/busRoutingWords";
 import { apiErrorMachineCode } from "../lib/apiError";
@@ -355,7 +354,7 @@ export default function BusDetailPage(): JSX.Element {
         title={t("bus:delete")}
         message={busDeleteMessage(t, ride, documentCount)}
         confirmText={t("common:buttons.delete")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
     </AppShell>
   );

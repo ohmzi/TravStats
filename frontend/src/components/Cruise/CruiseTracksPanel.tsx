@@ -5,7 +5,6 @@ import ConfirmModal from "../Training/ConfirmModal";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useCruiseTracks } from "../../hooks/useCruiseTracks";
 import { dawarichFailureKey, dawarichFailureKind } from "../../lib/api/dawarich";
-import { DELETE_BUTTON_CLASS } from "../../lib/deleteConfirm";
 import { saveErrorMessage } from "../../lib/saveErrorMessage";
 import { TRACK_ERROR_KEYS } from "../../lib/trackErrorKeys";
 import { useDisplayFormat } from "../../lib/displayFormat";
@@ -241,7 +240,7 @@ export default function CruiseTracksPanel({ cruiseId, onChanged }: Props): JSX.E
             to: day(pendingRemove.endedAt),
           })}
           confirmText={t("tracks.remove")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
         />
       )}
     </DetailSection>

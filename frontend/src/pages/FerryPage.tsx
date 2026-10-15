@@ -30,7 +30,6 @@ import { ferryYear } from "../shared/ferryCounting";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { useDocumentCount } from "../hooks/useDocumentCount";
 import { useTranslation } from "../hooks/useTranslation";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { ferryDeleteMessage } from "../lib/ferry/ferryDeleteMessage";
 import { logger } from "../lib/logger";
 import { useToastStore } from "../store/toastStore";
@@ -356,7 +355,7 @@ export default function FerryPage(): JSX.Element {
         title={t("ferry:delete")}
         message={toDelete ? ferryDeleteMessage(t, toDelete, documentCount) : ""}
         confirmText={t("common:buttons.delete")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
     </AppShell>
   );

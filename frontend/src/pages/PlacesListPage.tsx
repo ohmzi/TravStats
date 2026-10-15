@@ -20,7 +20,6 @@ import ListSummaryStrip from "../components/table/ListSummaryStrip";
 import { STATUS_PILL_CLASS, statusPillStyle } from "../components/table/statusPillStyle";
 import { useColumnPrefs } from "../components/table/useColumnPrefs";
 import ConfirmModal from "../components/Training/ConfirmModal";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { placeDeleteMessage } from "../lib/placeDeleteMessage";
 import { usePlaceRelations } from "../hooks/usePlaceRelations";
 import { PlaceFormModal } from "../components/places/PlaceFormModal";
@@ -711,7 +710,7 @@ export default function PlacesListPage(): JSX.Element {
           )}
           confirmText={t("common:buttons.delete")}
           cancelText={t("common:buttons.cancel")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
           onConfirm={() => void runDelete(pendingDelete)}
           isLoading={deleting}
           onClose={() => setPendingDelete(null)}

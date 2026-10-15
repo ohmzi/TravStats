@@ -23,7 +23,6 @@ import { SortableHeader } from "../components/table/SortableHeader";
 import ListSummaryStrip from "../components/table/ListSummaryStrip";
 import ListEmptyState from "../components/table/ListEmptyState";
 import ListLoadFailed, { loadFailureLog } from "../components/table/ListLoadFailed";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { lodgingDeleteMessage } from "../lib/lodgingDeleteMessage";
 import { useLodgingDeleteFacts } from "../hooks/useLodgingDeleteFacts";
 import ListFilterBar, { FilterField, PANEL_SELECT_CLASS } from "../components/table/ListFilterBar";
@@ -738,7 +737,7 @@ export default function LodgingListPage(): JSX.Element {
           // house that has none. Exactly the drift the helper exists to stop.
           message={toDelete ? lodgingDeleteMessage(t, toDelete, deleteFacts) : ""}
           confirmText={t("common:buttons.delete")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
         />
       </div>
     </AppShell>

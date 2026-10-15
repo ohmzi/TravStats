@@ -17,7 +17,6 @@ import {
   type TravelDocument,
 } from "../../lib/api/documents";
 import { RentalCategorySelect, groupByRentalCategory } from "./rentalCategories";
-import { DELETE_BUTTON_CLASS } from "../../lib/deleteConfirm";
 import { useDisplayFormat, type DisplayFormatter } from "../../lib/displayFormat";
 import { formatBytes } from "../../lib/fileSize";
 import { logger } from "../../lib/logger";
@@ -427,7 +426,7 @@ export default function DocumentsSection({
         message={t("documents:deleteMessage", { name: pendingDelete?.displayName ?? "" })}
         confirmText={t("common:buttons.delete")}
         cancelText={t("common:buttons.cancel")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
     </div>
   );

@@ -15,7 +15,6 @@ import type { Flight, FlightInput, GeoJSONFeature } from "../../../types";
 import type { FlightMode } from "../../../types/dashboard";
 import FlightEditModal from "../../FlightEditModal";
 import ConfirmModal from "../../Training/ConfirmModal";
-import { DELETE_BUTTON_CLASS } from "../../../lib/deleteConfirm";
 import { flightDeleteMessage } from "../../../lib/flights/flightDeleteMessage";
 import { useDocumentCount } from "../../../hooks/useDocumentCount";
 import { useFlightRecordingPoints } from "../../../hooks/useFlightRecordingPoints";
@@ -348,7 +347,7 @@ export function FlightsTab(): JSX.Element {
         }
         confirmText={t("flights:table.deleteConfirm.confirm")}
         cancelText={t("flights:table.deleteConfirm.cancel")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
       {showAddFlight && (
         <SimplifiedFlightFormV2

@@ -109,4 +109,50 @@ describe("ConfirmModal", () => {
     expect(screen.getByRole("button", { name: "Abbrechen" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "training:modal.processing" })).toBeDisabled();
   });
+
+  it("wears the danger variant exactly when it is destructive", () => {
+    // The prop this replaces was a CSS class string, so "is this delete" was
+    // encoded as `bg-[var(--danger)] hover:opacity-90` at 32 call sites and as
+    // a raw utility list at 4 more. A boolean is the same question asked once.
+    const { unmount } = render(<ConfirmModal {...base} destructive />);
+    expect(screen.getByRole("button", { name: "Endgültig löschen" })).toHaveAttribute(
+      "data-variant",
+      "danger"
+    );
+    unmount();
+
+    render(<ConfirmModal {...base} />);
+    expect(screen.getByRole("button", { name: "Endgültig löschen" })).toHaveAttribute(
+      "data-variant",
+      "primary"
+    );
+  });
+
+  it("draws both footer buttons at the row height, not the lone-CTA height", () => {
+    // They sit side by side. One 52 and one 46 is the drift the toolbar size
+    // exists to end (owner, 2026-10-11: "all these should be same size").
+    render(<ConfirmModal {...base} destructive />);
+    for (const name of ["Endgültig löschen", "Abbrechen"]) {
+      expect(screen.getByRole("button", { name }).style.height).toBe(
+        "var(--ts-size-button-secondary)"
+      );
+    }
+  });
+
+  it("paints no hex or legacy token in its own markup", () => {
+    // The ratchet's rule, asserted where it is cheap: the dialog every delete
+    // in the app goes through is the one file that must be clean.
+    //
+    // Scoped to what ConfirmModal itself paints — the message and the footer
+    // row — because `Modal` portals the whole frame to `document.body`: the
+    // render container is empty, so an assertion against it would have gone
+    // green without examining a single class.
+    render(<ConfirmModal {...base} destructive />);
+    const message = screen.getByText("Das lässt sich nicht rückgängig machen.");
+    const confirm = screen.getByRole("button", { name: "Endgültig löschen" });
+    const ownMarkup = `${message.outerHTML}${confirm.parentElement!.innerHTML}`;
+    expect(ownMarkup).not.toMatch(/(?<![\w-])#[0-9a-fA-F]{6,8}/);
+    expect(ownMarkup).not.toContain("--text-muted");
+    expect(ownMarkup).not.toContain("btn-primary");
+  });
 });

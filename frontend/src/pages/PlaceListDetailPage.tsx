@@ -20,7 +20,6 @@ import {
   reorderPlaceList,
   updatePlaceList,
 } from "../lib/api/placeLists";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { isTransientSaveError, saveErrorKey } from "../lib/saveErrorMessage";
 import { FieldError, FormErrorBanner, fieldErrorProps } from "../components/form";
 import { PLACE_CATEGORY_ICONS } from "../shared/placeCategories";
@@ -636,7 +635,7 @@ export default function PlaceListDetailPage(): JSX.Element {
           message={t("places:lists.deleteMessage", { name: list.name, count: list.placeCount })}
           confirmText={t("common:buttons.delete")}
           cancelText={t("common:buttons.cancel")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
           onConfirm={() => void handleDelete()}
           onClose={() => setConfirmDelete(false)}
         />

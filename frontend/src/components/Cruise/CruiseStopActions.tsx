@@ -3,7 +3,7 @@ import type { JSX } from "react";
 import type { CruiseStopInput } from "../../types";
 import { useTranslation } from "../../hooks/useTranslation";
 import { formatLocalClock, formatLocalDate } from "../../lib/displayFormat";
-import { DELETE_BUTTON_CLASS } from "../../lib/deleteConfirm";
+import Button from "../ui/Button";
 import { stopTitle } from "./CruiseStopSummary";
 import { moveStop, removeStop, stopShifts } from "./cruiseStopSequence";
 import type { StopShift } from "./cruiseStopSequence";
@@ -133,14 +133,9 @@ export function CruiseStopActions({
           >
             {t("stops.removeConfirm.keep")}
           </button>
-          <button
-            id={idFor("confirm-remove")}
-            type="button"
-            onClick={onRemove}
-            className={`rounded-md px-2 py-1 text-xs font-medium text-white pointer-coarse:min-h-(--ts-size-touch-min) pointer-coarse:px-3 ${DELETE_BUTTON_CLASS}`}
-          >
+          <Button id={idFor("confirm-remove")} size="toolbar" variant="danger" onClick={onRemove}>
             {t("stops.removeConfirm.confirm")}
-          </button>
+          </Button>
         </div>
       </div>
     );

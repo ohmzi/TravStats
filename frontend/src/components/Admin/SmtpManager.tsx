@@ -326,7 +326,7 @@ export default function SmtpManager(): JSX.Element {
         message={t("settings:notifications.smtpDeleteConfirm.message")}
         confirmText={t("settings:notifications.smtpDeleteConfirm.confirm")}
         cancelText={t("common:buttons.cancel")}
-        confirmButtonClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
+        destructive
       />
     </div>
   );

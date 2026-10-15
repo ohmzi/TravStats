@@ -37,7 +37,6 @@ import { logger } from "../lib/logger";
 import { EDIT_PARAM, useEditDeepLink } from "../lib/editDeepLink";
 import { classifyLoadFailure, type LoadFailure } from "../lib/api/loadFailure";
 import ConfirmModal from "../components/Training/ConfirmModal";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { lodgingDeleteMessage } from "../lib/lodgingDeleteMessage";
 import { deriveStayMembership } from "../shared/membershipDerivation";
 import { useSettingsStore } from "../store/settingsStore";
@@ -688,7 +687,7 @@ export default function LodgingDetailPage(): JSX.Element {
         title={t("lodging:detail.deleteConfirmTitle")}
         message={lodgingDeleteMessage(t, lodging, deleteFacts)}
         confirmText={t("common:buttons.delete")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
 
       {/* The same dialog for the stay — rendered after the editor so that, at

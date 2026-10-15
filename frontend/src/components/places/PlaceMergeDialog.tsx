@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import Modal from "../Modal";
+import Button from "../ui/Button";
 import { useTranslation } from "../../hooks/useTranslation";
 import { usePlaceRelationsResult } from "../../hooks/usePlaceRelations";
 import { listPlaces, mergePlace } from "../../lib/api/places";
 import { calculateDistance } from "../../lib/geo";
 import { logger } from "../../lib/logger";
-import { DELETE_BUTTON_CLASS } from "../../lib/deleteConfirm";
 import { isTransientSaveError, saveErrorKey } from "../../lib/saveErrorMessage";
 import { PLACE_CATEGORY_ICONS } from "../../shared/placeCategories";
 import type { Place } from "../../types/place";
@@ -172,15 +172,15 @@ export function PlaceMergeDialog({ place, onClose, onMerged }: Props): JSX.Eleme
               {t("common:buttons.cancel")}
             </button>
             {/* Red: the other place is deleted once everything has moved. */}
-            <button
-              type="button"
+            <Button
+              size="toolbar"
+              variant="danger"
               onClick={() => void handleMerge()}
               disabled={saving.saving || saving.saved !== null || missing.length > 0}
               aria-describedby={HINT_ID}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 ${DELETE_BUTTON_CLASS} ${COARSE}`}
             >
               {saving.saving ? t("common:buttons.saving") : t("places:merge.confirm")}
-            </button>
+            </Button>
           </>
         )
       }
