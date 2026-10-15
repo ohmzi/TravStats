@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AppShell from "../components/ui/AppShell";
+import Button from "../components/ui/Button";
+import PageHeader from "../components/ui/PageHeader";
 import type { JSX } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { SkeletonTable } from "../components/SkeletonLoader";
@@ -451,38 +453,47 @@ export default function LodgingListPage(): JSX.Element {
       <LogbookTabs />
       {/* The width is the shell's now — `table`, asked for by name. */}
       <div className="w-full">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="t-screen-title">{t("lodging:list.title")}</h1>
-          <div className="flex flex-wrap items-center gap-2">
-            {view === "houses" && (
-              <ColumnPicker
-                columns={COLUMN_IDS.map((id) => ({
-                  id,
-                  label:
-                    id === "status"
-                      ? t("lodging:list.status.label")
-                      : t(`lodging:list.columns.${id}`),
-                  always: (ALWAYS_VISIBLE as readonly string[]).includes(id),
-                }))}
-                prefs={columnPrefs}
-              />
-            )}
-            {/* One way in, not three. "Buchung einlesen" used to sit here as
-                its own button beside "Importieren" and "Hotel hinzufügen" —
-                three controls for two ideas, and two of them saying "import".
-                Reading a booking is not a separate act, it is the first and
-                best ROUTE into adding one, so it lives inside this dialog now.
-                The bulk hub keeps a quiet link below, not a rival button. */}
-            <button
-              type="button"
-              onClick={() => setShowAdd(true)}
-              className="btn-primary flex items-center gap-2 whitespace-nowrap"
-            >
-              <span>+</span>
-              <span>{t("lodging:add.title")}</span>
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          title={t("lodging:list.title")}
+          actions={
+            <>
+              {/* Houses are a table, so they have columns to pick; the stays
+                  view is the same list read as cards and has none. The
+                  condition lives inside the slot rather than making the
+                  header a different header per view. */}
+              {view === "houses" && (
+                <ColumnPicker
+                  columns={COLUMN_IDS.map((id) => ({
+                    id,
+                    label:
+                      id === "status"
+                        ? t("lodging:list.status.label")
+                        : t(`lodging:list.columns.${id}`),
+                    always: (ALWAYS_VISIBLE as readonly string[]).includes(id),
+                  }))}
+                  prefs={columnPrefs}
+                />
+              )}
+              {/* One way in, not three. "Buchung einlesen" used to sit here as
+                  its own button beside "Importieren" and "Hotel hinzufügen" —
+                  three controls for two ideas, and two of them saying "import".
+                  Reading a booking is not a separate act, it is the first and
+                  best ROUTE into adding one, so it lives inside this dialog now.
+                  The bulk hub keeps a quiet link below, not a rival button. */}
+              {/* `size="toolbar"`: it stands in the row with the column picker,
+                  so it joins the row's height rather than keeping the lone
+                  CTA's 52. */}
+              <Button
+                variant="primary"
+                size="toolbar"
+                icon={<span>+</span>}
+                onClick={() => setShowAdd(true)}
+              >
+                {t("lodging:add.title")}
+              </Button>
+            </>
+          }
+        />
 
         <div className="mb-4">
           <LodgingViewToggle value={view} onChange={setView} />

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AppShell from "../components/ui/AppShell";
+import ActionLink from "../components/ui/ActionLink";
+import Button from "../components/ui/Button";
+import PageHeader from "../components/ui/PageHeader";
 import type { JSX } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { SkeletonTable } from "../components/SkeletonLoader";
 import { ColumnPicker } from "../components/table/ColumnPicker";
 import {
@@ -413,45 +416,38 @@ export default function PlacesListPage(): JSX.Element {
           max-width and padding in here put the title 24px right of theirs
           (CT106 design-6 R07). Secondary actions first, the primary last. */}
       <div className="w-full">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="t-screen-title">{t("places:list.title")}</h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <ColumnPicker
-              columns={COLUMN_IDS.map((id) => ({
-                id,
-                label: columnLabel(t, id),
-                always: (ALWAYS_VISIBLE as readonly string[]).includes(id),
-              }))}
-              prefs={columnPrefs}
-            />
-            {/* The only entry point to lists and checklists. Deliberately here
-                rather than in the nav: a list is a view OF the logbook, so it
-                hangs off the logbook rather than competing with it. */}
-            {/* The logbook seen from where one stands (forgejo#233). */}
-            <Link
-              to="/places/nearby"
-              className="rounded-lg px-4 py-2 text-sm pointer-coarse:min-h-(--ts-size-touch-min)"
-              style={{ border: "1px solid var(--color-border)", color: "var(--text-secondary)" }}
-            >
-              {t("places:nearby.title")}
-            </Link>
-            <Link
-              to="/places/lists"
-              className="rounded-lg px-4 py-2 text-sm"
-              style={{ border: "1px solid var(--color-border)", color: "var(--text-secondary)" }}
-            >
-              {t("places:lists.title")}
-            </Link>
-            <button
-              type="button"
-              onClick={() => setCreating(true)}
-              className="btn-primary flex items-center gap-2 whitespace-nowrap"
-            >
-              <span>+</span>
-              <span>{t("places:list.addPlace")}</span>
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          title={t("places:list.title")}
+          actions={
+            <>
+              <ColumnPicker
+                columns={COLUMN_IDS.map((id) => ({
+                  id,
+                  label: columnLabel(t, id),
+                  always: (ALWAYS_VISIBLE as readonly string[]).includes(id),
+                }))}
+                prefs={columnPrefs}
+              />
+              {/* The only entry point to lists and checklists. Deliberately here
+                  rather than in the nav: a list is a view OF the logbook, so it
+                  hangs off the logbook rather than competing with it. */}
+              {/* The logbook seen from where one stands (forgejo#233). */}
+              <ActionLink to="/places/nearby">{t("places:nearby.title")}</ActionLink>
+              <ActionLink to="/places/lists">{t("places:lists.title")}</ActionLink>
+              {/* `size="toolbar"`: it stands in the row with the column picker
+                  and the two links, so it joins the row's height rather than
+                  keeping the lone CTA's 52. */}
+              <Button
+                variant="primary"
+                size="toolbar"
+                icon={<span>+</span>}
+                onClick={() => setCreating(true)}
+              >
+                {t("places:list.addPlace")}
+              </Button>
+            </>
+          }
+        />
 
         {deleteFailure !== null && (
           <div className="mb-3">

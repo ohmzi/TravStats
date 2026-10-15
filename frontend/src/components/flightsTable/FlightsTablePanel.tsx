@@ -25,6 +25,8 @@ import { FlightRow, FLIGHT_COLUMN_LAYOUT } from "./FlightRow";
 import { FlightsFilterBar } from "./FlightsFilterBar";
 import { LoyaltyFilterNotice, useLoyaltyListFilter } from "../Loyalty/LoyaltyListFilter";
 import { Table, type TableColumn } from "../ui/Table";
+import Button from "../ui/Button";
+import PageHeader from "../ui/PageHeader";
 import { formatAmount } from "../../lib/units";
 import { SkeletonTable } from "../SkeletonLoader";
 import { useSortPrefs } from "../table/useSortPrefs";
@@ -489,49 +491,65 @@ export function FlightsTablePanel({
     duration: t("flights:table.sort.duration"),
   };
 
+  // Whatever the heading turns out to be, the right-hand side is the same
+  // three controls. Scoped to one journey, there is no "all journeys" to go
+  // back to — the page that locked the trip brought its own way back in its
+  // header, so that link is drawn only when this panel is the whole page.
+  const panelActions = (
+    <>
+      {!lockedTripId && (
+        <Link to="/flights" className="t-caption underline">
+          {t("flights:journeyCard.allJourneys")}
+        </Link>
+      )}
+      <ColumnPicker
+        columns={FLIGHT_COLUMN_IDS.map((id) => ({
+          id,
+          // Two ids whose label keys don't match their column id: the
+          // duration header says "Flugzeit", the trip column borrows
+          // the trips tab title.
+          label:
+            id === "trip"
+              ? t("trips:tab")
+              : id === "duration"
+                ? t("flights:table.flightTime")
+                : t(`flights:table.${id}`),
+          always: (FLIGHT_ALWAYS_VISIBLE as readonly string[]).includes(id),
+        }))}
+        prefs={flightColumnPrefs}
+      />
+      {/* `size="toolbar"`: it stands in the row with the column picker and the
+          trip link, so it joins the row's height. */}
+      <Button
+        variant="primary"
+        size="toolbar"
+        icon={<span>+</span>}
+        onClick={() => setShowAddFlight(true)}
+      >
+        {t("dashboard:addFlight")}
+      </Button>
+    </>
+  );
+
   return (
     <>
       <div className="w-full">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          {heading === undefined ? (
-            <h1 className="t-screen-title">{t("dashboard:flightsTitle")}</h1>
-          ) : (
-            heading
-          )}
-          {/* Scoped to one journey, there is no "all journeys" to go back to
-              from here — the page that locked the trip brought its own way
-              back in its header. */}
-          {!lockedTripId && (
-            <Link to="/flights" className="t-caption underline mr-auto ml-4">
-              {t("flights:journeyCard.allJourneys")}
-            </Link>
-          )}
-          <div className="flex items-center gap-2">
-            <ColumnPicker
-              columns={FLIGHT_COLUMN_IDS.map((id) => ({
-                id,
-                // Two ids whose label keys don't match their column id: the
-                // duration header says "Flugzeit", the trip column borrows
-                // the trips tab title.
-                label:
-                  id === "trip"
-                    ? t("trips:tab")
-                    : id === "duration"
-                      ? t("flights:table.flightTime")
-                      : t(`flights:table.${id}`),
-                always: (FLIGHT_ALWAYS_VISIBLE as readonly string[]).includes(id),
-              }))}
-              prefs={flightColumnPrefs}
-            />
-            <button
-              className="btn-primary flex items-center gap-2 whitespace-nowrap"
-              onClick={() => setShowAddFlight(true)}
-            >
-              <span>+</span>
-              <span>{t("dashboard:addFlight")}</span>
-            </button>
+        {/* The heading is drawn one of two ways, and only one of them is a PAGE
+            header. Unset — the /flights table view, whose sibling branch is
+            the card view — the panel owns the page's title, so it is a
+            `PageHeader`. Set, the caller has already drawn the page's heading
+            (`FlightTripDetailPage` passes an `h2.t-card-title`, because the
+            table is a section of its page), and `PageHeader` takes a string
+            title and has no slot for that node — so that branch is a section
+            toolbar, not a page header. */}
+        {heading === undefined ? (
+          <PageHeader title={t("dashboard:flightsTitle")} actions={panelActions} />
+        ) : (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            {heading}
+            <div className="flex flex-wrap items-center gap-2">{panelActions}</div>
           </div>
-        </div>
+        )}
 
         <ListSummaryStrip
           figures={summaryFigures}

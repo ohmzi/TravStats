@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/ui/AppShell";
+import Button from "../components/ui/Button";
+import PageHeader from "../components/ui/PageHeader";
 import { ChecklistRow } from "../components/places/ChecklistRow";
 import { useTranslation } from "../hooks/useTranslation";
 import { usePlacesAccess } from "../hooks/usePlacesVisible";
@@ -315,6 +317,9 @@ export default function CuratedChecklistPage(): JSX.Element {
   const pct =
     progress.itemCount > 0 ? Math.round((progress.tickedCount / progress.itemCount) * 100) : 0;
   const title = curatedText(progress.name, progress.nameEn, i18n.language);
+  const description =
+    progress.description &&
+    curatedText(progress.description, progress.descriptionEn, i18n.language);
 
   const FILTERS: Array<{ id: RowFilter; label: string; count: number }> = [
     { id: "all", label: t("places:checklist.filterAll"), count: progress.itemCount },
@@ -338,31 +343,35 @@ export default function CuratedChecklistPage(): JSX.Element {
           ← {t("places:lists.backToLists")}
         </Link>
 
-        <div className="mt-3 mb-5 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="t-screen-title flex items-center gap-3">
-              {progress.icon && <span aria-hidden>{progress.icon}</span>}
-              {title}
-            </h1>
-            {progress.description && (
-              <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-                {curatedText(progress.description, progress.descriptionEn, i18n.language)}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => void handleSubscription()}
-            className="shrink-0 rounded-lg px-4 py-2 text-sm"
-            style={
-              progress.subscribed
-                ? { border: "1px solid var(--color-border)", color: "var(--text-secondary)" }
-                : { background: "var(--accent)", color: "#0d1117", fontWeight: 500 }
-            }
-          >
-            {progress.subscribed ? t("places:checklist.unsubscribe") : t("places:lists.subscribe")}
-          </button>
-        </div>
+        {/* The list's own mark (🌍, 🏛, 🏔 — `icon` on every curated list) used
+            to sit inside the h1, which is a string on `PageHeader`. It rides
+            the line under the title instead, so the glyph is neither dropped
+            nor folded into the heading's accessible name — a screen reader
+            still announces the list, not an emoji. */}
+        <PageHeader
+          title={title}
+          meta={
+            progress.icon || description ? (
+              <>
+                {progress.icon && <span aria-hidden>{progress.icon}</span>}
+                {progress.icon && description ? " " : null}
+                {description}
+              </>
+            ) : undefined
+          }
+          actions={
+            /* A lone CTA, so it draws the primary's 52 when there is something
+               to subscribe to and the secondary's 46 when there is not. */
+            <Button
+              variant={progress.subscribed ? "secondary" : "primary"}
+              onClick={() => void handleSubscription()}
+            >
+              {progress.subscribed
+                ? t("places:checklist.unsubscribe")
+                : t("places:lists.subscribe")}
+            </Button>
+          }
+        />
 
         <div className="mb-4">
           <div

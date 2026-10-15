@@ -196,15 +196,43 @@ describe("PlacesListPage", () => {
 
   // The add button was filled with the place domain colour, which is an
   // off-white (#e7e3dc) — every other logbook's add button is the shared
-  // yellow `btn-primary`, so this one read as a disabled control.
+  // primary skin, so this one read as a disabled control. That skin is
+  // `ui/Button`'s now rather than a `btn-primary` class, so the assertion
+  // reads the recipe the design system draws from: the primary variant, and a
+  // background the component sets (never one the page paints).
   it("draws the add button as the shared primary button, like the other logbooks", async () => {
     listPlacesMock.mockResolvedValue([]);
 
     renderListPage();
 
     const add = await findNamed("button", /places:list\.addPlace/);
-    expect(add).toHaveClass("btn-primary");
-    expect(add.style.background).toBe("");
+    expect(add).toHaveClass("ts-button");
+    expect(add).toHaveAttribute("data-variant", "primary");
+  });
+
+  // This header is the busiest of the thirteen, and the one a conversion is
+  // most likely to trim: a picker, two links that are the ONLY way into the
+  // nearby view and the lists, and the add button. A header that renders the
+  // title alone drops three of them and no other test looks at this row.
+  it("keeps the column picker, both list links and the add button in its header", async () => {
+    listPlacesMock.mockResolvedValue([]);
+
+    renderListPage();
+
+    const heading = await screen.findByRole("heading", { level: 1, name: "places:list.title" });
+    const header = heading.closest("div")?.parentElement ?? null;
+
+    expect(header).toContainElement(screen.getByTestId("column-picker"));
+
+    const nearby = await findNamed("link", /places:nearby\.title/);
+    expect(nearby).toHaveAttribute("href", "/places/nearby");
+    expect(header).toContainElement(nearby);
+
+    const lists = await findNamed("link", /places:lists\.title/);
+    expect(lists).toHaveAttribute("href", "/places/lists");
+    expect(header).toContainElement(lists);
+
+    expect(header).toContainElement(await findNamed("button", /places:list\.addPlace/));
   });
 
   // Review finding (Alex T7, round 1): nothing tested that the wiring

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/ui/AppShell";
+import Button from "../components/ui/Button";
+import PageHeader from "../components/ui/PageHeader";
 import { Table } from "../components/ui/Table";
 import { useTableHints } from "../components/ui/useTableHints";
 import LogbookTabs from "../components/table/LogbookTabs";
@@ -216,27 +218,32 @@ export default function BusPage(): JSX.Element {
     <AppShell width="table">
       <LogbookTabs />
       <div className="w-full">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="t-screen-title">{t("bus:title")}</h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <ColumnPicker
-              columns={BUS_COLUMN_IDS.map((id) => ({
-                id,
-                label: t(`bus:list.${id}`),
-                always: (BUS_ALWAYS_VISIBLE as readonly string[]).includes(id),
-              }))}
-              prefs={columnPrefs}
-            />
-            <button
-              type="button"
-              onClick={(): void => setEditing({ journey: null })}
-              className="btn-primary flex items-center gap-2 whitespace-nowrap"
-            >
-              <span>+</span>
-              <span>{add}</span>
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          title={t("bus:title")}
+          actions={
+            <>
+              <ColumnPicker
+                columns={BUS_COLUMN_IDS.map((id) => ({
+                  id,
+                  label: t(`bus:list.${id}`),
+                  always: (BUS_ALWAYS_VISIBLE as readonly string[]).includes(id),
+                }))}
+                prefs={columnPrefs}
+              />
+              {/* `size="toolbar"`: it stands in the row with the column picker,
+                  so it joins the row's height rather than keeping the lone
+                  CTA's 52. */}
+              <Button
+                variant="primary"
+                size="toolbar"
+                icon={<span>+</span>}
+                onClick={(): void => setEditing({ journey: null })}
+              >
+                {add}
+              </Button>
+            </>
+          }
+        />
 
         <ListSummaryStrip
           figures={railSummaryFigures(summary ?? EMPTY_BUS_SUMMARY, {

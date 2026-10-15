@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AppShell from "../components/ui/AppShell";
+import Button from "../components/ui/Button";
+import PageHeader from "../components/ui/PageHeader";
 import { useTranslation } from "../hooks/useTranslation";
 import { usePlacesAccess } from "../hooks/usePlacesVisible";
 import { curatedText } from "../lib/curatedCopy";
@@ -105,22 +107,18 @@ export default function PlaceListsPage(): JSX.Element {
           ← {t("places:detail.backToList")}
         </Link>
 
-        <div className="mt-3 mb-6 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="t-screen-title">{t("places:lists.title")}</h1>
-            <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-              {t("places:lists.subtitle")}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="rounded-lg px-4 py-2 text-sm font-medium pointer-coarse:min-h-(--ts-size-touch-min)"
-            style={{ background: "var(--accent)", color: "#0d1117" }}
-          >
-            + {t("places:lists.newList")}
-          </button>
-        </div>
+        {/* The back link above is the shape every detail surface in the app
+            wears; the header itself is the ordinary page one. A lone CTA, so
+            the button keeps the primary's 52 rather than a row's 46. */}
+        <PageHeader
+          title={t("places:lists.title")}
+          meta={t("places:lists.subtitle")}
+          actions={
+            <Button variant="primary" icon={<span>+</span>} onClick={() => setCreating(true)}>
+              {t("places:lists.newList")}
+            </Button>
+          }
+        />
 
         {creating && (
           <PlaceListCreateDialog

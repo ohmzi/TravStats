@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import AppShell from "../components/ui/AppShell";
 import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
+import PageHeader from "../components/ui/PageHeader";
 import { Icon } from "../components/ui/Icon";
 import { SectionLabel } from "../components/ui/StatTile";
 import LogbookTabs from "../components/table/LogbookTabs";
@@ -137,17 +138,16 @@ export default function RoadtripsPage(): JSX.Element {
       {/* The header every logbook carries (forgejo#197): title left, the
           add button right, the filter bar under it. The tiles stay — a
           roadtrip is read by its sketch, not by a row. */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="t-screen-title">{t("roadtrips:pageTitle")}</h1>
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="btn-primary flex items-center gap-2 whitespace-nowrap"
-        >
-          <span>+</span>
-          <span>{t("roadtrips:newRoadtrip")}</span>
-        </button>
-      </div>
+      {/* A lone CTA, so it keeps the primary's own 52 rather than a row's 46
+          (`Button`'s `toolbar` size is for a control with neighbours). */}
+      <PageHeader
+        title={t("roadtrips:pageTitle")}
+        actions={
+          <Button variant="primary" icon={<span>+</span>} onClick={() => setCreating(true)}>
+            {t("roadtrips:newRoadtrip")}
+          </Button>
+        }
+      />
 
       <KindReviewNotice onChanged={() => void load()} />
 

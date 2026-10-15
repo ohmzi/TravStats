@@ -3,6 +3,8 @@ import type { JSX } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import AppShell from "../components/ui/AppShell";
+import Button from "../components/ui/Button";
+import PageHeader from "../components/ui/PageHeader";
 import ConfirmModal from "../components/Training/ConfirmModal";
 import { useTranslation } from "../hooks/useTranslation";
 import { tourIndexApi, type TourSummary } from "../lib/api/tourIndex";
@@ -138,30 +140,29 @@ export default function ToursPage(): JSX.Element {
 
   return (
     <AppShell width="list">
-      <header className="mb-4 flex items-center justify-between">
-        <h1 className="t-screen-title">{t("trips:tours.pageTitle")}</h1>
-        <span className="flex flex-wrap gap-2">
-          {stravaConnected && (
-            <button
-              type="button"
-              className="rounded-sm border border-(--color-border) px-3 py-1.5 text-sm hover:bg-(--bg-surface)"
-              onClick={() => setStravaOpen(true)}
+      {/* Two actions in one slot, so both draw the row's height
+          (`size="toolbar"`); the pair hides as a unit on a narrow phone. */}
+      <PageHeader
+        title={t("trips:tours.pageTitle")}
+        actions={
+          <>
+            {stravaConnected && (
+              <Button size="toolbar" onClick={() => setStravaOpen(true)}>
+                {t("roadtrips:strava.importButton")}
+              </Button>
+            )}
+            <Button
+              size="toolbar"
+              onClick={() => {
+                setCreating((v) => !v);
+                setSaveTried(false);
+              }}
             >
-              {t("roadtrips:strava.importButton")}
-            </button>
-          )}
-          <button
-            type="button"
-            className="rounded-sm border border-(--color-border) px-3 py-1.5 text-sm hover:bg-(--bg-surface)"
-            onClick={() => {
-              setCreating((v) => !v);
-              setSaveTried(false);
-            }}
-          >
-            {t("trips:tours.newTour")}
-          </button>
-        </span>
-      </header>
+              {t("trips:tours.newTour")}
+            </Button>
+          </>
+        }
+      />
       {stravaOpen && (
         <StravaImportDialog
           target={{ kind: "newTour" }}

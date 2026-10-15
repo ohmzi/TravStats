@@ -150,6 +150,32 @@ describe("FerryPage", () => {
       expect(list).toHaveBeenCalledWith(expect.objectContaining({ year: 2025, offset: 0 }))
     );
   });
+  // The header is `PageHeader` now. A conversion that renders only the title
+  // deletes the column picker and the add button and nothing else notices —
+  // this page carried both, and jsdom is the only place they can be seen
+  // together in the row they share.
+  it("keeps the column picker and the add button in the shared header", async () => {
+    list.mockResolvedValue(page(rideFixture()));
+    renderPage();
+
+    const heading = await screen.findByRole("heading", { level: 1, name: "Fähren" });
+    const picker = screen.getByTestId("column-picker");
+    const add = screen.getByRole("button", { name: /Überfahrt hinzufügen/ });
+
+    // Both ride in the header's action slot, not somewhere below the fold.
+    const header = heading.closest("div")?.parentElement ?? null;
+    expect(header).toContainElement(picker);
+    expect(header).toContainElement(add);
+
+    // Reachable, not merely present: the picker opens its menu…
+    fireEvent.click(within(picker).getByRole("button"));
+    expect(await screen.findByRole("menu")).toBeInTheDocument();
+
+    // …and the add button still opens the form.
+    fireEvent.click(add);
+    expect(screen.getByTestId("ferry-form")).toHaveTextContent("new");
+  });
+
   it("retries a failed load instead of presenting an empty logbook", async () => {
     list.mockRejectedValue(new Error("offline"));
     renderPage();

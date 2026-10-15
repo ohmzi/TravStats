@@ -1,4 +1,6 @@
 import AppShell from "../components/ui/AppShell";
+import Button from "../components/ui/Button";
+import PageHeader from "../components/ui/PageHeader";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { cruiseApi } from "../lib/api";
@@ -372,27 +374,32 @@ export default function CruisesPage(): JSX.Element {
       {/* The width is the shell's now — `table`, the same one every logbook
           page asks for by name. */}
       <div className="w-full">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="t-screen-title">{t("list.title")}</h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <ColumnPicker
-              columns={CRUISE_COLUMN_IDS.map((id) => ({
-                id,
-                label: t(`list.columns.${id}`),
-                always: (CRUISE_ALWAYS_VISIBLE as readonly string[]).includes(id),
-              }))}
-              prefs={columnPrefs}
-            />
-            <button
-              type="button"
-              onClick={() => setShowAdd(true)}
-              className="btn-primary flex items-center gap-2 whitespace-nowrap"
-            >
-              <span>+</span>
-              <span>{t("add.title")}</span>
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          title={t("list.title")}
+          actions={
+            <>
+              <ColumnPicker
+                columns={CRUISE_COLUMN_IDS.map((id) => ({
+                  id,
+                  label: t(`list.columns.${id}`),
+                  always: (CRUISE_ALWAYS_VISIBLE as readonly string[]).includes(id),
+                }))}
+                prefs={columnPrefs}
+              />
+              {/* `size="toolbar"`: it stands in the row with the column picker,
+                  so it joins the row's height rather than keeping the lone
+                  CTA's 52. */}
+              <Button
+                variant="primary"
+                size="toolbar"
+                icon={<span>+</span>}
+                onClick={() => setShowAdd(true)}
+              >
+                {t("add.title")}
+              </Button>
+            </>
+          }
+        />
 
         <ListSummaryStrip
           figures={summaryFigures}

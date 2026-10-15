@@ -7,12 +7,16 @@ import { describe, expect, it } from "vitest";
  * sideways as a whole (scrollWidth 428) — its header's action group
  * ("Mehrere bearbeiten", "Spalten", "+ Flug hinzufügen", 404px together)
  * was the one logbook toolbar without `flex-wrap`. jsdom cannot measure a
- * row, so this reads the header of every logbook page: the group that
+ * row, so this read the header of every logbook page: the group that
  * follows the page title must be allowed to wrap.
+ *
+ * The group is `PageHeader`'s now (2026-10-14), so the row itself is drawn
+ * once and the per-page reading moved to its source. What is left per page is
+ * the other way this warden could go quiet: a logbook that stops handing its
+ * controls to `actions` drops a picker or a button without breaking anything
+ * visible in a test, which is the failure the shared header exists to
+ * prevent.
  */
-// The logbook's flights page is the fork's card-view wrapper; its own header
-// wraps as a whole (the `h1` and the action sit inside one flex-wrap `div`), so
-// it is not one of the per-page toolbars this warden reads.
 const PAGES = [
   "CruisesPage",
   "LodgingListPage",
@@ -22,14 +26,18 @@ const PAGES = [
   "RentalsPage",
 ];
 
-const ACTIONS_AFTER_TITLE =
-  /<h1 className="t-screen-title">[^\n]*\n(?:\s*\{\/\*[\s\S]*?\*\/\}\n)?\s*<div className="([^"]*)"/;
-
 describe("logbook header actions wrap on a phone", () => {
-  it.each(PAGES)("%s", (name) => {
+  it("draws the action row once, and lets it wrap", () => {
+    const header = readFileSync(resolve(__dirname, "../../components/ui/PageHeader.tsx"), "utf-8");
+    expect(header, "PageHeader's action row must be allowed to wrap").toContain(
+      'className="flex flex-wrap items-center"'
+    );
+  });
+
+  it.each(PAGES)("%s hands its actions to the shared header", (name) => {
     const source = readFileSync(resolve(__dirname, `../${name}.tsx`), "utf-8");
-    const match = ACTIONS_AFTER_TITLE.exec(source);
-    expect(match, `${name}: no action group after the title`).not.toBeNull();
-    expect(match![1].split(/\s+/)).toContain("flex-wrap");
+    expect(source, `${name}: the header's actions slot is where its controls go`).toMatch(
+      /actions=\{/
+    );
   });
 });
