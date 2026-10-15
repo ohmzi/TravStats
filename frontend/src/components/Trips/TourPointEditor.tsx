@@ -3,11 +3,15 @@ import type { JSX } from "react";
 
 import Button from "../ui/Button";
 import FormFooter from "../ui/FormFooter";
+import SectionHeader from "../ui/SectionHeader";
+import { RowActionButton, RowActions } from "../table/RowActionButton";
 import { LocationInput } from "../location/LocationInput";
 import { useTranslation } from "../../hooks/useTranslation";
 import type { TourPointInput } from "../../lib/api/tours";
 
 interface TourPointEditorProps {
+  /** The section's title — this editor draws its own header so "Add point" can sit on it. */
+  title: string;
   points: TourPointInput[];
   saving: boolean;
   onSave: (points: TourPointInput[]) => void;
@@ -32,6 +36,7 @@ interface TourPointEditorProps {
  * endpoint stops, never by position.
  */
 export default function TourPointEditor({
+  title,
   points,
   saving,
   onSave,
@@ -73,6 +78,19 @@ export default function TourPointEditor({
 
   return (
     <div className="space-y-2">
+      <SectionHeader
+        title={title}
+        actions={
+          <Button
+            variant="secondary"
+            size="toolbar"
+            onClick={() => setDraft((prev) => [...prev, { title: "", lat: NaN, lon: NaN }])}
+          >
+            {t("trips:tours.points.add")}
+          </Button>
+        }
+      />
+
       {draft.length === 0 && (
         <p className="text-sm text-(--text-muted)">{t("trips:tours.points.empty")}</p>
       )}
@@ -92,35 +110,25 @@ export default function TourPointEditor({
               aria-label={t("trips:tours.points.titlePlaceholder")}
               className="min-w-40 flex-1 rounded-sm border border-(--color-border) bg-transparent px-2 py-1 text-sm"
             />
-            <button
-              type="button"
-              onClick={() => move(index, -1)}
-              disabled={index === 0}
-              aria-label={t("trips:tours.points.moveUp")}
-              className="px-1 text-sm disabled:opacity-30"
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              onClick={() => move(index, 1)}
-              disabled={index === draft.length - 1}
-              aria-label={t("trips:tours.points.moveDown")}
-              className="px-1 text-sm disabled:opacity-30"
-            >
-              ↓
-            </button>
-            {/* One body size per row: the title input and the arrows draw
-                `text-sm`, so the remove link does too — at `text-xs` it was
-                the row's smallest control (owner, 2026-10-13: "text size
-                should be uniform"). */}
-            <button
-              type="button"
-              onClick={() => setDraft((prev) => prev.filter((_, i) => i !== index))}
-              className="text-sm underline"
-            >
-              {t("trips:tours.points.remove")}
-            </button>
+            <RowActions>
+              <RowActionButton
+                icon="moveUp"
+                label={t("trips:tours.points.moveUp")}
+                disabled={index === 0}
+                onClick={() => move(index, -1)}
+              />
+              <RowActionButton
+                icon="moveDown"
+                label={t("trips:tours.points.moveDown")}
+                disabled={index === draft.length - 1}
+                onClick={() => move(index, 1)}
+              />
+              <RowActionButton
+                icon="delete"
+                label={t("trips:tours.points.remove")}
+                onClick={() => setDraft((prev) => prev.filter((_, i) => i !== index))}
+              />
+            </RowActions>
             {/* A station with a night cannot become a correction here — the
                 server refuses it (`VIA_POINT_HAS_NIGHT`) because this editor
                 knows no nights and would delete one unseen. So the switch is
@@ -199,11 +207,9 @@ export default function TourPointEditor({
           edge with the safe-area pad, so the Save is reachable from the first
           point being edited.
 
-          Right-aligned like every other footer, per the owner's standing
-          instruction of 2026-10-15 rather than the left alignment this row
-          originally took: "Add point" still READS first, and both controls
-          still sit in one row, but the row now ends at the page's action edge
-          with the journey's Cancel/Save and the trip editor's Done. */}
+          Save alone at the foot: Add point moved to the section's title line
+          (owner, 2026-10-15, 'create new best placement'), so this row holds
+          only the commit. */}
       <FormFooter
         hint={
           <>
@@ -220,12 +226,6 @@ export default function TourPointEditor({
           </>
         }
       >
-        <Button
-          variant="secondary"
-          onClick={() => setDraft((prev) => [...prev, { title: "", lat: NaN, lon: NaN }])}
-        >
-          {t("trips:tours.points.add")}
-        </Button>
         <Button
           variant="primary"
           size="toolbar"

@@ -6,6 +6,7 @@ import { TRACK_ERROR_KEYS } from "../lib/trackErrorKeys";
 
 import AppShell from "../components/ui/AppShell";
 import BackLink from "../components/ui/BackLink";
+import SectionHeader from "../components/ui/SectionHeader";
 import PageHeader from "../components/ui/PageHeader";
 import TripMap, { type TripMapContent } from "../components/Trips/TripMap";
 import TourRecordingSummary from "../components/Trips/TourRecordingSummary";
@@ -600,11 +601,9 @@ export default function TripRouteEditorPage(): JSX.Element {
         <TripMap trip={mapContent} tourGeometries={tourGeometries} />
 
         <section>
-          <h2 className="text-lg font-semibold mb-3">
-            {ownPoints ? t("trips:tours.points.heading") : t("trips:tours.stopsHeading")}
-          </h2>
           {ownPoints ? (
             <TourPointEditor
+              title={t("trips:tours.points.heading")}
               points={sectionStops.map((s) => ({
                 id: s.id,
                 title: s.title,
@@ -620,7 +619,10 @@ export default function TripRouteEditorPage(): JSX.Element {
               onSave={(points) => void handleSavePoints(points)}
             />
           ) : (
-            <TourStopAssigner stops={assignerStops} onChange={handleAssignChange} />
+            <>
+              <SectionHeader title={t("trips:tours.stopsHeading")} />
+              <TourStopAssigner stops={assignerStops} onChange={handleAssignChange} />
+            </>
           )}
         </section>
 

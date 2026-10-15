@@ -88,6 +88,7 @@ describe("a route correction", () => {
     const onSave = vi.fn();
     render(
       <TourPointEditor
+        title="trips:tours.points.heading"
         points={[
           { id: "a", title: "Gjendesheim", lat: 61.49, lon: 8.8 },
           { id: "b", title: "", lat: 61.5, lon: 8.76 },

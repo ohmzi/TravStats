@@ -32,13 +32,38 @@ const POINTS = [
   { id: "p2", title: "Besseggen", lat: 61.5, lon: 8.73 },
 ];
 
+const TITLE = "trips:tours.points.heading";
+
+/** The editor as the page draws it: titled, so "Add point" has a header to sit on. */
+function renderEditor(onSave: () => void = vi.fn()): void {
+  render(<TourPointEditor title={TITLE} points={POINTS} saving={false} onSave={onSave} />);
+}
+
 /** A stored station with a night — `hasNight` as the server sends it. */
 const NIGHT_POINT = { id: "p3", title: "Memurubu", lat: 61.5, lon: 8.73, hasNight: true };
 
 describe("the standalone tour's point editor", () => {
+  it("puts Add point on the section's title line and keeps Save at the foot", () => {
+    renderEditor();
+    const heading = screen.getByRole("heading", { name: "trips:tours.points.heading" });
+    const add = screen.getByRole("button", { name: "trips:tours.points.add" });
+    expect(heading.parentElement!.contains(add)).toBe(true);
+    const save = screen.getByRole("button", { name: "trips:tours.points.save" });
+    expect(save).toHaveAttribute("data-variant", "primary");
+    expect(heading.parentElement!.contains(save)).toBe(false);
+  });
+
+  it("draws a point's move and remove as row icons, remove in red", () => {
+    renderEditor();
+    const remove = screen.getAllByRole("button", { name: "trips:tours.points.remove" })[0];
+    expect(remove.style.color).toBe("var(--ts-bad)");
+    expect(remove.className).not.toContain("underline");
+    expect(screen.getAllByRole("button", { name: "trips:tours.points.moveUp" })[0]).toBeDisabled();
+  });
+
   it("writes the whole list in one call, in the order shown", () => {
     const onSave = vi.fn();
-    render(<TourPointEditor points={POINTS} saving={false} onSave={onSave} />);
+    render(<TourPointEditor title={TITLE} points={POINTS} saving={false} onSave={onSave} />);
 
     fireEvent.click(screen.getAllByLabelText("trips:tours.points.moveDown")[0]);
     fireEvent.click(screen.getByText("trips:tours.points.save"));
@@ -52,7 +77,7 @@ describe("the standalone tour's point editor", () => {
 
   it("keeps an existing point's id across a reorder, so its legs survive", () => {
     const onSave = vi.fn();
-    render(<TourPointEditor points={POINTS} saving={false} onSave={onSave} />);
+    render(<TourPointEditor title={TITLE} points={POINTS} saving={false} onSave={onSave} />);
 
     fireEvent.click(screen.getAllByLabelText("trips:tours.points.moveUp")[1]);
     fireEvent.click(screen.getByText("trips:tours.points.save"));
@@ -64,7 +89,7 @@ describe("the standalone tour's point editor", () => {
 
   it("refuses to save a point with no coordinate, and says why", () => {
     const onSave = vi.fn();
-    render(<TourPointEditor points={POINTS} saving={false} onSave={onSave} />);
+    render(<TourPointEditor title={TITLE} points={POINTS} saving={false} onSave={onSave} />);
 
     fireEvent.click(screen.getByText("trips:tours.points.add"));
 
@@ -77,9 +102,9 @@ describe("the standalone tour's point editor", () => {
 
   it("drops a removed point from the list it sends", () => {
     const onSave = vi.fn();
-    render(<TourPointEditor points={POINTS} saving={false} onSave={onSave} />);
+    render(<TourPointEditor title={TITLE} points={POINTS} saving={false} onSave={onSave} />);
 
-    fireEvent.click(screen.getAllByText("trips:tours.points.remove")[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "trips:tours.points.remove" })[0]);
     fireEvent.click(screen.getByText("trips:tours.points.save"));
 
     expect(onSave.mock.calls[0][0]).toHaveLength(1);
@@ -88,7 +113,7 @@ describe("the standalone tour's point editor", () => {
 
   it("takes a new point's place AND name from the search — no coordinate typed", () => {
     const onSave = vi.fn();
-    render(<TourPointEditor points={POINTS} saving={false} onSave={onSave} />);
+    render(<TourPointEditor title={TITLE} points={POINTS} saving={false} onSave={onSave} />);
 
     fireEvent.click(screen.getByText("trips:tours.points.add"));
     fireEvent.click(screen.getByTestId("tour-point-2"));
@@ -99,7 +124,7 @@ describe("the standalone tour's point editor", () => {
 
   it("keeps a name the reader typed when the place is picked afterwards", () => {
     const onSave = vi.fn();
-    render(<TourPointEditor points={POINTS} saving={false} onSave={onSave} />);
+    render(<TourPointEditor title={TITLE} points={POINTS} saving={false} onSave={onSave} />);
 
     fireEvent.click(screen.getByTestId("tour-point-0"));
     fireEvent.click(screen.getByText("trips:tours.points.save"));
@@ -112,24 +137,20 @@ describe("the standalone tour's point editor", () => {
   });
 
   it("offers no bare latitude/longitude fields", () => {
-    render(<TourPointEditor points={POINTS} saving={false} onSave={vi.fn()} />);
+    render(<TourPointEditor title={TITLE} points={POINTS} saving={false} onSave={vi.fn()} />);
     expect(screen.queryByRole("spinbutton")).toBeNull();
   });
 
-  it("draws a point's row at one body size — the remove link and the switch's label too", () => {
-    render(<TourPointEditor points={POINTS} saving={false} onSave={vi.fn()} />);
+  it("draws a point's row at one body size — the title input and the switch's label", () => {
+    render(<TourPointEditor title={TITLE} points={POINTS} saving={false} onSave={vi.fn()} />);
 
-    // The row draws its title input and its arrows at text-sm (the body
-    // role); the remove link and the correction switch's label were a size
-    // smaller than everything beside them — the owner's 2026-10-13 report
-    // ("text size should be uniform") named exactly these two. jsdom measures
-    // no layout, so the class is the hook the size is pinned on.
+    // The row draws its title input at text-sm (the body role); the
+    // correction switch's label was a size smaller than the input beside it —
+    // the owner's 2026-10-13 report ("text size should be uniform"). The
+    // remove control is an icon now, so it has no text size left to drift.
+    // jsdom measures no layout, so the class is the hook the size is pinned on.
     const input = screen.getAllByPlaceholderText("trips:tours.points.titlePlaceholder")[0];
     expect(input.className).toContain("text-sm");
-
-    const remove = screen.getAllByText("trips:tours.points.remove")[0];
-    expect(remove.className).toContain("text-sm");
-    expect(remove.className).not.toContain("text-xs");
 
     const switchLabel = screen
       .getAllByRole("switch", { name: "trips:tours.points.via" })[0]
@@ -139,7 +160,14 @@ describe("the standalone tour's point editor", () => {
   });
 
   it("disables the correction switch on a point that carries a night, and says why", () => {
-    render(<TourPointEditor points={[...POINTS, NIGHT_POINT]} saving={false} onSave={vi.fn()} />);
+    render(
+      <TourPointEditor
+        title={TITLE}
+        points={[...POINTS, NIGHT_POINT]}
+        saving={false}
+        onSave={vi.fn()}
+      />
+    );
 
     // The server refuses a correction on a station with a night — this editor
     // knows no nights, so a save through here would delete one unseen
@@ -154,7 +182,14 @@ describe("the standalone tour's point editor", () => {
 
   it("saves the whole list after a flip elsewhere, the night's row sent as it stood", () => {
     const onSave = vi.fn();
-    render(<TourPointEditor points={[...POINTS, NIGHT_POINT]} saving={false} onSave={onSave} />);
+    render(
+      <TourPointEditor
+        title={TITLE}
+        points={[...POINTS, NIGHT_POINT]}
+        saving={false}
+        onSave={onSave}
+      />
+    );
 
     fireEvent.click(screen.getAllByRole("switch", { name: "trips:tours.points.via" })[0]);
     fireEvent.click(screen.getByText("trips:tours.points.save"));
@@ -206,7 +241,7 @@ describe("the point editor's action row on a phone", () => {
 
   it("pins the row to the bottom edge, on the surface, ringed by a top border", () => {
     setViewport(true);
-    render(<TourPointEditor points={POINTS} saving={false} onSave={vi.fn()} />);
+    render(<TourPointEditor title={TITLE} points={POINTS} saving={false} onSave={vi.fn()} />);
 
     const row = saveRow();
     expect(row.className).toContain("sticky");
@@ -214,21 +249,20 @@ describe("the point editor's action row on a phone", () => {
     expect(row.style.background).toBe("var(--ts-bg)");
     expect(row.style.borderTop).toContain("var(--ts-border)");
     expect(row.style.paddingBottom).toContain("safe-area-inset-bottom");
-    // Add and Save still live in the row, and Add is not orphaned from it.
-    // Both now sit in the footer's inner group, which `ml-auto` holds at the
-    // RIGHT edge — the owner's 2026-10-15 instruction ("lets move all the
-    // interactive buttons on the right side of screen"). This row was the
-    // left-aligned outlier that report named.
+    // Save sits alone in the row's inner group, which `ml-auto` holds at the
+    // RIGHT edge (the owner's 2026-10-15 instruction, "lets move all the
+    // interactive buttons on the right side of screen"). Add point left for
+    // the section's title line, so the row holds only the commit.
     const group = screen.getByText("trips:tours.points.save").closest("button")
       ?.parentElement as HTMLElement;
-    expect(screen.getByText("trips:tours.points.add").parentElement).toBe(group);
     expect(group.className).toContain("ml-auto");
     expect(row.contains(group)).toBe(true);
+    expect(row.contains(screen.getByText("trips:tours.points.add"))).toBe(false);
   });
 
   it("leaves the row in the editor's flow on a desktop", () => {
     setViewport(false);
-    render(<TourPointEditor points={POINTS} saving={false} onSave={vi.fn()} />);
+    render(<TourPointEditor title={TITLE} points={POINTS} saving={false} onSave={vi.fn()} />);
 
     const row = saveRow();
     expect(row.className).not.toContain("sticky");
