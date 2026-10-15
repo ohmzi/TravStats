@@ -23,7 +23,7 @@ export default function ListLoadFailed({
     <div
       role="alert"
       className="overflow-hidden rounded-lg"
-      style={{ border: "1px solid var(--color-border)" }}
+      style={{ border: "1px solid var(--ts-border)" }}
     >
       <EmptyState
         kind="degraded"

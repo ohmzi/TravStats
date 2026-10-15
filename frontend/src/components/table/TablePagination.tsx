@@ -39,7 +39,7 @@ const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 const TOUCH_SIZE =
   "pointer-coarse:min-h-(--ts-size-touch-min) pointer-coarse:min-w-(--ts-size-touch-min)";
 
-const BUTTON_CLASS = `rounded-md border border-[var(--color-border)] px-2 py-1 text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-40 ${TOUCH_SIZE}`;
+const BUTTON_CLASS = `rounded-md border border-[var(--ts-border)] px-2 py-1 text-[var(--ts-text)] disabled:cursor-not-allowed disabled:opacity-40 ${TOUCH_SIZE}`;
 
 /** The "x–y von z" numbers, worked out once so the component and its tests
  *  agree on the same arithmetic. `total === 0` reads as 0-0, never 1-0 —
@@ -72,7 +72,7 @@ export default function TablePagination({
   return (
     <nav
       aria-label={t(`common:table.pagination.landmark.${placement}`)}
-      className={`${placement === "top" ? "mb-2" : "mt-2"} flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-[var(--text-muted)]`}
+      className={`${placement === "top" ? "mb-2" : "mt-2"} flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-[var(--ts-muted)]`}
     >
       <span>{t("common:table.pagination.range", { from, to, total })}</span>
       <div className="flex flex-wrap items-center gap-3">
@@ -129,7 +129,7 @@ export default function TablePagination({
             onChange={(e): void =>
               setPageSize(e.target.value === "all" ? "all" : Number(e.target.value))
             }
-            className="rounded-md border border-[var(--color-border)] bg-[var(--bg-surface)] px-2 py-1 text-[var(--text-primary)] pointer-coarse:min-h-(--ts-size-touch-min)"
+            className="rounded-md border border-[var(--ts-border)] bg-[var(--ts-surface)] px-2 py-1 text-[var(--ts-text)] pointer-coarse:min-h-(--ts-size-touch-min)"
           >
             {PAGE_SIZE_OPTIONS.map((size) => (
               <option key={size} value={size}>
