@@ -646,8 +646,8 @@ export default function TripRouteEditorPage(): JSX.Element {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold mb-3">{t("trips:tours.tracks.heading")}</h2>
           <TourTrackList
+            title={t("trips:tours.tracks.heading")}
             tracks={tracks}
             loading={tracksLoading}
             loadError={tracksLoadError}

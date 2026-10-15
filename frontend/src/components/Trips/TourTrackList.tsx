@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "../../hooks/useTranslation";
-import Button from "../ui/Button";
+import MenuButton, { type MenuItem } from "../ui/MenuButton";
+import SectionHeader from "../ui/SectionHeader";
+import { RowActionButton, RowActions } from "../table/RowActionButton";
 import ConfirmModal from "../Training/ConfirmModal";
 import { formatInProfileZone } from "../../lib/profileInstant";
 import type { TourTrackMeta } from "../../types/tour";
 import Toggletip from "../ui/Toggletip";
 
 interface Props {
+  /** The section heading — drawn here, on the same line as the Add recording menu. */
+  title: string;
   tracks: TourTrackMeta[];
   /** Initial list fetch in flight. Mutually exclusive with `loadError`. */
   loading: boolean;
@@ -22,7 +26,7 @@ interface Props {
   onDownload?: (track: TourTrackMeta) => void;
   pulling: boolean;
   /** Whether a Dawarich connection is configured and usable right now.
-   *  Gates the "pull from Dawarich" button the same way `routingAvailable`
+   *  Gates the "pull from Dawarich" menu item the same way `routingAvailable`
    *  gates `TourLegList`'s "routed" option — never offer a control whose
    *  only possible outcome is an error. */
   dawarichAvailable: boolean;
@@ -50,13 +54,13 @@ function formatWindow(startedAt: string, endedAt: string): string {
 }
 
 /**
- * Recorded tracks for one tour route section (phase 3b, task 8): upload a
- * GPX, pull a window from Dawarich, list what is there with its measured
- * facts, delete one. Fully controlled, no state of its own — the same
- * "caller owns the data, this renders it" shape `TourStopAssigner` and
- * `TourLegList` already follow, so the page is the one place a track list
- * reload and the leg list's coverage gating (`TourLegList`'s `track` option)
- * stay in sync.
+ * Recorded tracks for one tour route section (phase 3b, task 8): add a
+ * recording from a file, Dawarich or Strava through one menu, list what is
+ * there with its measured facts, delete one. Fully controlled, no state of
+ * its own — the same "caller owns the data, this renders it" shape
+ * `TourStopAssigner` and `TourLegList` already follow, so the page is the one
+ * place a track list reload and the leg list's coverage gating
+ * (`TourLegList`'s `track` option) stay in sync.
  *
  * Three distinct states, never collapsed: `loading` (initial fetch),
  * `loadError` (the fetch failed — NOT the same as an empty list), and the
@@ -71,6 +75,7 @@ function formatWindow(startedAt: string, endedAt: string): string {
  * parsed points, not the file. Every other delete in this tree asks first.
  */
 export default function TourTrackList({
+  title,
   tracks,
   loading,
   loadError,
@@ -86,55 +91,66 @@ export default function TourTrackList({
 }: Props): JSX.Element {
   const { t } = useTranslation("trips");
   const [pendingDelete, setPendingDelete] = useState<TourTrackMeta | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Three SOURCES for one action, so one control (owner, 2026-10-15, "one
+  // menu button"). Dawarich stays listed when it cannot be used, with the
+  // reason under it — it used to be a caption beside a dead button.
+  const sources: MenuItem[] = [
+    {
+      id: "upload",
+      label: t("trips:tours.tracks.uploadFile"),
+      onSelect: () => fileRef.current?.click(),
+    },
+    {
+      id: "dawarich",
+      label: t("trips:tours.tracks.dawarich.pullLabel"),
+      onSelect: onPullDawarich,
+      disabled: !dawarichAvailable,
+      reason: t("trips:tours.tracks.dawarich.unavailableReason"),
+    },
+    ...(onImportStrava
+      ? [{ id: "strava", label: t("roadtrips:strava.importButton"), onSelect: onImportStrava }]
+      : []),
+  ];
+  const busyLabel = uploading
+    ? t("trips:tours.tracks.uploading")
+    : pulling
+      ? t("trips:tours.tracks.dawarich.pulling")
+      : null;
 
   return (
     <div className="space-y-3">
-      {/* These three were hand-rolled 36px `rounded-sm` outlines reading the
-          legacy palette, and the row was left-aligned — the last screen in the
-          owner's 2026-10-15 sweep still drawing its own button recipe. They are
-          the shared secondary control now, at the row height, ending at the
-          right edge like every other action row in the app. The Dawarich
-          button's `title` is its disabled reason, so it keeps that. */}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button variant="secondary" size="toolbar" className="cursor-pointer" disabled={uploading}>
-          {uploading ? t("trips:tours.tracks.uploading") : t("trips:tours.tracks.uploadLabel")}
-          <input
-            type="file"
-            // GPX, and since 2.7 the watch formats: TCX and FIT (Garmin, Wahoo,
-            // Coros …). The server decides the format by the bytes.
-            accept=".gpx,.tcx,.fit"
-            className="sr-only"
-            disabled={uploading}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) onUpload(file);
-              // Clear it, so re-selecting the SAME file after fixing it still fires.
-              e.target.value = "";
-            }}
+      <SectionHeader
+        title={title}
+        actions={
+          <MenuButton
+            label={busyLabel ?? t("trips:tours.tracks.addRecording")}
+            items={sources}
+            disabled={busyLabel !== null}
           />
-        </Button>
-        <Button
-          variant="secondary"
-          size="toolbar"
-          disabled={pulling || !dawarichAvailable}
-          title={dawarichAvailable ? undefined : t("trips:tours.tracks.dawarich.unavailableReason")}
-          onClick={onPullDawarich}
-        >
-          {pulling
-            ? t("trips:tours.tracks.dawarich.pulling")
-            : t("trips:tours.tracks.dawarich.pullLabel")}
-        </Button>
-        {onImportStrava && (
-          <Button variant="secondary" size="toolbar" onClick={onImportStrava}>
-            {t("roadtrips:strava.importButton")}
-          </Button>
-        )}
-        {!dawarichAvailable && (
-          <span className="text-xs text-(--text-muted)">
-            {t("trips:tours.tracks.dawarich.unavailableReason")}
-          </span>
-        )}
-      </div>
+        }
+      />
+      {/* Outside any <button>: a file input nested in one does not reliably
+          open its picker. The menu's Upload item clicks it. `sr-only`, not
+          `hidden`: a `display: none` input cannot be `.click()`-ed reliably in
+          Safari. */}
+      <input
+        ref={fileRef}
+        type="file"
+        // GPX, and since 2.7 the watch formats: TCX and FIT (Garmin, Wahoo,
+        // Coros …). The server decides the format by the bytes.
+        accept=".gpx,.tcx,.fit"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onUpload(file);
+          // Clear it, so re-selecting the SAME file after fixing it still fires.
+          e.target.value = "";
+        }}
+      />
       {/* Komoot has no public API (checked 2026-09-24): its tours come in as
           the GPX file Komoot itself exports. */}
       <p className="text-xs text-(--text-muted)">{t("roadtrips:komootHint")}</p>
@@ -182,22 +198,24 @@ export default function TourTrackList({
               {track.ascentM !== null && (
                 <span className="text-(--text-muted)">↑ {Math.round(track.ascentM)} m</span>
               )}
-              {onDownload && (
-                <button
-                  type="button"
-                  className="text-xs underline"
-                  onClick={() => onDownload(track)}
-                >
-                  {t("roadtrips:trackArchive.downloadOne")}
-                </button>
-              )}
-              <button
-                type="button"
-                className="text-xs underline"
-                onClick={() => setPendingDelete(track)}
-              >
-                {t("trips:tours.tracks.deleteLabel")}
-              </button>
+              {/* `ml-auto`: the row wraps, and a lone icon group on a line of its
+                  own would otherwise sit at the start, not at the row's end. */}
+              <div className="ml-auto">
+                <RowActions>
+                  {onDownload && (
+                    <RowActionButton
+                      icon="download"
+                      label={t("roadtrips:trackArchive.downloadOne")}
+                      onClick={() => onDownload(track)}
+                    />
+                  )}
+                  <RowActionButton
+                    icon="delete"
+                    label={t("trips:tours.tracks.deleteLabel")}
+                    onClick={() => setPendingDelete(track)}
+                  />
+                </RowActions>
+              </div>
             </li>
           ))}
         </ul>

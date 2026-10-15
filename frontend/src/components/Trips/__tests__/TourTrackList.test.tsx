@@ -40,10 +40,12 @@ interface RenderOverrides {
   dawarichAvailable?: boolean;
   onPullDawarich?: () => void;
   onDownload?: (track: TourTrackMeta) => void;
+  onImportStrava?: () => void;
 }
 
 function renderList(overrides: RenderOverrides = {}) {
   const props = {
+    title: "trips:tours.tracks.heading",
     tracks: [],
     loading: false,
     loadError: false,
@@ -56,9 +58,13 @@ function renderList(overrides: RenderOverrides = {}) {
     onPullDawarich: vi.fn(),
     ...overrides,
   };
-  render(<TourTrackList {...props} />);
-  return props;
+  const rendered = render(<TourTrackList {...props} />);
+  return { ...props, ...rendered };
 }
+
+const openMenu = (): void => {
+  fireEvent.click(screen.getByRole("button", { name: /trips:tours.tracks.addRecording/ }));
+};
 
 describe("TourTrackList", () => {
   it("shows the loading state and nothing else", () => {
@@ -89,19 +95,84 @@ describe("TourTrackList", () => {
     expect(screen.queryByText("trips:tours.tracks.empty")).not.toBeInTheDocument();
   });
 
-  it("calls onUpload with the chosen file", () => {
-    const props = renderList();
-    const file = new File(["<gpx/>"], "track.gpx", { type: "application/gpx+xml" });
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    fireEvent.change(input, { target: { files: [file] } });
-    expect(props.onUpload).toHaveBeenCalledWith(file);
+  it("offers every source through one Add recording menu on the section's title line", () => {
+    renderList({ dawarichAvailable: true, onImportStrava: vi.fn() });
+    const heading = screen.getByRole("heading", { name: "trips:tours.tracks.heading" });
+    const trigger = screen.getByRole("button", { name: /trips:tours.tracks.addRecording/ });
+    expect(heading.parentElement!.contains(trigger)).toBe(true);
+    openMenu();
+    expect(
+      screen.getByRole("menuitem", { name: "trips:tours.tracks.uploadFile" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "trips:tours.tracks.dawarich.pullLabel" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "roadtrips:strava.importButton" })
+    ).toBeInTheDocument();
   });
 
-  it("disables the upload control while uploading", () => {
+  it("opens the file picker from the Upload item, and the same file can be picked twice", () => {
+    const onUpload = vi.fn();
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
+    const { container } = renderList({ onUpload });
+    openMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "trips:tours.tracks.uploadFile" }));
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    // The input is not inside a <button> any more — that is what made it unreliable.
+    expect(input.closest("button")).toBeNull();
+    const file = new File(["<gpx/>"], "a.gpx", { type: "application/gpx+xml" });
+    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(onUpload).toHaveBeenCalledTimes(2);
+    clickSpy.mockRestore();
+  });
+
+  it("keeps the file input out of the tab order and the accessibility tree", () => {
+    const { container } = renderList();
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(input).toHaveAttribute("aria-hidden", "true");
+    expect(input).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("disables the menu and says so while an upload runs", () => {
     renderList({ uploading: true });
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    expect(input).toBeDisabled();
-    expect(screen.getByText("trips:tours.tracks.uploading")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /trips:tours.tracks.uploading/ })).toBeDisabled();
+  });
+
+  it("disables the menu and says so while a pull runs", () => {
+    renderList({ dawarichAvailable: true, pulling: true });
+    expect(
+      screen.getByRole("button", { name: /trips:tours.tracks.dawarich.pulling/ })
+    ).toBeDisabled();
+  });
+
+  it("keeps Dawarich in the menu, disabled, with its reason, when no connection is configured", () => {
+    const onPullDawarich = vi.fn();
+    renderList({ dawarichAvailable: false, onPullDawarich });
+    openMenu();
+    const item = screen.getByRole("menuitem", { name: /trips:tours.tracks.dawarich.pullLabel/ });
+    expect(item).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("trips:tours.tracks.dawarich.unavailableReason")).toBeVisible();
+    fireEvent.click(item);
+    expect(onPullDawarich).not.toHaveBeenCalled();
+  });
+
+  it("pulls from Dawarich when the item is chosen", () => {
+    const onPullDawarich = vi.fn();
+    renderList({ dawarichAvailable: true, onPullDawarich });
+    openMenu();
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "trips:tours.tracks.dawarich.pullLabel" })
+    );
+    expect(onPullDawarich).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves Strava out of the menu when it is not connected", () => {
+    renderList({ onImportStrava: undefined });
+    openMenu();
+    expect(screen.queryByRole("menuitem", { name: "roadtrips:strava.importButton" })).toBeNull();
   });
 
   // Data-integrity audit 2026-09-19, finding 4: the delete link used to call
@@ -112,7 +183,7 @@ describe("TourTrackList", () => {
     const track = makeTrack();
     const props = renderList({ tracks: [track] });
 
-    fireEvent.click(screen.getByText("trips:tours.tracks.deleteLabel"));
+    fireEvent.click(screen.getByRole("button", { name: "trips:tours.tracks.deleteLabel" }));
 
     expect(props.onDelete).not.toHaveBeenCalled();
     expect(screen.getByText("trips:tours.tracks.deleteConfirm.title")).toBeInTheDocument();
@@ -120,7 +191,7 @@ describe("TourTrackList", () => {
 
   it("names the track in the question — its window and its point count", () => {
     renderList({ tracks: [makeTrack()] });
-    fireEvent.click(screen.getByText("trips:tours.tracks.deleteLabel"));
+    fireEvent.click(screen.getByRole("button", { name: "trips:tours.tracks.deleteLabel" }));
 
     // The mocked `t` returns the key, so the interpolation itself cannot be
     // read here. What IS observable is that the message key is used with the
@@ -133,7 +204,7 @@ describe("TourTrackList", () => {
     const track = makeTrack();
     const props = renderList({ tracks: [track] });
 
-    fireEvent.click(screen.getByText("trips:tours.tracks.deleteLabel"));
+    fireEvent.click(screen.getByRole("button", { name: "trips:tours.tracks.deleteLabel" }));
     fireEvent.click(screen.getByText("trips:tours.tracks.deleteConfirm.confirm"));
 
     expect(props.onDelete).toHaveBeenCalledWith(track);
@@ -142,39 +213,11 @@ describe("TourTrackList", () => {
   it("deletes nothing when the question is cancelled", () => {
     const props = renderList({ tracks: [makeTrack()] });
 
-    fireEvent.click(screen.getByText("trips:tours.tracks.deleteLabel"));
+    fireEvent.click(screen.getByRole("button", { name: "trips:tours.tracks.deleteLabel" }));
     fireEvent.click(screen.getByText("common:buttons.cancel"));
 
     expect(props.onDelete).not.toHaveBeenCalled();
     expect(screen.queryByText("trips:tours.tracks.deleteConfirm.title")).not.toBeInTheDocument();
-  });
-
-  it("disables the Dawarich pull button and shows the reason when no connection is configured", () => {
-    const props = renderList({ dawarichAvailable: false });
-    const button = screen.getByText("trips:tours.tracks.dawarich.pullLabel");
-    expect(button).toBeDisabled();
-    expect(screen.getByText("trips:tours.tracks.dawarich.unavailableReason")).toBeInTheDocument();
-
-    fireEvent.click(button);
-    expect(props.onPullDawarich).not.toHaveBeenCalled();
-  });
-
-  it("enables the Dawarich pull button once a connection is configured, without the reason", () => {
-    const props = renderList({ dawarichAvailable: true });
-    const button = screen.getByText("trips:tours.tracks.dawarich.pullLabel");
-    expect(button).not.toBeDisabled();
-    expect(
-      screen.queryByText("trips:tours.tracks.dawarich.unavailableReason")
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(button);
-    expect(props.onPullDawarich).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows a busy label and disables the pull button while a pull is in flight", () => {
-    renderList({ dawarichAvailable: true, pulling: true });
-    const button = screen.getByText("trips:tours.tracks.dawarich.pulling");
-    expect(button).toBeDisabled();
   });
 
   // MEDIUM-2 (final whole-phase review, 2026-08-29): a Dawarich pull cut
@@ -194,7 +237,7 @@ describe("TourTrackList", () => {
     const onDownload = vi.fn();
     const second = makeTrack({ id: "track-2" });
     renderList({ tracks: [makeTrack(), second], onDownload });
-    const buttons = screen.getAllByText("roadtrips:trackArchive.downloadOne");
+    const buttons = screen.getAllByRole("button", { name: "roadtrips:trackArchive.downloadOne" });
     expect(buttons).toHaveLength(2);
     fireEvent.click(buttons[1]);
     expect(onDownload).toHaveBeenCalledWith(second);
@@ -202,6 +245,24 @@ describe("TourTrackList", () => {
 
   it("draws no download control where no page can take the file", () => {
     renderList({ tracks: [makeTrack()] });
-    expect(screen.queryByText("roadtrips:trackArchive.downloadOne")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "roadtrips:trackArchive.downloadOne" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("draws a recording's actions as row icons, not text buttons", () => {
+    renderList({ tracks: [makeTrack()], onDownload: vi.fn() });
+    for (const name of ["roadtrips:trackArchive.downloadOne", "trips:tours.tracks.deleteLabel"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button.querySelector("svg")).not.toBeNull();
+      expect(button).toHaveAttribute("title", name);
+    }
+  });
+
+  it("keeps a recording's icons at the row's right edge when the row wraps", () => {
+    renderList({ tracks: [makeTrack()], onDownload: vi.fn() });
+    const icons = screen.getByRole("button", { name: "trips:tours.tracks.deleteLabel" })
+      .parentElement as HTMLElement;
+    expect(icons.parentElement).toHaveClass("ml-auto");
   });
 });
