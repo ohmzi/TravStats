@@ -282,10 +282,10 @@ describe("FlightTripDetailPage", () => {
     // height, padding and label size together (owner, 2026-10-13: "no button
     // should be heightwise bigger than other, text size should be uniform").
     //
-    // Edit is a LINK as of 2026-10-15, not a button: it navigates to the
-    // journey's edit page, exactly as `EntityHeader`'s Edit does, so the two
-    // heads draw the same control element and not merely the same size
-    // (owner: "someplace edit button is yellow and others its black").
+    // Edit is a LINK as of 2026-10-15, not a button, so this head and
+    // `EntityHeader` draw the same control element and not merely the same
+    // size. It is amber and goes to the flight trip's own edit page (owner,
+    // 2026-10-15).
     const link = screen.getByRole("link", { name: "flights:detail.openTrip" });
     const edit = screen.getByRole("link", { name: "common:buttons.edit" });
     expect(link.style.height).toBe("var(--ts-size-button-secondary)");

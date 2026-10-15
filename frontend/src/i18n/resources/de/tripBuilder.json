@@ -92,7 +92,6 @@
     "resyncHint": "Scannt die gespeicherten Daten der Reise erneut und aktualisiert sie an Ort und Stelle.",
     "resyncTripHint": "Scannt die gespeicherten Daten dieses Trips erneut und aktualisiert ihn an Ort und Stelle. Die übrigen Trips der Reise bleiben unverändert.",
     "deleteHeading": "Löschen",
-    "deleteJourneyHint": "Die Reise selbst wird gelöscht. Die Trips werden gelöst und bleiben erhalten, das Immich-Album wird nicht angefasst.",
     "deleteTripHint": "Dieser Trip wird mit seinen Stationen, Etappen und Aufzeichnungen gelöscht. Verknüpfte Unterkünfte und seine Tagestouren bleiben erhalten."
   },
   "progress": {

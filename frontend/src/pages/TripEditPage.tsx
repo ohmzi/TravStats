@@ -4,8 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/ui/AppShell";
 import BackLink from "../components/ui/BackLink";
 import Button from "../components/ui/Button";
-import DangerSection from "../components/ui/DangerSection";
 import FormFooter from "../components/ui/FormFooter";
+import PageHeader from "../components/ui/PageHeader";
 import CompanionPicker from "../components/CompanionPicker";
 import TagInput from "../components/TagInput";
 import SuggestionChips from "../components/common/SuggestionChips";
@@ -33,23 +33,49 @@ const CATEGORY_ICON: Record<TripCategory, string> = {
   other: "🗺",
 };
 
+export type TripEditContext = "journey" | "flightTrip";
+
+/**
+ * Where the page was opened from decides its title and where every exit
+ * lands; nothing else differs. A flight trip IS a journey — `/flights/journeys/:id`
+ * is the flight-centred view of the same row — but the owner reads it as its
+ * own thing and asked for its popup to become "an edit page", not to be sent
+ * to the journey's (2026-10-15). So the same form, the same `useTripForm`,
+ * with the flight trip's name and its own way home.
+ */
+const CONTEXTS: Record<
+  TripEditContext,
+  { titleKey: string; home: (id: string) => string; list: string }
+> = {
+  journey: { titleKey: "trips:editTrip", home: (id) => `/trips/${id}`, list: "/trips" },
+  flightTrip: {
+    titleKey: "trips:editFlightTrip",
+    home: (id) => `/flights/journeys/${id}`,
+    list: "/flights",
+  },
+};
+
 /**
  * The journey's edit page, `/trips/:id/edit` (spec 2026-10-12 §4): today's
- * `TripModal` fields as page content, in the modal's own four groups, plus the
- * two sections the headers lose — **Re-sync from Immich** (the same launch the
- * journey's header button carries, §K.1) and **Delete** (the existing confirm
- * flow; deleting a journey detaches its trips and never touches the Immich
- * album — the §J rule).
+ * `TripModal` fields as page content, in the modal's own four groups, plus
+ * **Re-sync from Immich** (the same launch the journey's header button carries,
+ * §K.1) and **Delete** (the existing confirm flow; deleting a journey detaches
+ * its trips and never touches the Immich album — the §J rule) in its header,
+ * and — in the `flightTrip` context — the flight trip's own title and exits
+ * (see `CONTEXTS`).
  *
  * The form itself — its fields, its refusals, its payload and its save
  * sequence — is `useTripForm`, the same core `TripModal` renders, so the two
  * edit surfaces cannot drift. This page adds what the modal cannot: loading a
  * journey by id, the page chrome, and the delete confirm.
  */
-export default function TripEditPage(): JSX.Element {
+export default function TripEditPage({
+  context = "journey",
+}: { context?: TripEditContext } = {}): JSX.Element {
   const { id } = useParams<{ id: string }>();
   const { t } = useTranslation(["trips", "common", "tripBuilder"]);
   const navigate = useNavigate();
+  const where = CONTEXTS[context];
   const addToast = useToastStore((s) => s.addToast);
 
   const [trip, setTrip] = useState<Trip | null>(null);
@@ -110,7 +136,7 @@ export default function TripEditPage(): JSX.Element {
       } catch (err: unknown) {
         logger.warn("TripEditPage: failed to load the trip", err);
         addToast("error", t("trips:toasts.loadError"));
-        navigate("/trips");
+        navigate(where.list);
       } finally {
         setLoading(false);
       }
@@ -119,7 +145,7 @@ export default function TripEditPage(): JSX.Element {
 
   const handleSave = async (): Promise<void> => {
     const savedTrip = await save();
-    if (savedTrip) navigate(`/trips/${savedTrip.id}`);
+    if (savedTrip) navigate(where.home(savedTrip.id));
   };
 
   const handleDelete = async (): Promise<void> => {
@@ -127,7 +153,7 @@ export default function TripEditPage(): JSX.Element {
     try {
       await tripsApi.delete(trip.id);
       addToast("success", t("trips:toasts.deleted"));
-      navigate("/trips");
+      navigate(where.list);
     } catch {
       addToast("error", t("trips:toasts.deleteError"));
       setConfirmDelete(false);
@@ -153,10 +179,26 @@ export default function TripEditPage(): JSX.Element {
   return (
     <AppShell width="reading">
       <div className="space-y-6">
-        <header>
-          <BackLink to={`/trips/${trip.id}`}>{t("common:buttons.back")}</BackLink>
-          <h1 className="t-screen-title mt-1">{t("trips:editTrip")}</h1>
-        </header>
+        <div>
+          <BackLink to={where.home(trip.id)}>{t("common:buttons.back")}</BackLink>
+          {/* The page's own actions on the title's line, at the right edge
+              (owner, 2026-10-15: "the resync from immich button should be
+              next to the title but all the way right of screen rather than
+              below it. same goes for delete too"). Black before red. What a
+              delete takes and what survives is said by the confirm dialog it
+              opens (`TripDeleteConfirm`), where the decision is made. */}
+          <PageHeader
+            title={t(where.titleKey)}
+            actions={
+              <>
+                <ResyncFromImmich tripId={trip.id} title={t("tripBuilder:edit.resyncHint")} />
+                <Button variant="danger" size="toolbar" onClick={() => setConfirmDelete(true)}>
+                  {t("common:buttons.delete")}
+                </Button>
+              </>
+            }
+          />
+        </div>
 
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">{t("trips:modalTabs.general")}</h2>
@@ -320,16 +362,13 @@ export default function TripEditPage(): JSX.Element {
               title={name || "—"}
               onClick={() => coverInputRef.current?.click()}
             />
-            <div className="flex gap-2 mt-2">
-              {/* The primitive, not a hand-rolled outline: these were 36px and
-                  `rounded-lg` with the accent written inline, which is the same
-                  drift as the footer (owner's 2026-10-15 report). 46 in a row
-                  is the design's own number (§4.5). Both are `secondary`: an
-                  upload is not this form's commit — the amber Save in the
-                  footer is — and amber belongs to exactly one control per
-                  screen. The remove is the destructive pair to it. */}
+            <div className="mt-2 flex flex-wrap justify-end gap-2">
+              {/* Ends right like every action row. Black for the upload, red
+                  for the remove — remove is a delete (owner, 2026-10-15:
+                  "delete red and others black"). */}
               <Button
                 variant="secondary"
+                size="toolbar"
                 onClick={() => coverInputRef.current?.click()}
                 disabled={uploadingCover}
               >
@@ -340,7 +379,12 @@ export default function TripEditPage(): JSX.Element {
                     : t("trips:modal.coverUploadButton")}
               </Button>
               {(coverPreview || coverUrl) && (
-                <Button variant="danger" onClick={handleRemoveCover} disabled={uploadingCover}>
+                <Button
+                  variant="danger"
+                  size="toolbar"
+                  onClick={handleRemoveCover}
+                  disabled={uploadingCover}
+                >
                   {t("trips:modal.coverRemove")}
                 </Button>
               )}
@@ -407,7 +451,7 @@ export default function TripEditPage(): JSX.Element {
             ) : null
           }
         >
-          <Button variant="secondary" onClick={() => navigate(`/trips/${trip.id}`)}>
+          <Button variant="secondary" onClick={() => navigate(where.home(trip.id))}>
             {t("trips:modal.cancel")}
           </Button>
           <Button
@@ -419,22 +463,6 @@ export default function TripEditPage(): JSX.Element {
             {saving ? "…" : t("trips:modal.save")}
           </Button>
         </FormFooter>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-3">{t("tripBuilder:resync.action")}</h2>
-          <p className="text-sm text-(--text-muted) mb-3">{t("tripBuilder:edit.resyncHint")}</p>
-          <ResyncFromImmich tripId={trip.id} />
-        </section>
-
-        {/* The shared destructive section, so the journey's Delete and the
-            trip's Delete are literally the same component rather than two
-            hand-rolled copies that happened to agree (owner, 2026-10-15). */}
-        <DangerSection
-          heading={t("tripBuilder:edit.deleteHeading")}
-          hint={t("tripBuilder:edit.deleteJourneyHint")}
-          label={t("common:buttons.delete")}
-          onClick={() => setConfirmDelete(true)}
-        />
       </div>
 
       {/* The existing confirm, unchanged: what a deleted journey takes with it

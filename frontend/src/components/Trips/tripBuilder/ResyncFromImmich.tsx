@@ -6,7 +6,7 @@ import ActionLink from "../../ui/ActionLink";
 /**
  * "Re-sync from Immich" (spec 2026-10-09 §K.1): scan the trip's saved dates again
  * and update the trip in place. It is the `ui/ActionLink` the detail pages draw
- * beside their primary button — the trip page's row (Edit · Re-sync · Delete)
+ * beside their primary button — the edit pages' header row (Re-sync · Delete)
  * and the roadtrip band's journey cell both take their size from that one
  * component, so no copy of the recipe can drift again (owner, 2026-10-11:
  * "all these should be same size").
@@ -18,11 +18,18 @@ import ActionLink from "../../ui/ActionLink";
 export default function ResyncFromImmich({
   tripId,
   routeId,
+  title,
 }: {
   tripId: string;
   routeId?: string;
+  /** What the scan does, said on hover — the edit pages' header has no room for a paragraph. */
+  title?: string;
 }): JSX.Element {
   const { t } = useTranslation(["tripBuilder"]);
   const to = routeId === undefined ? `/trips/${tripId}/resync` : `/roadtrips/${routeId}/resync`;
-  return <ActionLink to={to}>{t("tripBuilder:resync.action")}</ActionLink>;
+  return (
+    <ActionLink to={to} title={title}>
+      {t("tripBuilder:resync.action")}
+    </ActionLink>
+  );
 }

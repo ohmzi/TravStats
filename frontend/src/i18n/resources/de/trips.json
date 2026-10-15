@@ -13,6 +13,7 @@
   "newTripDesc": "Flüge & Kreuzfahrten manuell gruppieren oder beim Import auto-erstellt",
   "openTrip": "Öffnen",
   "editTrip": "Reise bearbeiten",
+  "editFlightTrip": "Flugreise bearbeiten",
   "deleteTrip": "Reise löschen",
   "removeFromTrip": "Aus Reise entfernen",
   "deleteTripConfirm": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. Flüge, Kreuzfahrten, Unterkünfte und Trips bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren.",

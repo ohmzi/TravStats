@@ -11,7 +11,6 @@ import { tripsApi } from "../lib/api";
 import { calculateDistance } from "../lib/geo";
 import { RouteDetailsSidebar } from "./FlightPanel/RouteDetailsSidebar";
 import { TripDetailsSidebar } from "./FlightPanel/TripDetailsSidebar";
-import TripModal from "./Trips/TripModal";
 import { useFlightSelectionStore } from "../store/flightSelectionStore";
 import { useToastStore } from "../store/toastStore";
 import { flightDeparture } from "../lib/entityTimes";
@@ -26,6 +25,8 @@ interface FlightPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onEdit: (flight: Flight) => void;
+  /** Opens the trip's edit page — a page, not a popup (owner, 2026-10-15). */
+  onEditTrip: (tripId: string) => void;
   onDuplicate: (flight: Flight) => void;
   onDelete: (flightId: string) => void;
   onAddFlight: () => void;
@@ -39,6 +40,7 @@ export function FlightPanel({
   isOpen,
   onClose,
   onEdit,
+  onEditTrip,
   onDuplicate,
   onDelete,
   onAddFlight,
@@ -102,7 +104,6 @@ export function FlightPanel({
   const addToast = useToastStore((s) => s.addToast);
 
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [deleteTripTarget, setDeleteTripTarget] = useState<Trip | null>(null);
 
   const reloadTrips = (): void => {
@@ -123,7 +124,7 @@ export function FlightPanel({
       : null;
 
   const handleEditDetailTrip = (): void => {
-    if (detailTrip) setEditingTrip(detailTrip);
+    if (detailTrip) onEditTrip(detailTrip.id);
   };
   const handleDeleteDetailTrip = (): void => {
     if (detailTrip) setDeleteTripTarget(detailTrip);
@@ -418,16 +419,6 @@ export function FlightPanel({
               </div>
             )}
           </motion.div>
-          {editingTrip !== null && (
-            <TripModal
-              trip={editingTrip}
-              onClose={() => setEditingTrip(null)}
-              onSaved={() => {
-                setEditingTrip(null);
-                reloadTrips();
-              }}
-            />
-          )}
           {/* The same delete question the trips list asks, asked the same
               way. This one drew its own scrim and painted the confirm button
               `var(--color-error, #f87171)` — one of the twelve names that

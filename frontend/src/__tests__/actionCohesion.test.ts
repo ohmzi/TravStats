@@ -107,34 +107,23 @@ describe("every action row ends at the right edge", () => {
   });
 });
 
-describe("destructive actions wear one treatment", () => {
+describe("an edit page carries Re-sync and Delete in its header", () => {
   /**
-   * The owner put the two side by side in their 2026-10-15 report: the same
-   * concept, "delete this whole thing", drawn as a red outline on one screen
-   * and a bare underlined word on another — *"delete button one place looks
-   * plain and boring and unrecognizable and other place is red and obvious"*.
-   *
-   * The rule: a delete that removes the page's own subject is
-   * `DangerSection`/`Button variant="danger"`; a remove inside a row of many
-   * stays low-weight (`RowActionButton`). These screens carry the first kind.
+   * Owner, 2026-10-15: "the resync from immich button should be next to the
+   * title but all the way right of screen rather than below it. same goes for
+   * delete too." The previous round put both in sections under the form's
+   * Save row, left-aligned (`DangerSection`).
    */
-  const WHOLE_THING_DELETES = [
-    "pages/TripEditPage.tsx",
-    "components/Roadtrips/RoadtripEditSections.tsx",
-    "pages/ToursPage.tsx",
-  ] as const;
-
-  it.each(WHOLE_THING_DELETES)("%s does not draw a destructive action as text", (path) => {
-    const src = read(path);
-    // A bare `underline` button reaching a delete state is the regression.
-    expect(src).not.toMatch(/className="underline"[^>]*onClick=\{\(\) => set[A-Za-z]*[Dd]elete/);
+  it("TripEditPage hands both to PageHeader's action slot", () => {
+    const src = read("pages/TripEditPage.tsx");
+    expect(src).toMatch(
+      /<PageHeader[\s\S]*actions=\{[\s\S]*<ResyncFromImmich[\s\S]*variant="danger"/
+    );
+    expect(src).not.toContain("DangerSection");
   });
 
-  it("the journey and the trip delete share one component", () => {
-    // Both use DangerSection, so they cannot drift into the two treatments
-    // again — the trip's own editor included.
-    expect(read("pages/TripEditPage.tsx")).toContain("DangerSection");
-    expect(read("components/Roadtrips/RoadtripEditSections.tsx")).toContain("DangerSection");
+  it("FlightPanel edits a trip on its page, not in TripModal", () => {
+    expect(read("components/FlightPanel.tsx")).not.toMatch(/import\s+TripModal\s+from/);
   });
 });
 

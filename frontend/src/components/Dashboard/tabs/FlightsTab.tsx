@@ -301,6 +301,7 @@ export function FlightsTab(): JSX.Element {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onEdit={handleEdit}
+        onEditTrip={(tripId) => navigate(`/flights/journeys/${tripId}/edit`)}
         onDuplicate={(f) => void handleDuplicate(f)}
         onDelete={(id) => setFlightToDelete(structuredFlights.find((f) => f.id === id) ?? null)}
         onAddFlight={handleAdd}

@@ -60,6 +60,7 @@ const TripsPage = lazy(() => import("./pages/TripsPage"));
 const TripDetailPage = lazy(() => import("./pages/TripDetailPage"));
 const TripResyncPage = lazy(() => import("./pages/TripResyncPage"));
 const TripEditPage = lazy(() => import("./pages/TripEditPage"));
+const FlightTripEditPage = lazy(() => import("./pages/FlightTripEditPage"));
 const TripBuilderPage = lazy(() => import("./pages/TripBuilderPage"));
 const TripRouteEditorPage = lazy(() => import("./pages/TripRouteEditorPage"));
 const ToursPage = lazy(() => import("./pages/ToursPage"));
@@ -305,13 +306,23 @@ function AppContent() {
                   )
                 }
               />
+              {/* The flight trip's own edit page (owner, 2026-10-15); same guard. */}
+              <Route
+                path="/flights/journeys/:id/edit"
+                element={
+                  isAuthenticated ? (
+                    <DomainRouteGuard domain="flight">
+                      <FlightTripEditPage />
+                    </DomainRouteGuard>
+                  ) : (
+                    <Navigate to="/login" />
+                  )
+                }
+              />
               <Route
                 path="/cruises"
                 element={
                   isAuthenticated ? (
-                    // Not a boolean guard — see DomainRouteGuard: the domain
-                    // list is unknown for one request on a cold load, and
-                    // deciding then bounced every bookmark and refresh.
                     <DomainRouteGuard domain="cruise">
                       <CruisesPage />
                     </DomainRouteGuard>
@@ -357,7 +368,6 @@ function AppContent() {
                 path="/rail/:id"
                 element={
                   isAuthenticated ? (
-                    // The same two gates as the logbook, in the same order.
                     <BetaFeatureRouteGuard feature="railDomain" redirectTo="/dashboard">
                       <DomainRouteGuard domain="rail">
                         <RailDetailPage />
@@ -388,8 +398,6 @@ function AppContent() {
                 path="/rentals/:id"
                 element={
                   isAuthenticated ? (
-                    // Rail's two gates, outer first: the instance beta switch
-                    // (rentalDomain), then the user's own domain choice.
                     <BetaFeatureRouteGuard feature="rentalDomain" redirectTo="/dashboard">
                       <DomainRouteGuard domain="rental">
                         <RentalDetailPage />
@@ -434,7 +442,6 @@ function AppContent() {
                 path="/bus/:id"
                 element={
                   isAuthenticated ? (
-                    // The same two gates as the logbook, in the same order.
                     <BetaFeatureRouteGuard feature="busDomain" redirectTo="/dashboard">
                       <DomainRouteGuard domain="bus">
                         <BusDetailPage />
@@ -449,7 +456,6 @@ function AppContent() {
                 path="/ferry/:id"
                 element={
                   isAuthenticated ? (
-                    // The same two gates as the logbook, in the same order.
                     <BetaFeatureRouteGuard feature="ferryDomain" redirectTo="/dashboard">
                       <DomainRouteGuard domain="ferry">
                         <FerryDetailPage />
@@ -476,9 +482,6 @@ function AppContent() {
                 path="/lodging"
                 element={
                   isAuthenticated ? (
-                    // Not a boolean guard — see DomainRouteGuard: the domain
-                    // list is unknown for one request on a cold load, and
-                    // deciding then bounced every bookmark and refresh.
                     <DomainRouteGuard domain="lodging">
                       <LodgingListPage />
                     </DomainRouteGuard>
@@ -559,9 +562,6 @@ function AppContent() {
                 path="/places/:id"
                 element={
                   isAuthenticated ? (
-                    // Not a boolean guard: the beta flag is unknown for one
-                    // request on a cold load, and redirecting on "unknown"
-                    // bounced every refresh and bookmark. See PlacesRouteGuard.
                     <PlacesRouteGuard>
                       <PlaceDetailPage />
                     </PlacesRouteGuard>

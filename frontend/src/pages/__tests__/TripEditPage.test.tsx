@@ -7,8 +7,8 @@ import { tripEntrySpan } from "../../lib/tripEntrySpan";
 
 /**
  * The journey's edit page (spec 2026-10-12 §4): the modal's fields as page
- * content, plus the Re-sync from Immich section the header carries today and
- * the Delete section with the existing confirm. Synthetic journey (public
+ * content, plus Re-sync from Immich and Delete in the page header (owner,
+ * 2026-10-15), Delete with the existing confirm. Synthetic journey (public
  * repository).
  */
 
@@ -376,7 +376,7 @@ describe("TripEditPage — the date boxes open at the journey's one served span"
   });
 });
 
-describe("TripEditPage — the two sections the header loses", () => {
+describe("TripEditPage — Re-sync, Delete and the cover row", () => {
   beforeEach(() => {
     mocks.getById.mockReset().mockResolvedValue(trip);
     mocks.update.mockReset().mockResolvedValue(trip);
@@ -384,12 +384,26 @@ describe("TripEditPage — the two sections the header loses", () => {
     mocks.addToast.mockReset();
   });
 
-  it("carries the Re-sync from Immich launch the header button uses today", async () => {
+  it("offers Re-sync and Delete in the header, right of the title — not below the form", async () => {
     renderPage();
+    const title = await screen.findByRole("heading", { level: 1, name: "trips:editTrip" });
+    const header = title.closest("div")!.parentElement as HTMLElement;
+    const resync = within(header).getByRole("link", { name: "tripBuilder:resync.action" });
+    expect(resync).toHaveAttribute("href", "/trips/t1/resync");
+    expect(resync).toHaveAttribute("data-variant", "secondary");
+    const del = within(header).getByRole("button", { name: "common:buttons.delete" });
+    expect(del).toHaveAttribute("data-variant", "danger");
+    // Black before red, both after the title.
+    expect(resync.compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "tripBuilder:resync.action" })).toBeNull();
+  });
 
-    const link = await screen.findByRole("link", { name: "tripBuilder:resync.action" });
-    expect(link).toHaveAttribute("href", "/trips/t1/resync");
-    expect(screen.getByRole("heading", { name: "tripBuilder:resync.action" })).toBeInTheDocument();
+  it("draws the cover's two buttons at the right, Remove red", async () => {
+    mocks.getById.mockResolvedValueOnce({ ...trip, coverImageUrl: "/c.jpg" });
+    renderPage();
+    const remove = await screen.findByRole("button", { name: "trips:modal.coverRemove" });
+    expect(remove).toHaveAttribute("data-variant", "danger");
+    expect((remove.parentElement as HTMLElement).className).toContain("justify-end");
   });
 
   it("deletes the journey only after the existing confirm was answered", async () => {
