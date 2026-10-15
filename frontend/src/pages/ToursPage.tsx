@@ -257,9 +257,11 @@ export default function ToursPage(): JSX.Element {
       {loadError && (
         <div className="rounded-lg border border-(--color-border) bg-(--bg-surface) p-4 text-sm">
           <p style={{ color: "var(--danger)" }}>{t("trips:tours.loadError")}</p>
-          <button type="button" className="mt-2 underline" onClick={() => void load()}>
-            {t("common:buttons.retry")}
-          </button>
+          <div className="mt-2 flex justify-end">
+            <Button variant="secondary" size="toolbar" onClick={() => void load()}>
+              {t("common:buttons.retry")}
+            </Button>
+          </div>
         </div>
       )}
 

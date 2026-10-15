@@ -283,4 +283,17 @@ describe("the tours page — controls", () => {
     expect(save).toHaveAttribute("data-variant", "primary");
     expect(save.className).toContain("ml-auto");
   });
+
+  it("retries a failed load with the shared button, not an underlined word", async () => {
+    vi.mocked(tourIndexApi.list).mockRejectedValueOnce(new Error("boom"));
+    vi.mocked(tourIndexApi.list).mockResolvedValueOnce([tour()]);
+    renderPage();
+
+    const retry = await screen.findByRole("button", { name: "common:buttons.retry" });
+    expect(retry).toHaveAttribute("data-variant", "secondary");
+    expect(retry.className).not.toContain("underline");
+
+    fireEvent.click(retry);
+    expect(await screen.findByText("Süd-Norwegen")).toBeInTheDocument();
+  });
 });

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, JSX } from "react";
 
 import IconButton from "../ui/IconButton";
+import { RowActionButton } from "../table/RowActionButton";
 import { Icon } from "../ui/Icon";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useDisplayFormat } from "../../lib/displayFormat";
@@ -475,36 +476,38 @@ export default function StationEditor({
               </div>
             )}
             {leg && next && (
-              <button
-                type="button"
-                onClick={() =>
-                  onEditLeg(
-                    leg,
-                    { id: s.id as string, title: name(s) },
-                    { id: next.id as string, title: name(next) }
-                  )
-                }
-                className="flex items-center self-start"
-                style={{
-                  ...DASHED,
-                  gap: 10,
-                  padding: "0 14px",
-                  borderColor: "var(--ts-border-button)",
-                  color: "var(--ts-muted)",
-                }}
-              >
-                {t(`roadtrips:timeline.leg.${leg.mode}`)} · {Math.round(leg.distanceKm)} km ·{" "}
-                {/* What the line is made of, said in the editor too (forgejo#242):
-                    a recorded or hand-drawn leg is one a reorder can cost. */}
-                <span
-                  style={{
-                    color: isProtectedSource(leg.source) ? "var(--ts-warn)" : undefined,
-                  }}
+              <div className="flex flex-wrap items-center justify-between" style={{ gap: 10 }}>
+                <div
+                  className="flex flex-wrap items-center"
+                  style={{ gap: 10, fontSize: 13, color: "var(--ts-muted)" }}
                 >
-                  {t(`roadtrips:timeline.source.${leg.source}`)}
-                </span>{" "}
-                — {t("roadtrips:timeline.legEdit")}
-              </button>
+                  <span>{t(`roadtrips:timeline.leg.${leg.mode}`)}</span>
+                  <span>{Math.round(leg.distanceKm)} km</span>
+                  {/* What the line is made of, said in the editor too (forgejo#242):
+                      a recorded or hand-drawn leg is one a reorder can cost. */}
+                  <span
+                    style={{
+                      color: isProtectedSource(leg.source) ? "var(--ts-warn)" : undefined,
+                    }}
+                  >
+                    {t(`roadtrips:timeline.source.${leg.source}`)}
+                  </span>
+                </div>
+                {/* ml-auto keeps the icon at the right edge when the facts wrap it down. */}
+                <span className="ml-auto">
+                  <RowActionButton
+                    icon="edit"
+                    label={t("roadtrips:timeline.legEdit")}
+                    onClick={() =>
+                      onEditLeg(
+                        leg,
+                        { id: s.id as string, title: name(s) },
+                        { id: next.id as string, title: name(next) }
+                      )
+                    }
+                  />
+                </span>
+              </div>
             )}
             {next && (
               <button type="button" onClick={() => insertAt(index + 1)} style={DASHED}>
