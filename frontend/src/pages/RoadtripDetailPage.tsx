@@ -5,6 +5,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AppShell from "../components/ui/AppShell";
 import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
+import FormFooter from "../components/ui/FormFooter";
 import { Icon } from "../components/ui/Icon";
 import EntityHeader from "../components/Entity/EntityHeader";
 import EntityPage from "../components/Entity/EntityPage";
@@ -307,26 +308,36 @@ export default function RoadtripDetailPage(): JSX.Element {
                 points" are both 46 in a footer row, and a 52 beside them was
                 the last of the mismatched sizes the owner reported
                 (2026-10-15: "the save button in edit mode aren't in same
-                location or design"). */}
+                location or design").
+
+                It is the shared `FormFooter` now, not a row of its own: the
+                autosave status rides the `hint` slot and Done ends at the same
+                right edge as every other commit control (owner, 2026-10-15:
+                "lets move all the interactive buttons on the right side of
+                screen"). This row is where the two treatments visibly
+                disagreed — the status sat left and the button left with it. */}
             {editing && (
-              <div className="flex flex-wrap items-center" style={{ gap: 12 }}>
-                <span
-                  role="status"
-                  className="flex items-center"
-                  style={{ gap: 6, fontSize: 13, color: STATUS_COLOR[save.status] }}
-                >
-                  {save.status === "saved" && <Icon name="check" size={14} />}
-                  {t(`roadtrips:editor.status.${save.status}`)}
-                  {save.status === "error" && (
-                    <button type="button" className="underline" onClick={() => void save.flush()}>
-                      {t("roadtrips:editor.status.retry")}
-                    </button>
-                  )}
-                </span>
+              <FormFooter
+                hint={
+                  <span
+                    role="status"
+                    className="flex items-center"
+                    style={{ gap: 6, fontSize: 13, color: STATUS_COLOR[save.status] }}
+                  >
+                    {save.status === "saved" && <Icon name="check" size={14} />}
+                    {t(`roadtrips:editor.status.${save.status}`)}
+                    {save.status === "error" && (
+                      <button type="button" className="underline" onClick={() => void save.flush()}>
+                        {t("roadtrips:editor.status.retry")}
+                      </button>
+                    )}
+                  </span>
+                }
+              >
                 <Button variant="primary" size="toolbar" onClick={() => void finishEditing()}>
                   {t("roadtrips:detail.done")}
                 </Button>
-              </div>
+              </FormFooter>
             )}
 
             <div

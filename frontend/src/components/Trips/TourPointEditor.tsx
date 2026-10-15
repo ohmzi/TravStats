@@ -190,17 +190,21 @@ export default function TourPointEditor({
           below the fold; the surface, the top border and the safe-area pad
           let the list scroll under it and keep it off a home bar. A desktop
           keeps the row in the flow. */}
-      {/* The shared footer (`ui/FormFooter`), left-aligned because this row
-          reads forward: "Add point" adds, "Save points" commits. It was a hand
-          -rolled pair until 2026-10-15 — 36px tall and 8px round against the
-          primitive's 46 and 12, and the label in `text-white` where the design
-          says `--ts-accent-text` — which is the drift the owner photographed:
-          "Save points" beside this page's own "Save dates", two recipes for
-          one row. The phone behaviour it replaces is kept: pinned to the
-          bottom edge with the safe-area pad, so the Save is reachable from the
-          first point being edited. */}
+      {/* The shared footer (`ui/FormFooter`). It was a hand-rolled pair until
+          2026-10-15 — 36px tall and 8px round against the primitive's 46 and
+          12, and the label in `text-white` where the design says
+          `--ts-accent-text` — which is the drift the owner photographed:
+          "Save points" beside this page's own "Save dates", two recipes for one
+          row. The phone behaviour it replaces is kept: pinned to the bottom
+          edge with the safe-area pad, so the Save is reachable from the first
+          point being edited.
+
+          Right-aligned like every other footer, per the owner's standing
+          instruction of 2026-10-15 rather than the left alignment this row
+          originally took: "Add point" still READS first, and both controls
+          still sit in one row, but the row now ends at the page's action edge
+          with the journey's Cancel/Save and the trip editor's Done. */}
       <FormFooter
-        align="start"
         hint={
           <>
             {incomplete && (

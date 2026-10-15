@@ -303,13 +303,22 @@ export default function ToursPage(): JSX.Element {
                   {tour.ascentM !== null && <span>↑ {formatKm(tour.ascentM)} m</span>}
                 </span>
               </Link>
-              <button
-                type="button"
-                className="shrink-0 text-xs underline"
+              {/* The same destructive treatment as the delete on the tour's own
+                  editor, not a bare underlined word: this removes a whole tour
+                  with its legs, so it is the `danger` variant like every other
+                  "delete the whole thing" in the app (owner, 2026-10-15:
+                  "delete button one place looks plain and boring and
+                  unrecognizable and other place is red and obvious"). It stays
+                  `size="toolbar"` and `shrink-0` so it sits in the row without
+                  overtaking the tour's own name, which is the link. */}
+              <Button
+                variant="danger"
+                size="toolbar"
+                className="shrink-0"
                 onClick={() => setPendingDelete(tour)}
               >
                 {t("trips:tours.deleteLabel")}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

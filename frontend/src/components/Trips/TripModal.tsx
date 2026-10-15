@@ -5,6 +5,7 @@ import { useToastStore } from "../../store/toastStore";
 import { useTranslation } from "../../hooks/useTranslation";
 import { TRIP_COLORS as PALETTE } from "../../lib/tripColors";
 import Button from "../ui/Button";
+import FormFooter from "../ui/FormFooter";
 import CompanionPicker from "../CompanionPicker";
 import TagInput from "../TagInput";
 import SuggestionChips from "../common/SuggestionChips";
@@ -439,16 +440,15 @@ export default function TripModal({
           )}
         </div>
 
-        <div
-          className="flex justify-end gap-2 p-4 border-t"
-          style={{ borderColor: "var(--ts-border)" }}
-        >
-          {/* The shared recipe, not a fourth copy of it: this footer was
-              byte-identical to `TripEditPage`'s — 36px controls, `rounded-lg`,
-              `--accent` — and both were wrong in the same way against the
-              primitive (46, `--ts-radius-button`, `--ts-accent`). The journey
-              is edited in two places, so the two have to draw one row
-              (owner, 2026-10-15). */}
+        {/* The shared footer, `inset` because this shell already pads its own
+            content: the same row, the same two controls and the same right
+            edge as `TripEditPage` draws for the same journey. It was a
+            byte-identical hand-rolled copy of that page's — 36px controls,
+            `rounded-lg`, `--accent` — and both were wrong in the same way
+            against the primitive (46, `--ts-radius-button`, `--ts-accent`).
+            The journey is edited in two places, so the two draw one row
+            (owner, 2026-10-15). */}
+        <FormFooter inset>
           <Button variant="secondary" onClick={onClose}>
             {t("trips:modal.cancel")}
           </Button>
@@ -460,7 +460,7 @@ export default function TripModal({
           >
             {saving ? "…" : build.scanning ? t("tripBuilder:popup.scan") : t("trips:modal.save")}
           </Button>
-        </div>
+        </FormFooter>
       </div>
       {build.launchProps && <TripBuilderLauncher {...build.launchProps} onClose={onClose} />}
     </div>

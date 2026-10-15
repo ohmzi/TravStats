@@ -86,8 +86,18 @@ const dateInputs = (): HTMLInputElement[] =>
   Array.from(document.querySelectorAll<HTMLInputElement>('input[type="date"]'));
 const saveButton = (): HTMLButtonElement =>
   screen.getByText("trips:modal.save").closest("button") as HTMLButtonElement;
-// The button's own row: what the page says AT the button is a sibling here.
-const saveRow = (): HTMLElement => saveButton().parentElement as HTMLElement;
+// The button's own row. Since `ui/FormFooter` owns the commit row (2026-10-15)
+// the button sits in an inner right-aligned group, so the row the reader
+// actually reaches — the sticky one carrying the reason line and both controls
+// — is the nearest ancestor that IS the sticky row. What these tests guard is
+// unchanged: the refusal is said AT the button, in the row that holds it.
+const saveRow = (): HTMLElement => {
+  let el = saveButton().parentElement as HTMLElement | null;
+  while (el && !el.className.includes("sticky")) {
+    el = el.parentElement;
+  }
+  return el ?? (saveButton().parentElement as HTMLElement);
+};
 const save = (): void => {
   fireEvent.click(saveButton());
 };

@@ -132,10 +132,17 @@ export default function RoadtripDatesSection({
             so it joins the row's shared height (one control size, 2026-10-11;
             owner's 2026-10-13 screenshot named the tall amber Save). The
             `default` primary's 52 is for a CTA that stands alone — the same
-            treatment the change-dates dialog's amber action already takes. */}
+            treatment the change-dates dialog's amber action already takes.
+
+            `ml-auto` sends it to the right edge, where every other commit
+            control on these pages now ends (owner, 2026-10-15: "lets move all
+            the interactive buttons on the right side of screen"). The date
+            fields keep the left, because they are what the reader fills in
+            first and `items-end` keeps the button on their baseline. */}
         <Button
           variant="primary"
           size="toolbar"
+          className="ml-auto"
           disabled={outOfOrder || saving}
           onClick={() => void save()}
         >

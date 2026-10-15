@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/ui/AppShell";
 import BackLink from "../components/ui/BackLink";
 import Button from "../components/ui/Button";
+import DangerSection from "../components/ui/DangerSection";
 import FormFooter from "../components/ui/FormFooter";
 import CompanionPicker from "../components/CompanionPicker";
 import TagInput from "../components/TagInput";
@@ -425,15 +426,15 @@ export default function TripEditPage(): JSX.Element {
           <ResyncFromImmich tripId={trip.id} />
         </section>
 
-        <section>
-          <h2 className="text-lg font-semibold mb-3">{t("tripBuilder:edit.deleteHeading")}</h2>
-          <p className="text-sm text-(--text-muted) mb-3">
-            {t("tripBuilder:edit.deleteJourneyHint")}
-          </p>
-          <Button variant="danger" onClick={() => setConfirmDelete(true)}>
-            {t("common:buttons.delete")}
-          </Button>
-        </section>
+        {/* The shared destructive section, so the journey's Delete and the
+            trip's Delete are literally the same component rather than two
+            hand-rolled copies that happened to agree (owner, 2026-10-15). */}
+        <DangerSection
+          heading={t("tripBuilder:edit.deleteHeading")}
+          hint={t("tripBuilder:edit.deleteJourneyHint")}
+          label={t("common:buttons.delete")}
+          onClick={() => setConfirmDelete(true)}
+        />
       </div>
 
       {/* The existing confirm, unchanged: what a deleted journey takes with it

@@ -2,6 +2,7 @@ import { useCallback, useState, type JSX } from "react";
 import { useNavigate } from "react-router-dom";
 
 import ConfirmModal from "../Training/ConfirmModal";
+import DangerSection from "../ui/DangerSection";
 import ResyncFromImmich from "../Trips/tripBuilder/ResyncFromImmich";
 import { useTranslation } from "../../hooks/useTranslation";
 import { toursApi } from "../../lib/api/tours";
@@ -66,13 +67,20 @@ export default function RoadtripEditSections({
         </section>
       )}
 
-      <section>
-        <h2 className="text-lg font-semibold mb-3">{t("tripBuilder:edit.deleteHeading")}</h2>
-        <p className="text-sm text-(--text-muted) mb-3">{t("tripBuilder:edit.deleteTripHint")}</p>
-        <button type="button" className="underline" onClick={() => setConfirmDelete(true)}>
-          {t("roadtrips:delete")}
-        </button>
-      </section>
+      {/* The shared destructive control, not a bare underlined word. It WAS
+          `<button className="underline">` until 2026-10-15, which is the exact
+          pair the owner put side by side: this screen's "Delete trip" as plain
+          text beside the journey's red-outlined Delete. Their words: "delete
+          button one place looks plain and boring and unrecognizable and other
+          place is red and obvious". `DangerSection` is now the one way a delete
+          that takes a whole thing is offered — see its doc comment for the
+          rule that separates it from a row-level remove. */}
+      <DangerSection
+        heading={t("tripBuilder:edit.deleteHeading")}
+        hint={t("tripBuilder:edit.deleteTripHint")}
+        label={t("roadtrips:delete")}
+        onClick={() => setConfirmDelete(true)}
+      />
 
       {confirmDelete && (
         <ConfirmModal

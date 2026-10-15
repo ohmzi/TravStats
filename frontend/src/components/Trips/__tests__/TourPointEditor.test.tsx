@@ -192,8 +192,15 @@ function setViewport(phone: boolean): void {
  * the layout reads, not the geometry.
  */
 describe("the point editor's action row on a phone", () => {
-  const saveRow = (): HTMLElement =>
-    screen.getByText("trips:tours.points.save").parentElement as HTMLElement;
+  // `ui/FormFooter` owns the row and puts the controls in an inner group, so
+  // the sticky row is the nearest ancestor that is sticky — the one the reader
+  // actually reaches. The assertions below are unchanged.
+  const saveRow = (): HTMLElement => {
+    const button = screen.getByText("trips:tours.points.save").closest("button") as HTMLElement;
+    let el: HTMLElement | null = button.parentElement;
+    while (el && !el.className.includes("sticky")) el = el.parentElement;
+    return el ?? (button.parentElement as HTMLElement);
+  };
 
   afterEach(() => setViewport(false));
 
@@ -208,8 +215,15 @@ describe("the point editor's action row on a phone", () => {
     expect(row.style.borderTop).toContain("var(--ts-border)");
     expect(row.style.paddingBottom).toContain("safe-area-inset-bottom");
     // Add and Save still live in the row, and Add is not orphaned from it.
-    expect(screen.getByText("trips:tours.points.add").parentElement).toBe(row);
-    expect(screen.getByText("trips:tours.points.save").parentElement).toBe(row);
+    // Both now sit in the footer's inner group, which `ml-auto` holds at the
+    // RIGHT edge — the owner's 2026-10-15 instruction ("lets move all the
+    // interactive buttons on the right side of screen"). This row was the
+    // left-aligned outlier that report named.
+    const group = screen.getByText("trips:tours.points.save").closest("button")
+      ?.parentElement as HTMLElement;
+    expect(screen.getByText("trips:tours.points.add").parentElement).toBe(group);
+    expect(group.className).toContain("ml-auto");
+    expect(row.contains(group)).toBe(true);
   });
 
   it("leaves the row in the editor's flow on a desktop", () => {

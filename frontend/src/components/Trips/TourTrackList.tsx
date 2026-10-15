@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "../../hooks/useTranslation";
+import Button from "../ui/Button";
 import ConfirmModal from "../Training/ConfirmModal";
 import { formatInProfileZone } from "../../lib/profileInstant";
 import type { TourTrackMeta } from "../../types/tour";
@@ -88,12 +89,14 @@ export default function TourTrackList({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <label
-          className={`rounded-sm border border-(--color-border) px-3 py-1.5 text-xs hover:bg-(--bg-surface) ${
-            uploading ? "opacity-40" : "cursor-pointer"
-          }`}
-        >
+      {/* These three were hand-rolled 36px `rounded-sm` outlines reading the
+          legacy palette, and the row was left-aligned — the last screen in the
+          owner's 2026-10-15 sweep still drawing its own button recipe. They are
+          the shared secondary control now, at the row height, ending at the
+          right edge like every other action row in the app. The Dawarich
+          button's `title` is its disabled reason, so it keeps that. */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button variant="secondary" size="toolbar" className="cursor-pointer" disabled={uploading}>
           {uploading ? t("trips:tours.tracks.uploading") : t("trips:tours.tracks.uploadLabel")}
           <input
             type="file"
@@ -109,26 +112,22 @@ export default function TourTrackList({
               e.target.value = "";
             }}
           />
-        </label>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="secondary"
+          size="toolbar"
           disabled={pulling || !dawarichAvailable}
           title={dawarichAvailable ? undefined : t("trips:tours.tracks.dawarich.unavailableReason")}
-          className="rounded-sm border border-(--color-border) px-3 py-1.5 text-xs hover:bg-(--bg-surface) disabled:opacity-40"
           onClick={onPullDawarich}
         >
           {pulling
             ? t("trips:tours.tracks.dawarich.pulling")
             : t("trips:tours.tracks.dawarich.pullLabel")}
-        </button>
+        </Button>
         {onImportStrava && (
-          <button
-            type="button"
-            className="rounded-sm border border-(--color-border) px-3 py-1.5 text-xs hover:bg-(--bg-surface)"
-            onClick={onImportStrava}
-          >
+          <Button variant="secondary" size="toolbar" onClick={onImportStrava}>
             {t("roadtrips:strava.importButton")}
-          </button>
+          </Button>
         )}
         {!dawarichAvailable && (
           <span className="text-xs text-(--text-muted)">
