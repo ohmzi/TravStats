@@ -599,6 +599,7 @@ checked by nothing until now — is broken by 21 files, the largest at 2161.
 | The tree is Prettier-formatted — code, config and YAML; `.prettierignore` names each exclusion and why | `prettier --check .` from the root (`format` job in `.github/workflows/ci.yml`, `npm run format:check`) plus a `prettier --write` pre-commit hook. The whole-tree formatting commit (`51348f58`) is in `.git-blame-ignore-revs` — run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once per clone |
 | DE and EN move together | `frontend/src/i18n/__tests__/localeKeyParity.test.ts` — reads the namespace list from the filesystem, so a new namespace is covered the day it is added, and keeps no allow-list |
 | No source file over 800 lines | `scripts/check-file-size.mjs` (`npm run check:size`) |
+| No new legacy-palette token, `.btn-*` utility, hand-rolled `fixed inset-0` overlay or raw Tailwind palette colour in `frontend/src` | `scripts/check-action-consistency.mjs` (`npm run check:actions`) — a per-file count frozen in `scripts/action-consistency-baseline.json`; entries shrink or leave the list, never grow |
 | Coverage does not fall below its recorded figure | `scripts/check-coverage.mjs` vs `scripts/coverage-baseline.json` — required in both the Vitest and the Jest job. Recorded 2026-09-16: frontend 56.21 % lines, backend 76.35 % (forgejo#62) |
 | `schema.prisma` agrees with `prisma/migrations` | `backend/scripts/check-schema-drift.ts` (`npm run check:drift`, root or backend) — replays the migrations into a shadow DB (`--from-migrations`), so the answer does not depend on which branch your dev database last saw |
 | Every served endpoint appears in the OpenAPI spec | `backend/src/__tests__/openapi.coverage.test.ts` vs `services/openapi/pending.ts` |
@@ -613,14 +614,14 @@ checked by nothing until now — is broken by 21 files, the largest at 2161.
 | A test's verdict does not depend on the host's zone | `frontend-tests-tz` / `backend-tests-tz` in `.github/workflows/ci.yml` re-run (the Forgejo workflow, written by Paperclip, does not carry them — owner, 2026-09-27) the suites under `TZ=Pacific/Kiritimati` and `TZ=America/St_Johns`; `scripts/check-tz-ratchet.mjs` vs `scripts/tz-failures-baseline.json` fails on a new failure and on a listed test that now passes |
 | Server and web answer every time question the same way | `shared/time/vectors.json`, run by `backend/src/shared/time/__tests__/vectors*.test.ts` and `frontend/src/shared/time/__tests__/vectors.test.ts`, each also under the two odd zones |
 
-Six of these are **ratchets** carrying a list of today's offenders — file
-size, OpenAPI coverage, OpenAPI response schemas, response-shape leaks, the
-time lint suppressions and the odd-zone failures. Each
-fails on a *stale* entry as well as a new one, so the list can only ever
-shrink. The act ratchet is a seventh and the one exception: it fails on a new
+Seven of these are **ratchets** carrying a list of today's offenders — file
+size, action consistency, OpenAPI coverage, OpenAPI response schemas,
+response-shape leaks, the time lint suppressions and the odd-zone failures.
+Each fails on a *stale* entry as well as a new one, so the list can only ever
+shrink. The act ratchet is an eighth and the one exception: it fails on a new
 offender but only PRINTS on a stale entry, because the thing it measures is
 timing-dependent and a flaky guard is worse than a weak one. The coverage
-ratchet is an eighth and holds a number rather than a list: a fall of more than
+ratchet is a ninth and holds a number rather than a list: a fall of more than
 0.25 pp fails, a rise only prints a request to `--update`, and `--update`
 refuses to lower. The frontend figure counts EVERY source file
 (`coverage.include`); without that, v8 left the 93 untested modules out of the

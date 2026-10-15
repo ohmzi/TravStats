@@ -106,6 +106,12 @@ jobs:
       - name: File-size ratchet
         run: npm run check:size
 
+      # The same shape as the file-size ratchet above: a frozen per-file list
+      # that may only shrink. It is in `static` rather than a job of its own
+      # because it reads the source tree and nothing else.
+      - name: Action-consistency ratchet
+        run: npm run check:actions
+
   # ---------------------------------------------------------------------
   # forgejo#60. Answers one question: does schema.prisma agree with what the
   # migrations actually build? `--from-migrations` replays them into a shadow

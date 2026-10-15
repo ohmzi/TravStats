@@ -24,9 +24,10 @@
     "typecheck:backend": "cd backend && npx tsc --noEmit",
     "typecheck:frontend": "cd frontend && npx tsc --noEmit",
     "check:size": "node scripts/check-file-size.mjs",
+    "check:actions": "node scripts/check-action-consistency.mjs",
     "check:drift": "cd backend && npm run check:drift",
     "check:coverage": "node scripts/check-coverage.mjs",
-    "check": "npm run check:size && npm run check:drift",
+    "check": "npm run check:size && npm run check:actions && npm run check:drift",
     "typecheck:tests": "node --max-old-space-size=6144 scripts/check-test-types.mjs",
     "test:typecheck": "node --test scripts/check-test-types.test.mjs"
   },
