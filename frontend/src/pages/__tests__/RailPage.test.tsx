@@ -43,17 +43,17 @@ vi.mock("../../components/Training/ConfirmModal", () => ({
     isOpen,
     onConfirm,
     message,
-    confirmButtonClass,
+    destructive,
   }: {
     isOpen: boolean;
     onConfirm: () => void;
     message: string;
-    confirmButtonClass?: string;
+    destructive?: boolean;
   }) =>
     isOpen ? (
       <div>
         <p data-testid="delete-message">{message}</p>
-        <button type="button" onClick={onConfirm} className={confirmButtonClass}>
+        <button type="button" onClick={onConfirm} data-variant={destructive ? "danger" : "primary"}>
           confirm-delete
         </button>
       </div>
@@ -282,7 +282,7 @@ describe("RailPage", () => {
     expect(message).toContain("rail:deleteConfirmNamed");
     expect(message).toContain("common:delete.survivors");
     expect(listForEntry).toHaveBeenCalledWith({ type: "railJourney", id: "j1" });
-    expect(screen.getByText("confirm-delete")).toHaveClass("bg-[var(--danger)]");
+    expect(screen.getByText("confirm-delete")).toHaveAttribute("data-variant", "danger");
   });
 
   it("offers the add chooser as the next step of an empty logbook", async () => {

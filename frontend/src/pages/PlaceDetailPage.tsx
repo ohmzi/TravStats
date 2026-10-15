@@ -25,7 +25,7 @@ import { FlagImg } from "../lib/countryFlag";
 import { placeCountryLabel, placeCountryCode } from "../lib/placeCountry";
 import { logger } from "../lib/logger";
 import { classifyLoadFailure, type LoadFailure } from "../lib/api/loadFailure";
-import { DELETE_BUTTON_CLASS, survivorsNote, withDocumentNote } from "../lib/deleteConfirm";
+import { survivorsNote, withDocumentNote } from "../lib/deleteConfirm";
 import { placeDeleteMessage } from "../lib/placeDeleteMessage";
 import { usePlaceRelations } from "../hooks/usePlaceRelations";
 import { deletePlace, deleteVisit, getPlace } from "../lib/api/places";
@@ -575,7 +575,7 @@ export default function PlaceDetailPage(): JSX.Element {
           onConfirm={() => void removeVisit(confirmVisitDelete.id)}
           isLoading={deleting}
           onClose={() => setConfirmVisitDelete(null)}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
         />
       )}
 
@@ -588,7 +588,7 @@ export default function PlaceDetailPage(): JSX.Element {
           // (browser acceptance 2026-09-26). Every visit goes with the place,
           // planned ones included.
           message={placeDeleteMessage(t, place.name, place.visits?.length ?? 0, deleteRelations)}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
           confirmText={t("common:buttons.delete")}
           cancelText={t("common:buttons.cancel")}
           onConfirm={() => void removePlace()}

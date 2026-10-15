@@ -45,18 +45,18 @@ vi.mock("../../components/Training/ConfirmModal", () => ({
   default: ({
     isOpen,
     message,
-    confirmButtonClass,
+    destructive,
     onConfirm,
   }: {
     isOpen: boolean;
     message: string;
-    confirmButtonClass?: string;
+    destructive?: boolean;
     onConfirm: () => void;
   }) =>
     isOpen ? (
       <div>
         <p data-testid="confirm-message">{message}</p>
-        <button type="button" onClick={onConfirm} className={confirmButtonClass}>
+        <button type="button" onClick={onConfirm} data-variant={destructive ? "danger" : "primary"}>
           confirm-delete
         </button>
       </div>
@@ -289,7 +289,7 @@ describe("BusDetailPage", () => {
     );
     expect(message).toContain("Dazu 3 Dokumente, die mit gelöscht werden.");
     expect(message).toContain("Erhalten bleiben: Reise „Korea 2026“, 1 mitreisende Person");
-    expect(screen.getByText("confirm-delete").className).toContain("var(--danger)");
+    expect(screen.getByText("confirm-delete")).toHaveAttribute("data-variant", "danger");
   });
 
   // forgejo#247: a stored edit whose page reload fails names the VIEW, not a list.

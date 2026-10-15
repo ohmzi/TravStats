@@ -27,7 +27,6 @@ import { useCruiseImportAdapter } from "../components/import/adapters/cruiseAdap
 import { CruiseEditModal } from "../components/Cruise/CruiseEditModal";
 import { SkeletonTable } from "../components/SkeletonLoader";
 import { useTranslation } from "../hooks/useTranslation";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { cruiseDeleteMessage } from "../components/Cruise/cruiseDeleteMessage";
 import { useDocumentCount } from "../hooks/useDocumentCount";
 import type { CruiseFacets, CruiseListQuery } from "../lib/api/cruise";
@@ -556,7 +555,7 @@ export default function CruisesPage(): JSX.Element {
           title={t("detail.deleteConfirmTitle")}
           message={cruiseToDelete ? cruiseDeleteMessage(t, cruiseToDelete, documentCount) : ""}
           confirmText={t("common:buttons.delete")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
         />
       </div>
     </AppShell>

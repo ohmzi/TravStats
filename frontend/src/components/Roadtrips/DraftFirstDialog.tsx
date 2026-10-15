@@ -3,7 +3,6 @@ import type { JSX } from "react";
 import Modal from "../Modal";
 import Button from "../ui/Button";
 import { useTranslation } from "../../hooks/useTranslation";
-import { DELETE_BUTTON_CLASS } from "../../lib/deleteConfirm";
 
 /**
  * "Bearbeiten" while unsent station edits from an earlier visit wait on this
@@ -33,13 +32,9 @@ export default function DraftFirstDialog({
           <Button variant="secondary" onClick={onClose}>
             {t("common:buttons.cancel")}
           </Button>
-          <button
-            type="button"
-            onClick={onDiscard}
-            className={`inline-flex justify-center rounded-md px-4 py-2 text-sm font-medium text-white ${DELETE_BUTTON_CLASS}`}
-          >
+          <Button size="toolbar" variant="danger" onClick={onDiscard}>
             {t("roadtrips:draft.discardAndEdit")}
-          </button>
+          </Button>
           <Button variant="primary" onClick={onRestore}>
             {t("roadtrips:draft.restore")}
           </Button>

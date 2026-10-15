@@ -11,7 +11,6 @@ import { statusPillProps } from "../components/table/statusPillStyle";
 import ListLoadFailed from "../components/table/ListLoadFailed";
 import { useDocumentCount } from "../hooks/useDocumentCount";
 import { ferryDeleteMessage } from "../lib/ferry/ferryDeleteMessage";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { formatRailDuration } from "../lib/rail/railDuration";
 import Button from "../components/ui/Button";
 import DocumentsSection from "../components/documents/DocumentsSection";
@@ -242,7 +241,7 @@ export default function FerryDetailPage() {
         title={t("ferry:remove")}
         message={ferryDeleteMessage(t, ride, documentCount)}
         confirmText={t("common:buttons.delete")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
         isLoading={busy}
       />
     </AppShell>

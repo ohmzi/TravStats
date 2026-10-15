@@ -8,7 +8,6 @@ import { useAuthStore } from "../../store/authStore";
 import type { AdminUser } from "./SystemInfo";
 import AdminPasswordResetModal from "./AdminPasswordResetModal";
 import ConfirmModal from "../Training/ConfirmModal";
-import { DELETE_BUTTON_CLASS } from "../../lib/deleteConfirm";
 
 interface UserManagementProps {
   users: AdminUser[];
@@ -251,7 +250,7 @@ export default function UserManagement({
         })}
         confirmText={t("admin:users.resetTwoFactorConfirm.confirm")}
         cancelText={t("common:buttons.cancel")}
-        confirmButtonClass="bg-orange-600 hover:bg-orange-700 focus:ring-orange-500 text-white"
+        destructive
       />
       <ConfirmModal
         isOpen={!!deleteUserConfirm}
@@ -268,7 +267,7 @@ export default function UserManagement({
         })}
         confirmText={t("admin:users.deleteConfirm.confirm")}
         cancelText={t("common:buttons.cancel")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
     </div>
   );

@@ -39,7 +39,6 @@ import { useToastStore } from "../store/toastStore";
 import type { RentalBooking, RentalStatus } from "../types/rental";
 import ListLoadFailed, { loadFailureLog } from "../components/table/ListLoadFailed";
 import { useDocumentCount } from "../hooks/useDocumentCount";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { rentalDeleteMessage } from "../lib/rental/rentalDeleteMessage";
 
 const RENTAL_STATUSES: readonly RentalStatus[] = [
@@ -391,7 +390,7 @@ export default function RentalsPage(): JSX.Element {
         title={t("rental:delete")}
         message={toDelete ? rentalDeleteMessage(t, toDelete, documentCount) : ""}
         confirmText={t("common:buttons.delete")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
     </AppShell>
   );

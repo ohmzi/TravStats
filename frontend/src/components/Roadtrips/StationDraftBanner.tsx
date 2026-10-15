@@ -4,7 +4,6 @@ import type { JSX } from "react";
 import Button from "../ui/Button";
 import ConfirmModal from "../Training/ConfirmModal";
 import { useTranslation } from "../../hooks/useTranslation";
-import { DELETE_BUTTON_CLASS } from "../../lib/deleteConfirm";
 import { useDisplayFormat } from "../../lib/displayFormat";
 import type { StoredStationDraft } from "../../lib/roadtrip/stationDraftStore";
 
@@ -66,7 +65,7 @@ export default function StationDraftBanner({
           title={t("roadtrips:draft.discardTitle")}
           message={t("roadtrips:draft.discardMessage")}
           confirmText={t("roadtrips:draft.discardConfirm")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
         />
       )}
     </div>

@@ -349,7 +349,7 @@ describe("RoadtripCostsSection", () => {
       /roadtrips:costs.deleteConfirm.message:roadtrips:costs.kind.fuel · 10\s€ · 15\.07\.2026@Lom/
     );
     const button = screen.getByRole("button", { name: "roadtrips:costs.deleteConfirm.confirm" });
-    expect(button.className).toContain("bg-[var(--danger)]");
+    expect(button).toHaveAttribute("data-variant", "danger");
     fireEvent.click(button);
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
     // With the version it was read at (review M8).

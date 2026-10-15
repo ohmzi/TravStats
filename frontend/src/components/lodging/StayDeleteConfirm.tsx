@@ -4,7 +4,7 @@ import ConfirmModal from "../Training/ConfirmModal";
 import { useDocumentCount } from "../../hooks/useDocumentCount";
 import { useTranslation } from "../../hooks/useTranslation";
 import { formatStayPeriod, hasUnknownLength, stayNights } from "../../lib/lodgingDateDisplay";
-import { DELETE_BUTTON_CLASS, withDocumentNote } from "../../lib/deleteConfirm";
+import { withDocumentNote } from "../../lib/deleteConfirm";
 import type { LodgingStay } from "../../types/lodging";
 
 interface StayDeleteConfirmProps {
@@ -67,7 +67,7 @@ export function StayDeleteConfirm({
       title={t("lodging:stay.confirmDelete.title")}
       message={stay === null ? "" : message(stay)}
       confirmText={t("common:buttons.delete")}
-      confirmButtonClass={DELETE_BUTTON_CLASS}
+      destructive
     />
   );
 }

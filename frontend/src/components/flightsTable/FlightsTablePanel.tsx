@@ -6,7 +6,6 @@ import { ColumnPicker } from "../table/ColumnPicker";
 import { SortableHeader } from "../table/SortableHeader";
 import ListSummaryStrip from "../table/ListSummaryStrip";
 import ListEmptyState from "../table/ListEmptyState";
-import { DELETE_BUTTON_CLASS } from "../../lib/deleteConfirm";
 import { useColumnPrefs } from "../table/useColumnPrefs";
 import type { Flight, FlightFacets, FlightInput, Trip } from "../../types";
 import SimplifiedFlightFormV2 from "../SimplifiedFlightFormV2";
@@ -756,7 +755,7 @@ export function FlightsTablePanel({
         })}
         confirmText={t("flights:table.deleteConfirm.confirm")}
         cancelText={t("flights:table.deleteConfirm.cancel")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
     </>
   );

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "../../hooks/useTranslation";
 import ConfirmModal from "../Training/ConfirmModal";
-import { DELETE_BUTTON_CLASS } from "../../lib/deleteConfirm";
 import { formatInProfileZone } from "../../lib/profileInstant";
 import type { TourTrackMeta } from "../../types/tour";
 import Toggletip from "../ui/Toggletip";
@@ -222,7 +221,7 @@ export default function TourTrackList({
             count: pendingDelete.pointCount,
           })}
           confirmText={t("trips:tours.tracks.deleteConfirm.confirm")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
         />
       )}
     </div>

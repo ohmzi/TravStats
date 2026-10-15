@@ -36,7 +36,7 @@ import { useDocumentCount } from "../hooks/useDocumentCount";
 import { useTranslation } from "../hooks/useTranslation";
 import { flightsApi, tripsApi } from "../lib/api";
 import { classifyLoadFailure, type LoadFailure } from "../lib/api/loadFailure";
-import { DELETE_BUTTON_CLASS, withDocumentNote } from "../lib/deleteConfirm";
+import { withDocumentNote } from "../lib/deleteConfirm";
 import { getFlightDuration } from "../lib/flightDuration";
 import { flightExtractTarget } from "../lib/extractTargets";
 import { convertDistance, formatAmount, getDistanceLabel } from "../lib/units";
@@ -561,7 +561,7 @@ export default function FlightDetailPage(): JSX.Element {
         )}
         confirmText={t("flights:table.deleteConfirm.confirm")}
         cancelText={t("flights:table.deleteConfirm.cancel")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
     </AppShell>
   );

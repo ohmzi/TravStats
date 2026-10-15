@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 import ConfirmModal from "../components/Training/ConfirmModal";
 import { useTranslation } from "./useTranslation";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 
 export interface ConfirmRequest {
   message: string;
@@ -78,7 +77,7 @@ export function useConfirmDialog(): {
         (pending.destructive ? t("common:buttons.delete") : t("common:buttons.confirm"))
       }
       cancelText={t("common:buttons.cancel")}
-      confirmButtonClass={pending.destructive ? DELETE_BUTTON_CLASS : undefined}
+      destructive={pending.destructive}
       onConfirm={() => settle(true)}
       onClose={() => settle(false)}
     />

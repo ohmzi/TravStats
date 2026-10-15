@@ -217,7 +217,7 @@ describe("CruisesPage", () => {
       expect(dialog.textContent).toContain("documents:deleteCascadeNote(count:2)");
       expect(dialog.textContent).toContain("cruise:deleteSurvivors.trip(name:Norwegen 2026)");
       const confirm = within(dialog).getByRole("button", { name: "common:buttons.delete" });
-      expect(confirm.className).toContain("bg-[var(--danger)]");
+      expect(confirm).toHaveAttribute("data-variant", "danger");
     } finally {
       documentCount.mockReturnValue(null);
     }

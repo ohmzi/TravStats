@@ -1,5 +1,6 @@
 import type { JSX } from "react";
 import Modal from "../Modal";
+import Button from "../ui/Button";
 import { useTranslation } from "../../hooks/useTranslation";
 
 interface ConfirmModalProps {
@@ -10,7 +11,8 @@ interface ConfirmModalProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  confirmButtonClass?: string;
+  /** The confirm button removes or destroys something — it wears `danger`. */
+  destructive?: boolean;
   isLoading?: boolean;
 }
 
@@ -31,6 +33,13 @@ interface ConfirmModalProps {
  * It is `Modal` now, so it inherits the escape hatch, the focus trap, the
  * focus return and the mobile docking rather than owning a third copy of
  * them — and it had no focus trap of its own at all.
+ *
+ * The destructive cue travelled as a CSS class (`confirmButtonClass`) until
+ * 2026-10-14, which meant "this removes data" was spelled
+ * `bg-[var(--danger)] hover:opacity-90` at 32 call sites and as a hand-written
+ * utility list at 4 more — and nowhere was it typed. A caller that forgot the
+ * class got an amber button on a delete and no error. It is `destructive`
+ * now, the same question asked once, and the class constant is gone.
  */
 export default function ConfirmModal({
   isOpen,
@@ -40,7 +49,7 @@ export default function ConfirmModal({
   message,
   confirmText,
   cancelText,
-  confirmButtonClass = "btn-primary",
+  destructive = false,
   isLoading = false,
 }: ConfirmModalProps): JSX.Element | null {
   const { t } = useTranslation(["training", "common"]);
@@ -56,28 +65,25 @@ export default function ConfirmModal({
       closeLabel={t("common:buttons.close")}
       footer={
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isLoading}
-            className="inline-flex justify-center rounded-md border border-border px-4 py-2 text-sm font-medium text-(--text-primary) hover:bg-(--bg-base) disabled:cursor-not-allowed disabled:opacity-50"
-          >
+          <Button size="toolbar" onClick={onClose} disabled={isLoading}>
             {cancelText || t("common:buttons.cancel")}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="toolbar"
+            variant={destructive ? "danger" : "primary"}
             onClick={onConfirm}
             disabled={isLoading}
-            className={`inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${confirmButtonClass}`}
           >
             {isLoading
               ? t("training:modal.processing")
               : confirmText || t("common:buttons.confirm")}
-          </button>
+          </Button>
         </>
       }
     >
-      <p className="text-sm whitespace-pre-line text-(--text-muted)">{message}</p>
+      <p className="text-sm whitespace-pre-line" style={{ color: "var(--ts-muted)" }}>
+        {message}
+      </p>
     </Modal>
   );
 }

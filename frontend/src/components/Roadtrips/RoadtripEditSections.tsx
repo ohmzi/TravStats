@@ -5,7 +5,6 @@ import ConfirmModal from "../Training/ConfirmModal";
 import ResyncFromImmich from "../Trips/tripBuilder/ResyncFromImmich";
 import { useTranslation } from "../../hooks/useTranslation";
 import { toursApi } from "../../lib/api/tours";
-import { DELETE_BUTTON_CLASS } from "../../lib/deleteConfirm";
 import { sectionExpenseCount } from "../../lib/sectionExpenses";
 import { useToastStore } from "../../store/toastStore";
 import type { TourRoute } from "../../types/tour";
@@ -86,7 +85,7 @@ export default function RoadtripEditSections({
           title={t("roadtrips:deleteConfirm.title")}
           message={t("roadtrips:deleteConfirm.message", { name: route.name })}
           confirmText={t("roadtrips:deleteConfirm.confirm")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
         />
       )}
 
@@ -101,7 +100,7 @@ export default function RoadtripEditSections({
           title={t("roadtrips:deleteWithCosts.title")}
           message={t("roadtrips:deleteWithCosts.message", { name: route.name, count: costsBlock })}
           confirmText={t("roadtrips:deleteWithCosts.confirm")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
         />
       )}
     </>

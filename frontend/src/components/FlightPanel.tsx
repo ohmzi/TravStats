@@ -1,5 +1,4 @@
 import ConfirmModal from "./Training/ConfirmModal";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { useMemo, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Flight, Trip } from "../types";
@@ -443,7 +442,7 @@ export function FlightPanel({
             message={t("trips:deleteTripConfirm", { name: deleteTripTarget?.name ?? "" })}
             confirmText={t("trips:deleteTrip")}
             cancelText={t("trips:modal.cancel")}
-            confirmButtonClass={DELETE_BUTTON_CLASS}
+            destructive
           />
         </>
       )}

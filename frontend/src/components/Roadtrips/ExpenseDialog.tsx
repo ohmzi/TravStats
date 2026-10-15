@@ -21,7 +21,6 @@ import { useTranslation } from "../../hooks/useTranslation";
 import { useRecentCurrencies } from "../../hooks/useRecentCurrencies";
 import { useTodayZone } from "../../hooks/useTodayZone";
 import { expensesApi } from "../../lib/api/expenses";
-import { DELETE_BUTTON_CLASS } from "../../lib/deleteConfirm";
 import { useDisplayFormat } from "../../lib/displayFormat";
 import { logger } from "../../lib/logger";
 import { formatCurrency } from "../../lib/units";
@@ -419,7 +418,7 @@ export default function ExpenseDialog({
                 : t("roadtrips:costs.wholeTrip"),
           })}
           confirmText={t("roadtrips:costs.deleteConfirm.confirm")}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
         />
       )}
     </Dialog>

@@ -22,7 +22,6 @@ import { useDocumentCount } from "../hooks/useDocumentCount";
 import { useTranslation } from "../hooks/useTranslation";
 import { rentalApi } from "../lib/api/rental";
 import { classifyLoadFailure, type LoadFailure } from "../lib/api/loadFailure";
-import { DELETE_BUTTON_CLASS } from "../lib/deleteConfirm";
 import { rentalDeleteMessage } from "../lib/rental/rentalDeleteMessage";
 import { depositSummary } from "../lib/rental/rentalDeposit";
 import { formatDayLong } from "../shared/time";
@@ -425,7 +424,7 @@ export default function RentalDetailPage(): JSX.Element {
         title={t("rental:delete")}
         message={rentalDeleteMessage(t, rental, documentCount)}
         confirmText={t("common:buttons.delete")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
     </AppShell>
   );
