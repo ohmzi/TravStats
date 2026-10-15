@@ -79,7 +79,10 @@ describe("TourTrackList", () => {
     expect(screen.getByText("trips:tours.tracks.loadError")).toBeInTheDocument();
     expect(screen.queryByText("trips:tours.tracks.empty")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("common:buttons.retry"));
+    // The shared secondary button, not an underlined word.
+    const retry = screen.getByRole("button", { name: "common:buttons.retry" });
+    expect(retry).toHaveAttribute("data-variant", "secondary");
+    fireEvent.click(retry);
     expect(props.onRetry).toHaveBeenCalledTimes(1);
   });
 

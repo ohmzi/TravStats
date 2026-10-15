@@ -136,19 +136,60 @@ describe("no underlined word performs an action on the editor", () => {
    * An underlined word is not a button in this system (DESIGN_SYSTEM.md §6,
    * "Row"): the tour editors drew their row actions as underlined words, and
    * the owner could not tell which words were controls.
+   *
+   * The check reads every class string, not a button's attribute order. The
+   * first version matched `className` BEFORE an arrow-function `onClick`, so
+   * it missed `onClick={onRetry}` and a `className` written after its handler:
+   * a guard that cannot fail on the forms it exists for. A load-error Retry is
+   * an action too, so it gets no exception.
    */
+  const classStrings = (src: string): string[] => {
+    const out: string[] = [];
+    for (const m of src.matchAll(/className=/g)) {
+      const at = (m.index ?? 0) + "className=".length;
+      if (src[at] === '"') {
+        out.push(src.slice(at + 1, src.indexOf('"', at + 1)));
+        continue;
+      }
+      if (src[at] !== "{") continue;
+      let depth = 0;
+      let end = at;
+      for (; end < src.length; end++) {
+        if (src[end] === "{") depth++;
+        else if (src[end] === "}" && --depth === 0) break;
+      }
+      for (const lit of src.slice(at + 1, end).matchAll(/"([^"]*)"|'([^']*)'|`([^`]*)`/g)) {
+        out.push(lit[1] ?? lit[2] ?? lit[3] ?? "");
+      }
+    }
+    return out;
+  };
+  // A bare `underline` token; `no-underline` and `decoration-*` are not it.
+  const underlines = (src: string): boolean =>
+    classStrings(src).some((c) => /(^|\s)underline(\s|$)/.test(c));
+
   it.each([
     "components/Trips/TourLegList.tsx",
     "components/Trips/TourTrackList.tsx",
     "components/Trips/TourPointEditor.tsx",
     "components/Roadtrips/RoadtripEditActions.tsx",
+    "components/Roadtrips/StationEditor.tsx",
     "pages/TripEditPage.tsx",
+    "pages/ToursPage.tsx",
   ])("%s", (path) => {
-    // Load-error retries are the one exception and live in their own branch;
-    // match only buttons whose handler is an action prop or a state setter.
-    expect(read(path)).not.toMatch(
-      /<button[^>]*className="[^"]*underline[^"]*"[^>]*onClick=\{\(\) => (on[A-Z]|set)/
+    expect(underlines(read(path))).toBe(false);
+  });
+
+  it("flags an underlined class wherever the handler sits, and only a bare one", () => {
+    expect(underlines('<button className="text-sm underline" onClick={() => setX()}>')).toBe(true);
+    expect(underlines('<button onClick={() => setDraft([])} className="text-sm underline">')).toBe(
+      true
     );
+    expect(underlines('<button className="mt-1 underline text-sm" onClick={onRetry}>')).toBe(true);
+    expect(underlines("<a className={`text-sm underline ${x}`}>")).toBe(true);
+    expect(underlines('<a className={ok ? "underline" : "text-sm"}>')).toBe(true);
+    expect(underlines('<button className="no-underline">')).toBe(false);
+    expect(underlines('<button className="decoration-dotted disabled:no-underline">')).toBe(false);
   });
 });
 

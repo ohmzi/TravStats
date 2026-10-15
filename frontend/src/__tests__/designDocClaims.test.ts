@@ -62,6 +62,14 @@ describe("DESIGN_SYSTEM.md §6 states the action colour and placement rule the c
     expect(doc).toMatch(/page[^\n]*title[^\n]*right/i);
   });
 
+  it("does not size a button by its variant in §4.5", () => {
+    // 52 is for a lone CTA, 46 for any control in a row: the size follows the
+    // place, so "secondary button 46" next to "primary button 52" put a primary
+    // Save beside a secondary Cancel at two heights.
+    expect(doc).not.toMatch(/primary button 52/i);
+    expect(doc).not.toMatch(/secondary button 46/i);
+  });
+
   it("no longer says danger appears only in a dialog or a detail header", () => {
     expect(doc).not.toContain("four of the five transport detail headers carry it there");
   });

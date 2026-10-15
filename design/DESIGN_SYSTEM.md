@@ -219,8 +219,9 @@ rgba(240,169,71,.18)`. "Schatten sparsam": a card has none; it has a hairline.
 
 ### 4.5 Sizing (`size`)
 
-touch minimum 44 · primary button 52 · secondary button 46 · tab icon 22 ·
-fab 48 · airline monogram 34. On the web, the 44px minimum applies to every
+touch minimum 44 · button 52 only for a lone CTA outside a row, 46 for every
+control in a row whatever its variant · tab icon 22 · fab 48 · airline
+monogram 34. On the web, the 44px minimum applies to every
 pointer target incl. table row actions; a dense table may drop the visual
 height to 36 but keeps a 44px hit area.
 

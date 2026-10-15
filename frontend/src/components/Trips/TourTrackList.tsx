@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "../../hooks/useTranslation";
+import Button from "../ui/Button";
 import MenuButton, { type MenuItem } from "../ui/MenuButton";
 import SectionHeader from "../ui/SectionHeader";
 import { RowActionButton, RowActions } from "../table/RowActionButton";
@@ -160,9 +161,11 @@ export default function TourTrackList({
       {!loading && loadError && (
         <div className="text-sm text-rose-400">
           <p>{t("trips:tours.tracks.loadError")}</p>
-          <button type="button" className="mt-1 underline text-sm" onClick={onRetry}>
-            {t("common:buttons.retry")}
-          </button>
+          <div className="mt-2 flex justify-end">
+            <Button variant="secondary" size="toolbar" onClick={onRetry}>
+              {t("common:buttons.retry")}
+            </Button>
+          </div>
         </div>
       )}
 
