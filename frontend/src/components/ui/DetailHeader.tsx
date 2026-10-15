@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { JSX } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { DomainKey } from "../../shared/domains";
+import BackLink from "./BackLink";
 import { alpha, DOMAIN_TOKEN, token } from "./tokens";
 
 interface DetailHeaderProps {
@@ -82,58 +82,15 @@ export default function DetailHeader({
   meta,
   hero,
 }: DetailHeaderProps): JSX.Element {
-  const location = useLocation();
-  const navigate = useNavigate();
   const hue = token(DOMAIN_TOKEN[domain]);
 
   return (
     <div style={{ marginBottom: "var(--ts-space-xl)" }}>
-      {/* A real link, not a button: back is a destination, so a middle click
-          and "open in new tab" have to work. Three of the four pages used a
-          button and silently took that away. */}
-      <Link
-        to={backTo}
-        onClick={(event) => {
-          // Back goes where the reader CAME FROM, not to this section's front
-          // door (owner, 2026-10-08): from a roadtrip into its album and out
-          // again landed on the journey, because the link's target was fixed
-          // and the history that knew better was ignored.
-          //
-          // `location.key === "default"` is React Router's first entry — a page
-          // opened directly has nothing to go back TO, so the fixed target is
-          // right and stays.
-          //
-          // Only a plain left click is intercepted: middle click, cmd-click and
-          // "open in new tab" still get `backTo`, which is what an address
-          // typed into a fresh tab should be.
-          if (
-            event.defaultPrevented ||
-            event.button !== 0 ||
-            event.metaKey ||
-            event.ctrlKey ||
-            event.shiftKey ||
-            event.altKey ||
-            location.key === "default"
-          ) {
-            return;
-          }
-          event.preventDefault();
-          navigate(-1);
-        }}
-        className="ts-back-link"
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          marginBottom: "var(--ts-space-md)",
-          fontSize: 13,
-          color: "var(--ts-muted)",
-          textDecoration: "none",
-        }}
-      >
-        <span aria-hidden>←</span>
-        {backLabel}
-      </Link>
+      {/* The back link is the shared one (`ui/BackLink`) — the edit and resync
+          pages spread the same component, so "back" is one recipe app-wide
+          rather than one per family. It carries the history handling and the
+          real-`Link` element that the four original heads disagreed about. */}
+      <BackLink to={backTo}>{backLabel}</BackLink>
 
       <div
         className="flex flex-col"

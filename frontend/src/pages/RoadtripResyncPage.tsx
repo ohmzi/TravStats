@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type JSX } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import AppShell from "../components/ui/AppShell";
+import ActionLink from "../components/ui/ActionLink";
 import EmptyState from "../components/ui/EmptyState";
 import { useTranslation } from "../hooks/useTranslation";
 import { roadtripsApi } from "../lib/api/roadtrips";
@@ -74,10 +75,13 @@ export default function RoadtripResyncPage(): JSX.Element {
     })();
   }, [routeId, navigate]);
 
-  const back = (
-    <Link to={routeId ? `/roadtrips/${routeId}` : "/roadtrips"} className="underline">
+  // The same shared outline control as the journey's resync page draws — the
+  // two screens are twins and their way out was the one thing they styled
+  // separately (owner, 2026-10-15: "back buttons aren't matching").
+  const back: JSX.Element = (
+    <ActionLink to={routeId ? `/roadtrips/${routeId}` : "/roadtrips"}>
       {t("tripBuilder:resync.backTrip")}
-    </Link>
+    </ActionLink>
   );
 
   return (

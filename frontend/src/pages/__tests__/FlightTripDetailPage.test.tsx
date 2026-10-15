@@ -274,15 +274,20 @@ describe("FlightTripDetailPage", () => {
     expect(screen.getByText("flights:detail.backToLogbook")).toBeInTheDocument();
   });
 
-  it("draws the head's open-trip link and its edit button at one size", async () => {
+  it("draws the head's open-trip link and its edit link at one size", async () => {
     renderAt("/flights/journeys/t1");
     await screen.findAllByText("Baltic 2026");
     // The owner's screenshot (2026-10-11): a 44 link beside a 52 primary. Both
     // are the toolbar recipe now, so the banner's row reads as one control —
     // height, padding and label size together (owner, 2026-10-13: "no button
     // should be heightwise bigger than other, text size should be uniform").
+    //
+    // Edit is a LINK as of 2026-10-15, not a button: it navigates to the
+    // journey's edit page, exactly as `EntityHeader`'s Edit does, so the two
+    // heads draw the same control element and not merely the same size
+    // (owner: "someplace edit button is yellow and others its black").
     const link = screen.getByRole("link", { name: "flights:detail.openTrip" });
-    const edit = screen.getByRole("button", { name: "common:buttons.edit" });
+    const edit = screen.getByRole("link", { name: "common:buttons.edit" });
     expect(link.style.height).toBe("var(--ts-size-button-secondary)");
     expect(link.style.padding).toBe("0 var(--ts-space-xl)");
     expect(link.style.fontSize).toBe("16px");
@@ -290,6 +295,10 @@ describe("FlightTripDetailPage", () => {
     expect(edit.style.padding).toBe("0 var(--ts-space-xl)");
     expect(edit.style.fontSize).toBe("16px");
     expect(edit).toHaveClass("ts-button");
+    // The outline skin, not a filled accent: amber is the commit
+    // (Save/Done), and a navigation control never wears it.
+    expect(edit).toHaveAttribute("data-variant", "secondary");
+    expect(edit).toHaveAttribute("href", "/trips/t1/edit");
   });
 
   it("draws the head's Edit label-only, the shape every other head's Edit draws", async () => {
@@ -301,7 +310,7 @@ describe("FlightTripDetailPage", () => {
     // icon had the head reading as a different design (owner's 2026-10-13
     // screenshot). The label is the affordance; a regression that adds an
     // icon back fails here.
-    const edit = screen.getByRole("button", { name: "common:buttons.edit" });
+    const edit = screen.getByRole("link", { name: "common:buttons.edit" });
     expect(edit.querySelector("svg")).toBeNull();
   });
 

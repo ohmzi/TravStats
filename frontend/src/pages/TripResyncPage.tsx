@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type JSX } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import AppShell from "../components/ui/AppShell";
+import ActionLink from "../components/ui/ActionLink";
 import EmptyState from "../components/ui/EmptyState";
 import { useTranslation } from "../hooks/useTranslation";
 import { tripsApi } from "../lib/api/trips";
@@ -63,10 +64,13 @@ export default function TripResyncPage(): JSX.Element {
     })();
   }, [id, navigate]);
 
-  const back = (
-    <Link to={id ? `/trips/${id}` : "/trips"} className="underline">
-      {t("tripBuilder:resync.back")}
-    </Link>
+  // The way out of every arm below. It was a bare `underline` link, which is
+  // neither the back link the rest of the app draws nor a control — and the
+  // owner's report covers this screen's family ("back buttons aren't
+  // matching"). `ActionLink` is the shared outline control, the same one the
+  // trip page's "Re-sync from Immich" launch uses.
+  const back: JSX.Element = (
+    <ActionLink to={id ? `/trips/${id}` : "/trips"}>{t("tripBuilder:resync.back")}</ActionLink>
   );
 
   return (

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { JSX } from "react";
 
+import Button from "../ui/Button";
+import FormFooter from "../ui/FormFooter";
 import { LocationInput } from "../location/LocationInput";
-import { phoneBottomOffset } from "../map/phoneChrome";
-import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 import { useTranslation } from "../../hooks/useTranslation";
 import type { TourPointInput } from "../../lib/api/tours";
 
@@ -38,7 +38,6 @@ export default function TourPointEditor({
   error = null,
 }: TourPointEditorProps): JSX.Element {
   const { t } = useTranslation(["trips", "common"]);
-  const phone = useIsPhoneViewport();
   const [draft, setDraft] = useState<TourPointInput[]>(points);
 
   const update = (index: number, patch: Partial<TourPointInput>): void => {
@@ -191,49 +190,47 @@ export default function TourPointEditor({
           below the fold; the surface, the top border and the safe-area pad
           let the list scroll under it and keep it off a home bar. A desktop
           keeps the row in the flow. */}
-      <div
-        className={
-          phone
-            ? "sticky bottom-0 z-30 flex flex-wrap items-center gap-2"
-            : "flex flex-wrap items-center gap-2"
-        }
-        style={
-          phone
-            ? {
-                background: "var(--ts-bg)",
-                borderTop: "1px solid var(--ts-border)",
-                paddingTop: 8,
-                paddingBottom: phoneBottomOffset(8),
-              }
-            : undefined
+      {/* The shared footer (`ui/FormFooter`), left-aligned because this row
+          reads forward: "Add point" adds, "Save points" commits. It was a hand
+          -rolled pair until 2026-10-15 — 36px tall and 8px round against the
+          primitive's 46 and 12, and the label in `text-white` where the design
+          says `--ts-accent-text` — which is the drift the owner photographed:
+          "Save points" beside this page's own "Save dates", two recipes for
+          one row. The phone behaviour it replaces is kept: pinned to the
+          bottom edge with the safe-area pad, so the Save is reachable from the
+          first point being edited. */}
+      <FormFooter
+        align="start"
+        hint={
+          <>
+            {incomplete && (
+              <span className="text-xs" style={{ color: "var(--warning)" }}>
+                {t("trips:tours.points.incomplete")}
+              </span>
+            )}
+            {error && (
+              <span role="alert" className="text-xs" style={{ color: "var(--danger)" }}>
+                {error}
+              </span>
+            )}
+          </>
         }
       >
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => setDraft((prev) => [...prev, { title: "", lat: NaN, lon: NaN }])}
-          className="rounded-sm border border-(--color-border) px-3 py-1.5 text-sm hover:bg-(--bg-surface)"
         >
           {t("trips:tours.points.add")}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="primary"
+          size="toolbar"
           disabled={saving || incomplete}
           onClick={() => onSave(wirePoints(draft))}
-          className="rounded-sm bg-(--accent) px-3 py-1.5 text-sm text-white disabled:opacity-40"
         >
           {t("trips:tours.points.save")}
-        </button>
-        {incomplete && (
-          <span className="text-xs" style={{ color: "var(--warning)" }}>
-            {t("trips:tours.points.incomplete")}
-          </span>
-        )}
-        {error && (
-          <span role="alert" className="text-xs" style={{ color: "var(--danger)" }}>
-            {error}
-          </span>
-        )}
-      </div>
+        </Button>
+      </FormFooter>
     </div>
   );
 }

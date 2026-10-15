@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import AppShell from "../components/ui/AppShell";
+import BackLink from "../components/ui/BackLink";
 import Button from "../components/ui/Button";
+import FormFooter from "../components/ui/FormFooter";
 import CompanionPicker from "../components/CompanionPicker";
 import TagInput from "../components/TagInput";
 import SuggestionChips from "../components/common/SuggestionChips";
@@ -10,8 +12,6 @@ import TripDeleteConfirm from "../components/Trips/TripDeleteConfirm";
 import ResyncFromImmich from "../components/Trips/tripBuilder/ResyncFromImmich";
 import { CoverPreview, Field } from "../components/Trips/tripFormParts";
 import { useTripForm } from "../components/Trips/useTripForm";
-import { phoneBottomOffset } from "../components/map/phoneChrome";
-import { useIsPhoneViewport } from "../hooks/useIsPhoneViewport";
 import { useTranslation } from "../hooks/useTranslation";
 import { useTripEntrySuggestions } from "../hooks/useTripEntrySuggestions";
 import { tripsApi } from "../lib/api/trips";
@@ -54,7 +54,6 @@ export default function TripEditPage(): JSX.Element {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const phone = useIsPhoneViewport();
 
   const {
     name,
@@ -154,9 +153,7 @@ export default function TripEditPage(): JSX.Element {
     <AppShell width="reading">
       <div className="space-y-6">
         <header>
-          <Link to={`/trips/${trip.id}`} className="text-xs text-(--text-muted) hover:underline">
-            ← {t("common:buttons.back")}
-          </Link>
+          <BackLink to={`/trips/${trip.id}`}>{t("common:buttons.back")}</BackLink>
           <h1 className="t-screen-title mt-1">{t("trips:editTrip")}</h1>
         </header>
 
@@ -323,29 +320,28 @@ export default function TripEditPage(): JSX.Element {
               onClick={() => coverInputRef.current?.click()}
             />
             <div className="flex gap-2 mt-2">
-              <button
-                type="button"
+              {/* The primitive, not a hand-rolled outline: these were 36px and
+                  `rounded-lg` with the accent written inline, which is the same
+                  drift as the footer (owner's 2026-10-15 report). 46 in a row
+                  is the design's own number (§4.5). Both are `secondary`: an
+                  upload is not this form's commit — the amber Save in the
+                  footer is — and amber belongs to exactly one control per
+                  screen. The remove is the destructive pair to it. */}
+              <Button
+                variant="secondary"
                 onClick={() => coverInputRef.current?.click()}
                 disabled={uploadingCover}
-                className="px-3 py-2 rounded-lg text-sm font-medium border disabled:opacity-50"
-                style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
               >
                 {uploadingCover
                   ? "…"
                   : coverPreview || coverUrl
                     ? t("trips:modal.coverUploadReplace")
                     : t("trips:modal.coverUploadButton")}
-              </button>
+              </Button>
               {(coverPreview || coverUrl) && (
-                <button
-                  type="button"
-                  onClick={handleRemoveCover}
-                  disabled={uploadingCover}
-                  className="px-3 py-2 rounded-lg text-sm font-medium border disabled:opacity-50"
-                  style={{ borderColor: "var(--color-border)", color: "var(--text-muted)" }}
-                >
+                <Button variant="danger" onClick={handleRemoveCover} disabled={uploadingCover}>
                   {t("trips:modal.coverRemove")}
-                </button>
+                </Button>
               )}
             </div>
             <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>
@@ -389,60 +385,39 @@ export default function TripEditPage(): JSX.Element {
           </Field>
         </section>
 
-        {/* On a phone the row is pinned to the bottom edge (owner report
-            2026-10-12): the form runs 2131px tall and the Save sat at y≈1691,
-            ~850px below the fold, so the one control the page exists for
-            could not be found from the date fields at the top. `sticky
-            bottom-0` keeps it in reach while its own place is below the fold,
-            and releases it into the flow once the reader scrolls down to it.
-            The surface background and the top border are what let the form
-            scroll UNDER the row, and the pad carries the safe-area inset so
-            it clears a phone's home bar. A desktop is untouched: the row
-            stays where it is, at the end of the form. */}
-        <div
-          className={
-            phone
-              ? "sticky bottom-0 z-30 flex flex-wrap items-center justify-end gap-2"
-              : "flex flex-wrap items-center justify-end gap-2"
-          }
-          style={
-            phone
-              ? {
-                  background: "var(--ts-bg)",
-                  borderTop: "1px solid var(--ts-border)",
-                  paddingTop: 12,
-                  paddingBottom: phoneBottomOffset(12),
-                }
-              : undefined
+        {/* The shared edit-form footer (`ui/FormFooter`): the same row, the
+            same two controls and the same 46px recipe that the roadtrip and
+            the points editor draw. It keeps the phone behaviour this page grew
+            on 2026-10-12 — pinned to the bottom edge, above the safe area — and
+            it is the reason the numbers are no longer written out here by hand
+            (owner, 2026-10-15: "the save button in edit mode aren't in same
+            location or design"). */}
+        <FormFooter
+          hint={
+            // The button's own refusal, said where the button is: a disabled
+            // Save that only greys out leaves the field's small hint as the
+            // sole explanation, and that hint reads as unrelated (owner,
+            // 2026-10-12: "the update button is disabled and no mention of
+            // whats the reason"). The field-level hints stay where they are.
+            !saving && (datesOutOfOrder || nameMissing) ? (
+              <p role="alert" className="text-[11px] text-(--danger)">
+                {t(datesOutOfOrder ? "trips:modal.endBeforeStart" : "trips:modal.nameRequired")}
+              </p>
+            ) : null
           }
         >
-          <button
-            onClick={() => navigate(`/trips/${trip.id}`)}
-            type="button"
-            className="px-4 py-2 rounded-lg text-sm"
-            style={{ color: "var(--text-muted)" }}
-          >
+          <Button variant="secondary" onClick={() => navigate(`/trips/${trip.id}`)}>
             {t("trips:modal.cancel")}
-          </button>
-          {/* The button's own refusal, said where the button is: a disabled
-              Save that only greys out leaves the field's small hint as the
-              sole explanation, and that hint reads as unrelated (owner,
-              2026-10-12: "the update button is disabled and no mention of
-              whats the reason"). The field-level hints stay where they are. */}
-          {!saving && (datesOutOfOrder || nameMissing) && (
-            <p role="alert" className="text-[11px] text-(--danger)">
-              {t(datesOutOfOrder ? "trips:modal.endBeforeStart" : "trips:modal.nameRequired")}
-            </p>
-          )}
-          <button
+          </Button>
+          <Button
+            variant="primary"
+            size="toolbar"
             onClick={() => void handleSave()}
             disabled={saving || datesOutOfOrder}
-            type="button"
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-(--accent) text-(--bg-base) disabled:opacity-50"
           >
             {saving ? "…" : t("trips:modal.save")}
-          </button>
-        </div>
+          </Button>
+        </FormFooter>
 
         <section>
           <h2 className="text-lg font-semibold mb-3">{t("tripBuilder:resync.action")}</h2>

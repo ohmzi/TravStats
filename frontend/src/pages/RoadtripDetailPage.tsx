@@ -299,7 +299,15 @@ export default function RoadtripDetailPage(): JSX.Element {
           <>
             {/* The editor's way out: the autosave status and the Done button
                 that rode the head's action slot until the template (spec §2.1:
-                the head is the name, the flags and ONE Edit link). */}
+                the head is the name, the flags and ONE Edit link).
+
+                Done is the commit of this editor, so it is the amber primary —
+                and it draws `size="toolbar"`, the 46px row height, not the
+                lone-CTA 52: the journey's Save and the points editor's "Save
+                points" are both 46 in a footer row, and a 52 beside them was
+                the last of the mismatched sizes the owner reported
+                (2026-10-15: "the save button in edit mode aren't in same
+                location or design"). */}
             {editing && (
               <div className="flex flex-wrap items-center" style={{ gap: 12 }}>
                 <span
@@ -315,7 +323,7 @@ export default function RoadtripDetailPage(): JSX.Element {
                     </button>
                   )}
                 </span>
-                <Button variant="primary" onClick={() => void finishEditing()}>
+                <Button variant="primary" size="toolbar" onClick={() => void finishEditing()}>
                   {t("roadtrips:detail.done")}
                 </Button>
               </div>

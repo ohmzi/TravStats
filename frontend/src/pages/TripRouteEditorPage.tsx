@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { apiErrorProse } from "../lib/apiError";
 import { saveErrorMessage } from "../lib/saveErrorMessage";
 import { TRACK_ERROR_KEYS } from "../lib/trackErrorKeys";
 
 import AppShell from "../components/ui/AppShell";
+import BackLink from "../components/ui/BackLink";
 import TripMap, { type TripMapContent } from "../components/Trips/TripMap";
 import TourRecordingSummary from "../components/Trips/TourRecordingSummary";
 import PlannedProfileCard from "../components/Trips/PlannedProfileCard";
@@ -488,9 +489,13 @@ export default function TripRouteEditorPage(): JSX.Element {
             </button>
           )}
           <div className="mt-6">
-            <Link to={id ? `/trips/${id}?tab=tours` : "/tours"} className="text-sm underline">
+            {/* The same way back as the loaded page draws: a failed load is
+                still that page, and the owner's report covers "every screen"
+                — a second, differently-styled back link on the error arm is
+                the drift this change exists to remove. */}
+            <BackLink to={id ? `/trips/${id}?tab=tours` : "/tours"}>
               {t("trips:tours.backToTrip")}
-            </Link>
+            </BackLink>
           </div>
         </div>
       </AppShell>
@@ -502,7 +507,7 @@ export default function TripRouteEditorPage(): JSX.Element {
     <AppShell width="list">
       <div className="space-y-6">
         <header>
-          <Link
+          <BackLink
             to={
               route.kind === "roadtrip"
                 ? `/roadtrips/${route.id}`
@@ -510,13 +515,11 @@ export default function TripRouteEditorPage(): JSX.Element {
                   ? `/trips/${id}?tab=tours`
                   : "/tours"
             }
-            className="text-xs text-(--text-muted) hover:underline"
           >
-            ←{" "}
             {route.kind === "roadtrip"
               ? t("roadtrips:backToRoadtrip")
               : t(id ? "trips:tours.backToTrip" : "trips:tours.backToTours")}
-          </Link>
+          </BackLink>
           <h1 className="t-screen-title mt-1">{route.name}</h1>
           <p className="flex flex-wrap items-center gap-2 text-sm text-(--text-muted)">
             {route.kind === "tour" && (

@@ -9,7 +9,6 @@ import DetailHeader from "../components/ui/DetailHeader";
 import EmptyState from "../components/ui/EmptyState";
 import Pill from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
-import TripModal from "../components/Trips/TripModal";
 import TripMap, { type TripMapContent } from "../components/Trips/TripMap";
 import { stationHighlightLayer } from "../components/Roadtrips/stationHighlightLayer";
 import FlightTripFigures from "../components/flightsTable/FlightTripFigures";
@@ -62,7 +61,6 @@ export default function FlightTripDetailPage(): JSX.Element {
 
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [editing, setEditing] = useState(false);
   // The airport the reader picked in the route timeline; the page rings it on
   // the map. Held as the station, not its key, so the map gets its coordinate.
   const [selected, setSelected] = useState<AirportStation | null>(null);
@@ -249,15 +247,20 @@ export default function FlightTripDetailPage(): JSX.Element {
         actions={
           <div className="flex flex-wrap" style={{ gap: 8 }}>
             <ActionLink to={`/trips/${trip.id}`}>{t("flights:detail.openTrip")}</ActionLink>
-            {/* Label-only, like every other head's Edit — `EntityHeader`'s Edit
-                link and the four detail heads' buttons carry no icon, and this
-                head's pencil was the app's only one (owner's 2026-10-13
-                screenshot). The amber primary stays: a CTA in a row keeps its
-                skin and joins the row's height (`size="toolbar"`, one control
-                size, 2026-10-11), so it draws 46/16 beside the link's 46/16. */}
-            <Button variant="primary" size="toolbar" onClick={() => setEditing(true)}>
-              {t("common:buttons.edit")}
-            </Button>
+            {/* Edit is NAVIGATION, so it is the outline link — the same one
+                `EntityHeader` puts on the journey and roadtrip heads, to the
+                same `/trips/:id/edit` page. It was an amber primary that opened
+                `TripModal` on top of this page, which made this the app's one
+                yellow Edit beside a black Edit, and its one popup editor where
+                the journey and the roadtrip both edit on a page (owner,
+                2026-10-15: "someplace edit button is yellow and others its
+                black … edit flight trip shouldn't be a popup").
+
+                The popup was also redundant: `/trips/:id/edit` →
+                `TripEditPage` already renders this same journey's fields,
+                through the same `useTripForm` core, as a page. Deleting the
+                modal here removes a second surface rather than adding one. */}
+            <ActionLink to={`/trips/${trip.id}/edit`}>{t("common:buttons.edit")}</ActionLink>
           </div>
         }
       />
@@ -384,17 +387,6 @@ export default function FlightTripDetailPage(): JSX.Element {
           </div>
         )}
       </div>
-
-      {editing && (
-        <TripModal
-          trip={trip}
-          onClose={() => setEditing(false)}
-          onSaved={() => {
-            setEditing(false);
-            void load();
-          }}
-        />
-      )}
     </AppShell>
   );
 }

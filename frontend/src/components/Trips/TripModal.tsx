@@ -4,6 +4,7 @@ import { tripsApi } from "../../lib/api";
 import { useToastStore } from "../../store/toastStore";
 import { useTranslation } from "../../hooks/useTranslation";
 import { TRIP_COLORS as PALETTE } from "../../lib/tripColors";
+import Button from "../ui/Button";
 import CompanionPicker from "../CompanionPicker";
 import TagInput from "../TagInput";
 import SuggestionChips from "../common/SuggestionChips";
@@ -374,29 +375,25 @@ export default function TripModal({
                   onClick={() => coverInputRef.current?.click()}
                 />
                 <div className="flex gap-2 mt-2">
-                  <button
-                    type="button"
+                  {/* Same two controls as the edit page's, so the same two
+                      primitives — the journey is edited in two places and a
+                      cover button must not change shape between them. Both
+                      `secondary`: the form's one amber control is its Save. */}
+                  <Button
+                    variant="secondary"
                     onClick={() => coverInputRef.current?.click()}
                     disabled={uploadingCover}
-                    className="px-3 py-2 rounded-lg text-sm font-medium border disabled:opacity-50"
-                    style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
                   >
                     {uploadingCover
                       ? "…"
                       : coverPreview || coverUrl
                         ? t("trips:modal.coverUploadReplace")
                         : t("trips:modal.coverUploadButton")}
-                  </button>
+                  </Button>
                   {(coverPreview || coverUrl) && (
-                    <button
-                      type="button"
-                      onClick={handleRemoveCover}
-                      disabled={uploadingCover}
-                      className="px-3 py-2 rounded-lg text-sm font-medium border disabled:opacity-50"
-                      style={{ borderColor: "var(--color-border)", color: "var(--text-muted)" }}
-                    >
+                    <Button variant="danger" onClick={handleRemoveCover} disabled={uploadingCover}>
                       {t("trips:modal.coverRemove")}
-                    </button>
+                    </Button>
                   )}
                 </div>
                 <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>
@@ -444,24 +441,25 @@ export default function TripModal({
 
         <div
           className="flex justify-end gap-2 p-4 border-t"
-          style={{ borderColor: "var(--color-border)" }}
+          style={{ borderColor: "var(--ts-border)" }}
         >
-          <button
-            onClick={onClose}
-            type="button"
-            className="px-4 py-2 rounded-lg text-sm"
-            style={{ color: "var(--text-muted)" }}
-          >
+          {/* The shared recipe, not a fourth copy of it: this footer was
+              byte-identical to `TripEditPage`'s — 36px controls, `rounded-lg`,
+              `--accent` — and both were wrong in the same way against the
+              primitive (46, `--ts-radius-button`, `--ts-accent`). The journey
+              is edited in two places, so the two have to draw one row
+              (owner, 2026-10-15). */}
+          <Button variant="secondary" onClick={onClose}>
             {t("trips:modal.cancel")}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
+            size="toolbar"
             onClick={() => void handleSave()}
             disabled={saving || datesOutOfOrder || build.busy}
-            type="button"
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-(--accent) text-(--bg-base) disabled:opacity-50"
           >
             {saving ? "…" : build.scanning ? t("tripBuilder:popup.scan") : t("trips:modal.save")}
-          </button>
+          </Button>
         </div>
       </div>
       {build.launchProps && <TripBuilderLauncher {...build.launchProps} onClose={onClose} />}

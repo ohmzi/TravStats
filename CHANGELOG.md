@@ -6,6 +6,27 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+### Fixed
+
+- **Editing a journey, a road trip and a flight trip now look like one
+  application.** The buttons on those screens had drifted into a second
+  language: 36px controls with 8px corners beside 46px ones with 12px, the
+  label in white on amber where the design says near-black, and a back link at
+  12px where the rest of the app draws 13px. Save, Cancel, Delete, the points
+  row's "Add point" / "Save points" and the cover buttons are now one height,
+  one corner and one label everywhere; Delete always reads as a tinted outline
+  rather than a red fill; and the way back is the same control on every screen.
+  Edit is an outline link that **navigates**, and amber is reserved for the
+  action that commits a form.
+
+- **A flight trip is edited on a page, not in a popup.** Opening Edit on a
+  journey that contains flights raised the journey form as a modal over the
+  page, while the journey's own page and the road trip's editor already edited
+  in place. It now goes to that same edit page. Nothing was lost — the page
+  renders the identical fields through the identical form core — so this
+  removed a second copy of the editor rather than changing how a journey is
+  saved.
+
 ## [2.7.0] - 2026-10-03
 
 TravStats 2.7.0 is the largest release since lodging became a domain. Web and
