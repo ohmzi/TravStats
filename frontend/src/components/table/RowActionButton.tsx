@@ -12,7 +12,16 @@ import type { JSX, MouseEvent, ReactNode } from "react";
  * without it, clicking "delete" would also open the entry underneath.
  */
 
-export type RowActionIcon = "edit" | "duplicate" | "delete" | "checkIn";
+export type RowActionIcon =
+  | "edit"
+  | "duplicate"
+  | "delete"
+  | "checkIn"
+  | "view"
+  | "download"
+  | "moveUp"
+  | "moveDown"
+  | "clear";
 
 const PATHS: Record<RowActionIcon, ReactNode> = {
   edit: <path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />,
@@ -27,6 +36,27 @@ const PATHS: Record<RowActionIcon, ReactNode> = {
     <>
       <path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z" />
       <path d="m9 10 2 2 4-4" />
+    </>
+  ),
+  view: (
+    <>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </>
+  ),
+  moveUp: <path d="m6 15 6-6 6 6" />,
+  moveDown: <path d="m6 9 6 6 6-6" />,
+  clear: (
+    <>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
     </>
   ),
   delete: (
@@ -44,6 +74,11 @@ const HOVER_CLASS: Record<RowActionIcon, string> = {
   duplicate: "hover:bg-(--ts-surface2) hover:text-(--ts-text)",
   delete: "hover:bg-(--ts-surface2) hover:text-(--ts-bad)",
   checkIn: "hover:bg-(--ts-surface2) hover:text-(--ts-domain-poi)",
+  view: "hover:bg-(--ts-surface2) hover:text-(--ts-text)",
+  download: "hover:bg-(--ts-surface2) hover:text-(--ts-text)",
+  moveUp: "hover:bg-(--ts-surface2) hover:text-(--ts-text)",
+  moveDown: "hover:bg-(--ts-surface2) hover:text-(--ts-text)",
+  clear: "hover:bg-(--ts-surface2) hover:text-(--ts-bad)",
 };
 
 /**
@@ -63,19 +98,23 @@ interface Props {
   label: string;
   onClick: () => void;
   testId?: string;
+  disabled?: boolean;
 }
 
-export function RowActionButton({ icon, label, onClick, testId }: Props): JSX.Element {
+export function RowActionButton({ icon, label, onClick, testId, disabled }: Props): JSX.Element {
   return (
     <button
       type="button"
       data-testid={testId}
+      disabled={disabled}
       onClick={(e: MouseEvent) => {
         e.stopPropagation();
         onClick();
       }}
-      className={`relative inline-flex h-7 w-7 items-center justify-center rounded-sm ${TOUCH_HIT_AREA} ${HOVER_CLASS[icon]}`}
-      style={{ color: "var(--ts-muted)" }}
+      className={`relative inline-flex h-7 w-7 items-center justify-center rounded-sm disabled:opacity-30 ${TOUCH_HIT_AREA} ${HOVER_CLASS[icon]}`}
+      // Delete is red at rest, not only under a hover a finger never makes
+      // (owner, 2026-10-15: "delete red"). Every other icon stays muted.
+      style={{ color: icon === "delete" ? "var(--ts-bad)" : "var(--ts-muted)" }}
       aria-label={label}
       title={label}
     >

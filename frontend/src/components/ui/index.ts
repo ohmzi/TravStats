@@ -11,6 +11,8 @@ export { default as PageHeader } from "./PageHeader";
 export { default as DetailHeader } from "./DetailHeader";
 export { default as BackLink } from "./BackLink";
 export { default as FormFooter } from "./FormFooter";
+export { default as SectionHeader } from "./SectionHeader";
+export { default as ActionLink } from "./ActionLink";
 export { default as DangerSection } from "./DangerSection";
 export {
   default as Button,

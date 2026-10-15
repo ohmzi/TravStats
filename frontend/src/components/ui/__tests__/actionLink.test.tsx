@@ -30,4 +30,32 @@ describe("ActionLink", () => {
     expect(link).toHaveClass("ts-button");
     expect(link).toHaveAttribute("data-variant", "secondary");
   });
+
+  it("is the black outline by default", () => {
+    render(
+      <MemoryRouter>
+        <ActionLink to="/x">Open</ActionLink>
+      </MemoryRouter>
+    );
+    const link = screen.getByRole("link", { name: "Open" });
+    expect(link).toHaveAttribute("data-variant", "secondary");
+    expect(link.style.background).toBe("transparent");
+  });
+
+  it("is amber as primary — Edit is the amber action (owner, 2026-10-15)", () => {
+    render(
+      <MemoryRouter>
+        <ActionLink to="/x/edit" variant="primary" title="why">
+          Edit
+        </ActionLink>
+      </MemoryRouter>
+    );
+    const link = screen.getByRole("link", { name: "Edit" });
+    expect(link).toHaveAttribute("data-variant", "primary");
+    expect(link.style.background).toBe("var(--ts-accent)");
+    expect(link.style.color).toBe("var(--ts-accent-text)");
+    // Same row height as every other control: never the 52px lone CTA.
+    expect(link.style.height).toBe("var(--ts-size-button-secondary)");
+    expect(link).toHaveAttribute("title", "why");
+  });
 });
