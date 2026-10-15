@@ -198,6 +198,25 @@ describe("the journey's tabs draw the shared controls, at the right", () => {
     expect(src).not.toMatch(/className="px-3 py-1\.5 rounded/);
   });
 
+  /**
+   * The regexes above know the old hand-rolled forms of four of these files
+   * only; `TimelineNoteCard`'s `className="rounded-lg px-3 py-1.5 text-xs"` and
+   * `TimelineActions`' `BUTTON` constant matched none of them, so the case
+   * passed before the change. These four draw nothing but `Button`,
+   * `RowActionButton` and `ActionLink` — a raw `<button` here is a control that
+   * has stopped being one of them. (TripGallery and ImmichAlbumSection are out:
+   * the photo tile's overlay delete and the day-grouping switch are not
+   * toolbar actions.)
+   */
+  it.each([
+    "components/Trips/TimelineActions.tsx",
+    "components/Trips/TimelineNoteCard.tsx",
+    "components/Trips/TimelineJournalCard.tsx",
+    "components/Trips/SummaryCard.tsx",
+  ])("%s draws no raw <button>", (path) => {
+    expect(read(path)).not.toMatch(/<button\b/);
+  });
+
   it.each(["components/Trips/TimelineActions.tsx", "components/Trips/TripGallery.tsx"])(
     "%s ends its action row right",
     (path) => {

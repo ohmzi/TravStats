@@ -95,8 +95,11 @@ export function TripNotesNotice({
   const { t } = useTranslation(["trips"]);
   if (failed) {
     return (
-      <div role="alert" className="t-caption mb-3 flex flex-wrap items-center gap-2">
-        {t("trips:detail.timeline.note.loadFailed")}
+      <div
+        role="alert"
+        className="t-caption mb-3 flex flex-wrap items-center justify-between gap-2"
+      >
+        <span className="flex-1">{t("trips:detail.timeline.note.loadFailed")}</span>
         <Button variant="secondary" size="toolbar" onClick={onRetry}>
           {t("trips:detail.timeline.note.retry")}
         </Button>

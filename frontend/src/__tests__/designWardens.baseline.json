@@ -32,7 +32,6 @@
     "components/Stats/scorecard/TimeRangeControl.tsx",
     "components/Training/BoardingPassAnnotation.tsx",
     "components/Trips/DetectReviewModal.tsx",
-    "components/Trips/TripGallery.tsx",
     "components/Trips/TripsTab.tsx",
     "components/UpdateBadge.tsx",
     "components/layers/cruisePortsLayer.ts",

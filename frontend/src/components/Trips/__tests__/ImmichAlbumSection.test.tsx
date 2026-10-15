@@ -80,6 +80,26 @@ beforeEach(() => {
   getImportJob.mockResolvedValue({ job: null });
 });
 
+describe("ImmichAlbumSection header on a narrow screen", () => {
+  /**
+   * Two 46 px buttons, the switch and a `resyncing {done}/{total}` label do not
+   * fit beside the album title at iPad portrait; a header that cannot wrap
+   * squeezes the title instead. `ml-auto` keeps the group at the right when it
+   * wraps onto its own line.
+   */
+  it("lets the header and its action group wrap, the group staying right", async () => {
+    render(<ImmichAlbumSection tripId="trip-1" album={IMPORT_ALBUM} onChanged={vi.fn()} />);
+    await waitFor(() => expect(screen.getAllByRole("img")).toHaveLength(2));
+
+    const header = screen.getByRole("heading", { name: "Rome" }).parentElement as HTMLElement;
+    expect(header.className).toContain("flex-wrap");
+    const group = screen.getByRole("button", { name: "albums.unlink" })
+      .parentElement as HTMLElement;
+    expect(group.className).toContain("flex-wrap");
+    expect(group.className).toContain("ml-auto");
+  });
+});
+
 describe("ImmichAlbumSection", () => {
   it("renders the album header with a live badge and its tiles", async () => {
     render(<ImmichAlbumSection tripId="trip-1" album={LINK_ALBUM} onChanged={vi.fn()} />);

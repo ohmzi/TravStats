@@ -244,10 +244,10 @@ function PhotoTile({ photo, onClick, onDelete }: PhotoTileProps): JSX.Element {
           e.stopPropagation();
           onDelete();
         }}
-        className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full text-xs opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity"
         style={{
           background: "rgba(13,17,23,0.8)",
-          color: "#f87171",
+          color: "var(--ts-bad)",
           backdropFilter: "blur(4px)",
         }}
         aria-label={t("common:buttons.delete")}

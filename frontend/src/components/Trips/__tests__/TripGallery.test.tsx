@@ -170,3 +170,21 @@ describe("TripGallery — a photo over the size limit (forgejo#88 acceptance)", 
     expect(tripsApi.uploadPhotos).not.toHaveBeenCalled();
   });
 });
+
+describe("TripGallery — a photo's delete control", () => {
+  /**
+   * It was `#f87171` on a scrim that only appeared on hover: a colour literal
+   * the token layer cannot retheme, and a control an iPad (no hover) never
+   * showed. The scrim and the glyph stay; the colour is a token and a coarse
+   * pointer sees it without hovering.
+   */
+  it("is painted from the token layer and visible without hover on a coarse pointer", () => {
+    render(<TripGallery tripId="trip-1" photos={[PHOTO]} immichAlbums={[]} onChange={vi.fn()} />);
+
+    const del = screen.getByRole("button", { name: "common:buttons.delete" });
+    expect(del.style.color).toBe("var(--ts-bad)");
+    expect(del.getAttribute("style")).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    expect(del.className).toContain("group-hover:opacity-100");
+    expect(del.className).toContain("pointer-coarse:opacity-100");
+  });
+});

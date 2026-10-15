@@ -265,7 +265,7 @@ export default function ImmichAlbumSection({ tripId, album, onChanged }: Props):
 
   return (
     <section className="mt-6">
-      <header className="mb-2 flex items-center gap-3">
+      <header className="mb-2 flex flex-wrap items-center gap-3">
         <h3 className="font-semibold">{album.albumName}</h3>
         <span className="text-xs text-slate-400">
           {t("albums.photoCount", { count: album.assetCount })}
@@ -274,7 +274,7 @@ export default function ImmichAlbumSection({ tripId, album, onChanged }: Props):
           {album.mode === "import" ? t("albums.badgeImport") : t("albums.badgeLink")}
         </span>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {hasDates && (
             <label className="flex items-center gap-2 text-xs text-slate-400">
               <span>{t("albums.groupByDay")}</span>
