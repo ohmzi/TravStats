@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type JSX } from "react";
 
 import Button from "../ui/Button";
 import { Field, Input } from "../ui/Field";
+import SectionHeader from "../ui/SectionHeader";
 import { useTranslation } from "../../hooks/useTranslation";
 import { toursApi } from "../../lib/api/tours";
 import { logger } from "../../lib/logger";
@@ -103,7 +104,7 @@ export default function RoadtripDatesSection({
 
   return (
     <section>
-      <h2 className="text-lg font-semibold mb-3">{t("roadtrips:dates.heading")}</h2>
+      <SectionHeader title={t("roadtrips:dates.heading")} />
       <p className="text-sm text-(--text-muted) mb-3">{t("roadtrips:dates.hint")}</p>
       <div className="flex flex-wrap items-end" style={{ gap: 12 }}>
         {/* The shared Field/Input recipe — the same control the change-dates

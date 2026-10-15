@@ -90,9 +90,7 @@
   },
   "edit": {
     "resyncHint": "Scannt die gespeicherten Daten der Reise erneut und aktualisiert sie an Ort und Stelle.",
-    "resyncTripHint": "Scannt die gespeicherten Daten dieses Trips erneut und aktualisiert ihn an Ort und Stelle. Die übrigen Trips der Reise bleiben unverändert.",
-    "deleteHeading": "Löschen",
-    "deleteTripHint": "Dieser Trip wird mit seinen Stationen, Etappen und Aufzeichnungen gelöscht. Verknüpfte Unterkünfte und seine Tagestouren bleiben erhalten."
+    "resyncTripHint": "Scannt die gespeicherten Daten dieses Trips erneut und aktualisiert ihn an Ort und Stelle. Die übrigen Trips der Reise bleiben unverändert."
   },
   "progress": {
     "fetch": "Fotos laden",

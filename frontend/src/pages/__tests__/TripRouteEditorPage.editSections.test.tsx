@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
 import type { RoadtripDetail } from "../../types/roadtrip";
@@ -143,6 +143,15 @@ describe("TripRouteEditorPage — the trip's edit page sections", () => {
     // THIS trip, so it lands on the trip's own resync page, not the journey's.
     const link = await screen.findByRole("link", { name: "tripBuilder:resync.action" });
     expect(link).toHaveAttribute("href", "/roadtrips/r1/resync");
+    // In the page header beside the title, not a section under the form.
+    expect(screen.queryByRole("heading", { name: "tripBuilder:resync.action" })).toBeNull();
+    const title = screen.getByRole("heading", { level: 1 });
+    const header = title.closest("div")!.parentElement as HTMLElement;
+    expect(within(header).getByRole("link", { name: "tripBuilder:resync.action" })).toBe(link);
+    expect(within(header).getByRole("button", { name: "roadtrips:delete" })).toHaveAttribute(
+      "data-variant",
+      "danger"
+    );
   });
 
   it("offers no re-sync on a detached trip — there is no journey to scan", async () => {
@@ -207,7 +216,7 @@ describe("TripRouteEditorPage — the trip's edit page sections", () => {
     renderAt("/tours/:routeId", "/tours/r1");
 
     expect(await screen.findByRole("heading", { name: "Fjorde 2031" })).toBeInTheDocument();
-    expect(screen.queryByText("tripBuilder:edit.deleteHeading")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "roadtrips:delete" })).not.toBeInTheDocument();
     expect(screen.queryByText("roadtrips:dates.heading")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "tripBuilder:resync.action" })
@@ -220,7 +229,7 @@ describe("TripRouteEditorPage — the trip's edit page sections", () => {
       .mockResolvedValueOnce(undefined);
     renderAt("/roadtrips/:routeId/edit", "/roadtrips/r1/edit");
 
-    fireEvent.click(await screen.findByText("roadtrips:delete"));
+    fireEvent.click(await screen.findByRole("button", { name: "roadtrips:delete" }));
     expect(await screen.findByText("roadtrips:deleteConfirm.title")).toBeInTheDocument();
     expect(toursApi.removeStandalone).not.toHaveBeenCalled();
 

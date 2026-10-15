@@ -6,6 +6,7 @@ import { TRACK_ERROR_KEYS } from "../lib/trackErrorKeys";
 
 import AppShell from "../components/ui/AppShell";
 import BackLink from "../components/ui/BackLink";
+import PageHeader from "../components/ui/PageHeader";
 import TripMap, { type TripMapContent } from "../components/Trips/TripMap";
 import TourRecordingSummary from "../components/Trips/TourRecordingSummary";
 import PlannedProfileCard from "../components/Trips/PlannedProfileCard";
@@ -21,7 +22,7 @@ import { editsOwnPoints, tourPointsSaveErrorKey } from "../components/Trips/tour
 import RoadtripDatesSection, {
   type TripDatesSpan,
 } from "../components/Roadtrips/RoadtripDatesSection";
-import RoadtripEditSections from "../components/Roadtrips/RoadtripEditSections";
+import RoadtripEditActions from "../components/Roadtrips/RoadtripEditActions";
 import TourLegList from "../components/Trips/TourLegList";
 import TourTrackList from "../components/Trips/TourTrackList";
 import { useTranslation } from "../hooks/useTranslation";
@@ -506,7 +507,7 @@ export default function TripRouteEditorPage(): JSX.Element {
   return (
     <AppShell width="list">
       <div className="space-y-6">
-        <header>
+        <div>
           <BackLink
             to={
               route.kind === "roadtrip"
@@ -520,41 +521,54 @@ export default function TripRouteEditorPage(): JSX.Element {
               ? t("roadtrips:backToRoadtrip")
               : t(id ? "trips:tours.backToTrip" : "trips:tours.backToTours")}
           </BackLink>
-          <h1 className="t-screen-title mt-1">{route.name}</h1>
-          <p className="flex flex-wrap items-center gap-2 text-sm text-(--text-muted)">
-            {route.kind === "tour" && (
-              <select
-                id="tour-activity"
-                value={route.activity ?? ""}
-                onChange={(e) =>
-                  void handleActivityChange((e.target.value || null) as TourActivity | null)
-                }
-                aria-label={t("roadtrips:activityLabel")}
-                className="rounded-sm border border-(--color-border) bg-transparent px-2 py-0.5 text-sm"
-              >
-                <option value="">{t("roadtrips:activityNone")}</option>
-                {TOUR_ACTIVITIES.map((a) => (
-                  <option key={a} value={a}>
-                    {t(`roadtrips:activity.${a}`)}
-                  </option>
-                ))}
-              </select>
-            )}
-            {route.kind === "tour" && (
-              <TourDayEditor route={route} tripId={id} onSaved={setRoute} />
-            )}
-            <span>
-              {t(`trips:tours.mode.${route.mode}`)} ·{" "}
-              {/* A day tour is measured by its recording once it has one. */}
-              {formatKm(
-                route.kind === "tour" && tracks.length > 0
-                  ? tracks.reduce((sum, tr) => sum + tr.distanceKm, 0)
-                  : route.distanceKm
-              )}{" "}
-              km
-            </span>
-          </p>
-        </header>
+          {/* The trip's page actions on the title's line, at the right
+              (owner, 2026-10-15). A day tour has none: passing the element
+              anyway would leave `PageHeader` an empty flex box, since it
+              tests the slot for truthiness, not for what the element renders. */}
+          <PageHeader
+            title={route.name}
+            meta={
+              <span className="flex flex-wrap items-center gap-2">
+                {route.kind === "tour" && (
+                  <select
+                    id="tour-activity"
+                    value={route.activity ?? ""}
+                    onChange={(e) =>
+                      void handleActivityChange((e.target.value || null) as TourActivity | null)
+                    }
+                    aria-label={t("roadtrips:activityLabel")}
+                    className="rounded-sm border border-(--color-border) bg-transparent px-2 py-0.5 text-sm"
+                  >
+                    <option value="">{t("roadtrips:activityNone")}</option>
+                    {TOUR_ACTIVITIES.map((a) => (
+                      <option key={a} value={a}>
+                        {t(`roadtrips:activity.${a}`)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {route.kind === "tour" && (
+                  <TourDayEditor route={route} tripId={id} onSaved={setRoute} />
+                )}
+                <span>
+                  {t(`trips:tours.mode.${route.mode}`)} ·{" "}
+                  {/* A day tour is measured by its recording once it has one. */}
+                  {formatKm(
+                    route.kind === "tour" && tracks.length > 0
+                      ? tracks.reduce((sum, tr) => sum + tr.distanceKm, 0)
+                      : route.distanceKm
+                  )}{" "}
+                  km
+                </span>
+              </span>
+            }
+            actions={
+              route.kind === "roadtrip" ? (
+                <RoadtripEditActions route={route} journeyId={journeyId} />
+              ) : undefined
+            }
+          />
+        </div>
 
         {route.kind === "tour" && (
           <TourRecordingSummary
@@ -657,11 +671,6 @@ export default function TripRouteEditorPage(): JSX.Element {
             />
           )}
         </section>
-
-        {/* The trip's edit page carries what the trip page's header loses
-            (spec 2026-10-12 §4): the Re-sync from Immich launch and the
-            existing roadtrip delete — see that component. */}
-        <RoadtripEditSections route={route} journeyId={journeyId} />
       </div>
     </AppShell>
   );

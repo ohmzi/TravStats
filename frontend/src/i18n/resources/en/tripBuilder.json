@@ -90,9 +90,7 @@
   },
   "edit": {
     "resyncHint": "Scans the journey's saved dates again and updates it in place.",
-    "resyncTripHint": "Scans this trip's saved dates again and updates that trip in place. The journey's other trips stay as they are.",
-    "deleteHeading": "Delete",
-    "deleteTripHint": "This trip goes with its stations, legs and recordings. Linked accommodation and its day tours are kept."
+    "resyncTripHint": "Scans this trip's saved dates again and updates that trip in place. The journey's other trips stay as they are."
   },
   "progress": {
     "fetch": "Fetching photos",

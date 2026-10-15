@@ -125,6 +125,14 @@ describe("an edit page carries Re-sync and Delete in its header", () => {
   it("FlightPanel edits a trip on its page, not in TripModal", () => {
     expect(read("components/FlightPanel.tsx")).not.toMatch(/import\s+TripModal\s+from/);
   });
+
+  it("the road-trip editor hands both to PageHeader's action slot", () => {
+    const page = read("pages/TripRouteEditorPage.tsx");
+    expect(page).toMatch(/<PageHeader[\s\S]*actions=\{[^}]*<RoadtripEditActions/);
+    const actions = read("components/Roadtrips/RoadtripEditActions.tsx");
+    expect(actions).toContain('variant="danger"');
+    expect(actions).not.toContain("DangerSection");
+  });
 });
 
 describe("Edit is the amber link on every detail head", () => {
