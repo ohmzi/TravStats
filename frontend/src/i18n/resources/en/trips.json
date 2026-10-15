@@ -16,7 +16,7 @@
   "editFlightTrip": "Edit flight trip",
   "deleteTrip": "Delete Journey",
   "removeFromTrip": "Remove from journey",
-  "deleteTripConfirm": "“{{name}}” will be permanently deleted, along with its photos, stops, companions, journal entries, tours built from its stops with their recorded tracks, and the documents filed here. Flights, cruises, stays and trips are kept, and so are day tours with points of their own — they become standalone tours.",
+  "deleteTripConfirm": "“{{name}}” will be permanently deleted, along with its photos, stops, companions, journal entries, tours built from its stops with their recorded tracks, and the documents filed here. Flights, cruises, stays and trips are kept, and so are day tours with points of their own — they become standalone tours. The linked Immich album is not touched.",
   "deleteTripConfirmKept": "“{{name}}” will be permanently deleted, along with its photos, stops, companions, journal entries, tours built from its stops with their recorded tracks, and the documents filed here. {{kept}} are kept, and so are day tours with points of their own — they become standalone tours.",
   "deleteTripKept": {
     "and": "and",
@@ -748,5 +748,5 @@
     },
     "existingVisit": "An existing visit was found in this window. Acceptance checks whether this suggestion can be linked to it."
   },
-  "deleteTripConfirmWithRail": "“{{name}}” will be permanently deleted, along with its photos, stops, companions, journal entries, tours built from its stops with their recorded tracks, and the documents filed here. Flights, cruises, rail journeys, stays and trips are kept, and so are day tours with points of their own — they become standalone tours."
+  "deleteTripConfirmWithRail": "“{{name}}” will be permanently deleted, along with its photos, stops, companions, journal entries, tours built from its stops with their recorded tracks, and the documents filed here. Flights, cruises, rail journeys, stays and trips are kept, and so are day tours with points of their own — they become standalone tours. The linked Immich album is not touched."
 }

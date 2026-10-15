@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-vi.mock("react-router-dom", () => ({ useNavigate: () => vi.fn() }));
+const mocks = vi.hoisted(() => ({ navigate: vi.fn() }));
+vi.mock("react-router-dom", () => ({ useNavigate: () => mocks.navigate }));
 vi.mock("../../../../hooks/useTranslation", () => ({
   useTranslation: () => ({ t: (k: string) => k, i18n: { language: "de" } }),
 }));
@@ -37,12 +38,23 @@ vi.mock("../../../../lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 vi.mock("../../../MapContainer3D", () => ({ default: () => <div data-testid="map" /> }));
-// The panel's own delete control, as a plain button.
+// The panel's own delete and trip-edit controls, as plain buttons.
 vi.mock("../../../FlightPanel", () => ({
-  FlightPanel: ({ onDelete }: { onDelete: (id: string) => void }) => (
-    <button type="button" onClick={() => onDelete("f1")}>
-      panel-delete
-    </button>
+  FlightPanel: ({
+    onDelete,
+    onEditTrip,
+  }: {
+    onDelete: (id: string) => void;
+    onEditTrip: (tripId: string) => void;
+  }) => (
+    <>
+      <button type="button" onClick={() => onDelete("f1")}>
+        panel-delete
+      </button>
+      <button type="button" onClick={() => onEditTrip("t7")}>
+        panel-edit-trip
+      </button>
+    </>
   ),
 }));
 vi.mock("../../../FlightEditModal", () => ({ default: () => null }));
@@ -96,5 +108,24 @@ describe("FlightsTab — delete asks first", () => {
     expect(confirm).toHaveAttribute("data-variant", "danger");
     fireEvent.click(confirm);
     await waitFor(() => expect(deleteFlight).toHaveBeenCalledWith("f1"));
+  });
+});
+
+/**
+ * Owner, 2026-10-15: the panel's trip Edit was a popup and is now the flight
+ * trip's edit page. The tab owns the router, so the target is decided here.
+ */
+describe("FlightsTab — a trip's Edit opens the flight trip's edit page", () => {
+  beforeEach(() => {
+    mocks.navigate.mockReset();
+    getAllGeoJSON.mockReset().mockResolvedValue({ type: "FeatureCollection", features: [] });
+    getAll.mockReset().mockResolvedValue({ flights: [], total: 0, page: 1, limit: 500 });
+  });
+
+  it("navigates to /flights/journeys/<id>/edit, not the journey's page", async () => {
+    render(<FlightsTab />);
+    await waitFor(() => expect(getAll).toHaveBeenCalled());
+    fireEvent.click(await screen.findByText("panel-edit-trip"));
+    expect(mocks.navigate).toHaveBeenCalledWith("/flights/journeys/t7/edit");
   });
 });

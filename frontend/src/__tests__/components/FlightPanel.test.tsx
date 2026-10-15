@@ -1,19 +1,23 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FlightPanel } from "../../components/FlightPanel";
 import type { Flight } from "../../types";
 
+// Mutable on purpose: the trip-details tests below put the panel in that mode
+// by writing the fields the real store would hold.
+const storeState = vi.hoisted(() => ({
+  selectedIds: [] as string[],
+  selectedFlights: [] as unknown[],
+  highlightMode: null as string | null,
+  detailMode: null as string | null,
+  setSelection: vi.fn(),
+  clearSelection: vi.fn(),
+  showDetails: vi.fn(),
+}));
+
 vi.mock("../../store/flightSelectionStore", () => {
-  const state = {
-    selectedIds: [] as string[],
-    selectedFlights: [],
-    highlightMode: null,
-    detailMode: null,
-    setSelection: vi.fn(),
-    clearSelection: vi.fn(),
-    showDetails: vi.fn(),
-  };
+  const state = storeState;
   return {
     useFlightSelectionStore: vi.fn(<T,>(selector?: (s: typeof state) => T) =>
       selector ? selector(state) : state
@@ -171,5 +175,41 @@ describe("FlightPanel", () => {
       />
     );
     expect(container.firstChild).toBeNull();
+  });
+});
+
+describe("FlightPanel — a trip's Edit opens its page", () => {
+  afterEach(() => {
+    storeState.selectedFlights = [];
+    storeState.selectedIds = [];
+    storeState.detailMode = null;
+  });
+
+  // Owner, 2026-10-15: the trip's edit popup became an edit page. The panel no
+  // longer renders any form; it hands the trip's id to its host, which routes.
+  // Without this the prop could be dropped from `handleEditDetailTrip` and
+  // every other test here would stay green.
+  it("hands the shown trip's id to onEditTrip", async () => {
+    const trip = { id: "trip-9", name: "Northvale loop", color: "#818cf8" };
+    storeState.detailMode = "trip-details";
+    storeState.selectedFlights = [{ ...flights[0], tripId: trip.id, trip }];
+    const onEditTrip = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <FlightPanel
+        flights={flights}
+        totalCount={1}
+        isOpen
+        onClose={vi.fn()}
+        onEdit={vi.fn()}
+        onEditTrip={onEditTrip}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+        onAddFlight={vi.fn()}
+      />
+    );
+    await user.click(screen.getByRole("button", { name: "trips:editTrip" }));
+    expect(onEditTrip).toHaveBeenCalledTimes(1);
+    expect(onEditTrip).toHaveBeenCalledWith("trip-9");
   });
 });

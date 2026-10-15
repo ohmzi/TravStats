@@ -16,7 +16,7 @@
   "editFlightTrip": "Flugreise bearbeiten",
   "deleteTrip": "Reise löschen",
   "removeFromTrip": "Aus Reise entfernen",
-  "deleteTripConfirm": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. Flüge, Kreuzfahrten, Unterkünfte und Trips bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren.",
+  "deleteTripConfirm": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. Flüge, Kreuzfahrten, Unterkünfte und Trips bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren. Das verknüpfte Immich-Album wird nicht angefasst.",
   "deleteTripConfirmKept": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. {{kept}} bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren.",
   "deleteTripKept": {
     "and": "und",
@@ -748,5 +748,5 @@
     },
     "existingVisit": "Für diesen Zeitraum wurde bereits ein Besuch gefunden. Bei der Übernahme wird geprüft, ob dein Vorschlag damit verknüpft werden kann."
   },
-  "deleteTripConfirmWithRail": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. Flüge, Kreuzfahrten, Bahnfahrten, Unterkünfte und Trips bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren."
+  "deleteTripConfirmWithRail": "„{{name}}“ wird dauerhaft gelöscht, samt Fotos, Stationen, Mitreisenden, Reisetagebuch-Einträgen, aus ihren Stationen gebauten Touren mit ihren aufgezeichneten Tracks und den hier abgelegten Dokumenten. Flüge, Kreuzfahrten, Bahnfahrten, Unterkünfte und Trips bleiben erhalten, ebenso Tagestouren mit eigenen Punkten — sie werden zu eigenständigen Touren. Das verknüpfte Immich-Album wird nicht angefasst."
 }

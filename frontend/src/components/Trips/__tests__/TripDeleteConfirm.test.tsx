@@ -96,6 +96,30 @@ describe("TripDeleteConfirm", () => {
     expect(copy).toContain(kept);
   });
 
+  // The journey's edit page used to print what survives a delete under the
+  // button; that hint went when Delete moved into the page header (owner,
+  // 2026-10-15), so the confirm is now the only place that can say the Immich
+  // album stays. Both messages, since `TripDeleteConfirm` picks one by whether
+  // the rail domain is shown.
+  it.each([
+    ["de", "deleteTripConfirm", deTrips.deleteTripConfirm, "Immich-Album wird nicht angefasst"],
+    [
+      "de",
+      "deleteTripConfirmWithRail",
+      deTrips.deleteTripConfirmWithRail,
+      "Immich-Album wird nicht angefasst",
+    ],
+    ["en", "deleteTripConfirm", enTrips.deleteTripConfirm, "Immich album is not touched"],
+    [
+      "en",
+      "deleteTripConfirmWithRail",
+      enTrips.deleteTripConfirmWithRail,
+      "Immich album is not touched",
+    ],
+  ])("%s %s: says the linked Immich album is not touched", (_l, _key, copy, said) => {
+    expect(copy).toContain(said);
+  });
+
   it("confirms through to the caller", async () => {
     const onConfirm = vi.fn();
     const user = userEvent.setup();
