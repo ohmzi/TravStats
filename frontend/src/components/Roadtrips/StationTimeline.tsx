@@ -1,6 +1,7 @@
 import type { CSSProperties, JSX } from "react";
 import { Link } from "react-router-dom";
 
+import Button from "../ui/Button";
 import Pill from "../ui/Pill";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useDisplayFormat } from "../../lib/displayFormat";
@@ -15,6 +16,7 @@ import type { TourLeg } from "../../types/tour";
 import { foldViaPoints } from "../../shared/tour/viaPoints";
 import StationMarker from "./StationMarker";
 import { LocalName } from "../places/LocalName";
+import { RowActionButton } from "../table/RowActionButton";
 
 const CHIP: CSSProperties = {
   display: "inline-flex",
@@ -86,7 +88,7 @@ export default function StationTimeline({
   today: string;
   selectedId: string | null;
   onSelect: (station: RoadtripStation) => void;
-  /** Present in edit mode: a leg becomes a button. */
+  /** Present in edit mode: a leg gets an edit icon at its end. */
   onEditLeg?: (leg: TourLeg, from: RoadtripStation, to: RoadtripStation) => void;
   /** Start a day tour from this station; absent = read-only. */
   onStartTour?: (station: RoadtripStation) => void;
@@ -258,19 +260,14 @@ export default function StationTimeline({
                       </Link>
                     ))}
                     {onStartTour && (
-                      <button
-                        type="button"
+                      <Button
+                        variant="secondary"
+                        size="toolbar"
+                        className="self-end"
                         onClick={() => onStartTour(s)}
-                        className="self-start t-caption"
-                        style={{
-                          ...CHIP,
-                          border: "1px dashed var(--ts-border)",
-                          background: "none",
-                          cursor: "pointer",
-                        }}
                       >
                         {t("roadtrips:startTour")}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}
@@ -336,34 +333,22 @@ export function LegLabel({
       <span className="t-caption">{t(`roadtrips:timeline.source.${leg.source}`)}</span>
     </>
   );
-  if (!onEdit) {
-    return (
-      <div
-        className="flex flex-wrap items-center"
-        style={{ gap: 10, fontSize: 13, color: "var(--ts-muted)" }}
-      >
-        {content}
-      </div>
-    );
-  }
-  return (
-    <button
-      type="button"
-      onClick={onEdit}
-      aria-label={t("roadtrips:timeline.legEdit")}
-      className="flex flex-wrap items-center self-start"
-      style={{
-        gap: 10,
-        fontSize: 13,
-        color: "var(--ts-muted)",
-        padding: "4px 10px",
-        borderRadius: "var(--ts-radius-button)",
-        border: "1px dashed var(--ts-border-button)",
-        background: "none",
-        cursor: "pointer",
-      }}
+  const facts = (
+    <div
+      className="flex flex-wrap items-center"
+      style={{ gap: 10, fontSize: 13, color: "var(--ts-muted)" }}
     >
       {content}
-    </button>
+    </div>
+  );
+  if (!onEdit) return facts;
+  return (
+    <div className="flex flex-wrap items-center justify-between" style={{ gap: 10 }}>
+      {facts}
+      {/* ml-auto keeps the icon at the right edge when the facts wrap it down. */}
+      <span className="ml-auto">
+        <RowActionButton icon="edit" label={t("roadtrips:timeline.legEdit")} onClick={onEdit} />
+      </span>
+    </div>
   );
 }

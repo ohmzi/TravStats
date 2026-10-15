@@ -67,7 +67,9 @@ const FERRY: TourLeg = {
   drivingMinutes: 135,
 };
 
-function renderTimeline(onSelect = vi.fn(), onEditLeg?: () => void): void {
+type TimelineProps = Parameters<typeof StationTimeline>[0];
+
+function renderTimeline(over: Partial<TimelineProps> = {}): void {
   render(
     <MemoryRouter>
       <StationTimeline
@@ -77,8 +79,8 @@ function renderTimeline(onSelect = vi.fn(), onEditLeg?: () => void): void {
         startDate={at("2026-09-18")}
         today="2026-09-24"
         selectedId={null}
-        onSelect={onSelect}
-        onEditLeg={onEditLeg}
+        onSelect={vi.fn()}
+        {...over}
       />
     </MemoryRouter>
   );
@@ -108,10 +110,27 @@ describe("StationTimeline", () => {
   it("selects a station on click, and opens a leg only in edit mode", () => {
     const onSelect = vi.fn();
     const onEditLeg = vi.fn();
-    renderTimeline(onSelect, onEditLeg);
+    renderTimeline({ onSelect, onEditLeg });
     fireEvent.click(screen.getByText("Kaupanger"));
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "Kaupanger" }));
     fireEvent.click(screen.getByLabelText("roadtrips:timeline.legEdit"));
     expect(onEditLeg).toHaveBeenCalled();
+  });
+
+  it("offers a day tour as the shared black button at the station's right", () => {
+    renderTimeline({ onStartTour: vi.fn() });
+    const btn = screen.getAllByRole("button", { name: "roadtrips:startTour" })[0];
+    expect(btn).toHaveAttribute("data-variant", "secondary");
+    expect(btn.className).toContain("self-end");
+  });
+
+  it("edits a leg from a row icon, leaving the leg's facts as plain text", () => {
+    const onEditLeg = vi.fn();
+    renderTimeline({ onEditLeg });
+    fireEvent.click(screen.getAllByRole("button", { name: "roadtrips:timeline.legEdit" })[0]);
+    expect(onEditLeg).toHaveBeenCalled();
+    // The whole leg used to be one dashed button; now only the icon is.
+    expect(screen.getByText(/140 km/).closest("button")).toBeNull();
+    expect(screen.getByText("roadtrips:timeline.leg.ferry").closest("button")).toBeNull();
   });
 });
