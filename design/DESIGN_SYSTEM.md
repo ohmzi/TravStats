@@ -250,7 +250,7 @@ dialog frame itself.
 
 | Primitive | Rule |
 |---|---|
-| `Button` | three variants: primary (amber fill, 52), secondary (hairline, 46) and `danger` (a tinted outline, never a fill). `danger` appears in a confirm dialog, or on the page-level trigger that opens one — four of the five transport detail headers carry it there, and a delete drawn identically to an edit is a cue that was never given. Never mono; label 16/700. `size="toolbar"` (46) for anything in a row. |
+| `Button` | three variants, one size in a row: `size="toolbar"`, 46 px, radius 12, label 16/700, never mono. **Colour follows what the action does** (owner, 2026-10-15): **Edit and every Save / Done are amber** (`primary`; Edit is `ActionLink variant="primary"` because it navigates), **Delete and Remove are red** (`danger`, a tinted outline, never a fill), **everything else is the black outline** (`secondary`, `ActionLink`, `MenuButton`). The 52 px primary is for a lone CTA outside a row (sign-in, an empty state), never beside another control. |
 | `IconButton` | 44×44, radius 14, `surface2`, hairline |
 | `Card` / `Tile` / `HeroCard` | `surface` + hairline radius 16 / `tile` radius 14 / gradient radius 18; no shadow |
 | `Pill` / `StatusPill` | the recipe in 2.6; `StatusPill` takes `status` and `domain` |
@@ -264,6 +264,14 @@ dialog frame itself.
 | `Toast` | kept on the web for confirmations only; no icon emoji; never for form errors |
 | `PageHeader` | `screenTitle` + optional meta line + action slot; every page uses it |
 | `AppShell` | nav + container; a page never imports `NavigationBar` itself |
+
+### Where actions go — three levels, always ending right
+
+1. **Page** — `BackLink` above; title left; the page's actions on the title's line at the right (`PageHeader.actions`, `DetailHeader.actions`), ordered black → amber → red. An edit page's Re-sync and Delete live here, not in sections under the form.
+2. **Section** — `SectionHeader`: the `t-label-mono` label left, that section's actions at the right of the same line. Several sources for one action are one `MenuButton`, not a row of buttons.
+3. **Row** — `RowActionButton` icons at the row's end; the delete icon is red at rest. An underlined word never performs an action.
+
+A form's commit row is `FormFooter`: Cancel (black), Save (amber), at the right, pinned above the safe area on a phone.
 
 ## 7. Icons
 

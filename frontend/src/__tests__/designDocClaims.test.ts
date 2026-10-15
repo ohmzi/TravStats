@@ -48,3 +48,21 @@ describe("DESIGN_SYSTEM.md §10", () => {
     }
   });
 });
+
+describe("DESIGN_SYSTEM.md §6 states the action colour and placement rule the code enforces", () => {
+  it("names amber for Edit and Save, red for Delete, black for the rest", () => {
+    expect(doc).toMatch(/Edit[^\n]*Save[^\n]*amber/i);
+    expect(doc).toMatch(/Delete[^\n]*red/i);
+    expect(doc).toMatch(/everything else[^\n]*(black|outline)/i);
+  });
+
+  it("names the three placement levels", () => {
+    expect(doc).toContain("SectionHeader");
+    expect(doc).toContain("RowActionButton");
+    expect(doc).toMatch(/page[^\n]*title[^\n]*right/i);
+  });
+
+  it("no longer says danger appears only in a dialog or a detail header", () => {
+    expect(doc).not.toContain("four of the five transport detail headers carry it there");
+  });
+});

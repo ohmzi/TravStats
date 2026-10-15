@@ -21,6 +21,21 @@ import { describe, expect, it } from "vitest";
  * `detailHeaderFamily.test.ts` could not see it: it names four detail pages
  * and no editor.
  *
+ * The third round, same day, after the controls matched and the placement did
+ * not:
+ *
+ * > all the edit buttons should be yellow … the resync from immich button
+ * > should be next to the title but all the way right of screen rather than
+ * > below it. same goes for delete too. basically go through flight trip, road
+ * > trip and journey, all of the regular screen and then edit screen, the
+ * > interactable buttons should be on the right side of screen and edit, save
+ * > buttons should be yellow, delete red and others black, should be same
+ * > design and size
+ *
+ * This file now pins the third round's rule: Edit and Save amber, Delete red,
+ * the rest black, all 46; page actions beside the title, section actions in
+ * `SectionHeader`, row actions as `RowActionButton`.
+ *
  * This is a source scan, not a render, for the same reason that one is: what
  * it guards is that no editor grows its own chrome again. The rendered result
  * is covered by each screen's own test.
@@ -88,6 +103,8 @@ describe("every action row ends at the right edge", () => {
     "components/Roadtrips/RoadtripDatesSection.tsx",
     "components/Trips/TourTrackList.tsx",
     "components/Trips/TourLegList.tsx",
+    "components/ui/SectionHeader.tsx",
+    "pages/ToursPage.tsx",
   ] as const;
 
   it.each(ACTION_ROWS)("%s aligns its controls to the end", (path) => {
@@ -111,6 +128,27 @@ describe("every action row ends at the right edge", () => {
     expect(src).toContain("justify-end");
     // The hint may wrap to its own line; the controls still hold the edge.
     expect(src).toContain("ml-auto");
+  });
+});
+
+describe("no underlined word performs an action on the editor", () => {
+  /**
+   * An underlined word is not a button in this system (DESIGN_SYSTEM.md §6,
+   * "Row"): the tour editors drew their row actions as underlined words, and
+   * the owner could not tell which words were controls.
+   */
+  it.each([
+    "components/Trips/TourLegList.tsx",
+    "components/Trips/TourTrackList.tsx",
+    "components/Trips/TourPointEditor.tsx",
+    "components/Roadtrips/RoadtripEditActions.tsx",
+    "pages/TripEditPage.tsx",
+  ])("%s", (path) => {
+    // Load-error retries are the one exception and live in their own branch;
+    // match only buttons whose handler is an action prop or a state setter.
+    expect(read(path)).not.toMatch(
+      /<button[^>]*className="[^"]*underline[^"]*"[^>]*onClick=\{\(\) => (on[A-Z]|set)/
+    );
   });
 });
 
