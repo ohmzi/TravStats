@@ -416,6 +416,7 @@
       "views_other": "{{count}} views",
       "revoke": "Revoke",
       "revoked": "Link revoked – it no longer works.",
+      "revokeConfirm": "Really revoke this link? This is irreversible — anyone holding it loses access immediately.",
       "loadFailed": "The links could not be loaded.",
       "saveFailed": "The switch could not be saved."
     },

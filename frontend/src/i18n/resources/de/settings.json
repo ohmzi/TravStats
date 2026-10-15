@@ -928,6 +928,7 @@
     "neverUsed": "noch nie benutzt",
     "addFailed": "Der Passkey konnte nicht angelegt werden.",
     "removeFailed": "Der Passkey konnte nicht entfernt werden.",
+    "removeConfirm": "Diesen Passkey entfernen? Er ist unwiderruflich gelöscht. Wenn er dein einziges Anmeldeverfahren war und du kein Passwort hast, kannst du dich danach nicht mehr anmelden.",
     "insecureOrigin": "Passkeys brauchen HTTPS. Über eine reine LAN-Adresse ohne HTTPS verweigert der Browser sie — erreichbar über den Tunnel funktionieren sie.",
     "notConfigured": "Für Passkeys muss ein Administrator zuerst die öffentliche Adresse dieser Instanz hinterlegen."
   },

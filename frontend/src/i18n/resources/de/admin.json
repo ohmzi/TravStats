@@ -902,6 +902,7 @@
     "partial": "{{accepted}} übernommen. Nicht als Bild erkannt: {{rejected}}",
     "uploadFailed": "Hochladen fehlgeschlagen.",
     "removeFailed": "Entfernen fehlgeschlagen.",
+    "removeConfirm": "Dieses Bild der Anmeldeseite entfernen? Das ist unwiderruflich — das Bild wird dauerhaft gelöscht und lässt sich nicht wiederherstellen.",
     "replacesShipped": "Deine Bilder ersetzen die mitgelieferten vollständig. Lösche alle, um wieder zu den mitgelieferten zurückzukehren.",
     "hint": "Am besten wirken dunkle Hochformat-Fotos mit ruhiger linker Hälfte — dort steht der Text. Auf hellen Fotos wird die Schrift schwer lesbar."
   },

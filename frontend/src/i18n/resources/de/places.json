@@ -245,6 +245,7 @@
     "delete": "Foto löschen",
     "uploadFailed": "Das Foto konnte nicht hochgeladen werden.",
     "deleteFailed": "Das Foto konnte nicht gelöscht werden.",
+    "deleteConfirm": "Dieses Foto löschen? Das ist unwiderruflich — es wird dauerhaft entfernt und kann nicht wiederhergestellt werden.",
     "caption": "Bildunterschrift",
     "captionAdd": "Unterschrift…",
     "captionFailed": "Die Bildunterschrift konnte nicht gespeichert werden.",

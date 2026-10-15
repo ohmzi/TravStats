@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import { Link } from "react-router-dom";
 
 import { useTranslation } from "../../hooks/useTranslation";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { adminApi } from "../../lib/api";
 import { shareLinksApi } from "../../lib/api/shareLinks";
 import { useDisplayFormat } from "../../lib/displayFormat";
@@ -27,6 +28,7 @@ const NS = "sharing:links.section";
  */
 export default function ShareLinksSection({ isAdmin }: { isAdmin: boolean }): JSX.Element {
   const { t } = useTranslation(["sharing"]);
+  const { confirmDelete, confirmDialog } = useConfirmDialog();
   const format = useDisplayFormat();
   const addToast = useToastStore((state) => state.addToast);
   const [list, setList] = useState<ShareLinkList | null>(null);
@@ -63,6 +65,7 @@ export default function ShareLinksSection({ isAdmin }: { isAdmin: boolean }): JS
   };
 
   const revoke = async (link: ShareLink): Promise<void> => {
+    if (!(await confirmDelete(t(`${NS}.revokeConfirm`)))) return;
     setBusy(true);
     try {
       await shareLinksApi.revoke(link.id);
@@ -86,6 +89,7 @@ export default function ShareLinksSection({ isAdmin }: { isAdmin: boolean }): JS
 
   return (
     <SectionCard>
+      {confirmDialog}
       <SectionTitle title={t(`${NS}.title`)} description={t(`${NS}.description`)} />
       <SettingRows>
         {isAdmin && list ? (
