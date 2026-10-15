@@ -138,6 +138,13 @@ Each step is independently shippable and leaves the app consistent.
 Steps 5–8 are the bulk by line count and the least risky by behaviour: they
 change skins and placement, not logic.
 
+**Landed 2026-10-14** (plan: `docs/superpowers/plans/2026-10-14-action-consistency.md`):
+steps 1–4, plus step 7 (`FerryDetailPage`) and the immediate-delete defect below.
+Steps 5, 6 and 8 — the trip/roadtrip edit surface, the journey edit surface and
+the long tail — are NOT done. They come down under the ratchet, opportunistically,
+from whoever is already editing one of those files. That is the ratchet's purpose:
+without it, the same five weeks repeat.
+
 ## What this does not do
 
 - It does not touch the two API response shapes (ADR 0001) — that is a server

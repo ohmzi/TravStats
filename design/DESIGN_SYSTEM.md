@@ -250,7 +250,7 @@ dialog frame itself.
 
 | Primitive | Rule |
 |---|---|
-| `Button` | two variants, primary (amber fill, 52) and secondary (hairline, 46); `danger` only inside a confirm dialog; never mono; label 16/700 |
+| `Button` | three variants: primary (amber fill, 52), secondary (hairline, 46) and `danger` (a tinted outline, never a fill). `danger` appears in a confirm dialog, or on the page-level trigger that opens one — four of the five transport detail headers carry it there, and a delete drawn identically to an edit is a cue that was never given. Never mono; label 16/700. `size="toolbar"` (46) for anything in a row. |
 | `IconButton` | 44×44, radius 14, `surface2`, hairline |
 | `Card` / `Tile` / `HeroCard` | `surface` + hairline radius 16 / `tile` radius 14 / gradient radius 18; no shadow |
 | `Pill` / `StatusPill` | the recipe in 2.6; `StatusPill` takes `status` and `domain` |
@@ -312,17 +312,29 @@ future tense; "fehlgeschlagen", "Fehler", "ungültig" are banned.
 
 ## 10. Enforcement
 
-A system that lives only in a document ages like the ones before it. Four
-checks land with the migration, in the order the handover gives:
+A system that lives only in a document ages like the ones before it. What
+runs, and where:
 
 1. `frontend/scripts/generate-theme.mjs` — the generated CSS is a build
    artefact; a test compares it to a fresh generation so nobody hand-edits it.
-2. A source scan refusing hex literals outside `theme/` and the map layers
-   (ratchet with a frozen list, like the file-size one).
-3. A source scan refusing raw Tailwind palette classes (`text-red-500`,
-   `bg-slate-800`, …) and `dark:` variants outside `theme/`.
-4. A source scan demanding that `fixed inset-0` overlays live only in
-   `components/ui/Dialog.tsx`.
+2. `scripts/check-action-consistency.mjs` (`npm run check:actions`) — one
+   ratchet, five rules, each a per-file count frozen in
+   `scripts/action-consistency-baseline.json`:
+   - `legacy-palette` — a token `index.css` defines and the design system replaced
+   - `legacy-button-utility` — the pre-redesign `.btn-*` classes
+   - `hand-rolled-overlay` — `fixed inset-0` outside `components/ui/Dialog.tsx`
+   - `raw-tailwind-palette` — `text-red-600`, `bg-slate-800`, `dark:` and friends
+   - `code-hex-literal` — a hex colour written past the token layer, guarded so
+     it does not read `forgejo#250` as a colour
+   Entries shrink or leave the list; `--update` refuses to raise one.
+3. `npm run test:actions` — the ratchet's own logic. It exists because the
+   script's guarantees are all comparisons between two maps, and every one of
+   them has a wrong direction that is silent in a green run.
+
+This section listed four checks for five weeks before two of them existed and
+before the three that carry the drift were written. The version above names
+what runs; if that stops being true, this list is the second thing to fix,
+after the check.
 
 ## 11. Open — decided by the owner, not in passing
 
