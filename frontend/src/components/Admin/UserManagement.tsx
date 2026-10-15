@@ -235,6 +235,11 @@ export default function UserManagement({
           />
         )}
       </AnimatePresence>
+      {/* Resetting 2FA removes a protection the user set up, on another person's
+          account — destructive in the sense the variant means. Orange was once
+          asked for here, but it is not a colour this system has (DESIGN_SYSTEM.md §2:
+          accent, good, warn, bad and nothing else), so `danger` says "careful" as
+          precisely as anything available. */}
       <ConfirmModal
         isOpen={!!resetTwoFactorConfirm}
         onClose={() => setResetTwoFactorConfirm(null)}
