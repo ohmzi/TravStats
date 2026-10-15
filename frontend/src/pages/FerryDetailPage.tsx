@@ -130,7 +130,9 @@ export default function FerryDetailPage() {
         actions={
           <>
             <Button onClick={() => setEditing(true)}>{t("ferry:edit")}</Button>
-            <Button onClick={() => setDeleting(true)}>{t("ferry:remove")}</Button>
+            <Button variant="danger" onClick={() => setDeleting(true)}>
+              {t("ferry:remove")}
+            </Button>
           </>
         }
       />
