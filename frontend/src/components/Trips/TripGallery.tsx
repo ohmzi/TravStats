@@ -9,6 +9,7 @@ import ImmichAlbumPicker from "./ImmichAlbumPicker";
 import ImmichAlbumSection from "./ImmichAlbumSection";
 import JourneyPhotosSection from "./JourneyPhotosSection";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import Button from "../ui/Button";
 
 interface TripGalleryProps {
   tripId: string;
@@ -126,7 +127,7 @@ export default function TripGallery({
         <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
           {t("trips:gallery.title")}
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -135,22 +136,19 @@ export default function TripGallery({
             className="hidden"
             onChange={(e) => void handleFileSelect(e)}
           />
-          <button
-            type="button"
+          {/* Black: an upload adds content, it does not commit an edit —
+              amber is Edit and Save (owner, 2026-10-15). */}
+          <Button
+            variant="secondary"
+            size="toolbar"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="px-3 py-1.5 rounded-md text-xs font-medium bg-(--accent) text-(--bg-base) disabled:opacity-50"
           >
             {uploading ? t("common:loading.default") : t("trips:gallery.uploadButton")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowPicker(true)}
-            className="px-3 py-1.5 rounded-md text-xs font-medium border"
-            style={{ borderColor: "var(--color-border)", color: "var(--text-primary)" }}
-          >
+          </Button>
+          <Button variant="secondary" size="toolbar" onClick={() => setShowPicker(true)}>
             {t("immich:albums.link")}
-          </button>
+          </Button>
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import { useToastStore } from "../../store/toastStore";
 import { useIsDemoAccount } from "../../hooks/useIsDemoAccount";
 import { useHasLlm } from "../../hooks/useHasLlm";
 import type { useTranslation } from "../../hooks/useTranslation";
+import Button from "../ui/Button";
 
 /** The two languages the server can write; anything else falls back to German. */
 export function summaryLanguageOf(uiLanguage: string): "de" | "en" {
@@ -141,15 +142,14 @@ export default function SummaryCard({
             {t(`${keyPrefix}.cta`)}
           </div>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="toolbar"
           onClick={() => void generateSummary()}
           disabled={generating}
-          className="px-3 py-1.5 rounded-md text-xs font-medium border disabled:opacity-50"
-          style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
         >
           {generating ? t(`${keyPrefix}.generating`) : t(`${keyPrefix}.generateButton`)}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -168,15 +168,14 @@ export default function SummaryCard({
           {t(`${keyPrefix}.title`)}
         </div>
         {canGenerate && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="toolbar"
             onClick={() => void generateSummary()}
             disabled={generating}
-            className="text-[11px] underline disabled:opacity-50"
-            style={{ color: "var(--text-muted)" }}
           >
             {generating ? t(`${keyPrefix}.generating`) : t(`${keyPrefix}.regenerate`)}
-          </button>
+          </Button>
         )}
       </div>
       <div className="text-sm whitespace-pre-wrap leading-relaxed">{summary}</div>

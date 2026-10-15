@@ -8,6 +8,8 @@ import { ExpandableEventCard } from "../Trip/ExpandableEventCard";
 import JournalBody from "./JournalBody";
 import JournalPhotoRow from "./JournalPhotoRow";
 import type { TimelineEvent } from "../../lib/tripTimelineEvents";
+import { RowActionButton, RowActions as RowIcons } from "../table/RowActionButton";
+import Button from "../ui/Button";
 
 /**
  * The diary entry and the small action strip a trip's timeline draws.
@@ -74,31 +76,14 @@ export function JournalCard({
     >
       <JournalBody body={e.body} />
       <JournalPhotoRow photos={e.photos ?? []} />
-      <div className="mt-2 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={onView}
-          className="rounded-lg px-3 py-1.5 text-xs font-medium"
-          style={{ border: "1px solid var(--accent)", color: "var(--accent)" }}
-        >
+      <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+        <Button variant="secondary" size="toolbar" onClick={onView}>
           {t("trips:detail.timeline.openJournal")}
-        </button>
-        <button
-          type="button"
-          onClick={onEdit}
-          className="rounded-lg px-3 py-1.5 text-xs"
-          style={{ border: "1px solid var(--color-border)", color: "var(--text-muted)" }}
-        >
-          {t("common:buttons.edit")}
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="rounded-lg px-3 py-1.5 text-xs"
-          style={{ border: "1px solid var(--color-border)", color: "var(--text-muted)" }}
-        >
-          {t("common:buttons.delete")}
-        </button>
+        </Button>
+        <RowIcons>
+          <RowActionButton icon="edit" label={t("common:buttons.edit")} onClick={onEdit} />
+          <RowActionButton icon="delete" label={t("common:buttons.delete")} onClick={onDelete} />
+        </RowIcons>
       </div>
     </ExpandableEventCard>
   );
@@ -115,39 +100,12 @@ export function RowActions({
 }): JSX.Element {
   const { t } = useTranslation(["common"]);
   return (
-    <div className="flex gap-1 mt-1">
+    <RowIcons>
       {onView && (
-        <button
-          type="button"
-          onClick={onView}
-          className="text-[11px] px-1.5 py-0.5 rounded-sm"
-          style={{ color: "var(--text-muted)" }}
-          aria-label={t("common:accessibility.view")}
-          title="view"
-        >
-          👁
-        </button>
+        <RowActionButton icon="view" label={t("common:accessibility.view")} onClick={onView} />
       )}
-      <button
-        type="button"
-        onClick={onEdit}
-        className="text-[11px] px-1.5 py-0.5 rounded-sm"
-        style={{ color: "var(--text-muted)" }}
-        aria-label={t("common:buttons.edit")}
-        title="edit"
-      >
-        ✎
-      </button>
-      <button
-        type="button"
-        onClick={onDelete}
-        className="text-[11px] px-1.5 py-0.5 rounded-sm"
-        style={{ color: "var(--danger)" }}
-        aria-label={t("common:buttons.delete")}
-        title="delete"
-      >
-        ✕
-      </button>
-    </div>
+      <RowActionButton icon="edit" label={t("common:buttons.edit")} onClick={onEdit} />
+      <RowActionButton icon="delete" label={t("common:buttons.delete")} onClick={onDelete} />
+    </RowIcons>
   );
 }

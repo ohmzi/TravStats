@@ -1,5 +1,4 @@
 import { useState, type JSX } from "react";
-import { Link } from "react-router-dom";
 
 import { useTranslation } from "../../hooks/useTranslation";
 import { notePhotoSrc } from "../../lib/api/notes";
@@ -7,6 +6,9 @@ import { formatTimelineDate } from "../../lib/tripTimeline";
 import { formatDayLong } from "../../shared/time";
 import type { TimelineEvent } from "../../lib/tripTimelineEvents";
 import { ExpandableEventCard } from "../Trip/ExpandableEventCard";
+import { RowActionButton } from "../table/RowActionButton";
+import ActionLink from "../ui/ActionLink";
+import Button from "../ui/Button";
 
 /**
  * A standalone note on a trip's timeline (forgejo#146), at its moment on the
@@ -18,8 +20,6 @@ function headline(body: string): string {
   const firstLine = body.split("\n")[0].trim();
   return firstLine.length <= 60 ? firstLine : `${firstLine.slice(0, 59).trimEnd()}…`;
 }
-
-const ACTION_STYLE = { border: "1px solid var(--color-border)", color: "var(--text-muted)" };
 
 export function TimelineNoteCard({
   ev,
@@ -71,18 +71,9 @@ export function TimelineNoteCard({
         />
       )}
       {ev.mine ? (
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={onEdit}
-            className="rounded-lg px-3 py-1.5 text-xs"
-            style={ACTION_STYLE}
-          >
-            {t("notes:card.edit")}
-          </button>
-          <Link to="/notes" className="rounded-lg px-3 py-1.5 text-xs" style={ACTION_STYLE}>
-            {t("trips:detail.timeline.note.allNotes")}
-          </Link>
+        <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+          <ActionLink to="/notes">{t("trips:detail.timeline.note.allNotes")}</ActionLink>
+          <RowActionButton icon="edit" label={t("notes:card.edit")} onClick={onEdit} />
         </div>
       ) : (
         <p className="t-caption mt-2">{t("trips:detail.timeline.note.memberHint")}</p>
@@ -106,14 +97,9 @@ export function TripNotesNotice({
     return (
       <div role="alert" className="t-caption mb-3 flex flex-wrap items-center gap-2">
         {t("trips:detail.timeline.note.loadFailed")}
-        <button
-          type="button"
-          onClick={onRetry}
-          className="rounded-lg px-3 py-1.5 text-xs"
-          style={ACTION_STYLE}
-        >
+        <Button variant="secondary" size="toolbar" onClick={onRetry}>
           {t("trips:detail.timeline.note.retry")}
-        </button>
+        </Button>
       </div>
     );
   }

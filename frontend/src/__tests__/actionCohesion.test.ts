@@ -172,3 +172,36 @@ describe("a flight trip is edited on its own page", () => {
     expect(src).not.toContain("to={`/trips/${trip.id}/edit`}");
   });
 });
+
+describe("the journey's tabs draw the shared controls, at the right", () => {
+  /**
+   * Owner, 2026-10-15: "go through flight trip, road trip and journey, all of
+   * the regular screen … the interactable buttons should be on the right side
+   * of screen … should be same design and size". These were hand-rolled 12px
+   * outlines and underlined words; the gallery's Upload was a second amber.
+   */
+  const TAB_CONTROLS = [
+    "components/Trips/TimelineActions.tsx",
+    "components/Trips/TripGallery.tsx",
+    "components/Trips/ImmichAlbumSection.tsx",
+    "components/Trips/SummaryCard.tsx",
+    "components/Trips/TimelineJournalCard.tsx",
+    "components/Trips/TimelineNoteCard.tsx",
+  ] as const;
+
+  it.each(TAB_CONTROLS)("%s draws no hand-rolled or underlined action", (path) => {
+    const src = read(path);
+    expect(src).not.toContain("bg-(--accent)");
+    expect(src).not.toMatch(/borderColor: "var\(--accent\)"/);
+    expect(src).not.toMatch(/border: "1px solid var\(--accent\)"/);
+    expect(src).not.toMatch(/<button[^>]*className="[^"]*underline/);
+    expect(src).not.toMatch(/className="px-3 py-1\.5 rounded/);
+  });
+
+  it.each(["components/Trips/TimelineActions.tsx", "components/Trips/TripGallery.tsx"])(
+    "%s ends its action row right",
+    (path) => {
+      expect(read(path)).toMatch(/justify-end|ml-auto/);
+    }
+  );
+});

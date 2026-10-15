@@ -15,9 +15,7 @@ import { logger } from "../../lib/logger";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useToastStore } from "../../store/toastStore";
 import type { TripJournalEntry } from "../../types";
-
-const BUTTON =
-  "px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:border-(--accent) hover:text-(--accent) disabled:opacity-50";
+import Button from "../ui/Button";
 
 /**
  * The actions above a trip's timeline: a new journal entry, and — where the
@@ -106,16 +104,15 @@ export default function TimelineActions({
     }
   };
 
-  const style = { borderColor: "var(--color-border)", color: "var(--text-muted)" };
   return (
-    <div className="mb-4 flex gap-2 flex-wrap">
-      <button type="button" onClick={onAddJournal} className={BUTTON} style={style}>
+    <div className="mb-4 flex flex-wrap justify-end gap-2">
+      <Button variant="secondary" size="toolbar" onClick={onAddJournal}>
         {t("trips:detail.timeline.addJournal")}
-      </button>
+      </Button>
       {attachableDomains.length > 0 && (
-        <button type="button" onClick={() => setPicking(true)} className={BUTTON} style={style}>
+        <Button variant="secondary" size="toolbar" onClick={() => setPicking(true)}>
           {t("trips:detail.timeline.addEntry")}
-        </button>
+        </Button>
       )}
       {picking && (
         <AddExistingEntryModal
@@ -128,15 +125,14 @@ export default function TimelineActions({
         />
       )}
       {openData && missing && (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="toolbar"
           onClick={() => void fillWeather()}
           disabled={filling}
-          className={BUTTON}
-          style={style}
         >
           {filling ? t("openData:weather.filling") : t("openData:weather.fill")}
-        </button>
+        </Button>
       )}
     </div>
   );

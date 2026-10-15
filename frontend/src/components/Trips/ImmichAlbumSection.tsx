@@ -6,6 +6,7 @@ import { groupByDay } from "../../lib/galleryGrouping";
 import { useLocale } from "../../hooks/useLocale";
 import type { ImmichGalleryAsset, ImportJob, LinkedAlbum } from "../../types/immich";
 import PhotoLightbox, { type LightboxItem } from "./PhotoLightbox";
+import Button from "../ui/Button";
 
 const JOB_POLL_MS = 1500;
 
@@ -286,7 +287,7 @@ export default function ImmichAlbumSection({ tripId, album, onChanged }: Props):
                 aria-checked={showGroups}
                 aria-label={t("albums.groupByDay")}
                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${
-                  showGroups ? "bg-(--accent)" : "bg-gray-600"
+                  showGroups ? "bg-(--ts-accent)" : "bg-gray-600"
                 }`}
                 onClick={() => {
                   const next = !groupByDayEnabled;
@@ -307,20 +308,20 @@ export default function ImmichAlbumSection({ tripId, album, onChanged }: Props):
             </label>
           )}
           {album.mode === "import" && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="toolbar"
               disabled={syncing}
-              className="text-xs underline disabled:opacity-40"
               onClick={() => void handleResync()}
             >
               {syncing && progress
                 ? t("albums.resyncing", { done: progress.done, total: progress.total })
                 : t("albums.resync")}
-            </button>
+            </Button>
           )}
-          <button type="button" className="text-xs underline" onClick={onUnlinkClick}>
+          <Button variant="secondary" size="toolbar" onClick={onUnlinkClick}>
             {t("albums.unlink")}
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -331,18 +332,14 @@ export default function ImmichAlbumSection({ tripId, album, onChanged }: Props):
       )}
 
       {confirmingUnlink && (
-        <div className="mb-2 flex gap-2 rounded-sm border border-slate-600 p-2 text-sm">
+        <div className="mb-2 flex flex-wrap items-center justify-end gap-2 rounded-sm border border-slate-600 p-2 text-sm">
           <span className="flex-1">{t("albums.unlinkTitle")}</span>
-          <button type="button" className="underline" onClick={() => void handleUnlink(false)}>
+          <Button variant="secondary" size="toolbar" onClick={() => void handleUnlink(false)}>
             {t("albums.unlinkKeepCopies")}
-          </button>
-          <button
-            type="button"
-            className="text-rose-400 underline"
-            onClick={() => void handleUnlink(true)}
-          >
+          </Button>
+          <Button variant="danger" size="toolbar" onClick={() => void handleUnlink(true)}>
             {t("albums.unlinkDeleteCopies")}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -350,9 +347,11 @@ export default function ImmichAlbumSection({ tripId, album, onChanged }: Props):
         <div className="rounded-sm border border-slate-700 bg-slate-900/60 p-4 text-sm">
           <p className="text-rose-400">{t(failure)}</p>
           {failure !== "errors.notFound" && (
-            <button type="button" className="mt-2 underline" onClick={() => void load()}>
-              {t("errors.retry")}
-            </button>
+            <div className="mt-2 flex justify-end">
+              <Button variant="secondary" size="toolbar" onClick={() => void load()}>
+                {t("errors.retry")}
+              </Button>
+            </div>
           )}
         </div>
       ) : showGroups ? (
