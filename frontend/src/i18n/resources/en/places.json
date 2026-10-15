@@ -245,6 +245,7 @@
     "delete": "Delete photo",
     "uploadFailed": "The photo could not be uploaded.",
     "deleteFailed": "The photo could not be deleted.",
+    "deleteConfirm": "Delete this photo? This is irreversible — it is removed permanently and cannot be restored.",
     "caption": "Caption",
     "captionAdd": "Caption…",
     "captionFailed": "The caption could not be saved.",

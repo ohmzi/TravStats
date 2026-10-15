@@ -416,6 +416,7 @@
       "views_other": "{{count}} Aufrufe",
       "revoke": "Widerrufen",
       "revoked": "Link widerrufen – er funktioniert nicht mehr.",
+      "revokeConfirm": "Diesen Link wirklich widerrufen? Das ist unwiderruflich — jeder, der ihn besitzt, verliert sofort den Zugriff.",
       "loadFailed": "Die Links konnten nicht geladen werden.",
       "saveFailed": "Der Schalter konnte nicht gespeichert werden."
     },

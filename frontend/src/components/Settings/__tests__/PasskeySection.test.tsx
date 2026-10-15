@@ -17,6 +17,18 @@ vi.mock("../../../hooks/useTranslation", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }));
 
+// Removing a passkey now asks first, so the suite answers the question rather
+// than stubbing the component's own copy of it. That the dialog is rendered at
+// all is pinned in destructiveAsks.test.ts; what this file is about is what
+// happens after the answer is yes.
+vi.mock("../../../hooks/useConfirmDialog", () => ({
+  useConfirmDialog: () => ({
+    confirm: vi.fn(),
+    confirmDelete: vi.fn().mockResolvedValue(true),
+    confirmDialog: null,
+  }),
+}));
+
 import PasskeySection from "../PasskeySection";
 
 describe("PasskeySection", () => {

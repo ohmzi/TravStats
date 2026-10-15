@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 import { useTranslation } from "../../hooks/useTranslation";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import {
   listMemberships,
   createMembership,
@@ -114,6 +115,7 @@ export function MembershipManager({
   hideTitle = false,
 }: MembershipManagerProps): JSX.Element {
   const { t } = useTranslation(["lodging", "common"]);
+  const { confirmDelete, confirmDialog } = useConfirmDialog();
   const [memberships, setMemberships] = useState<LodgingMembership[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -313,6 +315,7 @@ export function MembershipManager({
   };
 
   const remove = async (id: string): Promise<void> => {
+    if (!(await confirmDelete(t("lodging:membership.deleteConfirm")))) return;
     try {
       await deleteMembership(id);
       await load(true);
@@ -345,6 +348,7 @@ export function MembershipManager({
 
   return (
     <div className="space-y-3" data-testid="membership-manager">
+      {confirmDialog}
       <div
         className="flex items-center justify-between gap-3"
         hidden={hideTitle && !sharedWithLabel}

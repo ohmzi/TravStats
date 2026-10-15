@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { useTranslation } from "../../hooks/useTranslation";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { logger } from "../../lib/logger";
 import { useToastStore } from "../../store/toastStore";
 
@@ -54,6 +55,7 @@ export function PhotoStrip<T extends StripPhoto>({
   footer,
 }: Props<T>): JSX.Element {
   const { t } = useTranslation(["places", "common"]);
+  const { confirmDelete, confirmDialog } = useConfirmDialog();
   const addToast = useToastStore((s) => s.addToast);
   const inputRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<T[]>(photos);
@@ -83,6 +85,9 @@ export function PhotoStrip<T extends StripPhoto>({
 
   const handleDelete = useCallback(
     async (photoId: string): Promise<void> => {
+      // No undo exists — `onDelete` is a hard server delete (VisitPhotoStrip,
+      // LodgingPhotoSection both pass a plain DELETE), so the question stands.
+      if (!(await confirmDelete(t("places:photos.deleteConfirm")))) return;
       try {
         await onDelete(photoId);
         setRows((prev) => prev.filter((p) => p.id !== photoId));
@@ -91,7 +96,7 @@ export function PhotoStrip<T extends StripPhoto>({
         addToast("error", t("places:photos.deleteFailed"));
       }
     },
-    [onDelete, context, addToast, t]
+    [onDelete, context, addToast, t, confirmDelete]
   );
 
   /**
@@ -126,6 +131,7 @@ export function PhotoStrip<T extends StripPhoto>({
 
   return (
     <>
+      {confirmDialog}
       <div className="mt-2 flex flex-wrap items-end gap-2">
         {rows.map((photo) => (
           <span

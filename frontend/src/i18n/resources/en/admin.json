@@ -902,6 +902,7 @@
     "partial": "{{accepted}} kept. Not recognised as images: {{rejected}}",
     "uploadFailed": "Upload failed.",
     "removeFailed": "Could not remove the image.",
+    "removeConfirm": "Remove this sign-in page image? This is irreversible — the image is deleted permanently and cannot be restored.",
     "replacesShipped": "Your images replace the shipped ones entirely. Remove them all to go back to the shipped set.",
     "hint": "Dark portrait photographs with a quiet left half work best — that is where the text sits. On bright ones the text becomes hard to read."
   },

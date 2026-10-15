@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 
 import { useTranslation } from "../../hooks/useTranslation";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useIsDemoAccount } from "../../hooks/useIsDemoAccount";
 import { passkeyApi, type Passkey, type PasskeyUnavailableReason } from "../../lib/api";
 import { logger } from "../../lib/logger";
@@ -28,6 +29,7 @@ function isUserCancellation(error: unknown): boolean {
 
 export default function PasskeySection(): JSX.Element {
   const { t } = useTranslation(["settings", "common"]);
+  const { confirmDelete, confirmDialog } = useConfirmDialog();
   const isDemo = useIsDemoAccount();
   const [available, setAvailable] = useState<boolean | null>(null);
   const [reason, setReason] = useState<PasskeyUnavailableReason | null>(null);
@@ -92,6 +94,7 @@ export default function PasskeySection(): JSX.Element {
   };
 
   const remove = async (id: string): Promise<void> => {
+    if (!(await confirmDelete(t("settings:passkeys.removeConfirm")))) return;
     setError(null);
     try {
       await passkeyApi.remove(id);
@@ -106,6 +109,7 @@ export default function PasskeySection(): JSX.Element {
 
   return (
     <div className="flex flex-col" style={{ gap: "var(--ts-space-md)" }}>
+      {confirmDialog}
       <SettingRow
         title={t("settings:passkeys.title")}
         sub={t("settings:passkeys.description")}

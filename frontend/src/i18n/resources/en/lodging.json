@@ -280,6 +280,7 @@
     "saveError": "Could not save loyalty program",
     "duplicateError": "This program is already on file",
     "deleteError": "Could not delete loyalty program",
+    "deleteConfirm": "Delete this loyalty program? Its chain links go with it. Your stays are kept — they simply lose the link to this program.",
     "extendExisting": "Extend \"{{name}}\" to cover this chain instead",
     "leavesThisChain": "This chain is no longer ticked: after saving, the programme will not appear on this chain page any more. It is kept and stays reachable under Settings → Loyalty programmes."
   },

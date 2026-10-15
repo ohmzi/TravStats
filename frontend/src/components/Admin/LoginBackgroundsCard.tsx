@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "../../hooks/useTranslation";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import {
   deleteLoginBackground,
   getLoginBackgrounds,
@@ -23,6 +24,7 @@ import { useToastStore } from "../../store/toastStore";
  */
 export function LoginBackgroundsCard(): JSX.Element {
   const { t } = useTranslation(["admin", "common"]);
+  const { confirmDelete, confirmDialog } = useConfirmDialog();
   // Selector form: the suites that mock this store hand the hook a selector
   // and call it, so a bare `useToastStore()` throws there.
   const addToast = useToastStore((s) => s.addToast);
@@ -78,6 +80,7 @@ export function LoginBackgroundsCard(): JSX.Element {
   };
 
   const handleRemove = async (name: string): Promise<void> => {
+    if (!(await confirmDelete(t("admin:loginBackgrounds.removeConfirm")))) return;
     setBusy(true);
     try {
       setBackgrounds(await deleteLoginBackground(name));
@@ -90,6 +93,7 @@ export function LoginBackgroundsCard(): JSX.Element {
 
   return (
     <div className="border-t border-(--border) pt-6">
+      {confirmDialog}
       <h3 className="text-base font-semibold text-(--text-primary)">
         {t("admin:loginBackgrounds.title")}
       </h3>
