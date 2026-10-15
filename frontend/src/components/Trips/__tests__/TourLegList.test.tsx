@@ -296,6 +296,13 @@ describe("TourLegList", () => {
     expect(btn.style.height).toBe("var(--ts-size-button-secondary)");
   });
 
+  it("keeps a leg's clear icon at the row's right edge when the row wraps", () => {
+    renderList([makeLeg({})]);
+
+    const clear = screen.getByRole("button", { name: "trips:tours.clearLeg" });
+    expect(clear.parentElement).toHaveClass("ml-auto");
+  });
+
   it("still draws the heading when there are no legs yet", () => {
     renderList([]);
     expect(screen.getByRole("heading", { name: "trips:tours.legsHeading" })).toBeInTheDocument();

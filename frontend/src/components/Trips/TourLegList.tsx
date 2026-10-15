@@ -283,12 +283,16 @@ export default function TourLegList({
                   {t("trips:tours.tracks.noCoverageReason")}
                 </span>
               )}
-              <RowActionButton
-                icon="clear"
-                label={t("trips:tours.clearLeg")}
-                disabled={leg.source === "straight"}
-                onClick={() => onClear(leg)}
-              />
+              {/* `ml-auto`: the row wraps, and a lone icon on a line of its own
+                  would otherwise sit at the start, not at the row's end. */}
+              <span className="ml-auto">
+                <RowActionButton
+                  icon="clear"
+                  label={t("trips:tours.clearLeg")}
+                  disabled={leg.source === "straight"}
+                  onClick={() => onClear(leg)}
+                />
+              </span>
             </li>
           );
         })}
