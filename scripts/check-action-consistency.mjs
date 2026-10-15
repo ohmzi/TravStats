@@ -137,6 +137,47 @@ const TAILWIND_PALETTE_PROPERTIES = [
   "caret",
 ];
 
+/**
+ * A colour literal, and NOT an issue reference.
+ *
+ * The obvious pattern — `#[0-9a-fA-F]{3,8}` — counts `forgejo#250` and `#257`,
+ * because every decimal digit is also a hex digit. This codebase's comments are
+ * full of tracker references, so the naive version freezes hundreds of them and
+ * then fails on the next one somebody writes. Three guards, each earning its
+ * place:
+ *
+ *   1. `(?<![\w-])` — not preceded by a word character or a hyphen, which is
+ *      what kills `forgejo#250` (the `o` precedes the `#`).
+ *   2. The 6- and 8-digit forms are unambiguous: no issue number is written
+ *      with six digits before a non-word character.
+ *   3. The 3- and 4-digit forms must contain at least one a-f letter. `#fff`
+ *      and `#f5f5` are colours; `#257`, `#36` and `#294` are issues, and every
+ *      issue number in this repo is all-decimal. The letter is the only
+ *      discriminator there is: `#333` and `#257` are the same string shape.
+ *
+ * What it therefore misses: an all-decimal short form such as `#333` or `#000`.
+ * That is the deliberate trade — a miss costs one occurrence, a false positive
+ * costs a red build on a comment.
+ */
+const HEX_COLOUR_PATTERN = new RegExp(
+  "(?<![\\w-])#(?:" +
+    "[0-9a-fA-F]{6,8}" +
+    "|(?=[0-9a-fA-F]{3,4}(?![\\w-]))(?=[0-9a-fA-F]*[a-fA-F])[0-9a-fA-F]{3,4}" +
+    ")(?![\\w-])",
+  "g"
+);
+
+/** The design system defines the colours; the map kit sits over imagery, not over app surfaces. */
+function isThemeOrMapLayer(path) {
+  return (
+    path.startsWith(DESIGN_SYSTEM_HOME) ||
+    path === "frontend/src/index.css" ||
+    path.startsWith("frontend/src/components/Globe/") ||
+    path.startsWith("frontend/src/components/map/") ||
+    path.startsWith("frontend/src/components/layers/")
+  );
+}
+
 const RULES = [
   {
     id: "legacy-palette",
@@ -180,6 +221,16 @@ const RULES = [
       "g"
     ),
     excluded: (path) => path.startsWith(DESIGN_SYSTEM_HOME),
+  },
+  {
+    id: "code-hex-literal",
+    title: "HEX COLOUR LITERAL — a colour written past the token layer",
+    remedy:
+      "Take the value from `theme/tokens.css`; if the token you need is missing, it " +
+      "belongs in design/tokens.json first. The map control kit and the globe are the " +
+      "one exception, and are excluded by path.",
+    pattern: HEX_COLOUR_PATTERN,
+    excluded: isThemeOrMapLayer,
   },
 ];
 
@@ -402,4 +453,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   process.exit(main());
 }
 
-export { RULES, measureAll, verifyRule, wouldRaise, sortByCountDescending };
+export {
+  RULES,
+  measureAll,
+  verifyRule,
+  wouldRaise,
+  sortByCountDescending,
+  HEX_COLOUR_PATTERN,
+  isThemeOrMapLayer,
+};

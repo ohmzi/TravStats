@@ -102,3 +102,48 @@ describe("sortByCountDescending", () => {
     expect(Object.keys(sorted)).toEqual(["a.tsx", "b.tsx", "c.tsx"]);
   });
 });
+
+describe("the hex-literal rule", () => {
+  const hexRule = RULES.find((rule) => rule.id === "code-hex-literal");
+  const hits = (source) => source.match(hexRule.pattern) ?? [];
+
+  it("exists", () => {
+    expect(hexRule).toBeDefined();
+  });
+
+  it("does not read an issue reference as a colour", () => {
+    // The reason this rule was missing for a month. `#[0-9a-fA-F]{3,8}`
+    // matches `forgejo#250` and `#257` — every tracker reference in a comment
+    // whose digits are hex-valid, which is all of them. A ratchet that froze
+    // those would fail the next issue reference somebody wrote in a file it
+    // had already baselined, and the honest response to a red build is to
+    // write fewer comments.
+    expect(hits("// the costs (forgejo#140) moved to the Logistics tab")).toEqual([]);
+    expect(hits("// #257: a selected flight must not survive into the next render")).toEqual([]);
+    expect(hits("* (forgejo#244): the page reads only the")).toEqual([]);
+    expect(hits("see #36 and #294")).toEqual([]);
+  });
+
+  it("reads a real colour literal, quoted or not", () => {
+    expect(hits('style={{ background: "var(--accent)", color: "#0d1117" }}')).toEqual(["#0d1117"]);
+    expect(hits("<div style={{ color: 'var(--fx, #6ab7d8)' }}")).toEqual(["#6ab7d8"]);
+    expect(hits("background: #fff;")).toEqual(["#fff"]);
+  });
+
+  it("reads the short form only when it carries a letter", () => {
+    // `#fff` is a colour; `#333` and `#257` are both three decimal digits and
+    // no regex can tell them apart, so neither is matched. The letter is the
+    // only discriminator that costs zero false positives.
+    expect(hits("border-color: #fff")).toEqual(["#fff"]);
+    expect(hits("border-color: #333")).toEqual([]);
+    expect(hits("border-color: #257")).toEqual([]);
+  });
+
+  it("leaves the theme and the map kit alone — they are the colour definitions", () => {
+    expect(hexRule.excluded("frontend/src/theme/tokens.css")).toBe(true);
+    expect(hexRule.excluded("frontend/src/theme/tokens.ts")).toBe(true);
+    expect(hexRule.excluded("frontend/src/components/Globe/globeStyles.ts")).toBe(true);
+    expect(hexRule.excluded("frontend/src/components/map/controlPanelKit.tsx")).toBe(true);
+    expect(hexRule.excluded("frontend/src/pages/FerryPage.tsx")).toBe(false);
+  });
+});
