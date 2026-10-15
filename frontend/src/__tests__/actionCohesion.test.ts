@@ -91,11 +91,16 @@ describe("every action row ends at the right edge", () => {
 
   it.each(ACTION_ROWS)("%s aligns its controls to the end", (path) => {
     const src = read(path);
-    // One of the two sanctioned ways to reach the right edge: the shared
-    // footer (which owns `justify-end`), or an explicit right alignment where
-    // a footer would be wrong (a row of inputs with a Save beside them, the
-    // legs list's own toolbar).
-    const endsRight = src.includes("FormFooter") || /justify-end/.test(src) || /ml-auto/.test(src);
+    // One of the sanctioned ways to reach the right edge: the shared footer
+    // (which owns `justify-end`), the section header (which owns the `ml-auto`
+    // on its action group — the legs list's "Route the whole tour" lives
+    // there), or an explicit right alignment where neither fits (a row of
+    // inputs with a Save beside them).
+    const endsRight =
+      src.includes("FormFooter") ||
+      src.includes("<SectionHeader") ||
+      /justify-end/.test(src) ||
+      /ml-auto/.test(src);
     expect(endsRight).toBe(true);
   });
 

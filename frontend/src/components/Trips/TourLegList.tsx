@@ -1,4 +1,7 @@
 import { useTranslation } from "../../hooks/useTranslation";
+import { RowActionButton } from "../table/RowActionButton";
+import Button from "../ui/Button";
+import SectionHeader from "../ui/SectionHeader";
 import {
   LEG_MODES,
   isRoutableLegMode,
@@ -24,6 +27,10 @@ interface LegSourceOption {
 }
 
 interface Props {
+  /** The section's heading. The list draws it itself so "Route the whole
+   *  tour" can sit on the same line; the page used to draw an `<h2>` above and
+   *  this component drew the button in a row of its own below it. */
+  title: string;
   legs: TourLeg[];
   stopTitleById: ReadonlyMap<string, string>;
   /** Whether a routing provider is configured and usable right now — see
@@ -150,6 +157,7 @@ function buildOptions(
  * action to route every routable leg of the section at once.
  */
 export default function TourLegList({
+  title,
   legs,
   stopTitleById,
   routingAvailable,
@@ -166,25 +174,41 @@ export default function TourLegList({
 }: Props): JSX.Element {
   const { t } = useTranslation();
 
+  // Above the early return: the heading belongs to the section, not to the
+  // legs, so a tour that has none yet still shows what the section is.
+  const header = (
+    <SectionHeader
+      title={title}
+      actions={
+        legs.length > 0 ? (
+          <Button
+            variant="secondary"
+            size="toolbar"
+            disabled={routingAllInProgress || !routingAvailable}
+            title={routingAvailable ? undefined : t("trips:tours.routing.unavailableReason")}
+            onClick={onRouteAll}
+          >
+            {routingAllInProgress
+              ? t("trips:tours.routing.routingAll")
+              : t("trips:tours.routing.routeAll")}
+          </Button>
+        ) : undefined
+      }
+    />
+  );
+
   if (legs.length === 0) {
-    return <p className="text-sm text-(--text-muted)">{t("trips:tours.noLegs")}</p>;
+    return (
+      <div>
+        {header}
+        <p className="text-sm text-(--text-muted)">{t("trips:tours.noLegs")}</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <button
-          type="button"
-          disabled={routingAllInProgress || !routingAvailable}
-          title={routingAvailable ? undefined : t("trips:tours.routing.unavailableReason")}
-          className="rounded-sm border border-(--color-border) px-3 py-1.5 text-xs hover:bg-(--bg-surface) disabled:opacity-40 pointer-coarse:min-h-(--ts-size-touch-min)"
-          onClick={onRouteAll}
-        >
-          {routingAllInProgress
-            ? t("trips:tours.routing.routingAll")
-            : t("trips:tours.routing.routeAll")}
-        </button>
-      </div>
+      {header}
       <ul className="space-y-2">
         {legs.map((leg) => {
           const hasLine = leg.waypoints !== null && leg.waypoints.length >= 2;
@@ -259,14 +283,12 @@ export default function TourLegList({
                   {t("trips:tours.tracks.noCoverageReason")}
                 </span>
               )}
-              <button
-                type="button"
+              <RowActionButton
+                icon="clear"
+                label={t("trips:tours.clearLeg")}
                 disabled={leg.source === "straight"}
-                className="text-xs underline disabled:opacity-40 disabled:no-underline pointer-coarse:min-h-(--ts-size-touch-min)"
                 onClick={() => onClear(leg)}
-              >
-                {t("trips:tours.clearLeg")}
-              </button>
+              />
             </li>
           );
         })}

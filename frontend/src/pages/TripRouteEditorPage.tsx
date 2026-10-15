@@ -627,8 +627,8 @@ export default function TripRouteEditorPage(): JSX.Element {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold mb-3">{t("trips:tours.legsHeading")}</h2>
           <TourLegList
+            title={t("trips:tours.legsHeading")}
             legs={legs}
             stopTitleById={stopTitleById}
             routingAvailable={routingAvailable}

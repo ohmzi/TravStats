@@ -62,7 +62,14 @@ function renderList(legs: TourLeg[], overrides: RenderOverrides = {}) {
     modeChangeInFlightLegId: null,
     ...overrides,
   };
-  render(<TourLegList legs={legs} stopTitleById={STOP_TITLES} {...props} />);
+  render(
+    <TourLegList
+      title="trips:tours.legsHeading"
+      legs={legs}
+      stopTitleById={STOP_TITLES}
+      {...props}
+    />
+  );
   return props;
 }
 
@@ -219,6 +226,7 @@ describe("TourLegList", () => {
     const straightLeg = makeLeg({ source: "straight" });
     const { rerender } = render(
       <TourLegList
+        title="trips:tours.legsHeading"
         legs={[straightLeg]}
         stopTitleById={STOP_TITLES}
         routingAvailable={false}
@@ -243,6 +251,7 @@ describe("TourLegList", () => {
     });
     rerender(
       <TourLegList
+        title="trips:tours.legsHeading"
         legs={[drawnLeg]}
         stopTitleById={STOP_TITLES}
         routingAvailable={false}
@@ -275,6 +284,21 @@ describe("TourLegList", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "trips:tours.routing.routeAll" }));
     expect(props.onRouteAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("puts Route the whole tour on the section's title line, as the shared button", () => {
+    renderList([makeLeg({})], { routingAvailable: true });
+
+    const heading = screen.getByRole("heading", { name: "trips:tours.legsHeading" });
+    const btn = screen.getByRole("button", { name: "trips:tours.routing.routeAll" });
+    expect(heading.parentElement!.contains(btn)).toBe(true);
+    expect(btn).toHaveAttribute("data-variant", "secondary");
+    expect(btn.style.height).toBe("var(--ts-size-button-secondary)");
+  });
+
+  it("still draws the heading when there are no legs yet", () => {
+    renderList([]);
+    expect(screen.getByRole("heading", { name: "trips:tours.legsHeading" })).toBeInTheDocument();
   });
 
   it("shows a busy label and disables the 'route all' button while a batch request is in flight", () => {
