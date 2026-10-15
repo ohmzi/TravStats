@@ -55,6 +55,13 @@ jobs:
       - name: Action-consistency ratchet
         run: npm run check:actions
 
+      # The ratchet's own logic, pinned as a unit: `verifyRule` and `wouldRaise`
+      # each have exactly one wrong direction that a green run would never show.
+      # It was runnable but unwired until today — without this step the pins
+      # were dead code and the guard could invert silently.
+      - name: Action-consistency ratchet tests
+        run: npm run test:actions
+
   schema-drift:
     name: Prisma schema drift
     runs-on: homelab-docker

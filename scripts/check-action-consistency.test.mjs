@@ -64,8 +64,16 @@ describe("wouldRaise", () => {
     ]);
   });
 
-  it("allows a new entry and a shrunken one", () => {
-    expect(wouldRaise(legacyRule, { "new.tsx": 9, "a.tsx": 1 }, { "a.tsx": 3 })).toEqual([]);
+  it("refuses a brand-new offender — skipping it was how --update laundered regressions", () => {
+    expect(wouldRaise(legacyRule, { "new.tsx": 9, "a.tsx": 1 }, { "a.tsx": 3 })).toEqual([
+      { path: "new.tsx", count: 9, allowed: 0 },
+    ]);
+  });
+
+  it("still records every path on a rule's first freeze, so bootstrapping and new rules can land", () => {
+    // `code-hex-literal` entered the baseline this way; refusing its first
+    // freeze would make adding a rule impossible.
+    expect(wouldRaise(legacyRule, { "new.tsx": 9 }, {}, true)).toEqual([]);
   });
 });
 

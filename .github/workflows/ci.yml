@@ -112,6 +112,15 @@ jobs:
       - name: Action-consistency ratchet
         run: npm run check:actions
 
+      # The ratchet's own logic, pinned as a unit: `verifyRule` and `wouldRaise`
+      # each have exactly one wrong direction that a green run would never show,
+      # so the pins are the only thing standing between the guarantee and a
+      # silent inversion. It was runnable but unwired until today — the same
+      # shape as the file-size ratchet above, and it fails this job if the
+      # guard itself regresses.
+      - name: Action-consistency ratchet tests
+        run: npm run test:actions
+
   # ---------------------------------------------------------------------
   # forgejo#60. Answers one question: does schema.prisma agree with what the
   # migrations actually build? `--from-migrations` replays them into a shadow

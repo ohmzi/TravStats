@@ -339,12 +339,20 @@ function verifyRule(rule, measured, baseline) {
  * this list is refused rather than recorded, so `--update` cannot be used to
  * launder a regression — without this check the convenience path is a way to
  * lower the ratchet one "I'll fix it later" at a time.
+ *
+ * An absent path is treated as `allowed: 0`, the same verdict `verifyRule`
+ * gives it: while skipping it was how `--update` recorded offenders the check
+ * had just refused. The first-freeze carve-out exists because bootstrapping
+ * (no baseline file) and a brand-new rule's first freeze both report every
+ * path as new by definition — refusing them would make recording impossible,
+ * which is how `code-hex-literal` was added.
  */
-function wouldRaise(rule, measured, baseline) {
+function wouldRaise(rule, measured, baseline, isFirstFreeze = false) {
+  if (isFirstFreeze) return [];
   const raises = [];
   for (const [path, count] of Object.entries(measured)) {
-    const allowed = baseline[path];
-    if (allowed !== undefined && count > allowed) raises.push({ path, count, allowed });
+    const allowed = baseline[path] ?? 0;
+    if (count > allowed) raises.push({ path, count, allowed });
   }
   return raises;
 }
@@ -382,7 +390,12 @@ function main() {
   if (process.argv.includes("--update")) {
     const wouldRaiseAll = [];
     for (const rule of RULES) {
-      const raises = wouldRaise(rule, measured[rule.id] ?? {}, baseline[rule.id] ?? {});
+      const raises = wouldRaise(
+        rule,
+        measured[rule.id] ?? {},
+        baseline[rule.id] ?? {},
+        !(rule.id in baseline)
+      );
       wouldRaiseAll.push(...raises);
     }
 
