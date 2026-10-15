@@ -36,6 +36,7 @@ const EDITOR_SCREENS = [
   "pages/TripRouteEditorPage.tsx",
   "pages/TripResyncPage.tsx",
   "pages/RoadtripResyncPage.tsx",
+  "pages/ToursPage.tsx",
 ] as const;
 
 describe("one control language on the edit screens", () => {

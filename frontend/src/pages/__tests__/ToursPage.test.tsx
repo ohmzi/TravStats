@@ -190,7 +190,7 @@ describe("the tours page", () => {
     renderPage();
     await screen.findByText("Süd-Norwegen");
 
-    fireEvent.click(screen.getByText("trips:tours.deleteLabel"));
+    fireEvent.click(screen.getByRole("button", { name: "trips:tours.deleteLabel" }));
     fireEvent.click(await screen.findByText("trips:tours.deleteConfirm.confirm"));
 
     await waitFor(() =>
@@ -212,7 +212,7 @@ describe("the tours page", () => {
 
     renderPage();
     await screen.findByText("Süd-Norwegen");
-    fireEvent.click(screen.getByText("trips:tours.deleteLabel"));
+    fireEvent.click(screen.getByRole("button", { name: "trips:tours.deleteLabel" }));
     fireEvent.click(await screen.findByText("trips:tours.deleteConfirm.confirm"));
     fireEvent.click(await screen.findByText("trips:tours.deleteWithCosts.confirm"));
 
@@ -247,5 +247,40 @@ describe("the tours page — a tour needs a name", () => {
 
     fireEvent.change(input, { target: { value: "Besseggen" } });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+// The tours list is the third level of the trip screens' button layout: a delete
+// in a ROW of many is the red row icon, and the create form commits with the
+// real amber button at the row's end.
+describe("the tours page — controls", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("deletes a tour from the red row icon, not a full button per row", async () => {
+    vi.mocked(tourIndexApi.list).mockResolvedValue([
+      tour({ id: "t-1" }),
+      tour({ id: "t-2", name: "Lofoten" }),
+    ]);
+    renderPage();
+    await screen.findByText("Süd-Norwegen");
+
+    const dels = screen.getAllByRole("button", { name: "trips:tours.deleteLabel" });
+    expect(dels).toHaveLength(2);
+    // A row delete is the red icon at the row's end, not a full button per row.
+    expect(dels[0].style.color).toBe("var(--ts-bad)");
+    expect(dels[0]).not.toHaveAttribute("data-variant");
+  });
+
+  it("saves a new tour with the shared amber button at the end of the form row", async () => {
+    vi.mocked(tourIndexApi.list).mockResolvedValue([]);
+    renderPage();
+    await waitFor(() => expect(tourIndexApi.list).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByText("trips:tours.newTour"));
+    const save = screen.getByRole("button", { name: "trips:tours.save" });
+    expect(save).toHaveAttribute("data-variant", "primary");
+    expect(save.className).toContain("ml-auto");
   });
 });

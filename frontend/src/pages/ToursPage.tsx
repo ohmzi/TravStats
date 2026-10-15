@@ -6,6 +6,7 @@ import AppShell from "../components/ui/AppShell";
 import Button from "../components/ui/Button";
 import PageHeader from "../components/ui/PageHeader";
 import ConfirmModal from "../components/Training/ConfirmModal";
+import { RowActionButton } from "../components/table/RowActionButton";
 import { useTranslation } from "../hooks/useTranslation";
 import { tourIndexApi, type TourSummary } from "../lib/api/tourIndex";
 import { toursApi } from "../lib/api/tours";
@@ -228,14 +229,17 @@ export default function ToursPage(): JSX.Element {
               </option>
             ))}
           </select>
-          <button
-            type="button"
+          {/* ml-auto, not justify-end on the row: the inputs wrap and keep the
+              left, and only the commit ends the line. */}
+          <Button
+            variant="primary"
+            size="toolbar"
+            className="ml-auto"
             disabled={saving}
-            className="rounded-sm bg-(--accent) px-3 py-1.5 text-sm text-white disabled:opacity-40"
             onClick={() => void handleCreate()}
           >
             {t("trips:tours.save")}
-          </button>
+          </Button>
           {showNameMissing && (
             <p id="tour-name-error" role="alert" className="basis-full text-xs text-(--danger)">
               {t("trips:tours.nameRequired")}
@@ -303,22 +307,13 @@ export default function ToursPage(): JSX.Element {
                   {tour.ascentM !== null && <span>↑ {formatKm(tour.ascentM)} m</span>}
                 </span>
               </Link>
-              {/* The same destructive treatment as the delete on the tour's own
-                  editor, not a bare underlined word: this removes a whole tour
-                  with its legs, so it is the `danger` variant like every other
-                  "delete the whole thing" in the app (owner, 2026-10-15:
-                  "delete button one place looks plain and boring and
-                  unrecognizable and other place is red and obvious"). It stays
-                  `size="toolbar"` and `shrink-0` so it sits in the row without
-                  overtaking the tour's own name, which is the link. */}
-              <Button
-                variant="danger"
-                size="toolbar"
-                className="shrink-0"
+              {/* A delete in a ROW of many is the red row icon (owner,
+                  2026-10-15: one placement per level — page, section, row). */}
+              <RowActionButton
+                icon="delete"
+                label={t("trips:tours.deleteLabel")}
                 onClick={() => setPendingDelete(tour)}
-              >
-                {t("trips:tours.deleteLabel")}
-              </Button>
+              />
             </li>
           ))}
         </ul>
