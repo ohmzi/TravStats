@@ -74,16 +74,18 @@ sticky above the safe area on a phone.
 
 - `BackLink` → the flight trip; title "Flug-Reise bearbeiten / Edit flight trip".
 - Header actions: `[Re-sync from Immich]` black → `/trips/:id/resync`,
-  `[Delete]` red → `TripDeleteConfirm`; after delete → `/flights/journeys`
-  logbook (the flight-trip back target).
+  `[Delete]` red → `TripDeleteConfirm`; after delete → `/flights`, the
+  flights logbook the flight-trip page's own back link points at.
 - Body: the popup's four tabs (General, People, Appearance, Notes) become
   sections on one scrolling page — the same sections the journey edit page
   draws.
 - Save returns to the flight trip.
-- Implementation: the body is the journey edit page's body, extracted into one
-  component both routes render with a `context` (`"journey" | "flightTrip"`)
-  that picks title, back target and post-save/post-delete target. Same
-  `useTripForm`, so the two pages cannot drift. Route guarded by
+- Implementation: `TripEditPage` takes a `context` prop (`"journey" |
+  "flightTrip"`) that picks the title, the back target and the post-save /
+  post-delete target; `FlightTripEditPage` is a one-line wrapper. Same
+  `useTripForm`, so the two pages cannot drift. (Not an extraction into a new
+  file: the body reads legacy-palette tokens, and a new file carrying them
+  would be a new `check:actions` offender.) Route guarded by
   `DomainRouteGuard domain="flight"` like its parent.
 - `FlightPanel` (dashboard side panel) Edit navigates here instead of opening
   `TripModal`. `TripModal` remains only for *creating* a trip from the import
@@ -170,8 +172,8 @@ RECORDINGS                                   [Add recording ▾]
 | `ui/MenuButton` | new: black toolbar button + ▾; `items: {label, onSelect, disabled?, reason?}[]`; `role="menu"`, arrow keys, Esc, click-outside; disabled items show the reason |
 | `table/RowActionButton` | delete icon red at rest; gains `download` and `moveUp`/`moveDown` kinds if not present |
 | `ui/DangerSection` | deleted (both users move to header actions) |
-| `pages/TripEditPage` | body extracted to `components/Trips/TripEditForm.tsx`, `context` prop |
-| `pages/FlightTripEditPage` | new, thin: loads the trip, renders `TripEditForm context="flightTrip"` |
+| `pages/TripEditPage` | `context` prop; Re-sync and Delete in `PageHeader.actions` |
+| `pages/FlightTripEditPage` | new, one line: `<TripEditPage context="flightTrip" />` |
 | `EntityHeader`, `FlightTripDetailPage` | Edit → `ActionLink variant="primary"` |
 
 DE and EN copy move together (`localeKeyParity`). New keys: the flight-trip edit
