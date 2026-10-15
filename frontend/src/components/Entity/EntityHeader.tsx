@@ -50,7 +50,8 @@ export interface EntityHeaderProps {
 /**
  * The head of both levels (design 2026-10-12 §2.1): the entity's NAME and its
  * COUNTRY FLAGS only — "No meta line, no 'Car · …', no 'Completed · …'" — and
- * exactly ONE action, Edit, linking to the level's edit page. Delete and
+ * exactly ONE action, Edit, linking to the level's edit page — amber, the
+ * colour every Edit and Save wears (owner, 2026-10-15). Delete and
  * Re-sync from Immich live there now (design §4), not here.
  *
  * It is the app's one head primitive (`ui/DetailHeader`, the head of the four
@@ -109,7 +110,11 @@ export default function EntityHeader({
           </ul>
         ) : undefined
       }
-      actions={<ActionLink to={config.editPath(id)}>{t("common:buttons.edit")}</ActionLink>}
+      actions={
+        <ActionLink to={config.editPath(id)} variant="primary">
+          {t("common:buttons.edit")}
+        </ActionLink>
+      }
     />
   );
 }

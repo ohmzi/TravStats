@@ -39,6 +39,11 @@ describe("the journey's head", () => {
       "href",
       "/trips/t1/edit"
     );
+    // Edit is the amber action on every head (owner, 2026-10-15).
+    expect(screen.getByRole("link", { name: "common:buttons.edit" })).toHaveAttribute(
+      "data-variant",
+      "primary"
+    );
     expect(screen.getByRole("link", { name: "trips:tab" })).toHaveAttribute("href", "/trips");
   });
 
@@ -75,6 +80,11 @@ describe("the trip's head", () => {
     expect(screen.getByRole("link", { name: "common:buttons.edit" })).toHaveAttribute(
       "href",
       "/roadtrips/r1/edit"
+    );
+    // Edit is the amber action on every head (owner, 2026-10-15).
+    expect(screen.getByRole("link", { name: "common:buttons.edit" })).toHaveAttribute(
+      "data-variant",
+      "primary"
     );
     expect(screen.getByRole("link", { name: "roadtrips:pageTitle" })).toHaveAttribute(
       "href",

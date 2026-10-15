@@ -138,36 +138,34 @@ describe("destructive actions wear one treatment", () => {
   });
 });
 
-describe("edit navigation is always the outline link", () => {
-  const NAVIGATION_SCREENS = [
-    "pages/FlightTripDetailPage.tsx",
-    "components/Entity/EntityHeader.tsx",
-  ] as const;
+describe("Edit is the amber link on every detail head", () => {
+  /**
+   * Owner, 2026-10-15 (third round): "all the edit buttons should be yellow …
+   * edit, save buttons should be yellow, delete red and others black". The
+   * previous round made Edit the black outline on the rule "amber belongs to
+   * the one control that commits"; the owner reversed it. Edit stays a LINK —
+   * a destination, so a middle click opens it in a new tab — in the amber skin.
+   */
+  const HEADS = ["pages/FlightTripDetailPage.tsx", "components/Entity/EntityHeader.tsx"] as const;
 
-  it.each(NAVIGATION_SCREENS)("%s offers Edit as an ActionLink, not a button", (path) => {
-    const src = read(path);
-    // Edit is a DESTINATION, so it is a link: a middle click has to open it in
-    // a new tab, which a `<button>` cannot do. The flight-trip head carried an
-    // amber primary Edit that opened a popup while the journey and roadtrip
-    // heads carried a black outline Edit that navigated — one action, two
-    // skins, two behaviours.
-    expect(src).toMatch(/<ActionLink[^>]*>\s*\{t\("common:buttons.edit"\)\}/);
+  it.each(HEADS)("%s draws Edit as ActionLink variant=primary", (path) => {
+    expect(read(path)).toMatch(
+      /<ActionLink[^>]*variant="primary"[^>]*>\s*\{t\("common:buttons.edit"\)\}/
+    );
   });
 });
 
-describe("a journey is edited on a page, not in a popup", () => {
-  it("the flight-trip page does not open TripModal", () => {
-    // "edit flight trip shouldn't be a popup" (owner, 2026-10-15). The modal's
-    // fields already exist as a page: `/trips/:id/edit` → `TripEditPage`, which
-    // shares the modal's own `useTripForm` core. So importing the modal here is
-    // reaching for a second edit surface, not the only one.
-    //
-    // The import only — the page's own comment explains why the modal is gone,
-    // and spelling the name there is the point of the comment.
+describe("a flight trip is edited on its own page", () => {
+  it("the flight-trip page opens no popup", () => {
     expect(read("pages/FlightTripDetailPage.tsx")).not.toMatch(/import\s+TripModal\s+from/);
   });
 
-  it("the flight-trip head links to that page", () => {
-    expect(read("pages/FlightTripDetailPage.tsx")).toContain("to={`/trips/${trip.id}/edit`}");
+  it("the flight-trip head links to the flight trip's edit page, not the journey's", () => {
+    // Owner, 2026-10-15: "what i wanted was that flight edit popup to be
+    // converted into edit page" — the previous round sent it to
+    // `/trips/:id/edit`, which says "Edit Journey" and returns to the journey.
+    const src = read("pages/FlightTripDetailPage.tsx");
+    expect(src).toContain("to={`/flights/journeys/${trip.id}/edit`}");
+    expect(src).not.toContain("to={`/trips/${trip.id}/edit`}");
   });
 });

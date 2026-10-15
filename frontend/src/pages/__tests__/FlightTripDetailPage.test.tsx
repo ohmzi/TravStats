@@ -295,10 +295,22 @@ describe("FlightTripDetailPage", () => {
     expect(edit.style.padding).toBe("0 var(--ts-space-xl)");
     expect(edit.style.fontSize).toBe("16px");
     expect(edit).toHaveClass("ts-button");
-    // The outline skin, not a filled accent: amber is the commit
-    // (Save/Done), and a navigation control never wears it.
-    expect(edit).toHaveAttribute("data-variant", "secondary");
-    expect(edit).toHaveAttribute("href", "/trips/t1/edit");
+    // Amber, and to the flight trip's own edit page (owner, 2026-10-15).
+    expect(edit).toHaveAttribute("data-variant", "primary");
+    expect(edit).toHaveAttribute("href", "/flights/journeys/t1/edit");
+  });
+
+  it("offers Edit in amber, to the flight trip's own edit page", async () => {
+    renderAt("/flights/journeys/t1");
+    await screen.findAllByText("Baltic 2026");
+    const edit = await screen.findByRole("link", { name: "common:buttons.edit" });
+    expect(edit).toHaveAttribute("data-variant", "primary");
+    expect(edit.getAttribute("href")).toMatch(/^\/flights\/journeys\/[^/]+\/edit$/);
+    // Open trip stays the black outline beside it.
+    expect(screen.getByRole("link", { name: "flights:detail.openTrip" })).toHaveAttribute(
+      "data-variant",
+      "secondary"
+    );
   });
 
   it("draws the head's Edit label-only, the shape every other head's Edit draws", async () => {
