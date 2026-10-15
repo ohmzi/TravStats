@@ -22,6 +22,7 @@ export {
   type ButtonSize,
 } from "./Button";
 export { default as IconButton } from "./IconButton";
+export { default as MenuButton, type MenuItem } from "./MenuButton";
 export { Card, Tile, HeroCard, SparseCard } from "./Card";
 export { default as Pill, StatusPill, DomainPill } from "./Pill";
 export { default as Chip } from "./Chip";
