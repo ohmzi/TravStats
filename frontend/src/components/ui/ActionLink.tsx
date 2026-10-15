@@ -1,6 +1,6 @@
 import type { JSX, ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { TOOLBAR_CONTROL_STYLE } from "./Button";
+import { BUTTON_SKIN, TOOLBAR_CONTROL_STYLE } from "./Button";
 
 /**
  * The outline link a detail page draws in its header beside the primary button
@@ -32,18 +32,6 @@ export default function ActionLink({
   /** What the destination does, for a link whose label cannot say it all. */
   title?: string;
 }): JSX.Element {
-  const skin =
-    variant === "primary"
-      ? {
-          background: "var(--ts-accent)",
-          color: "var(--ts-accent-text)",
-          border: "1px solid var(--ts-accent)",
-        }
-      : {
-          background: "transparent",
-          color: "var(--ts-text)",
-          border: "1px solid var(--ts-border-button)",
-        };
   return (
     <Link
       to={to}
@@ -52,7 +40,7 @@ export default function ActionLink({
       data-variant={variant}
       style={{
         ...TOOLBAR_CONTROL_STYLE,
-        ...skin,
+        ...BUTTON_SKIN[variant],
         textDecoration: "none",
         whiteSpace: "nowrap",
       }}

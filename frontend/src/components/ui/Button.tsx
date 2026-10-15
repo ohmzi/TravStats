@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 import { alpha } from "./tokens";
 
 export type ButtonVariant = "primary" | "secondary" | "danger";
@@ -28,6 +28,28 @@ export const TOOLBAR_CONTROL_STYLE = {
   fontSize: 16,
   fontWeight: 700,
 } as const;
+
+/**
+ * The colour skin of each variant, shared by `Button` and by the outline
+ * `ActionLink`, so a link and a button of the same variant cannot drift apart.
+ */
+export const BUTTON_SKIN: Record<ButtonVariant, CSSProperties> = {
+  primary: {
+    background: "var(--ts-accent)",
+    color: "var(--ts-accent-text)",
+    border: "1px solid var(--ts-accent)",
+  },
+  secondary: {
+    background: "transparent",
+    color: "var(--ts-text)",
+    border: "1px solid var(--ts-border-button)",
+  },
+  danger: {
+    background: alpha("var(--ts-bad)", 12),
+    color: "var(--ts-bad)",
+    border: `1px solid ${alpha("var(--ts-bad)", 45)}`,
+  },
+};
 
 interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className"> {
   variant?: ButtonVariant;
@@ -70,25 +92,6 @@ export default function Button({
       ? "var(--ts-size-button-primary)"
       : TOOLBAR_CONTROL_STYLE.height;
 
-  const skin =
-    variant === "primary"
-      ? {
-          background: "var(--ts-accent)",
-          color: "var(--ts-accent-text)",
-          border: "1px solid var(--ts-accent)",
-        }
-      : variant === "danger"
-        ? {
-            background: alpha("var(--ts-bad)", 12),
-            color: "var(--ts-bad)",
-            border: `1px solid ${alpha("var(--ts-bad)", 45)}`,
-          }
-        : {
-            background: "transparent",
-            color: "var(--ts-text)",
-            border: "1px solid var(--ts-border-button)",
-          };
-
   return (
     <button
       type="button"
@@ -108,7 +111,7 @@ export default function Button({
         // recipe, not to every disabled button.
         opacity: disabled ? 0.5 : 1,
         transition: "background var(--ts-motion-fast) var(--ts-ease-standard)",
-        ...skin,
+        ...BUTTON_SKIN[variant],
         ...style,
       }}
       {...rest}

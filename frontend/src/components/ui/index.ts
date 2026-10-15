@@ -17,6 +17,7 @@ export { default as DangerSection } from "./DangerSection";
 export {
   default as Button,
   TOOLBAR_CONTROL_STYLE,
+  BUTTON_SKIN,
   type ButtonVariant,
   type ButtonSize,
 } from "./Button";

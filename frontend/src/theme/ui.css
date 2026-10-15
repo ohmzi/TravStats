@@ -64,18 +64,19 @@
 /* ─── Button ────────────────────────────────────────────────────────────── */
 /* Never a shadow on hover (DESIGN_SYSTEM.md §5) — the old btn-primary grew a
    16px amber glow, which read as focus and competed with the real focus ring. */
+/* The primitives paint their skin inline, so a state rule must win over it. */
 .ts-button[data-variant="primary"]:hover:not(:disabled) {
-  background: var(--ts-accent-hover);
+  background: var(--ts-accent-hover) !important;
 }
 .ts-button[data-variant="primary"]:active:not(:disabled) {
-  background: var(--ts-accent-pressed);
+  background: var(--ts-accent-pressed) !important;
 }
 .ts-button[data-variant="secondary"]:hover:not(:disabled) {
-  background: var(--ts-row-hover);
-  color: var(--ts-text-bright);
+  background: var(--ts-row-hover) !important;
+  color: var(--ts-text-bright) !important;
 }
 .ts-button[data-variant="danger"]:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ts-bad) 20%, transparent);
+  background: color-mix(in srgb, var(--ts-bad) 20%, transparent) !important;
 }
 
 .ts-icon-button:hover:not(:disabled) {
