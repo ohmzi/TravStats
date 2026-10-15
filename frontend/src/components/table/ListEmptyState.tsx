@@ -1,4 +1,5 @@
 import type { JSX } from "react";
+import Button from "../ui/Button";
 import { useTranslation } from "../../hooks/useTranslation";
 
 /**
@@ -46,16 +47,16 @@ export default function ListEmptyState({
   return (
     <div
       className="px-4 py-12 text-center"
-      style={{ background: "var(--bg-surface)", color: "var(--text-muted)" }}
+      style={{ background: "var(--ts-surface)", color: "var(--ts-muted)" }}
     >
-      <p className="mb-2 text-lg" style={{ color: "var(--text-secondary)" }}>
+      <p className="mb-2 text-lg" style={{ color: "var(--ts-muted)" }}>
         {filtered ? t("common:filters.noMatch") : emptyTitle}
       </p>
       {filtered ? (
         <button
           type="button"
           onClick={onReset}
-          className="rounded-md border border-[var(--color-border)] px-3 py-2 text-sm hover:text-[var(--text-primary)]"
+          className="rounded-md border border-[var(--ts-border)] px-3 py-2 text-sm hover:text-[var(--ts-text)]"
         >
           {t("common:filters.reset")}
         </button>
@@ -63,9 +64,11 @@ export default function ListEmptyState({
         <>
           <p className="text-sm">{emptyHint}</p>
           {action && (
-            <button type="button" onClick={action.onClick} className="btn-primary mt-4">
-              {action.label}
-            </button>
+            <div className="mt-4">
+              <Button variant="primary" onClick={action.onClick}>
+                {action.label}
+              </Button>
+            </div>
           )}
         </>
       )}

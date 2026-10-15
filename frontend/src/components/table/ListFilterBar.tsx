@@ -49,7 +49,7 @@ interface Props {
 export const SEARCH_MAX_LENGTH = 100;
 
 const CONTROL_CLASS =
-  "rounded-md border border-[var(--color-border)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-primary)]";
+  "rounded-md border border-[var(--ts-border)] bg-[var(--ts-surface)] px-3 py-2 text-sm text-[var(--ts-text)]";
 
 function FilterSelect({ config }: { config: SelectFilterConfig }): JSX.Element {
   return (
@@ -122,7 +122,7 @@ export default function ListFilterBar({
             onChange={(e): void => search.onChange(e.target.value)}
             placeholder={search.placeholder}
             aria-label={search.placeholder}
-            className={`w-full ${CONTROL_CLASS} placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] md:max-w-xs`}
+            className={`w-full ${CONTROL_CLASS} placeholder:text-[var(--ts-muted)] focus:border-[var(--ts-accent)] md:max-w-xs`}
           />
           {/* On a phone the controls share ONE row that scrolls sideways; they
               used to wrap into two, pushing the first entry further down
@@ -144,7 +144,7 @@ export default function ListFilterBar({
                   aria-haspopup="dialog"
                   data-testid="list-filter-more"
                   className={`inline-flex items-center gap-2 ${CONTROL_CLASS} ${
-                    extraActiveCount > 0 ? "border-[var(--accent)]" : ""
+                    extraActiveCount > 0 ? "border-[var(--ts-accent)]" : ""
                   }`}
                 >
                   <svg
@@ -166,7 +166,7 @@ export default function ListFilterBar({
                     <span
                       data-testid="list-filter-badge"
                       className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs"
-                      style={{ background: "var(--accent)", color: "var(--bg-base)" }}
+                      style={{ background: "var(--ts-accent)", color: "var(--ts-bg)" }}
                     >
                       {extraActiveCount}
                     </span>
@@ -179,8 +179,8 @@ export default function ListFilterBar({
                     aria-label={t("common:filters.more")}
                     className="absolute right-0 z-50 mt-2 w-72 max-w-[calc(100vw-4rem)] rounded-lg p-4 shadow-xl md:left-0 md:right-auto"
                     style={{
-                      background: "var(--bg-surface)",
-                      border: "1px solid var(--color-border)",
+                      background: "var(--ts-surface)",
+                      border: "1px solid var(--ts-border)",
                     }}
                   >
                     <div className="flex flex-col gap-4">{extra}</div>
@@ -193,14 +193,14 @@ export default function ListFilterBar({
               <button
                 type="button"
                 onClick={onReset}
-                className="shrink-0 whitespace-nowrap rounded-md border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                className="shrink-0 whitespace-nowrap rounded-md border border-[var(--ts-border)] px-3 py-2 text-xs text-[var(--ts-muted)] hover:text-[var(--ts-text)]"
               >
                 {t("common:filters.reset")}
               </button>
             )}
           </div>
         </div>
-        <div className="text-xs text-[var(--text-muted)]">{resultLabel}</div>
+        <div className="text-xs text-[var(--ts-muted)]">{resultLabel}</div>
       </div>
     </div>
   );
@@ -216,7 +216,7 @@ export function FilterField({
 }): JSX.Element {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs uppercase tracking-wider text-[var(--text-muted)]">{label}</span>
+      <span className="text-xs uppercase tracking-wider text-[var(--ts-muted)]">{label}</span>
       {children}
     </label>
   );

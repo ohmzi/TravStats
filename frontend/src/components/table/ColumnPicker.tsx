@@ -49,23 +49,23 @@ export function ColumnPicker({ columns, prefs }: ColumnPickerProps): JSX.Element
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="rounded-md border border-[var(--color-border)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]"
+        className="rounded-md border border-[var(--ts-border)] bg-[var(--ts-surface)] px-3 py-2 text-sm text-[var(--ts-text)] hover:bg-[var(--ts-surface2)]"
       >
         {t("common:table.columns")} ▾
       </button>
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-30 mt-1 w-56 rounded-md border border-[var(--color-border)] p-2 shadow-lg"
-          style={{ background: "var(--bg-elevated)" }}
+          className="absolute right-0 z-30 mt-1 w-56 rounded-md border border-[var(--ts-border)] p-2 shadow-lg"
+          style={{ background: "var(--ts-surface2)" }}
         >
           {columns.map((col) => (
             <label
               key={col.id}
               className={`flex items-center gap-2 rounded px-2 py-1.5 text-sm ${
                 col.always
-                  ? "cursor-not-allowed text-[var(--text-muted)]"
-                  : "cursor-pointer text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"
+                  ? "cursor-not-allowed text-[var(--ts-muted)]"
+                  : "cursor-pointer text-[var(--ts-text)] hover:bg-[var(--ts-surface)]"
               }`}
             >
               <input

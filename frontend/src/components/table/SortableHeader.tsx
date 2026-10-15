@@ -36,7 +36,9 @@ export function SortableHeader<K extends string>({
       // three; lifting it here gives every list the same signal instead of
       // three different ones (accent + underline, accent alone, arrow alone).
       style={
-        active ? { color: "var(--accent)", borderBottom: "2px solid var(--accent)" } : undefined
+        active
+          ? { color: "var(--ts-accent)", borderBottom: "2px solid var(--ts-accent)" }
+          : undefined
       }
     >
       {children}

@@ -58,7 +58,7 @@ describe("SortableHeader", () => {
   it("marks the active column with the accent colour and an underline", () => {
     renderHeader({ sortBy: "name" });
     const style = screen.getByRole("button").getAttribute("style") ?? "";
-    expect(style).toContain("var(--accent)");
+    expect(style).toContain("var(--ts-accent)");
     expect(style).toContain("border-bottom");
   });
 

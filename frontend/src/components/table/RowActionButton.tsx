@@ -38,12 +38,12 @@ const PATHS: Record<RowActionIcon, ReactNode> = {
   ),
 };
 
-/** Hover colour per action: blue for edit, neutral for duplicate, red for delete. */
+/** Hover colour per action: accent for edit, neutral for duplicate, red for delete. */
 const HOVER_CLASS: Record<RowActionIcon, string> = {
-  edit: "hover:bg-(--bg-muted) hover:text-[#388bfd]",
-  duplicate: "hover:bg-(--bg-muted) hover:text-(--text-primary)",
-  delete: "hover:bg-(--bg-muted) hover:text-(--danger)",
-  checkIn: "hover:bg-(--bg-muted) hover:text-(--domain-poi)",
+  edit: "hover:bg-(--ts-surface2) hover:text-(--ts-accent)",
+  duplicate: "hover:bg-(--ts-surface2) hover:text-(--ts-text)",
+  delete: "hover:bg-(--ts-surface2) hover:text-(--ts-bad)",
+  checkIn: "hover:bg-(--ts-surface2) hover:text-(--ts-domain-poi)",
 };
 
 /**
@@ -75,7 +75,7 @@ export function RowActionButton({ icon, label, onClick, testId }: Props): JSX.El
         onClick();
       }}
       className={`relative inline-flex h-7 w-7 items-center justify-center rounded-sm ${TOUCH_HIT_AREA} ${HOVER_CLASS[icon]}`}
-      style={{ color: "var(--text-muted)" }}
+      style={{ color: "var(--ts-muted)" }}
       aria-label={label}
       title={label}
     >
