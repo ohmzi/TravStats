@@ -44,6 +44,17 @@ describe("NewRoadtripDialog", () => {
     expect(screen.queryByText("roadtrips:vehicle.rail")).not.toBeInTheDocument();
   });
 
+  // The footer is one row, so its two buttons draw one height: a lone
+  // primary's 52 px beside the shell's 46 px dismiss read as two different
+  // controls rather than one decision (owner, 2026-10-14).
+  it("draws the submit button at the dismiss button's height", async () => {
+    renderDialog();
+    await screen.findByText("Herbst in Norwegen");
+    const dismiss = screen.getByRole("button", { name: "common:buttons.cancel" });
+    expect(dismiss.style.height).toBe("var(--ts-size-button-secondary)");
+    expect(submitButton().style.height).toBe(dismiss.style.height);
+  });
+
   it("needs only a name, and sends what was filled in", async () => {
     vi.mocked(roadtripsApi.create).mockResolvedValue({ id: "new" } as never);
     const onCreated = renderDialog();

@@ -172,6 +172,10 @@ export default function NewRoadtripDialog({
           <div className="flex flex-col items-end" style={{ gap: "var(--ts-space-xs)" }}>
             <Button
               variant="primary"
+              // `size="toolbar"`: it stands in a row with the dialog's dismiss
+              // button, and a lone primary's 52 next to its 46 read as two
+              // different buttons rather than one decision (owner, 2026-10-14).
+              size="toolbar"
               disabled={saving.saving || saving.saved !== null || missing.length > 0}
               aria-describedby={HINT_ID}
               onClick={() => void submit()}
