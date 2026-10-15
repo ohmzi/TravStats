@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type JSX, type KeyboardEvent } from "react";
 
+import { useClickOutside } from "../../hooks/useClickOutside";
 import { BUTTON_SKIN, TOOLBAR_CONTROL_STYLE } from "./Button";
 
 export interface MenuItem {
@@ -47,14 +48,10 @@ export default function MenuButton({
   };
 
   useEffect(() => {
-    if (!open) return;
-    itemRefs.current[0]?.focus();
-    const onDown = (e: MouseEvent): void => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    if (open) itemRefs.current[0]?.focus();
   }, [open]);
+
+  useClickOutside(rootRef, () => setOpen(false));
 
   const onMenuKey = (e: KeyboardEvent<HTMLDivElement>): void => {
     const current = itemRefs.current.findIndex((el) => el === document.activeElement);
@@ -124,14 +121,12 @@ export default function MenuButton({
               className="flex flex-col items-start text-left hover:bg-(--ts-row-hover)"
               onClick={() => {
                 if (item.disabled) return;
-                setOpen(false);
+                close(true);
                 item.onSelect();
               }}
               style={{
                 padding: "var(--ts-space-sm) var(--ts-space-md)",
                 borderRadius: "var(--ts-radius-button)",
-                background: "transparent",
-                border: "none",
                 color: item.disabled ? "var(--ts-muted)" : "var(--ts-text)",
                 cursor: item.disabled ? "not-allowed" : "pointer",
                 fontSize: 15,

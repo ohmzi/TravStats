@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
+import { BUTTON_SKIN } from "../Button";
 import MenuButton, { type MenuItem } from "../MenuButton";
 
 const items = (over: Partial<Record<string, Partial<MenuItem>>> = {}): MenuItem[] => [
@@ -17,6 +18,7 @@ describe("MenuButton", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(trigger).toHaveAttribute("data-variant", "secondary");
     expect(trigger.style.height).toBe("var(--ts-size-button-secondary)");
+    expect(trigger.style.border).toBe(BUTTON_SKIN.secondary.border);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
@@ -56,6 +58,26 @@ describe("MenuButton", () => {
     fireEvent.click(item);
     expect(list[1].onSelect).not.toHaveBeenCalled();
     expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
+  it("returns focus to the trigger after a pick", () => {
+    render(<MenuButton label="Add recording" items={items()} />);
+    const trigger = screen.getByRole("button", { name: /Add recording/ });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("menuitem", { name: "From Strava" }));
+    expect(trigger).toHaveFocus();
+  });
+
+  it("closes on a touch outside, not only a mouse press", () => {
+    render(
+      <div>
+        <MenuButton label="Add recording" items={items()} />
+        <p>outside</p>
+      </div>
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Add recording/ }));
+    fireEvent.touchStart(screen.getByText("outside"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
   it("closes on a click outside", () => {
