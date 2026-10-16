@@ -72,7 +72,9 @@ sticky above the safe area on a phone.
 
 ### Flight trip edit — new, `/flights/journeys/:tripId/edit`
 
-- `BackLink` → the flight trip; title "Flug-Reise bearbeiten / Edit flight trip".
+- `BackLink` → the flight trip; title "Flugreise bearbeiten / Edit flight trip"
+  (the German is one word — this line said "Flug-Reise" until the whole-branch
+  review of 2026-10-15; the copy was right and the spec was not).
 - Header actions: `[Re-sync from Immich]` black → `/trips/:id/resync`,
   `[Delete]` red → `TripDeleteConfirm`; after delete → `/flights`, the
   flights logbook the flight-trip page's own back link points at.
@@ -94,8 +96,17 @@ sticky above the safe area on a phone.
 ### Journey — `/trips/:id`
 
 - Header: `[Edit]` amber.
-- Timeline tab: a `SectionHeader` row with `[Journal entry] [Add entry]
-  [Add weather]` black, right. Timeline card actions (`TimelineJournalCard`,
+- Timeline tab: the tab's own action row, black, at the right —
+  `[Journal entry] [Add entry] [Add weather]`.
+  **Ruling (whole-branch review, 2026-10-15): this row and the gallery's are the
+  TAB's toolbar, not a section's.** They sit at the top of a tab the tab strip
+  already names, so a `SectionHeader` here would print that name a second time
+  as a section label; level 2 is about sections *within* a page (DATES, POINTS,
+  ROUTE, RECORDINGS), which is why this bullet said `SectionHeader` in the
+  first draft and why that reading was wrong. Nothing is waived by the ruling:
+  the row ends right, its controls are the shared `Button`, and both are held
+  by `actionCohesion` (`ends its action row right`, the underline case, the
+  raw-`<button>` case). Timeline card actions (`TimelineJournalCard`,
   `StopCard`, `TimelineNoteCard`) become row icons at the card's right.
 - Gallery tab: `[Upload] [Link Immich album]` black, right (Upload loses its
   hand-rolled amber fill). `ImmichAlbumSection`: `[Re-sync] [Unlink]` black
@@ -146,8 +157,14 @@ RECORDINGS                                   [Add recording ▾]
   Delete is added here — tour delete stays on the tours list (scope).
 - Dates: Save dates stays amber, bottom-right of the section.
 - Points: `[+ Add point]` moves to the section header; `[Save points]` amber
-  stays bottom-right (`FormFooter`). Row: `↑ ↓` become `IconButton`s, Remove the
-  red row icon.
+  stays bottom-right (`FormFooter`). Row: `↑ ↓` become `RowActionButton` icons
+  (`moveUp`/`moveDown`), Remove the red row icon — the Screens bullet said
+  `IconButton` until the whole-branch review of 2026-10-15, and the Components
+  table below said `RowActionButton` all along. The Components table was right:
+  a 44×44 raised tile between two 28px row icons would be a second kind of
+  control in one row. Add point also brings its new row into view and focuses
+  it — the row is appended at the END of a list that sits under a 540px map, so
+  appending it silently looked like nothing had happened (review, 2026-10-15).
 - Route: `[Route the whole tour]` in the section header, a real `Button`
   (today a hand-rolled 12 px control). Row "Remove line" → row icon.
 - Recordings: one `[Add recording ▾]` `MenuButton` in the section header —
@@ -194,10 +211,16 @@ into a dialog.
 - `actionCohesion.test.ts`, rewritten for the new rule — fails on:
   - an Edit that is not `ActionLink variant="primary"` on the three detail heads;
   - `DangerSection` or a footer-below Re-sync on an edit page;
-  - a section action on these screens drawn outside `SectionHeader`;
-  - an underlined-text `onClick` action in the listed files (the list grows to
-    include `TourLegList`, `TourTrackList`, `ToursPage`, `TimelineActions`,
-    `TripGallery`, `ImmichAlbumSection`, `SummaryCard`);
+  - a section action on these screens drawn outside `SectionHeader`
+    (`a section's own actions are drawn by the section header`, which fails on
+    a `SectionHeader` without an `actions` slot as well as on its absence — the
+    two tab toolbars are ruled exempt above);
+  - an underlined-text action in the listed files (the list grows to include
+    `TourLegList`, `TourTrackList`, `ToursPage`, `TimelineActions`,
+    `TripGallery`, `ImmichAlbumSection`, `SummaryCard`, and the three load/save
+    Retries converted on 2026-10-15: `TripRouteEditorPage`, `RoadtripDetailPage`,
+    `JourneyTripsTab`);
+  - a load or save Retry that is not the shared `Button` in those three files;
   - `FlightPanel` importing `TripModal` for edit;
   - `FlightTripDetailPage`'s Edit pointing anywhere but
     `/flights/journeys/:id/edit`.

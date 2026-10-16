@@ -154,6 +154,21 @@ afterAll(() => {
   }
 });
 
+/**
+ * jsdom has no `scrollIntoView`, and a component that brings a row already on
+ * the page into view calls it. Without a stand-in the call is a `TypeError`
+ * inside a render effect, so every test of that component fails for a reason
+ * with nothing to do with what it asserts.
+ *
+ * A no-op is the honest one: jsdom lays nothing out, so there is no scroll
+ * position to change. A test that wants to SEE the call puts its own `vi.fn()`
+ * on `Element.prototype.scrollIntoView` (see `TourPointEditor`'s "Add point"
+ * case).
+ */
+if (typeof Element !== "undefined" && typeof Element.prototype.scrollIntoView !== "function") {
+  Element.prototype.scrollIntoView = () => {};
+}
+
 // Cleanup after each test
 afterEach(() => {
   cleanup();

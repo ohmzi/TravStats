@@ -6,12 +6,13 @@ import { TRACK_ERROR_KEYS } from "../lib/trackErrorKeys";
 
 import AppShell from "../components/ui/AppShell";
 import BackLink from "../components/ui/BackLink";
+import Button from "../components/ui/Button";
 import SectionHeader from "../components/ui/SectionHeader";
 import PageHeader from "../components/ui/PageHeader";
 import TripMap, { type TripMapContent } from "../components/Trips/TripMap";
 import TourRecordingSummary from "../components/Trips/TourRecordingSummary";
 import PlannedProfileCard from "../components/Trips/PlannedProfileCard";
-import StravaImportDialog, { useStravaConnected } from "../components/Trips/StravaImportDialog";
+import StravaImportDialog, { useStravaStatus } from "../components/Trips/StravaImportDialog";
 import { useDomainColors } from "../hooks/useDomainColors";
 import { hexToRgb } from "../lib/domainColor";
 import { TOUR_COLOR } from "../shared/domains";
@@ -83,7 +84,7 @@ export default function TripRouteEditorPage(): JSX.Element {
   const { t } = useTranslation(["trips", "roadtrips", "common"]);
   const addToast = useToastStore((s) => s.addToast);
   const { colorOf } = useDomainColors();
-  const stravaConnected = useStravaConnected();
+  const stravaStatus = useStravaStatus();
   const [stravaOpen, setStravaOpen] = useState(false);
 
   const [trip, setTrip] = useState<Trip | null>(null);
@@ -486,9 +487,16 @@ export default function TripRouteEditorPage(): JSX.Element {
             {failure === "notFound" ? t("trips:tours.notFound") : t("trips:tours.loadError")}
           </p>
           {failure === "loadError" && (
-            <button type="button" className="mt-3 underline text-sm" onClick={() => void load()}>
-              {t("common:buttons.retry")}
-            </button>
+            // A real control at the right edge, not an underlined word: a
+            // failed load is exactly when the reader needs to see a button,
+            // and this branch converted every other load-error Retry on these
+            // screens (TourTrackList, ToursPage, ImmichAlbumSection). The
+            // sentence above stays a sentence.
+            <div className="mt-3 flex justify-end">
+              <Button variant="secondary" size="toolbar" onClick={() => void load()}>
+                {t("common:buttons.retry")}
+              </Button>
+            </div>
           )}
           <div className="mt-6">
             {/* The same way back as the loaded page draws: a failed load is
@@ -659,7 +667,16 @@ export default function TripRouteEditorPage(): JSX.Element {
             pulling={trackPulling}
             dawarichAvailable={dawarichAvailable}
             onPullDawarich={handlePullDawarich}
-            onImportStrava={stravaConnected ? () => setStravaOpen(true) : undefined}
+            onImportStrava={stravaStatus?.connected ? () => setStravaOpen(true) : undefined}
+            // The item stays in the menu either way; this is the sentence under
+            // it. Two different questions, so two different answers: an
+            // instance with no Strava app is an admin's to fix, and pointing
+            // the reader at their own settings would send them to a dead end.
+            stravaUnavailableReason={
+              stravaStatus !== null && !stravaStatus.configured
+                ? t("roadtrips:strava.askAdmin")
+                : t("trips:tours.tracks.strava.unavailableReason")
+            }
           />
           {stravaOpen && route && (
             <StravaImportDialog

@@ -9,6 +9,7 @@ import { useTodayZone } from "../../hooks/useTodayZone";
 import { useEnabledDomains } from "../../hooks/useEnabledDomains";
 import { useTranslation } from "../../hooks/useTranslation";
 import RoadtripCard from "../Roadtrips/RoadtripCard";
+import Button from "../ui/Button";
 import JourneyFlightsCard from "./JourneyFlightsCard";
 import { Placeholder } from "./TripDetailPanels";
 import type { JourneyFlight } from "../../lib/flights/journeyFigures";
@@ -101,9 +102,16 @@ export default function JourneyTripsTab({
         style={{ background: "var(--bg-surface)", border: "1px solid var(--color-border)" }}
       >
         <p style={{ color: "var(--ts-bad)" }}>{t("roadtrips:loadError")}</p>
-        <button type="button" className="mt-2 underline" onClick={() => void load()}>
-          {t("common:buttons.retry")}
-        </button>
+        {/* A real control at the right edge, not an underlined word: this
+            Retry is the only way out of a failed load, and an underlined word
+            reads as prose (owner, 2026-10-15, "all of the regular screen and
+            then edit screen … same design and size"). The shared `Button` is
+            what the other load-error Retries on these screens use. */}
+        <div className="mt-2 flex justify-end">
+          <Button variant="secondary" size="toolbar" onClick={() => void load()}>
+            {t("common:buttons.retry")}
+          </Button>
+        </div>
       </div>
     );
   }

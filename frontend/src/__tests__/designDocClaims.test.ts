@@ -50,16 +50,23 @@ describe("DESIGN_SYSTEM.md §10", () => {
 });
 
 describe("DESIGN_SYSTEM.md §6 states the action colour and placement rule the code enforces", () => {
+  // Sliced from §6 to §7, not searched across the whole document. "Delete …
+  // red" is a sentence the doc writes in more than one place, so a
+  // whole-document match stayed green even if the Button row itself had
+  // stopped saying it — a claim check that could not fail on the claim it
+  // names (whole-branch review, 2026-10-15).
+  const section = doc.slice(doc.indexOf("## 6. Components"), doc.indexOf("## 7. Icons"));
+
   it("names amber for Edit and Save, red for Delete, black for the rest", () => {
-    expect(doc).toMatch(/Edit[^\n]*Save[^\n]*amber/i);
-    expect(doc).toMatch(/Delete[^\n]*red/i);
-    expect(doc).toMatch(/everything else[^\n]*(black|outline)/i);
+    expect(section).toMatch(/Edit[^\n]*Save[^\n]*amber/i);
+    expect(section).toMatch(/Delete[^\n]*red/i);
+    expect(section).toMatch(/everything else[^\n]*(black|outline)/i);
   });
 
   it("names the three placement levels", () => {
-    expect(doc).toContain("SectionHeader");
-    expect(doc).toContain("RowActionButton");
-    expect(doc).toMatch(/page[^\n]*title[^\n]*right/i);
+    expect(section).toContain("SectionHeader");
+    expect(section).toContain("RowActionButton");
+    expect(section).toMatch(/page[^\n]*title[^\n]*right/i);
   });
 
   it("does not size a button by its variant in §4.5", () => {

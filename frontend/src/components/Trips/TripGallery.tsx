@@ -44,8 +44,15 @@ const TRIP_PHOTO_MAX_MB = TRIP_PHOTO_MAX_BYTES / (1024 * 1024);
 
 /**
  * Gallery tab content (Phase-1 iteration 7). Multi-image upload, grid
- * preview, click-to-enlarge lightbox, hover delete + caption edit — plus
+ * preview, click-to-enlarge lightbox, per-photo delete and caption edit — plus
  * one section per linked Immich album (Phase-A Immich integration).
+ *
+ * The photo's ✕ is a hover reveal on a fine pointer and always visible on a
+ * coarse one (`pointer-coarse:opacity-100`): the web build's target device is
+ * a tablet, where a hover-only control cannot be reached at all (2026-10-15).
+ * Two gaps are known and recorded rather than fixed: the ✕ is still a 28px
+ * target, and on a fine pointer it has no focus-visible reveal, so a keyboard
+ * tabs to a control it cannot see.
  */
 export default function TripGallery({
   tripId,

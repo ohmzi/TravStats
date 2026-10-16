@@ -251,7 +251,7 @@ dialog frame itself.
 
 | Primitive | Rule |
 |---|---|
-| `Button` | three variants, one size in a row: `size="toolbar"`, 46 px, radius 12, label 16/700, never mono. **Colour follows what the action does** (owner, 2026-10-15): **Edit and every Save / Done are amber** (`primary`; Edit is `ActionLink variant="primary"` because it navigates), **Delete and Remove are red** (`danger`, a tinted outline, never a fill), **everything else is the black outline** (`secondary`, `ActionLink`, `MenuButton`). The 52 px primary is for a lone CTA outside a row (sign-in, an empty state), never beside another control. |
+| `Button` | three variants, one size in a row: `size="toolbar"`, 46 px, radius 12, label 16/700, never mono. **Colour follows what the action does** (owner, 2026-10-15): **Edit and every Save / Done are amber** (`primary`; Edit is `ActionLink variant="primary"` because it navigates), **Delete and Remove are red** (`danger`, a tinted outline, never a fill), **everything else is the black outline** (`secondary`, `ActionLink`, `MenuButton`). The 52 px primary is for a lone CTA outside a row (sign-in, an empty state), never beside another control. Where this stands (2026-10-15): Edit is amber on the three trip screens the rule was made for — flight trip, road trip, journey, detail and edit. The four other detail heads (flight, cruise, place, lodging) still draw theirs black: they open a modal, and whether an Edit that opens a modal is this Edit or a second kind of action is part of the modal-vs-page question that round left open. Recorded as a gap, not as done. |
 | `IconButton` | 44×44, radius 14, `surface2`, hairline |
 | `Card` / `Tile` / `HeroCard` | `surface` + hairline radius 16 / `tile` radius 14 / gradient radius 18; no shadow |
 | `Pill` / `StatusPill` | the recipe in 2.6; `StatusPill` takes `status` and `domain` |
@@ -270,7 +270,8 @@ dialog frame itself.
 
 1. **Page** — `BackLink` above; title left; the page's actions on the title's line at the right (`PageHeader.actions`, `DetailHeader.actions`), ordered black → amber → red. An edit page's Re-sync and Delete live here, not in sections under the form.
 2. **Section** — `SectionHeader`: the `t-label-mono` label left, that section's actions at the right of the same line. Several sources for one action are one `MenuButton`, not a row of buttons.
-3. **Row** — `RowActionButton` icons at the row's end; the delete icon is red at rest. An underlined word never performs an action.
+3. **Row** — `RowActionButton` icons at the row's end; the delete icon is red at rest. An underlined word never performs an action, and the loads and saves that fail say so with the same control as everything else.
+   `actionCohesion.test.ts` fails on an underlined action in the files it lists — the tour editors, the journey's tabs, and the three load/save Retries converted on 2026-10-15 (`TripRouteEditorPage`, `RoadtripDetailPage`, `JourneyTripsTab`). The list is the enforcement, and it has not reached everywhere: word-buttons survive in the road-trip dialogs (`StayPicker`'s Back and Create new, `EditorSaveStatus`'s Retry/Merge/Discard, `ExpenseDialog`'s Delete cost, `ExpenseRateField`), and the roadtrip card's trip name is a `role="link"` span that cannot be an `<a>` inside the card's own link. Recorded as a gap, not as done (2026-10-15).
 
 A form's commit row is `FormFooter`: Cancel (black), Save (amber), at the right, pinned above the safe area on a phone.
 

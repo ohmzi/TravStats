@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import Button from "../ui/Button";
@@ -44,6 +44,38 @@ export default function TourPointEditor({
 }: TourPointEditorProps): JSX.Element {
   const { t } = useTranslation(["trips", "common"]);
   const [draft, setDraft] = useState<TourPointInput[]>(points);
+  const titleRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [focusRow, setFocusRow] = useState<number | null>(null);
+
+  /**
+   * Bring a just-added row into view, and put the caret in it.
+   *
+   * "Add point" sits on the section's title line (owner, 2026-10-15) but the
+   * row it makes is appended at the END of the list. Each row is tall — a title
+   * input, the via switch and a place search — and the list sits under a 540px
+   * map, so on an iPad four points are already a scroll away: the tap appended
+   * an empty row below the fold, changed nothing on screen, and looked like it
+   * had done nothing at all. The row existed, and the only sign of it was the
+   * "incomplete" hint in the footer below the fold.
+   *
+   * Focus, not only scroll: the reader's next act is always to type in the row
+   * they just asked for.
+   */
+  useEffect(() => {
+    if (focusRow === null) return;
+    const input = titleRefs.current[focusRow];
+    if (input) {
+      input.scrollIntoView({ block: "center" });
+      input.focus();
+    }
+    setFocusRow(null);
+  }, [focusRow]);
+
+  const addPoint = (): void => {
+    // The index the new row will have: it is always appended.
+    setFocusRow(draft.length);
+    setDraft((prev) => [...prev, { title: "", lat: NaN, lon: NaN }]);
+  };
 
   const update = (index: number, patch: Partial<TourPointInput>): void => {
     setDraft((prev) => prev.map((p, i) => (i === index ? { ...p, ...patch } : p)));
@@ -81,11 +113,7 @@ export default function TourPointEditor({
       <SectionHeader
         title={title}
         actions={
-          <Button
-            variant="secondary"
-            size="toolbar"
-            onClick={() => setDraft((prev) => [...prev, { title: "", lat: NaN, lon: NaN }])}
-          >
+          <Button variant="secondary" size="toolbar" onClick={addPoint}>
             {t("trips:tours.points.add")}
           </Button>
         }
@@ -104,6 +132,9 @@ export default function TourPointEditor({
             <span className="w-6 text-center text-xs text-(--text-muted)">{index + 1}</span>
             <input
               type="text"
+              ref={(el) => {
+                titleRefs.current[index] = el;
+              }}
               value={point.title}
               onChange={(e) => update(index, { title: e.target.value })}
               placeholder={t("trips:tours.points.titlePlaceholder")}

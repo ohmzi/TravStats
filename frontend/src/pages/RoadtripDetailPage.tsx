@@ -319,19 +319,27 @@ export default function RoadtripDetailPage(): JSX.Element {
             {editing && (
               <FormFooter
                 hint={
-                  <span
-                    role="status"
-                    className="flex items-center"
-                    style={{ gap: 6, fontSize: 13, color: STATUS_COLOR[save.status] }}
-                  >
-                    {save.status === "saved" && <Icon name="check" size={14} />}
-                    {t(`roadtrips:editor.status.${save.status}`)}
+                  <>
+                    <span
+                      role="status"
+                      className="flex items-center"
+                      style={{ gap: 6, fontSize: 13, color: STATUS_COLOR[save.status] }}
+                    >
+                      {save.status === "saved" && <Icon name="check" size={14} />}
+                      {t(`roadtrips:editor.status.${save.status}`)}
+                    </span>
+                    {/* The retry is a control, not part of the announcement:
+                        it sits BESIDE the `role="status"` line rather than
+                        inside it, so the live region keeps saying the status
+                        and nothing re-announces a button. Until 2026-10-15 it
+                        was an underlined word — the one action this footer
+                        offers when the autosave has failed, drawn as prose. */}
                     {save.status === "error" && (
-                      <button type="button" className="underline" onClick={() => void save.flush()}>
+                      <Button variant="secondary" size="toolbar" onClick={() => void save.flush()}>
                         {t("roadtrips:editor.status.retry")}
-                      </button>
+                      </Button>
                     )}
-                  </span>
+                  </>
                 }
               >
                 <Button variant="primary" size="toolbar" onClick={() => void finishEditing()}>

@@ -64,17 +64,31 @@ interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "cla
 }
 
 /**
- * Two variants, and a third that may only appear inside a confirm dialog.
+ * Three variants, chosen by WHAT THE ACTION DOES — and all three may stand
+ * wherever the action belongs.
  *
  * The app has 597 `<button>` elements and 464 of them style themselves, which
- * is why no two amber buttons are the same amber. The heights are tokens (52
- * primary, 46 secondary), the label is 16/700, and it is never mono — a button
- * is an instruction, not a measurement.
+ * is why no two amber buttons are the same amber. The rule (owner,
+ * 2026-10-15: "all the edit buttons should be yellow … delete red and others
+ * black, should be same design and size"):
  *
- * `danger` is deliberately not a red fill. A destructive action is confirmed,
- * not offered: it sits in a dialog that already states object, reach and
- * consequence, and a tinted outline there reads as "this is the one that
- * removes something" without turning the dialog into an alarm.
+ * - `primary` — Edit, Save, Done: the action that commits, or opens the edit.
+ * - `danger` — Delete, Remove: red as a TINTED OUTLINE, never a fill, so it
+ *   reads as "this is the one that removes something" without turning a page
+ *   into an alarm.
+ * - `secondary` — everything else: the black outline.
+ *
+ * `danger` used to be confined to confirm dialogs ("a destructive action is
+ * confirmed, not offered"). This branch puts it in page headers — the edit
+ * pages' Delete, the cover row's Remove — because the owner asked for delete
+ * to stand at the right of the title. It is still confirmed rather than
+ * performed: what makes offering it safe is the dialog it opens, which states
+ * object, reach and consequence.
+ *
+ * The heights follow the PLACE, not the variant: `size="toolbar"` is the 46
+ * every control in a row draws, and the 52 default belongs to a lone CTA
+ * outside one (sign-in, an empty state). The label is 16/700 and never mono —
+ * a button is an instruction, not a measurement.
  */
 export default function Button({
   variant = "secondary",

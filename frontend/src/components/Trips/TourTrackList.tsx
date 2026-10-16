@@ -34,6 +34,11 @@ interface Props {
   onPullDawarich: () => void;
   /** Opens the Strava picker; absent when Strava is not connected (2.7). */
   onImportStrava?: () => void;
+  /** Why Strava cannot be imported right now, already worded. Shown when the
+   *  item is disabled: an instance without a Strava app and a reader who has
+   *  not connected one are different sentences, and only the caller knows
+   *  which it is (`useStravaStatus`). */
+  stravaUnavailableReason?: string;
 }
 
 function formatDistanceKm(value: number): string {
@@ -89,14 +94,19 @@ export default function TourTrackList({
   dawarichAvailable,
   onPullDawarich,
   onImportStrava,
+  stravaUnavailableReason,
 }: Props): JSX.Element {
   const { t } = useTranslation("trips");
   const [pendingDelete, setPendingDelete] = useState<TourTrackMeta | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Three SOURCES for one action, so one control (owner, 2026-10-15, "one
-  // menu button"). Dawarich stays listed when it cannot be used, with the
-  // reason under it — it used to be a caption beside a dead button.
+  // menu button"). A source that cannot be used stays IN the list, disabled,
+  // with the reason under it — Dawarich and Strava alike, which is the menu's
+  // own rule ("a hidden option is a question"). Strava used to be spread in
+  // only when it was connected, so an unconnected reader opened the menu and
+  // did not find the source they came for — and could not tell whether the app
+  // does Strava at all.
   const sources: MenuItem[] = [
     {
       id: "upload",
@@ -110,9 +120,15 @@ export default function TourTrackList({
       disabled: !dawarichAvailable,
       reason: t("trips:tours.tracks.dawarich.unavailableReason"),
     },
-    ...(onImportStrava
-      ? [{ id: "strava", label: t("roadtrips:strava.importButton"), onSelect: onImportStrava }]
-      : []),
+    {
+      id: "strava",
+      label: t("roadtrips:strava.importButton"),
+      // Never called: `MenuButton` returns early on a disabled item. The type
+      // wants a handler, and a disabled item has none.
+      onSelect: onImportStrava ?? (() => {}),
+      disabled: onImportStrava === undefined,
+      reason: stravaUnavailableReason ?? t("trips:tours.tracks.strava.unavailableReason"),
+    },
   ];
   const busyLabel = uploading
     ? t("trips:tours.tracks.uploading")

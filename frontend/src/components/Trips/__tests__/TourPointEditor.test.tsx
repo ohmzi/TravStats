@@ -53,6 +53,24 @@ describe("the standalone tour's point editor", () => {
     expect(heading.parentElement!.contains(save)).toBe(false);
   });
 
+  it("brings the row it just added into view, and puts the caret in it", () => {
+    const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+    renderEditor();
+
+    fireEvent.click(screen.getByRole("button", { name: "trips:tours.points.add" }));
+
+    const titles = screen.getAllByPlaceholderText("trips:tours.points.titlePlaceholder");
+    const added = titles[titles.length - 1];
+    expect(titles).toHaveLength(POINTS.length + 1);
+    // The row goes to the END of the list, under a 540px map and rows that are
+    // each a title, a switch and a place search. Until 2026-10-15 the tap
+    // appended it below the fold and changed nothing on screen, so "Add point"
+    // looked like it had done nothing (whole-branch review of that day).
+    expect(document.activeElement).toBe(added);
+    expect(scrollIntoView).toHaveBeenCalled();
+    scrollIntoView.mockRestore();
+  });
+
   it("draws a point's move and remove as row icons, remove in red", () => {
     renderEditor();
     const remove = screen.getAllByRole("button", { name: "trips:tours.points.remove" })[0];

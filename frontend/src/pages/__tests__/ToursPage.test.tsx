@@ -13,6 +13,7 @@ vi.mock("../../lib/api/tourIndex", () => ({
 vi.mock("../../components/Trips/StravaImportDialog", () => ({
   default: () => null,
   useStravaConnected: () => false,
+  useStravaStatus: () => ({ configured: true, connected: false, athleteId: null }),
 }));
 vi.mock("../../lib/api/tours", () => ({
   toursApi: { createStandalone: vi.fn(), removeStandalone: vi.fn() },

@@ -23,6 +23,7 @@ vi.mock("../../components/Trips/TripMap", () => ({ default: () => <div data-test
 vi.mock("../../components/Trips/StravaImportDialog", () => ({
   default: () => null,
   useStravaConnected: () => false,
+  useStravaStatus: () => ({ configured: true, connected: false, athleteId: null }),
 }));
 vi.mock("../../components/Trips/TourRecordingSummary", () => ({ default: () => null }));
 vi.mock("../../hooks/useTourTracks", () => ({

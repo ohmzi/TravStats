@@ -3,7 +3,12 @@ import type { JSX } from "react";
 
 import Dialog from "../ui/Dialog";
 import { useTranslation } from "../../hooks/useTranslation";
-import { stravaApi, stravaFailureKind, type StravaActivity } from "../../lib/api/strava";
+import {
+  stravaApi,
+  stravaFailureKind,
+  type StravaActivity,
+  type StravaStatus,
+} from "../../lib/api/strava";
 import { useDisplayFormat } from "../../lib/displayFormat";
 
 const DAY_MS = 86_400_000;
@@ -113,14 +118,26 @@ export default function StravaImportDialog({
   );
 }
 
-/** Whether Strava is connected for this reader — hides the import buttons otherwise. */
-export function useStravaConnected(): boolean {
-  const [connected, setConnected] = useState(false);
+/**
+ * Strava's status for this reader, or `null` until the answer arrives.
+ *
+ * The recordings menu keeps Strava in the list even when it cannot be used,
+ * disabled with the reason (owner, 2026-10-15: "one menu button", and the
+ * spec's "an unavailable source is a disabled item that shows its reason").
+ * The two reasons are different questions, though: a configured instance whose
+ * athlete has not connected Strava is the reader's own next step (Settings →
+ * Services), while an instance without a Strava app is an admin's
+ * (`roadtrips:strava.askAdmin`). A boolean cannot tell those apart — it was
+ * all this hook returned, and the menu answered by hiding the source — so the
+ * caller that must SAY why asks for the whole status.
+ */
+export function useStravaStatus(): StravaStatus | null {
+  const [status, setStatus] = useState<StravaStatus | null>(null);
   useEffect(() => {
     let cancelled = false;
     stravaApi
       .status()
-      .then((s) => !cancelled && setConnected(s.connected))
+      .then((s) => !cancelled && setStatus(s))
       .catch(() => {
         // Not being able to ask is the same as not connected for a button.
       });
@@ -128,5 +145,10 @@ export function useStravaConnected(): boolean {
       cancelled = true;
     };
   }, []);
-  return connected;
+  return status;
+}
+
+/** Whether Strava is connected for this reader — hides the import buttons otherwise. */
+export function useStravaConnected(): boolean {
+  return useStravaStatus()?.connected === true;
 }

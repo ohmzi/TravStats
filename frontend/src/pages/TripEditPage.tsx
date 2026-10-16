@@ -36,12 +36,20 @@ const CATEGORY_ICON: Record<TripCategory, string> = {
 export type TripEditContext = "journey" | "flightTrip";
 
 /**
- * Where the page was opened from decides its title and where every exit
- * lands; nothing else differs. A flight trip IS a journey — `/flights/journeys/:id`
- * is the flight-centred view of the same row — but the owner reads it as its
- * own thing and asked for its popup to become "an edit page", not to be sent
- * to the journey's (2026-10-15). So the same form, the same `useTripForm`,
- * with the flight trip's name and its own way home.
+ * Where the page was opened from decides its title, where it lands, and
+ * nothing else. A flight trip IS a journey — `/flights/journeys/:id` is the
+ * flight-centred view of the same row — but the owner reads it as its own
+ * thing and asked for its popup to become "an edit page", not to be sent to
+ * the journey's (2026-10-15). So the same form, the same `useTripForm`, with
+ * the flight trip's name and its own way home.
+ *
+ * "Where it lands" is three targets rather than one, which is what the
+ * `home`/`list` pair is for: `home` takes Back, Cancel and Save (the flight
+ * trip), `list` takes a delete and a failed load (the flight logbook). Re-sync
+ * is neither — it opens the journey's own `/trips/:id/resync` in both
+ * contexts, since that page is the Immich flow's and the journey links to it
+ * too. Reading the pair as "every exit" was wrong; the flight-trip page's
+ * "Re-sync" left it for the journey.
  */
 const CONTEXTS: Record<
   TripEditContext,

@@ -29,8 +29,15 @@ const PAGES = [
 describe("logbook header actions wrap on a phone", () => {
   it("draws the action row once, and lets it wrap", () => {
     const header = readFileSync(resolve(__dirname, "../../components/ui/PageHeader.tsx"), "utf-8");
-    expect(header, "PageHeader's action row must be allowed to wrap").toContain(
-      'className="flex flex-wrap items-center"'
+    // Wrap AND end right. A long title ("Skandinavien Sommer 2026" at 26/800)
+    // pushes the group onto a line of its own at iPad portrait, and with the
+    // row's `space-between` alone that line's single item lands at the LEFT
+    // edge — the page's actions under the title instead of at the right edge
+    // the owner asked for. `ml-auto` + `justify-end` hold the edge; the
+    // rendered half is in `components/ui/__tests__/PageHeader.test.tsx`
+    // (whole-branch review, 2026-10-15).
+    expect(header, "PageHeader's action row must wrap and stay at the right edge").toContain(
+      'className="ml-auto flex flex-wrap items-center justify-end"'
     );
   });
 

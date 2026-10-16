@@ -567,6 +567,9 @@
           "invalidUrl": "The Dawarich address is invalid",
           "keyRequired": "A different Dawarich address needs your own key"
         }
+      },
+      "strava": {
+        "unavailableReason": "Not connected — connect Strava in Settings"
       }
     },
     "dawarichSettings": {

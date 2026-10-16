@@ -205,7 +205,13 @@ describe("JourneyTripsTab", () => {
     expect(await screen.findByText("roadtrips:loadError")).toBeInTheDocument();
     expect(screen.queryByText("trips:detail.tripsEmpty")).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "common:buttons.retry" }));
+    // The retry is the shared control, not a word styled as a link: until
+    // 2026-10-15 this was `<button className="mt-2 underline">`, the only way
+    // out of a failed load drawn as prose (whole-branch review, 2026-10-15).
+    const retry = screen.getByRole("button", { name: "common:buttons.retry" });
+    expect(retry).toHaveAttribute("data-variant", "secondary");
+
+    await userEvent.click(retry);
 
     const cards = await screen.findAllByRole("link");
     expect(cards.map((card) => card.getAttribute("href"))).toEqual(["/roadtrips/a"]);

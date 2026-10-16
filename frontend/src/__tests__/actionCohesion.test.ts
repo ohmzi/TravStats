@@ -43,6 +43,43 @@ import { describe, expect, it } from "vitest";
 
 const read = (path: string): string => readFileSync(resolve(__dirname, "..", path), "utf8");
 
+/**
+ * Every class string a file writes, whichever way it writes it.
+ *
+ * The first version of the underlined-word check matched a `className`
+ * attribute followed by `"…underline…"`, i.e. one attribute ORDER: the `[^>]*`
+ * between `<button` and `className` stops at the `>` of an arrow function, so
+ * `<button type="button" onClick={() => void load()} className="underline">`
+ * never matched — a guard that could not fail on the very form the tour
+ * editors used (found twice: the journey tab files, 2026-10-15). Reading the
+ * strings themselves is order-independent, and covers `className={…}`
+ * templates, ternary strings and template literals alike.
+ */
+const classStrings = (src: string): string[] => {
+  const out: string[] = [];
+  for (const m of src.matchAll(/className=/g)) {
+    const at = (m.index ?? 0) + "className=".length;
+    if (src[at] === '"') {
+      out.push(src.slice(at + 1, src.indexOf('"', at + 1)));
+      continue;
+    }
+    if (src[at] !== "{") continue;
+    let depth = 0;
+    let end = at;
+    for (; end < src.length; end++) {
+      if (src[end] === "{") depth++;
+      else if (src[end] === "}" && --depth === 0) break;
+    }
+    for (const lit of src.slice(at + 1, end).matchAll(/"([^"]*)"|'([^']*)'|`([^`]*)`/g)) {
+      out.push(lit[1] ?? lit[2] ?? lit[3] ?? "");
+    }
+  }
+  return out;
+};
+// A bare `underline` token; `no-underline` and `decoration-*` are not it.
+const underlines = (src: string): boolean =>
+  classStrings(src).some((c) => /(^|\s)underline(\s|$)/.test(c));
+
 /** Every screen the owner named, plus the shared components they draw. */
 const EDITOR_SCREENS = [
   "pages/TripEditPage.tsx",
@@ -137,37 +174,12 @@ describe("no underlined word performs an action on the editor", () => {
    * "Row"): the tour editors drew their row actions as underlined words, and
    * the owner could not tell which words were controls.
    *
-   * The check reads every class string, not a button's attribute order. The
-   * first version matched `className` BEFORE an arrow-function `onClick`, so
-   * it missed `onClick={onRetry}` and a `className` written after its handler:
-   * a guard that cannot fail on the forms it exists for. A load-error Retry is
-   * an action too, so it gets no exception.
+   * The check reads every class string, not a button's attribute order — see
+   * `classStrings` above for the version that could not fail. A load-error
+   * Retry is an action too, so it gets no exception; `TripRouteEditorPage`,
+   * `RoadtripDetailPage` and `JourneyTripsTab` were the last three carrying
+   * one (2026-10-15).
    */
-  const classStrings = (src: string): string[] => {
-    const out: string[] = [];
-    for (const m of src.matchAll(/className=/g)) {
-      const at = (m.index ?? 0) + "className=".length;
-      if (src[at] === '"') {
-        out.push(src.slice(at + 1, src.indexOf('"', at + 1)));
-        continue;
-      }
-      if (src[at] !== "{") continue;
-      let depth = 0;
-      let end = at;
-      for (; end < src.length; end++) {
-        if (src[end] === "{") depth++;
-        else if (src[end] === "}" && --depth === 0) break;
-      }
-      for (const lit of src.slice(at + 1, end).matchAll(/"([^"]*)"|'([^']*)'|`([^`]*)`/g)) {
-        out.push(lit[1] ?? lit[2] ?? lit[3] ?? "");
-      }
-    }
-    return out;
-  };
-  // A bare `underline` token; `no-underline` and `decoration-*` are not it.
-  const underlines = (src: string): boolean =>
-    classStrings(src).some((c) => /(^|\s)underline(\s|$)/.test(c));
-
   it.each([
     "components/Trips/TourLegList.tsx",
     "components/Trips/TourTrackList.tsx",
@@ -176,6 +188,18 @@ describe("no underlined word performs an action on the editor", () => {
     "components/Roadtrips/StationEditor.tsx",
     "pages/TripEditPage.tsx",
     "pages/ToursPage.tsx",
+    // The four the spec names for this rule; they were covered only by the
+    // narrower patterns, which miss a handler-first `className` and an
+    // `<a className={…underline…}>`.
+    "components/Trips/TimelineActions.tsx",
+    "components/Trips/TripGallery.tsx",
+    "components/Trips/ImmichAlbumSection.tsx",
+    "components/Trips/SummaryCard.tsx",
+    // The three load/save Retries converted on 2026-10-15 — the files that
+    // would have caught them are exactly this list.
+    "pages/TripRouteEditorPage.tsx",
+    "pages/RoadtripDetailPage.tsx",
+    "components/Trips/JourneyTripsTab.tsx",
   ])("%s", (path) => {
     expect(underlines(read(path))).toBe(false);
   });
@@ -274,7 +298,10 @@ describe("the journey's tabs draw the shared controls, at the right", () => {
     expect(src).not.toContain("bg-(--accent)");
     expect(src).not.toMatch(/borderColor: "var\(--accent\)"/);
     expect(src).not.toMatch(/border: "1px solid var\(--accent\)"/);
-    expect(src).not.toMatch(/<button[^>]*className="[^"]*underline/);
+    // The shared check, not the per-attribute-order regex this used to be:
+    // that one could not match a `className` written after its handler, which
+    // is why it stayed green over two underlined actions (2026-10-15).
+    expect(underlines(src)).toBe(false);
     expect(src).not.toMatch(/className="px-3 py-1\.5 rounded/);
   });
 
@@ -303,4 +330,98 @@ describe("the journey's tabs draw the shared controls, at the right", () => {
       expect(read(path)).toMatch(/justify-end|ml-auto/);
     }
   );
+});
+
+describe("a section's own actions are drawn by the section header", () => {
+  /**
+   * Spec §The rule, level 2 (2026-10-15): the SECTION level's controls live in
+   * `ui/SectionHeader` — the one component that owns "label left, this
+   * section's actions right". The spec's Testing section asks for a check that
+   * fails on "a section action on these screens drawn outside SectionHeader",
+   * and there was none: the only `SectionHeader` pattern in this file sat
+   * inside the right-alignment alternative, where a plain `justify-end` or an
+   * unrelated `ml-auto` satisfied it. So a file could leave the shared header
+   * and stay green.
+   *
+   * Two rows are exempt, and the spec records it: the TAB toolbars
+   * (`TimelineActions`, `TripGallery`) sit at the top of a tab the tab strip
+   * already names, so a `SectionHeader` there would print that name a second
+   * time as a section label. Their placement is not waived — the case above
+   * holds them to the right edge, and the underline and raw-`<button>` cases
+   * hold their controls.
+   *
+   * What this can prove is narrow, and worth saying: that these files still
+   * HAND a section's actions to `SectionHeader`. A file that moves one row out
+   * and leaves another behind still passes; where the rows land is covered by
+   * each screen's rendered test.
+   */
+  const SECTION_ROWS = [
+    "components/Trips/TourPointEditor.tsx",
+    "components/Trips/TourTrackList.tsx",
+    "components/Trips/TourLegList.tsx",
+  ] as const;
+
+  it.each(SECTION_ROWS)("%s hands a section's actions to SectionHeader", (path) => {
+    expect(read(path)).toMatch(/<SectionHeader[\s\S]*?\sactions=/);
+  });
+
+  it("rejects a title-only header — the form that proves nothing", () => {
+    // The self-test that makes the pattern above mean something. A bare
+    // `<SectionHeader />` carries no controls, and an earlier version of the
+    // sibling right-alignment check accepted exactly that shape as proof of
+    // placement. `RoadtripDatesSection` is the live case: its header is a
+    // title line, and its "Save dates" is a deliberate `ml-auto` in the row
+    // below, on the baseline of the fields it saves — so it is NOT in the list
+    // above, and a check that accepted it would be teaching the wrong rule.
+    expect('<SectionHeader title={t("x")} />').not.toMatch(/<SectionHeader[\s\S]*?\sactions=/);
+    expect('<SectionHeader title={t("x")} actions={<Button>Go</Button>} />').toMatch(
+      /<SectionHeader[\s\S]*?\sactions=/
+    );
+  });
+});
+
+describe("a failed load or save is answered with the shared control", () => {
+  /**
+   * A Retry is an action, and the rule has no exception for the ones a failure
+   * produces (spec §The rule, 2026-10-15). Three survived the branch as
+   * underlined words — the road-trip editor's failed load, the station
+   * editor's failed autosave and the journey's Trips tab — found by two lenses
+   * in the whole-branch review of 2026-10-15. They are `Button
+   * variant="secondary" size="toolbar"` now, the control every other retry on
+   * these screens draws.
+   *
+   * A source scan, like the rest of this file: reaching a page's failure arm
+   * needs its whole API mocked, and what is guarded here is that the control is
+   * the shared one rather than a word with a handler. The rendered half is
+   * covered where the failure arm has a test of its own (`JourneyTripsTab`
+   * asserts `data-variant`).
+   */
+  it.each([
+    ["pages/TripRouteEditorPage.tsx", "common:buttons.retry"],
+    ["pages/RoadtripDetailPage.tsx", "roadtrips:editor.status.retry"],
+    ["components/Trips/JourneyTripsTab.tsx", "common:buttons.retry"],
+  ])("%s renders its retry as the shared Button", (path, key) => {
+    const buttons = (read(path).match(/<Button\b[\s\S]*?<\/Button>/g) ?? []).filter((b) =>
+      b.includes(key)
+    );
+    expect(buttons).not.toHaveLength(0);
+    for (const b of buttons) {
+      expect(b.slice(0, b.indexOf(">")), `${key} is not Button variant="secondary"`).toMatch(
+        /variant="secondary"/
+      );
+    }
+  });
+
+  it("rejects the hand-rolled retry it replaced", () => {
+    // The exact form all three had — and the point of the check: a `<button>`
+    // is not a `<Button>`, so the case above fails on it rather than passing
+    // because the label happens to be there.
+    const handRolled =
+      '<button type="button" className="mt-3 underline text-sm" onClick={() => void load()}>' +
+      '{t("common:buttons.retry")}</button>';
+    const buttons = (handRolled.match(/<Button\b[\s\S]*?<\/Button>/g) ?? []).filter((b) =>
+      b.includes("common:buttons.retry")
+    );
+    expect(buttons).toHaveLength(0);
+  });
 });

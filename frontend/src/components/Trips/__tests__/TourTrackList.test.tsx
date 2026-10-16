@@ -41,6 +41,7 @@ interface RenderOverrides {
   onPullDawarich?: () => void;
   onDownload?: (track: TourTrackMeta) => void;
   onImportStrava?: () => void;
+  stravaUnavailableReason?: string;
 }
 
 function renderList(overrides: RenderOverrides = {}) {
@@ -172,10 +173,34 @@ describe("TourTrackList", () => {
     expect(onPullDawarich).toHaveBeenCalledTimes(1);
   });
 
-  it("leaves Strava out of the menu when it is not connected", () => {
+  it("keeps Strava in the menu, disabled, with its reason, when it is not connected", () => {
+    // Owner, 2026-10-15: one menu for the three sources, and the spec's
+    // "an unavailable source is a disabled item that shows its reason".
+    // Strava used to be spread in only when connected, so a reader who had not
+    // connected it found a menu that simply lacked the source they came for —
+    // and could not tell whether the app does Strava at all.
+    const onImportStrava = vi.fn();
     renderList({ onImportStrava: undefined });
     openMenu();
-    expect(screen.queryByRole("menuitem", { name: "roadtrips:strava.importButton" })).toBeNull();
+    const item = screen.getByRole("menuitem", { name: /roadtrips:strava.importButton/ });
+    expect(item).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("trips:tours.tracks.strava.unavailableReason")).toBeVisible();
+    fireEvent.click(item);
+    expect(onImportStrava).not.toHaveBeenCalled();
+  });
+
+  it("says the instance has no Strava app when that is the reason", () => {
+    // The reader's own missing connection and the instance's missing Strava
+    // app are different next steps — one is Settings → Services, the other an
+    // admin's — so the caller that knows which passes its own sentence.
+    renderList({
+      onImportStrava: undefined,
+      stravaUnavailableReason: "roadtrips:strava.askAdmin",
+    });
+    openMenu();
+    const item = screen.getByRole("menuitem", { name: /roadtrips:strava.importButton/ });
+    expect(item).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("roadtrips:strava.askAdmin")).toBeVisible();
   });
 
   // Data-integrity audit 2026-09-19, finding 4: the delete link used to call
