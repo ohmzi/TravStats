@@ -7,7 +7,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 import { useTranslation } from "../../hooks/useTranslation";
-import { ACCENT, BORDER, PANEL_BG, TEXT } from "../map/controlPanelKit";
+import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
+import { BORDER, PANEL_BG, TEXT } from "../map/controlPanelKit";
+import { Icon, type IconName } from "../ui/Icon";
+import { DOMAIN_ICON } from "../ui/domainIcons";
+import Sheet, { SheetItem } from "../ui/Sheet";
 
 /**
  * "tour" is in here and is NOT a domain in `shared/domains.ts`: it has no
@@ -25,19 +29,27 @@ interface AddDomainPickerProps {
   onPick(domain: AddableDomain): void;
 }
 
+/** "tour" has no domain and therefore no entry in `DOMAIN_ICON`. */
+const ADD_ICON: Record<AddableDomain, IconName> = { ...DOMAIN_ICON, tour: "route" };
+
 export function AddDomainPicker({ enabled, onPick }: AddDomainPickerProps): JSX.Element {
   const { t } = useTranslation(["dashboard"]);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // On a phone the menu is the shared bottom sheet, like every other popup on
+  // the map: a dropdown hanging from the top-right corner put the domains a
+  // thumb has to reach for at the far end of the screen from the thumb.
+  const phone = useIsPhoneViewport();
 
   useEffect(() => {
-    if (!open) return;
+    // The sheet brings its own scrim; a document listener would race it.
+    if (!open || phone) return;
     const onClickOutside = (e: MouseEvent): void => {
       if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
-  }, [open]);
+  }, [open, phone]);
 
   const options: { key: AddableDomain; label: string }[] = [];
   if (enabled.flight) options.push({ key: "flight", label: t("dashboard:addPicker.flight") });
@@ -58,13 +70,40 @@ export function AddDomainPicker({ enabled, onPick }: AddDomainPickerProps): JSX.
     <div ref={containerRef} style={{ position: "relative" }}>
       <button
         type="button"
+        aria-haspopup={phone ? "dialog" : "menu"}
+        aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
-        className="cursor-pointer rounded-lg px-3 py-2 text-[13px] font-semibold shadow-lg transition-opacity hover:opacity-90"
-        style={{ background: `rgb(${ACCENT})`, color: "#0d1117", border: "none" }}
+        className="inline-flex cursor-pointer items-center rounded-lg px-3 py-2 text-[13px] font-semibold shadow-lg transition-opacity hover:opacity-90"
+        style={{
+          gap: 6,
+          minHeight: phone ? "var(--ts-size-touch-min)" : undefined,
+          background: "var(--ts-accent)",
+          color: "var(--ts-accent-text)",
+          border: "none",
+        }}
       >
-        + {t("dashboard:addPicker.button")} ▾
+        <Icon name="plus" size={16} />
+        {t("dashboard:addPicker.button")}
+        <Icon name={phone ? "chevron-up" : "chevron-down"} size={14} />
       </button>
-      {open && (
+      {phone && (
+        <Sheet open={open} onClose={() => setOpen(false)} title={t("dashboard:addPicker.button")}>
+          <div role="menu" aria-label={t("dashboard:addPicker.button")} className="flex flex-col">
+            {options.map((opt) => (
+              <SheetItem
+                key={opt.key}
+                icon={<Icon name={ADD_ICON[opt.key]} size={18} />}
+                label={opt.label}
+                onSelect={() => {
+                  setOpen(false);
+                  onPick(opt.key);
+                }}
+              />
+            ))}
+          </div>
+        </Sheet>
+      )}
+      {open && !phone && (
         <ul
           role="menu"
           className="shadow-xl"

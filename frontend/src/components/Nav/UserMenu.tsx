@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useClickOutside } from "../../hooks/useClickOutside";
+import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
+import Sheet, { SheetItem } from "../ui/Sheet";
 import { displayName, initials, type DisplayableUser } from "../../lib/userDisplay";
 import { Icon } from "../ui/Icon";
 import { useInstallPrompt } from "../../hooks/useInstallPrompt";
@@ -71,8 +73,17 @@ export default function UserMenu({
   // Outside clicks go through the project's own hook rather than a second
   // hand-rolled document listener; Escape is added here because the hook does
   // not cover the keyboard. The key listener only exists while the menu is open.
+  //
+  // On a phone the menu is the shared bottom sheet (`ui/Sheet`). It is
+  // portalled to <body>, outside `containerRef`, so the outside-click rule
+  // stands down there — it would shut the sheet on the press that picks an
+  // entry. The sheet's scrim closes it instead.
+  const phone = useIsPhoneViewport();
   const close = useCallback(() => setOpen(false), []);
-  useClickOutside(containerRef, close);
+  const closeOutside = useCallback(() => {
+    if (!phone) setOpen(false);
+  }, [phone]);
+  useClickOutside(containerRef, closeOutside);
 
   useEffect(() => {
     if (!open) return;
@@ -90,7 +101,7 @@ export default function UserMenu({
       <button
         type="button"
         onClick={() => setOpen((wasOpen) => !wasOpen)}
-        aria-haspopup="menu"
+        aria-haspopup={phone ? "dialog" : "menu"}
         aria-expanded={open}
         aria-label={t("dashboard:userMenu.label", { defaultValue: "Account menu" })}
         className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 text-sm transition-colors"
@@ -118,7 +129,95 @@ export default function UserMenu({
         </span>
       </button>
 
-      {open && (
+      {phone && (
+        <Sheet open={open} onClose={close} title={name}>
+          <div
+            role="menu"
+            aria-label={t("dashboard:userMenu.label", { defaultValue: "Account menu" })}
+            className="flex flex-col"
+          >
+            <Link to="/settings/account" role="menuitem" onClick={close} className="ts-sheet-item">
+              <span className="flex items-center" style={{ gap: "var(--ts-space-md)" }}>
+                <Icon name="settings" size={18} />
+                {t("dashboard:settings")}
+              </span>
+            </Link>
+            {isAdmin && (
+              <Link to="/admin" role="menuitem" onClick={close} className="ts-sheet-item">
+                <span className="flex items-center" style={{ gap: "var(--ts-space-md)" }}>
+                  <Icon name="shield" size={18} />
+                  {t("dashboard:admin")}
+                </span>
+              </Link>
+            )}
+            <a
+              role="menuitem"
+              href={DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={close}
+              className="ts-sheet-item"
+            >
+              <span className="flex items-center" style={{ gap: "var(--ts-space-md)" }}>
+                <Icon name="book-open" size={18} />
+                {t("common:help.title")}
+              </span>
+            </a>
+            {canInstall && (
+              <SheetItem
+                icon={<Icon name="smartphone" size={18} />}
+                label={t("dashboard:installApp")}
+                onSelect={() => {
+                  close();
+                  promptInstall();
+                }}
+              />
+            )}
+            {onReportBug && (
+              <SheetItem
+                icon={<Icon name="triangle-alert" size={18} />}
+                label={t("common:diagnostic.reportBug")}
+                onSelect={() => {
+                  close();
+                  onReportBug();
+                }}
+              />
+            )}
+            <div role="group" aria-label={t("dashboard:nav.support")} className="flex flex-col">
+              <span className="t-label-mono ts-sheet-section-label">
+                {t("dashboard:nav.support")}
+              </span>
+              {SUPPORT_LINKS.map((link) => (
+                <a
+                  key={link.id}
+                  role="menuitem"
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={close}
+                  className="ts-sheet-item"
+                  style={{ color: "var(--ts-muted)" }}
+                >
+                  {link.labelKey ? t(link.labelKey) : "Discord"}
+                </a>
+              ))}
+            </div>
+            <div
+              style={{ borderTop: "1px solid var(--ts-border)", margin: "var(--ts-space-sm) 0" }}
+            />
+            <SheetItem
+              icon={<Icon name="log-out" size={18} />}
+              label={t("dashboard:logout")}
+              onSelect={() => {
+                close();
+                onLogout();
+              }}
+            />
+          </div>
+        </Sheet>
+      )}
+
+      {open && !phone && (
         <div
           role="menu"
           className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg shadow-xl"

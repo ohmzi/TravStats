@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef, useState, type JSX, type KeyboardEvent } from "react";
 
 import { useClickOutside } from "../../hooks/useClickOutside";
+import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 import { BUTTON_SKIN, TOOLBAR_CONTROL_STYLE } from "./Button";
+import Sheet from "./Sheet";
 
 export interface MenuItem {
   id: string;
@@ -26,6 +28,9 @@ export interface MenuItem {
  * printed under it — a hidden option is a question ("does this app do
  * Dawarich?") and a tooltip is invisible on a tablet, which is the web build's
  * target device.
+ *
+ * On a phone the list opens as the shared bottom sheet (`./Sheet`), like every
+ * other popup there.
  */
 export default function MenuButton({
   label,
@@ -41,6 +46,7 @@ export default function MenuButton({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const menuId = useId();
+  const phone = useIsPhoneViewport();
 
   const close = (refocus: boolean): void => {
     setOpen(false);
@@ -51,7 +57,10 @@ export default function MenuButton({
     if (open) itemRefs.current[0]?.focus();
   }, [open]);
 
-  useClickOutside(rootRef, () => setOpen(false));
+  // The sheet is portalled outside `rootRef`; its scrim closes it instead.
+  useClickOutside(rootRef, () => {
+    if (!phone) setOpen(false);
+  });
 
   const onMenuKey = (e: KeyboardEvent<HTMLDivElement>): void => {
     const current = itemRefs.current.findIndex((el) => el === document.activeElement);
@@ -93,7 +102,42 @@ export default function MenuButton({
         {label}
         <span aria-hidden="true">▾</span>
       </button>
-      {open && (
+      {phone && (
+        <Sheet open={open} onClose={() => close(false)} title={label}>
+          <div id={menuId} role="menu" aria-label={label} className="flex flex-col">
+            {items.map((item, index) => (
+              <button
+                key={item.id}
+                ref={(el) => {
+                  itemRefs.current[index] = el;
+                }}
+                type="button"
+                role="menuitem"
+                aria-disabled={item.disabled || undefined}
+                className="ts-sheet-item"
+                style={{
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  justifyContent: "center",
+                }}
+                onClick={() => {
+                  if (item.disabled) return;
+                  close(false);
+                  item.onSelect();
+                }}
+              >
+                {item.label}
+                {item.disabled && item.reason ? (
+                  <span className="t-caption" style={{ fontWeight: 400 }}>
+                    {item.reason}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
+      {open && !phone && (
         <div
           id={menuId}
           role="menu"

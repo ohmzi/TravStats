@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useTranslation } from "../../hooks/useTranslation";
+import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 import { Icon } from "../ui/Icon";
+import Sheet from "../ui/Sheet";
 import { isPathActive, type NavNode, type NavSection } from "./useNavItems";
 
 interface MoreMenuProps {
@@ -24,6 +26,7 @@ function badgeText(badge: number): string {
  * "Mehr": everything that is not one of the four primary destinations, in
  * labelled sections with an icon per entry. Click toggles; Escape, an outside
  * click or choosing an entry closes. Hover menus are avoided (touch, a11y).
+ * On a phone it opens as the shared bottom sheet, like every popup there.
  */
 export default function MoreMenu({
   sections,
@@ -35,7 +38,14 @@ export default function MoreMenu({
   const rootRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const close = useCallback(() => setOpen(false), []);
-  useClickOutside(rootRef, close);
+  // On a phone the menu is the shared bottom sheet (`ui/Sheet`), portalled to
+  // <body> — outside `rootRef`, so the outside-click rule would shut it on the
+  // very press that picks an entry. The sheet's scrim does that job there.
+  const phone = useIsPhoneViewport();
+  const closeOutside = useCallback(() => {
+    if (!phone) setOpen(false);
+  }, [phone]);
+  useClickOutside(rootRef, closeOutside);
 
   useEffect(() => {
     if (!open) return;
@@ -69,7 +79,7 @@ export default function MoreMenu({
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        aria-haspopup="menu"
+        aria-haspopup={phone ? "dialog" : "menu"}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="relative flex items-center gap-1 rounded-md px-3 py-1.5 text-sm"
@@ -80,7 +90,7 @@ export default function MoreMenu({
         }}
       >
         {t("dashboard:nav.more")}
-        <Icon name="chevron-down" size={14} />
+        <Icon name={phone ? "chevron-up" : "chevron-down"} size={14} />
         {badge > 0 && (
           <span
             aria-hidden="true"
@@ -90,7 +100,51 @@ export default function MoreMenu({
         )}
       </button>
 
-      {open && (
+      {phone && (
+        <Sheet open={open} onClose={close} title={t("dashboard:nav.more")}>
+          <div role="menu" aria-label={t("dashboard:nav.more")} className="flex flex-col">
+            {allSections.map((section) => (
+              <div
+                key={section.id}
+                role="group"
+                aria-label={section.label}
+                className="flex flex-col"
+              >
+                <span className="t-label-mono ts-sheet-section-label">{section.label}</span>
+                {section.items.map((item) => {
+                  const itemActive = isPathActive(item.path, location.pathname);
+                  return (
+                    <Link
+                      key={item.id}
+                      role="menuitem"
+                      to={item.path}
+                      onClick={close}
+                      aria-current={itemActive ? "page" : undefined}
+                      data-active={itemActive || undefined}
+                      className="ts-sheet-item"
+                    >
+                      <span className="flex items-center" style={{ gap: "var(--ts-space-md)" }}>
+                        {item.icon && <Icon name={item.icon} size={18} />}
+                        {item.label}
+                      </span>
+                      {(item.badge ?? 0) > 0 && (
+                        <span
+                          className="t-label-mono"
+                          style={{ color: item.warn ? "var(--ts-warn)" : "var(--ts-muted)" }}
+                        >
+                          {badgeText(item.badge ?? 0)}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </Sheet>
+      )}
+
+      {open && !phone && (
         <div
           role="menu"
           className={`absolute top-full z-70 mt-1.5 flex min-w-[240px] flex-col rounded-lg p-2 shadow-xl ${

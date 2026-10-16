@@ -13,21 +13,16 @@
 // State lives in GlobeView; this component is presentation + callbacks.
 
 import { useTranslation } from "../../hooks/useTranslation";
-import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
-import { phonePanelMaxHeight } from "../map/phoneChrome";
 import type { Quartile } from "./heatmapUtils";
 import {
   CollapsibleSection,
   CruiseAppearanceSection,
   FlightAppearanceSection,
   LodgingAppearanceSection,
-  PanelHeader,
   SectionLabel,
   SegControl,
   Toggle,
-  usePanelExpanded,
   ACCENT,
-  PANEL_BG,
   HAIRLINE,
   BORDER,
   TEXT,
@@ -40,6 +35,7 @@ import {
 import { PlaceAppearanceSection, type PlaceAppearanceState } from "../map/PlaceAppearanceSection";
 import { OverlayAppearanceSections } from "../map/OverlayAppearanceSections";
 import { MapChromeSections } from "../map/MapChromeSections";
+import { MapPanelFrame } from "../map/MapPanelFrame";
 import type { LabelsMode } from "../map/labelPriority";
 import { DEFAULT_AIRPORT_COLOR, DEFAULT_PORT_COLOR } from "./buildGlobeLayers";
 import HelpIcon from "../Help/HelpIcon";
@@ -122,279 +118,244 @@ export function GlobeControlPanel({
   placeAppearance,
 }: GlobeControlPanelProps): JSX.Element {
   const { t } = useTranslation();
-  const [expanded, toggleExpanded] = usePanelExpanded();
-  // The panel is 232px of a 390px phone — two thirds of the width — and the
-  // bottom corner it lives in is shared with the map key's pill and the
-  // "Domänen · x/y" button there. So on a phone the dock places it in a band
-  // of its own (`GlobePanelDock`, `phoneChrome.ts`), the card shrinks to its
-  // header while shut and fills the width while open, and its body stops
-  // above the map's right column instead of over it.
-  const phone = useIsPhoneViewport();
 
+  // The frame — a card on a desktop, a pill and a bottom sheet on a phone —
+  // is `MapPanelFrame`, shared with the flat map's panel.
   return (
-    <div
-      className={`flex flex-col overflow-hidden rounded-xl text-xs ${
-        phone ? (expanded ? "w-full" : "w-auto") : "w-[232px]"
-      }`}
-      style={{
-        background: PANEL_BG,
-        backdropFilter: "blur(14px)",
-        border: `1px solid ${BORDER}`,
-        color: TEXT,
-        fontFamily: "'Inter', sans-serif",
-        boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
-        // Never taller than the space between the Aktivität toolbar row
-        // and the bottom edge — the body scrolls when all sections open.
-        maxHeight: phone ? phonePanelMaxHeight() : "calc(100vh - 232px)",
-      }}
-    >
-      {/* Header — click to collapse */}
-      <PanelHeader
-        title={t("map:globe.panel.title")}
-        expanded={expanded}
-        onToggle={toggleExpanded}
-      />
-
-      {expanded && (
-        <div className="scrollbar-none min-h-0 overflow-y-auto overflow-x-hidden px-3 pb-3">
-          {/* Everything that is about the MAP rather than about one domain:
+    <MapPanelFrame title={t("map:globe.panel.title")} desktopMaxHeight="calc(100vh - 232px)">
+      {/* Everything that is about the MAP rather than about one domain:
               mode, filter, layers, basemap. One section, open by default,
               because it is what a reader reaches for first — the per-domain
               colours below it are the part that made the panel long
               (tester, 2026-09-21). */}
-          <CollapsibleSection id="basics" title={t("map:globe.panel.basics")} defaultOpen first>
-            {/* Modus + Filter + Add — folded in from the old top toolbar */}
-            <MapChromeSections />
+      <CollapsibleSection id="basics" title={t("map:globe.panel.basics")} defaultOpen first>
+        {/* Modus + Filter + Add — folded in from the old top toolbar */}
+        <MapChromeSections />
 
-            {/* Layers */}
-            <div style={{ borderTop: `1px solid ${HAIRLINE}` }} className="mt-2.5 pt-2.5">
-              <SectionLabel>{t("map:globe.panel.layers")}</SectionLabel>
-              <div className="-mx-1 flex flex-col gap-0.5">
-                <Toggle
-                  checked={showNight}
-                  onChange={onShowNightChange}
-                  icon="🌓"
-                  label={t("map:globe.panel.dayNight")}
-                />
-                <Toggle
-                  checked={showPlaceLabels}
-                  onChange={onShowPlaceLabelsChange}
-                  icon="🗺️"
-                  label={t("map:globe.panel.placeLabels")}
-                />
-                <Toggle
-                  checked={showTerrain}
-                  onChange={onShowTerrainChange}
-                  icon="⛰️"
-                  label={t("map:globe.panel.terrain")}
-                />
-                <Toggle
-                  checked={autoRotate}
-                  onChange={onAutoRotateChange}
-                  icon="🌍"
-                  label={t("map:globe.autoRotation")}
-                />
-              </div>
-              {/* Marker labels: off / key markers only / all */}
-              <div className="mt-2">
-                <div
-                  className="mb-1 flex items-center gap-2 px-1 text-xs font-medium"
-                  style={{ color: TEXT }}
-                >
-                  <span aria-hidden style={{ opacity: 0.9 }}>
-                    🏷️
-                  </span>
-                  {t("map:globe.panel.labels")}
-                </div>
-                <SegControl<LabelsMode>
-                  value={labelsMode}
-                  onChange={onLabelsModeChange}
-                  options={[
-                    { value: "off", label: t("map:globe.panel.off") },
-                    { value: "important", label: t("map:globe.panel.labelsImportant") },
-                    { value: "all", label: t("map:globe.panel.labelsAll") },
-                  ]}
-                />
-              </div>
-            </div>
-
-            {/* Basemap */}
-            <div style={{ borderTop: `1px solid ${HAIRLINE}` }} className="mt-2.5 pt-2.5">
-              <SectionLabel>{t("map:globe.panel.basemap")}</SectionLabel>
-              <div className="grid grid-cols-3 gap-1">
-                {styleOptions.map((opt) => {
-                  const active = opt.id === styleId;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => onStyleChange(opt.id)}
-                      className="cursor-pointer rounded-md px-1.5 py-1 text-[11px] font-medium transition-colors"
-                      style={{
-                        background: active ? `rgba(${ACCENT},0.16)` : "rgba(255,255,255,0.04)",
-                        color: active ? `rgb(${ACCENT})` : "rgba(241,245,249,0.72)",
-                        border: active
-                          ? `1px solid rgba(${ACCENT},0.55)`
-                          : "1px solid rgba(255,255,255,0.06)",
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </CollapsibleSection>
-
-          {/* Per-domain appearance sections (Flüge / Kreuzfahrten / …) */}
-          {appearanceDomains.includes("flight") && (
-            <FlightAppearanceSection
-              title={t("map:globe.panel.domainFlight")}
-              {...flightAppearance}
-              markerDefault={DEFAULT_AIRPORT_COLOR}
-              markerLabel={t("map:globe.panel.airports")}
-              markerAutoLabel={t("map:globe.panel.auto")}
-              widthLabel={t("map:globe.panel.width")}
-              sizeLabel={t("map:globe.panel.size")}
+        {/* Layers */}
+        <div style={{ borderTop: `1px solid ${HAIRLINE}` }} className="mt-2.5 pt-2.5">
+          <SectionLabel>{t("map:globe.panel.layers")}</SectionLabel>
+          <div className="-mx-1 flex flex-col gap-0.5">
+            <Toggle
+              checked={showNight}
+              onChange={onShowNightChange}
+              icon="🌓"
+              label={t("map:globe.panel.dayNight")}
             />
-          )}
-          {appearanceDomains.includes("cruise") && (
-            <CruiseAppearanceSection
-              title={t("map:globe.panel.domainCruise")}
-              {...cruiseAppearance}
-              markerDefault={DEFAULT_PORT_COLOR}
-              markerLabel={t("map:globe.panel.ports")}
-              markerAutoLabel={t("map:globe.panel.auto")}
-              widthLabel={t("map:globe.panel.width")}
-              sizeLabel={t("map:globe.panel.size")}
+            <Toggle
+              checked={showPlaceLabels}
+              onChange={onShowPlaceLabelsChange}
+              icon="🗺️"
+              label={t("map:globe.panel.placeLabels")}
             />
-          )}
-
-          {appearanceDomains.includes("lodging") && (
-            <LodgingAppearanceSection
-              title={t("map:globe.panel.domainLodging")}
-              {...lodgingAppearance}
-              sizeLabel={t("map:globe.panel.size")}
+            <Toggle
+              checked={showTerrain}
+              onChange={onShowTerrainChange}
+              icon="⛰️"
+              label={t("map:globe.panel.terrain")}
             />
-          )}
-          {appearanceDomains.includes("poi") && (
-            <PlaceAppearanceSection
-              title={t("map:globe.panel.domainPlace")}
-              {...placeAppearance}
-              sizeLabel={t("map:globe.panel.size")}
+            <Toggle
+              checked={autoRotate}
+              onChange={onAutoRotateChange}
+              icon="🌍"
+              label={t("map:globe.autoRotation")}
             />
-          )}
-          {/* Tours / roadtrips / rail / rentals — layers the tab builds (forgejo#198) */}
-          <OverlayAppearanceSections appearanceDomains={appearanceDomains} />
-
-          {/* Frequency filter (only when arcs exist) */}
-          {hasArcs && (
-            <CollapsibleSection id="frequency" title={t("map:globe.routeFrequency")}>
-              <div className="flex flex-col gap-0.5">
-                {legendRanges.map(({ q, color, label }) => {
-                  const active = activeQuartile === q;
-                  return (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => onQuartileChange(active ? null : q)}
-                      className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 transition-colors"
-                      style={{
-                        background: active ? "rgba(255,255,255,0.09)" : "transparent",
-                        opacity: activeQuartile === null || active ? 1 : 0.5,
-                      }}
-                      title={t("map:globe.quartileFilterHint")}
-                    >
-                      <span
-                        className="h-[3px] w-7 rounded-full"
-                        style={{ backgroundColor: color }}
-                      />
-                      <span className="text-[11px]">{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {activeQuartile !== null && (
-                <button
-                  type="button"
-                  onClick={() => onQuartileChange(null)}
-                  className="mt-1 cursor-pointer text-[10px] underline opacity-70 hover:opacity-100"
-                >
-                  {t("map:globe.quartileFilterClear")}
-                </button>
-              )}
-              {antipodalCount > 0 && (
-                <div className="mt-1.5 text-[10px] opacity-60">
-                  {t("map:globe.antipodalSimplified", { count: antipodalCount })}
-                </div>
-              )}
-              {hasWeakArcs && (
-                <div className="mt-1.5 flex items-center gap-2 text-[10px] opacity-70">
-                  <svg width="28" height="2" viewBox="0 0 28 2" aria-hidden>
-                    <line
-                      x1="0"
-                      y1="1"
-                      x2="28"
-                      y2="1"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeDasharray="4 3"
-                    />
-                  </svg>
-                  <span>{t("map:globe.weak")}</span>
-                  <HelpIcon content={t("map:globe.weakHint")} subject={t("map:globe.weak")} />
-                </div>
-              )}
-            </CollapsibleSection>
-          )}
-
-          {/* Actions + performance */}
-          <div
-            style={{ borderTop: `1px solid ${HAIRLINE}` }}
-            className="mt-2.5 flex items-center gap-2 pt-2.5"
-          >
-            <button
-              type="button"
-              onClick={onRecenter}
-              className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors"
-              style={{
-                background: "rgba(255,255,255,0.06)",
-                border: `1px solid ${BORDER}`,
-                color: TEXT,
-              }}
-              title={t("map:globe.recenterHint")}
+          </div>
+          {/* Marker labels: off / key markers only / all */}
+          <div className="mt-2">
+            <div
+              className="mb-1 flex items-center gap-2 px-1 text-xs font-medium"
+              style={{ color: TEXT }}
             >
-              <span aria-hidden>🧭</span>
-              {t("map:globe.recenter")}
-            </button>
-            <select
-              value={liteMode}
-              onChange={(e) => onLiteModeChange(e.target.value as LiteMode)}
-              className="cursor-pointer rounded-md px-1.5 py-1.5 text-[11px]"
-              style={{
-                background: "rgba(255,255,255,0.06)",
-                border: `1px solid ${BORDER}`,
-                color: TEXT,
-                colorScheme: "dark",
-              }}
-              title={t("map:globe.performanceHint")}
-            >
-              {/* Options MUST be styled explicitly — the popup ignores the
-                  select's colours on Windows and was white-on-white (#196). */}
-              <option value="auto" style={PANEL_OPTION_STYLE}>
-                ⚡ {t("map:globe.performanceAuto")} (
-                {lite ? t("map:globe.performanceOn") : t("map:globe.performanceOff")})
-              </option>
-              <option value="on" style={PANEL_OPTION_STYLE}>
-                ⚡ {t("map:globe.performanceOn")}
-              </option>
-              <option value="off" style={PANEL_OPTION_STYLE}>
-                ⚡ {t("map:globe.performanceOff")}
-              </option>
-            </select>
+              <span aria-hidden style={{ opacity: 0.9 }}>
+                🏷️
+              </span>
+              {t("map:globe.panel.labels")}
+            </div>
+            <SegControl<LabelsMode>
+              value={labelsMode}
+              onChange={onLabelsModeChange}
+              options={[
+                { value: "off", label: t("map:globe.panel.off") },
+                { value: "important", label: t("map:globe.panel.labelsImportant") },
+                { value: "all", label: t("map:globe.panel.labelsAll") },
+              ]}
+            />
           </div>
         </div>
+
+        {/* Basemap */}
+        <div style={{ borderTop: `1px solid ${HAIRLINE}` }} className="mt-2.5 pt-2.5">
+          <SectionLabel>{t("map:globe.panel.basemap")}</SectionLabel>
+          <div className="grid grid-cols-3 gap-1">
+            {styleOptions.map((opt) => {
+              const active = opt.id === styleId;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onStyleChange(opt.id)}
+                  className="cursor-pointer rounded-md px-1.5 py-1 text-[11px] font-medium transition-colors"
+                  style={{
+                    background: active ? `rgba(${ACCENT},0.16)` : "rgba(255,255,255,0.04)",
+                    color: active ? `rgb(${ACCENT})` : "rgba(241,245,249,0.72)",
+                    border: active
+                      ? `1px solid rgba(${ACCENT},0.55)`
+                      : "1px solid rgba(255,255,255,0.06)",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Per-domain appearance sections (Flüge / Kreuzfahrten / …) */}
+      {appearanceDomains.includes("flight") && (
+        <FlightAppearanceSection
+          title={t("map:globe.panel.domainFlight")}
+          {...flightAppearance}
+          markerDefault={DEFAULT_AIRPORT_COLOR}
+          markerLabel={t("map:globe.panel.airports")}
+          markerAutoLabel={t("map:globe.panel.auto")}
+          widthLabel={t("map:globe.panel.width")}
+          sizeLabel={t("map:globe.panel.size")}
+        />
       )}
-    </div>
+      {appearanceDomains.includes("cruise") && (
+        <CruiseAppearanceSection
+          title={t("map:globe.panel.domainCruise")}
+          {...cruiseAppearance}
+          markerDefault={DEFAULT_PORT_COLOR}
+          markerLabel={t("map:globe.panel.ports")}
+          markerAutoLabel={t("map:globe.panel.auto")}
+          widthLabel={t("map:globe.panel.width")}
+          sizeLabel={t("map:globe.panel.size")}
+        />
+      )}
+
+      {appearanceDomains.includes("lodging") && (
+        <LodgingAppearanceSection
+          title={t("map:globe.panel.domainLodging")}
+          {...lodgingAppearance}
+          sizeLabel={t("map:globe.panel.size")}
+        />
+      )}
+      {appearanceDomains.includes("poi") && (
+        <PlaceAppearanceSection
+          title={t("map:globe.panel.domainPlace")}
+          {...placeAppearance}
+          sizeLabel={t("map:globe.panel.size")}
+        />
+      )}
+      {/* Tours / roadtrips / rail / rentals — layers the tab builds (forgejo#198) */}
+      <OverlayAppearanceSections appearanceDomains={appearanceDomains} />
+
+      {/* Frequency filter (only when arcs exist) */}
+      {hasArcs && (
+        <CollapsibleSection id="frequency" title={t("map:globe.routeFrequency")}>
+          <div className="flex flex-col gap-0.5">
+            {legendRanges.map(({ q, color, label }) => {
+              const active = activeQuartile === q;
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => onQuartileChange(active ? null : q)}
+                  className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 transition-colors"
+                  style={{
+                    background: active ? "rgba(255,255,255,0.09)" : "transparent",
+                    opacity: activeQuartile === null || active ? 1 : 0.5,
+                  }}
+                  title={t("map:globe.quartileFilterHint")}
+                >
+                  <span className="h-[3px] w-7 rounded-full" style={{ backgroundColor: color }} />
+                  <span className="text-[11px]">{label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {activeQuartile !== null && (
+            <button
+              type="button"
+              onClick={() => onQuartileChange(null)}
+              className="mt-1 cursor-pointer text-[10px] underline opacity-70 hover:opacity-100"
+            >
+              {t("map:globe.quartileFilterClear")}
+            </button>
+          )}
+          {antipodalCount > 0 && (
+            <div className="mt-1.5 text-[10px] opacity-60">
+              {t("map:globe.antipodalSimplified", { count: antipodalCount })}
+            </div>
+          )}
+          {hasWeakArcs && (
+            <div className="mt-1.5 flex items-center gap-2 text-[10px] opacity-70">
+              <svg width="28" height="2" viewBox="0 0 28 2" aria-hidden>
+                <line
+                  x1="0"
+                  y1="1"
+                  x2="28"
+                  y2="1"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 3"
+                />
+              </svg>
+              <span>{t("map:globe.weak")}</span>
+              <HelpIcon content={t("map:globe.weakHint")} subject={t("map:globe.weak")} />
+            </div>
+          )}
+        </CollapsibleSection>
+      )}
+
+      {/* Actions + performance */}
+      <div
+        style={{ borderTop: `1px solid ${HAIRLINE}` }}
+        className="mt-2.5 flex items-center gap-2 pt-2.5"
+      >
+        <button
+          type="button"
+          onClick={onRecenter}
+          className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors"
+          style={{
+            background: "rgba(255,255,255,0.06)",
+            border: `1px solid ${BORDER}`,
+            color: TEXT,
+          }}
+          title={t("map:globe.recenterHint")}
+        >
+          <span aria-hidden>🧭</span>
+          {t("map:globe.recenter")}
+        </button>
+        <select
+          value={liteMode}
+          onChange={(e) => onLiteModeChange(e.target.value as LiteMode)}
+          className="cursor-pointer rounded-md px-1.5 py-1.5 text-[11px]"
+          style={{
+            background: "rgba(255,255,255,0.06)",
+            border: `1px solid ${BORDER}`,
+            color: TEXT,
+            colorScheme: "dark",
+          }}
+          title={t("map:globe.performanceHint")}
+        >
+          {/* Options MUST be styled explicitly — the popup ignores the
+                  select's colours on Windows and was white-on-white (#196). */}
+          <option value="auto" style={PANEL_OPTION_STYLE}>
+            ⚡ {t("map:globe.performanceAuto")} (
+            {lite ? t("map:globe.performanceOn") : t("map:globe.performanceOff")})
+          </option>
+          <option value="on" style={PANEL_OPTION_STYLE}>
+            ⚡ {t("map:globe.performanceOn")}
+          </option>
+          <option value="off" style={PANEL_OPTION_STYLE}>
+            ⚡ {t("map:globe.performanceOff")}
+          </option>
+        </select>
+      </div>
+    </MapPanelFrame>
   );
 }

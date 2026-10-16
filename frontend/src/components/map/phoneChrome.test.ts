@@ -1,14 +1,15 @@
 import { describe, it, expect } from "vitest";
 import {
-  PHONE_COLUMN_RESERVED,
+  PHONE_BOTTOM_ROW,
   PHONE_COLUMN_TOP,
   PHONE_KEY_BOTTOM,
   PHONE_PANEL_BOTTOM,
+  PHONE_PILL_HEIGHT,
   PHONE_STRIP_HEIGHT,
   PHONE_STRIP_TOP,
   PHONE_TOP_ROW_BOTTOM,
+  PHONE_TOP_ROW_TOP,
   phoneBottomOffset,
-  phonePanelMaxHeight,
 } from "./phoneChrome";
 
 /**
@@ -20,11 +21,17 @@ import {
  *
  * Deliberate-break protocol: set PHONE_COLUMN_TOP to PHONE_STRIP_TOP (its
  * value before the strip had a row of its own) and the "strip's tallest
- * bottom" case fails; move PHONE_PANEL_BOTTOM down to PHONE_KEY_BOTTOM and
- * the key/panel case fails.
+ * bottom" case fails; set PHONE_KEY_BOTTOM to PHONE_BOTTOM_ROW and the
+ * key/filter case fails.
  */
 describe("phone chrome bands", () => {
-  it("starts the strip's row below the top row's controls", () => {
+  it("draws every pill a finger high — the design's minimum hit area", () => {
+    // `--ts-size-touch-min`; `.ts-chrome-pill` reads the token on a phone.
+    expect(PHONE_PILL_HEIGHT).toBe(44);
+  });
+
+  it("starts the strip's row below the top row's pills", () => {
+    expect(PHONE_TOP_ROW_BOTTOM).toBe(PHONE_TOP_ROW_TOP + PHONE_PILL_HEIGHT);
     expect(PHONE_STRIP_TOP).toBeGreaterThan(PHONE_TOP_ROW_BOTTOM);
   });
 
@@ -33,24 +40,13 @@ describe("phone chrome bands", () => {
   });
 
   it("keeps the key pill's row above the Domänen button's row", () => {
-    // The button is 16px from the bottom edge and ~34px tall; the key pill
-    // sits in the row above it rather than on it.
-    expect(PHONE_KEY_BOTTOM).toBeGreaterThanOrEqual(16 + 34);
+    expect(PHONE_KEY_BOTTOM).toBeGreaterThanOrEqual(PHONE_BOTTOM_ROW + PHONE_PILL_HEIGHT + 8);
   });
 
-  it("puts the map panel's bottom edge above the key pill's row", () => {
-    // 34px of pill + a 8px gap.
-    expect(PHONE_PANEL_BOTTOM).toBeGreaterThanOrEqual(PHONE_KEY_BOTTOM + 34 + 8);
-  });
-
-  it("stops the panel's height above the right column it would otherwise cover", () => {
-    const maxHeight = phonePanelMaxHeight();
-    // The measured column top the dashboard writes, with the phone's own
-    // column top as the fallback for a map with no next-up card.
-    expect(maxHeight).toContain(`var(--ts-map-chrome-top, ${PHONE_COLUMN_TOP}px)`);
-    expect(maxHeight).toContain(`${PHONE_COLUMN_RESERVED}px`);
-    expect(maxHeight).toContain(`${PHONE_PANEL_BOTTOM}px`);
-    expect(maxHeight.startsWith("calc(100vh - ")).toBe(true);
+  it("puts the map panel's pill in the bottom row, opposite the filter", () => {
+    // The panel opens as a sheet now, so its pill no longer needs a band of
+    // its own above the key — it shares the bottom row with "Domänen".
+    expect(PHONE_PANEL_BOTTOM).toBe(PHONE_BOTTOM_ROW);
   });
 
   it("adds the safe-area inset to a phone bottom offset without changing the distance", () => {

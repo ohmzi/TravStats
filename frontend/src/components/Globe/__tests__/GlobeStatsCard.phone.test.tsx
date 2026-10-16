@@ -1,21 +1,23 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { GlobeStatsCard, type GlobeLiveStats } from "../GlobeStatsCard";
-import { PHONE_COLUMN_RESERVED, PHONE_COLUMN_TOP } from "../../map/phoneChrome";
+import { PHONE_COLUMN_TOP } from "../../map/phoneChrome";
 
 /**
  * The "Sichtbar" card on a phone (2026-10-12 collision 3: its six rows
  * "overlap the globe and its labels" at 390×844). On a phone it is the
  * secondary card in the right column — "Als Nächstes" above it is the
- * essential one — so it starts as its heading and opens on tap, its opened
- * body capped to the room the column reserves for it (`phoneChrome.ts`,
- * PHONE_COLUMN_RESERVED).
+ * essential one — so it is a pill with its heading and count, and its rows
+ * open in the shared bottom sheet (`ui/Sheet`) like every popup on the phone
+ * map (owner, 2026-10-16). It used to unfold in place, into the map panel's
+ * band.
  *
  * jsdom has no layout: what is asserted is what the layout READS — which
- * rows render, the button's aria-expanded, and the cap on the opened body.
+ * rows render, where, and the pill's aria-expanded.
  *
- * Deliberate-break protocol: make the default `open` unconditionally true in
- * GlobeStatsCard.tsx and the two "starts as its heading" cases fail.
+ * Deliberate-break protocol: render `rows(true)` beside the pill instead of
+ * inside the `<Sheet>` in GlobeStatsCard.tsx and the "opens a sheet" case
+ * fails.
  */
 
 const STATS: GlobeLiveStats = {
@@ -41,7 +43,7 @@ function setViewport(phone: boolean): void {
   })) as unknown as typeof window.matchMedia;
 }
 
-/** The element the rows were rendered into (the card's inner box). */
+/** The desktop card's inner box, which the rows render into. */
 function body(container: HTMLElement): HTMLElement {
   const rows = container.querySelector(".space-y-0\\.5") as HTMLElement;
   return rows.parentElement as HTMLElement;
@@ -68,34 +70,31 @@ describe("GlobeStatsCard on a phone", () => {
     expect(card.style.top).toBe(`var(--ts-map-chrome-top, ${PHONE_COLUMN_TOP}px)`);
   });
 
-  it("caps and scrolls the opened rows inside the column's reserved room", () => {
+  it("opens its rows in the shared bottom sheet, not in place", () => {
     setViewport(true);
     const { container } = render(<GlobeStatsCard stats={STATS} t={(k) => k} />);
     fireEvent.click(screen.getByRole("button", { name: /stats\.title/ }));
-    expect(screen.getByRole("button", { name: /stats\.title/ })).toHaveAttribute(
-      "aria-expanded",
-      "true"
-    );
+    const sheet = screen.getByRole("dialog", { name: /stats\.title/ });
+    expect(sheet).toHaveAttribute("aria-modal", "true");
+    expect(sheet).toHaveAttribute("data-layout", "sheet");
     // Every row is there once opened — nothing is dropped on a phone...
-    expect(screen.getByText(/stats\.flightKm/)).toBeTruthy();
-    expect(screen.getByText(/stats\.top/)).toBeTruthy();
-    // ...but the body may not grow past the band the panel below it leaves.
-    const capped = body(container);
-    expect(capped.style.maxHeight).toBe(`min(20vh, ${PHONE_COLUMN_RESERVED - 8}px)`);
-    expect(capped.style.overflowY).toBe("auto");
+    expect(within(sheet).getByText(/stats\.flightKm/)).toBeTruthy();
+    expect(within(sheet).getByText(/stats\.top/)).toBeTruthy();
+    // ...and none of them in the map's right column, where they used to unfold.
+    expect(within(container).queryByText(/stats\.flightKm/)).toBeNull();
   });
 
-  it("stays shut after a second tap — the choice, once made, is not the width's", () => {
+  it("closes the sheet with its Done button and keeps the pill", () => {
     setViewport(true);
-    const { rerender } = render(<GlobeStatsCard stats={STATS} t={(k) => k} />);
+    render(<GlobeStatsCard stats={STATS} t={(k) => k} />);
     fireEvent.click(screen.getByRole("button", { name: /stats\.title/ }));
-    fireEvent.click(screen.getByRole("button", { name: /stats\.title/ }));
-    expect(screen.queryByText(/stats\.flightKm/)).toBeNull();
-
-    // A re-render at the same width keeps it shut rather than falling back to
-    // the phone default — the rule `useLegendOpen` follows for the map key.
-    rerender(<GlobeStatsCard stats={STATS} t={(k) => k} />);
-    expect(screen.queryByText(/stats\.flightKm/)).toBeNull();
+    const sheet = screen.getByRole("dialog");
+    fireEvent.click(within(sheet).getByRole("button", { name: /done|fertig/i }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: /stats\.title/ })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
   });
 });
 

@@ -4,6 +4,8 @@ import { ATTRIBUTION_CLEARANCE } from "../../map/attributionClearance";
 import { PHONE_KEY_BOTTOM, phoneBottomOffset } from "../../map/phoneChrome";
 import { useIsPhoneViewport } from "../../../hooks/useIsPhoneViewport";
 import { Icon } from "../../ui/Icon";
+import ChromePill from "../../ui/ChromePill";
+import Sheet from "../../ui/Sheet";
 import { initialLegendOpen, isPhoneViewport } from "./legendInitialState";
 
 // The "Alle" tab's colour key, split out of `AllTab.tsx` purely to keep that file
@@ -78,8 +80,8 @@ interface AllTabLegendProps {
  * behind it, and a key is the one overlay where "there is more here" is the
  * whole point.
  *
- * On a phone (`useIsPhoneViewport`) it is a pill in its own row and, open, a
- * bottom sheet — see the branch below for the two collisions that bought.
+ * On a phone (`useIsPhoneViewport`) it is a pill in its own row and, open, the
+ * shared bottom sheet — see the branch below for the two collisions that bought.
  */
 export function AllTabLegend({
   rows,
@@ -90,11 +92,9 @@ export function AllTabLegend({
   // Below 640px the key's floating card is the third overlay in a corner that
   // has room for two: at 390×844 its rows sat on the "Karte" panel's pill and
   // under "Domänen · x/y" (which draws at z-35, above it). So on a phone the
-  // key keeps its pill — in its own row, above the filter button
-  // (`map/phoneChrome.ts`, PHONE_KEY_BOTTOM) — and OPENS as a sheet, the shape
-  // the domain filter already uses on a phone (`DomainFilterButton`): fixed to
-  // the bottom edge, above the map chrome, with a scrim, and closed by the
-  // same toggle it was opened with (no second "done" control to translate).
+  // key is a `ChromePill` — in its own row, above the filter button
+  // (`map/phoneChrome.ts`, PHONE_KEY_BOTTOM) — and OPENS as the shared bottom
+  // sheet (`ui/Sheet`), the one every popup over the phone map uses.
   const phone = useIsPhoneViewport();
   if (rows.length === 0) return null;
 
@@ -140,51 +140,33 @@ export function AllTabLegend({
   };
 
   if (phone) {
-    if (!open) {
-      return (
-        <div
-          style={{
-            ...cardStyle,
-            position: "absolute",
-            bottom: phoneBottomOffset(PHONE_KEY_BOTTOM),
-            right: 12,
-            zIndex: 30,
-            maxWidth: "calc(100vw - 24px)",
-          }}
-        >
-          {toggle}
-        </div>
-      );
-    }
+    // The pill stays where it is while the sheet is up — it is what opened
+    // it, and `useDialogChrome` returns focus to it on close.
     return (
       <>
         <div
-          role="presentation"
-          onClick={onToggle}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 90 }}
-        />
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={title}
           style={{
-            ...cardStyle,
-            position: "fixed",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 91,
-            maxHeight: "70vh",
-            overflowY: "auto",
-            borderRadius: "16px 16px 0 0",
-            // A phone's home bar, when the viewport meta ever carries
-            // `viewport-fit=cover` (`phoneBottomOffset`).
-            paddingBottom: phoneBottomOffset(16),
+            position: "absolute",
+            bottom: phoneBottomOffset(PHONE_KEY_BOTTOM),
+            right: 16,
+            zIndex: 30,
           }}
         >
-          {toggle}
-          {open && rows}
+          <ChromePill
+            icon="list"
+            label={title}
+            count={rows.length}
+            opens
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            onClick={onToggle}
+          />
         </div>
+        <Sheet open={open} onClose={onToggle} title={title}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 14 }}>
+            {rows}
+          </div>
+        </Sheet>
       </>
     );
   }

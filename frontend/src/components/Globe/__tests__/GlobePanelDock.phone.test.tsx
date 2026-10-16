@@ -1,9 +1,10 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { GlobePanelDock } from "../GlobePanelDock";
 import { GlobeControlPanel } from "../GlobeControlPanel";
-import { PHONE_COLUMN_RESERVED, PHONE_PANEL_BOTTOM, PHONE_COLUMN_TOP } from "../../map/phoneChrome";
+import { PHONE_PANEL_BOTTOM } from "../../map/phoneChrome";
+import { saveMapAppearance } from "../../map/mapAppearance";
 import { DEFAULT_FLIGHT_COLOR_CONFIG } from "../../../lib/flightColor";
 import { DEFAULT_CRUISE_COLOR_CONFIG } from "../../../lib/cruiseColor";
 
@@ -12,12 +13,14 @@ import { DEFAULT_CRUISE_COLOR_CONFIG } from "../../../lib/cruiseColor";
  * 390×844): the panel is 232px of a 390px screen, and its bottom-left corner
  * is where the map key's pill and "Domänen · x/y" live too — the panel's
  * bottom edge sat on the key's rows and its width reached under the button.
- * On a phone `GlobePanelDock` therefore gives it a band of its own
- * (`map/phoneChrome.ts`) and the card shrinks to its header while shut.
+ * On a phone the panel is therefore a pill in the bottom row
+ * (`map/phoneChrome.ts`, PHONE_PANEL_BOTTOM) that opens the shared bottom
+ * sheet (`ui/Sheet`), the shape every popup over the phone map has since
+ * 2026-10-16.
  *
  * Deliberate-break protocol: remove the `phone` branches in GlobePanelDock.tsx
- * and the two placement cases fail; in GlobeControlPanel.tsx, restore
- * `className="flex w-[232px] …"` and the width case fails.
+ * and the two placement cases fail; in MapPanelFrame.tsx, drop the `phone`
+ * branch and the pill and sheet cases fail.
  */
 
 function setViewport(phone: boolean): void {
@@ -112,7 +115,7 @@ describe("GlobePanelDock", () => {
     expect(dock.style.bottom).toBe("");
   });
 
-  it("docks into the panel band on a phone, above the key pill and the filter button", () => {
+  it("docks the pill into the bottom row's left end on a phone", () => {
     setViewport(true);
     const { container } = render(
       <GlobePanelDock>
@@ -121,40 +124,47 @@ describe("GlobePanelDock", () => {
     );
     const dock = container.firstElementChild as HTMLElement;
     expect(dock.className).not.toContain("bottom-4");
-    expect(dock.style.left).toBe("12px");
-    expect(dock.style.right).toBe("12px");
+    expect(dock.style.left).toBe("16px");
+    // No right edge: the pill keeps its own width, so "Domänen · x/y" at the
+    // row's other end is never under it.
+    expect(dock.style.right).toBe("");
     expect(dock.style.bottom).toContain(`${PHONE_PANEL_BOTTOM}px`);
     expect(dock.style.bottom).toContain("safe-area-inset-bottom");
   });
 });
 
-describe("GlobeControlPanel in that band", () => {
-  it("shrinks to its header while shut on a phone", () => {
+describe("GlobeControlPanel on a phone", () => {
+  it("is a pill, not a card, while shut", () => {
     setViewport(true);
-    const { container } = render(panel());
-    const card = container.firstElementChild as HTMLElement;
-    expect(card.className).toContain("w-auto");
-    expect(card.className).not.toContain("w-[232px]");
-    expect(card.style.maxHeight).toBe(
-      `calc(100vh - var(--ts-map-chrome-top, ${PHONE_COLUMN_TOP}px) - ${PHONE_COLUMN_RESERVED}px - ${PHONE_PANEL_BOTTOM}px)`
-    );
+    render(panel());
+    const pill = screen.getByRole("button", { name: /globe\.panel\.title/ });
+    expect(pill.className).toContain("ts-chrome-pill");
+    expect(pill).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("fills the width and stays above the right column once open", () => {
+  it("opens its sections in the shared bottom sheet", () => {
     setViewport(true);
     // The opened body IS `MapChromeSections`, which reads the dashboard route.
-    const { container } = render(
-      <MemoryRouter initialEntries={["/dashboard"]}>{panel()}</MemoryRouter>
-    );
+    render(<MemoryRouter initialEntries={["/dashboard"]}>{panel()}</MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: /globe\.panel\.title/ }));
-    const card = container.firstElementChild as HTMLElement;
-    expect(card.className).toContain("w-full");
-    // The cap names the measured column top (`--ts-map-chrome-top`), so the
-    // open panel can never reach the stats card above it.
-    expect(card.style.maxHeight).toContain("--ts-map-chrome-top");
+    const sheet = screen.getByRole("dialog");
+    expect(sheet).toHaveAttribute("data-layout", "sheet");
+    expect(within(sheet).getByText(/globe\.panel\.layers/)).toBeTruthy();
   });
 
-  it("is the 232px card with its old cap on a desktop", () => {
+  it("never starts with the sheet up, whatever the desktop remembered", () => {
+    // The desktop's expanded state is persisted; a sheet on load would hide
+    // the map behind a scrim before the reader has seen it.
+    saveMapAppearance({ panelExpanded: true });
+    setViewport(true);
+    render(panel());
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("GlobeControlPanel on a desktop", () => {
+  it("is the 232px card with its old cap", () => {
     setViewport(false);
     const { container } = render(panel());
     const card = container.firstElementChild as HTMLElement;

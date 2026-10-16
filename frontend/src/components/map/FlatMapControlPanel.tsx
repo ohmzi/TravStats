@@ -13,15 +13,11 @@ import {
   CruiseAppearanceSection,
   FlightAppearanceSection,
   LodgingAppearanceSection,
-  PanelHeader,
   SectionLabel,
   SegControl,
   Toggle,
-  usePanelExpanded,
   ACCENT,
-  PANEL_BG,
   HAIRLINE,
-  BORDER,
   TEXT,
   type AppearanceDomain,
   type CruiseAppearanceState,
@@ -31,6 +27,7 @@ import {
 import { PlaceAppearanceSection, type PlaceAppearanceState } from "./PlaceAppearanceSection";
 import { OverlayAppearanceSections } from "./OverlayAppearanceSections";
 import { MapChromeSections } from "./MapChromeSections";
+import { MapPanelFrame } from "./MapPanelFrame";
 import type { LabelsMode } from "./labelPriority";
 
 const FLIGHT_MARKER_DEFAULT: [number, number, number] = [240, 169, 71];
@@ -74,145 +71,125 @@ export function FlatMapControlPanel({
   placeAppearance,
 }: FlatMapControlPanelProps): JSX.Element {
   const { t } = useTranslation();
-  const [expanded, toggleExpanded] = usePanelExpanded();
 
+  // A card on a desktop, a pill and a bottom sheet on a phone — the same
+  // frame the globe's panel uses (`MapPanelFrame`).
   return (
-    <div
-      className="flex w-[232px] flex-col overflow-hidden rounded-xl text-xs"
-      style={{
-        background: PANEL_BG,
-        backdropFilter: "blur(14px)",
-        border: `1px solid ${BORDER}`,
-        color: TEXT,
-        fontFamily: "'Inter', sans-serif",
-        boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
-        maxHeight: "calc(100vh - 200px)",
-      }}
-    >
-      <PanelHeader
-        title={t("map:globe.panel.title")}
-        expanded={expanded}
-        onToggle={toggleExpanded}
-      />
-
-      {expanded && (
-        <div className="scrollbar-none min-h-0 overflow-y-auto overflow-x-hidden px-3 pb-3">
-          {/* Map-wide settings in one section — see the globe panel, which
+    <MapPanelFrame title={t("map:globe.panel.title")} desktopMaxHeight="calc(100vh - 200px)">
+      {/* Map-wide settings in one section — see the globe panel, which
               this one must match control for control. */}
-          <CollapsibleSection id="basics" title={t("map:globe.panel.basics")} defaultOpen first>
-            {/* Modus + Filter + Add — folded in from the old top toolbar */}
-            <MapChromeSections />
+      <CollapsibleSection id="basics" title={t("map:globe.panel.basics")} defaultOpen first>
+        {/* Modus + Filter + Add — folded in from the old top toolbar */}
+        <MapChromeSections />
 
-            {/* Layers */}
-            <div style={{ borderTop: `1px solid ${HAIRLINE}` }} className="mt-2.5 pt-2.5">
-              <SectionLabel>{t("map:globe.panel.layers")}</SectionLabel>
-              <div className="-mx-1 flex flex-col gap-0.5">
-                <Toggle
-                  checked={showPlaceLabels}
-                  onChange={onShowPlaceLabelsChange}
-                  icon="🗺️"
-                  label={t("map:globe.panel.placeLabels")}
-                />
-                <Toggle
-                  checked={showTerrain}
-                  onChange={onShowTerrainChange}
-                  icon="⛰️"
-                  label={t("map:globe.panel.terrain")}
-                />
-              </div>
-              {/* Marker labels: off / key markers only / all */}
-              <div className="mt-2">
-                <div
-                  className="mb-1 flex items-center gap-2 px-1 text-xs font-medium"
-                  style={{ color: TEXT }}
-                >
-                  <span aria-hidden style={{ opacity: 0.9 }}>
-                    🏷️
-                  </span>
-                  {t("map:globe.panel.labels")}
-                </div>
-                <SegControl<LabelsMode>
-                  value={labelsMode}
-                  onChange={onLabelsModeChange}
-                  options={[
-                    { value: "off", label: t("map:globe.panel.off") },
-                    { value: "important", label: t("map:globe.panel.labelsImportant") },
-                    { value: "all", label: t("map:globe.panel.labelsAll") },
-                  ]}
-                />
-              </div>
+        {/* Layers */}
+        <div style={{ borderTop: `1px solid ${HAIRLINE}` }} className="mt-2.5 pt-2.5">
+          <SectionLabel>{t("map:globe.panel.layers")}</SectionLabel>
+          <div className="-mx-1 flex flex-col gap-0.5">
+            <Toggle
+              checked={showPlaceLabels}
+              onChange={onShowPlaceLabelsChange}
+              icon="🗺️"
+              label={t("map:globe.panel.placeLabels")}
+            />
+            <Toggle
+              checked={showTerrain}
+              onChange={onShowTerrainChange}
+              icon="⛰️"
+              label={t("map:globe.panel.terrain")}
+            />
+          </div>
+          {/* Marker labels: off / key markers only / all */}
+          <div className="mt-2">
+            <div
+              className="mb-1 flex items-center gap-2 px-1 text-xs font-medium"
+              style={{ color: TEXT }}
+            >
+              <span aria-hidden style={{ opacity: 0.9 }}>
+                🏷️
+              </span>
+              {t("map:globe.panel.labels")}
             </div>
-
-            {/* Basemap */}
-            <div style={{ borderTop: `1px solid ${HAIRLINE}` }} className="mt-2.5 pt-2.5">
-              <SectionLabel>{t("map:globe.panel.basemap")}</SectionLabel>
-              <div className="grid grid-cols-3 gap-1">
-                {styleOptions.map((opt) => {
-                  const active = opt.id === styleId;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => onStyleChange(opt.id)}
-                      className="cursor-pointer rounded-md px-1.5 py-1 text-[11px] font-medium transition-colors"
-                      style={{
-                        background: active ? `rgba(${ACCENT},0.16)` : "rgba(255,255,255,0.04)",
-                        color: active ? `rgb(${ACCENT})` : "rgba(241,245,249,0.72)",
-                        border: active
-                          ? `1px solid rgba(${ACCENT},0.55)`
-                          : "1px solid rgba(255,255,255,0.06)",
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </CollapsibleSection>
-
-          {/* Per-domain appearance sections (Flüge / Kreuzfahrten / …) */}
-          {appearanceDomains.includes("flight") && (
-            <FlightAppearanceSection
-              title={t("map:globe.panel.domainFlight")}
-              {...flightAppearance}
-              markerDefault={FLIGHT_MARKER_DEFAULT}
-              markerLabel={t("map:globe.panel.airports")}
-              markerAutoLabel={t("map:globe.panel.auto")}
-              widthLabel={t("map:globe.panel.width")}
-              sizeLabel={t("map:globe.panel.size")}
+            <SegControl<LabelsMode>
+              value={labelsMode}
+              onChange={onLabelsModeChange}
+              options={[
+                { value: "off", label: t("map:globe.panel.off") },
+                { value: "important", label: t("map:globe.panel.labelsImportant") },
+                { value: "all", label: t("map:globe.panel.labelsAll") },
+              ]}
             />
-          )}
-          {appearanceDomains.includes("cruise") && (
-            <CruiseAppearanceSection
-              title={t("map:globe.panel.domainCruise")}
-              {...cruiseAppearance}
-              markerDefault={CRUISE_MARKER_DEFAULT}
-              markerLabel={t("map:globe.panel.ports")}
-              markerAutoLabel={t("map:globe.panel.auto")}
-              widthLabel={t("map:globe.panel.width")}
-              sizeLabel={t("map:globe.panel.size")}
-              arrowLabel={t("map:globe.panel.arrows")}
-            />
-          )}
-          {appearanceDomains.includes("lodging") && (
-            <LodgingAppearanceSection
-              title={t("map:globe.panel.domainLodging")}
-              {...lodgingAppearance}
-              sizeLabel={t("map:globe.panel.size")}
-            />
-          )}
-          {appearanceDomains.includes("poi") && (
-            <PlaceAppearanceSection
-              title={t("map:globe.panel.domainPlace")}
-              {...placeAppearance}
-              sizeLabel={t("map:globe.panel.size")}
-            />
-          )}
-          {/* Tours / roadtrips / rail / rentals — layers the tab builds (forgejo#198) */}
-          <OverlayAppearanceSections appearanceDomains={appearanceDomains} />
+          </div>
         </div>
+
+        {/* Basemap */}
+        <div style={{ borderTop: `1px solid ${HAIRLINE}` }} className="mt-2.5 pt-2.5">
+          <SectionLabel>{t("map:globe.panel.basemap")}</SectionLabel>
+          <div className="grid grid-cols-3 gap-1">
+            {styleOptions.map((opt) => {
+              const active = opt.id === styleId;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onStyleChange(opt.id)}
+                  className="cursor-pointer rounded-md px-1.5 py-1 text-[11px] font-medium transition-colors"
+                  style={{
+                    background: active ? `rgba(${ACCENT},0.16)` : "rgba(255,255,255,0.04)",
+                    color: active ? `rgb(${ACCENT})` : "rgba(241,245,249,0.72)",
+                    border: active
+                      ? `1px solid rgba(${ACCENT},0.55)`
+                      : "1px solid rgba(255,255,255,0.06)",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Per-domain appearance sections (Flüge / Kreuzfahrten / …) */}
+      {appearanceDomains.includes("flight") && (
+        <FlightAppearanceSection
+          title={t("map:globe.panel.domainFlight")}
+          {...flightAppearance}
+          markerDefault={FLIGHT_MARKER_DEFAULT}
+          markerLabel={t("map:globe.panel.airports")}
+          markerAutoLabel={t("map:globe.panel.auto")}
+          widthLabel={t("map:globe.panel.width")}
+          sizeLabel={t("map:globe.panel.size")}
+        />
       )}
-    </div>
+      {appearanceDomains.includes("cruise") && (
+        <CruiseAppearanceSection
+          title={t("map:globe.panel.domainCruise")}
+          {...cruiseAppearance}
+          markerDefault={CRUISE_MARKER_DEFAULT}
+          markerLabel={t("map:globe.panel.ports")}
+          markerAutoLabel={t("map:globe.panel.auto")}
+          widthLabel={t("map:globe.panel.width")}
+          sizeLabel={t("map:globe.panel.size")}
+          arrowLabel={t("map:globe.panel.arrows")}
+        />
+      )}
+      {appearanceDomains.includes("lodging") && (
+        <LodgingAppearanceSection
+          title={t("map:globe.panel.domainLodging")}
+          {...lodgingAppearance}
+          sizeLabel={t("map:globe.panel.size")}
+        />
+      )}
+      {appearanceDomains.includes("poi") && (
+        <PlaceAppearanceSection
+          title={t("map:globe.panel.domainPlace")}
+          {...placeAppearance}
+          sizeLabel={t("map:globe.panel.size")}
+        />
+      )}
+      {/* Tours / roadtrips / rail / rentals — layers the tab builds (forgejo#198) */}
+      <OverlayAppearanceSections appearanceDomains={appearanceDomains} />
+    </MapPanelFrame>
   );
 }

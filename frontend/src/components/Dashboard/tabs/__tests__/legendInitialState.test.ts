@@ -7,9 +7,12 @@ import { PHONE_MAX_WIDTH_PX, initialLegendOpen } from "../legendInitialState";
  * verification, beta.12). On a desktop it has room and the reader wants it.
  *
  * So the DEFAULT is width-dependent and the CHOICE is not: someone who opens
- * the key on a phone means it, and having it close again on the next
+ * the key on a desktop means it, and having it close again on the next
  * navigation is the same annoyance one page later (the reason it is
  * remembered at all).
+ *
+ * A phone is the exception since the key opens there as a modal sheet
+ * (owner, 2026-10-16): a sheet already up on load hides the map behind a scrim.
  */
 describe("whether the map key starts open", () => {
   it("opens on a desktop, where it has room", () => {
@@ -20,8 +23,9 @@ describe("whether the map key starts open", () => {
     expect(initialLegendOpen(null, true)).toBe(false);
   });
 
-  it("respects a reader who opened it on a phone anyway", () => {
-    expect(initialLegendOpen("true", true)).toBe(true);
+  it("never starts a phone with the key's sheet up, whatever was remembered", () => {
+    // Deliberate break: drop the `isPhone` guard in initialLegendOpen and this fails.
+    expect(initialLegendOpen("true", true)).toBe(false);
   });
 
   it("respects a reader who closed it on a desktop", () => {

@@ -17,16 +17,26 @@
 // The breakpoint is the tree's own: `max-width: 639px` (PHONE_MAX_WIDTH_PX in
 // Dashboard/tabs/legendInitialState.ts, shared by `useIsPhoneViewport`).
 
-/** The top row: the Aktivität toggle (top 12 + its pill) and "+ Hinzufügen"
- *  (top 16 + its button). The button is the taller of the two, and both end
- *  above this line. */
-export const PHONE_TOP_ROW_BOTTOM = 52;
+/** Every trigger over the phone map is a `ChromePill` (`ui/ChromePill.tsx`),
+ *  a finger high — `--ts-size-touch-min`. One height is what lets the bands
+ *  below be arithmetic rather than measurement. */
+export const PHONE_PILL_HEIGHT = 44;
+
+/** The gap between two rows of pills. */
+const ROW_GAP = 8;
+
+/** The top row's own top edge: the Aktivität pill on the left and "+
+ *  Hinzufügen" on the right both start here on a phone. */
+export const PHONE_TOP_ROW_TOP = 12;
+
+/** The top row: the Aktivität pill and "+ Hinzufügen", one pill high. */
+export const PHONE_TOP_ROW_BOTTOM = PHONE_TOP_ROW_TOP + PHONE_PILL_HEIGHT;
 
 /** The histogram strip gets a row of its own, full width, below the top row.
  *  It used to sit top-CENTRE at its 300px minimum width, which at 390px
  *  started at x=45 — over the Aktivität chip — and ran to x=345, under the
  *  "+ Hinzufügen" button. */
-export const PHONE_STRIP_TOP = 56;
+export const PHONE_STRIP_TOP = PHONE_TOP_ROW_BOTTOM + 4;
 
 /** The tallest the strip may get on a phone. It expands on touch (play +
  *  readout) as it does on hover on a desktop; `GlobeTimeHistogram` clamps the
@@ -34,39 +44,22 @@ export const PHONE_STRIP_TOP = 56;
  *  stays clear even mid-playback. */
 export const PHONE_STRIP_HEIGHT = 66;
 
-/** Where the right column starts: "Als Nächstes", then "Sichtbar" under it.
- *  `DashboardLayout` writes both offsets, and `--ts-map-chrome-top` (the
- *  measured bottom of the next-up card) is derived from this same base. */
-export const PHONE_COLUMN_TOP = PHONE_STRIP_TOP + PHONE_STRIP_HEIGHT + 8;
+/** Where the right column starts: "Als Nächstes", then the "Sichtbar" pill
+ *  under it. `DashboardLayout` writes both offsets, and `--ts-map-chrome-top`
+ *  (the measured bottom of the next-up card) is derived from this same base. */
+export const PHONE_COLUMN_TOP = PHONE_STRIP_TOP + PHONE_STRIP_HEIGHT + ROW_GAP;
 
-/** The column's reserved room below PHONE_COLUMN_TOP: the next-up card's
- *  height is measured rather than assumed, so this is only the gap plus the
- *  stats card's own cap on a phone (`GlobeStatsCard`). The map panel's
- *  expanded body stops above this line. */
-export const PHONE_COLUMN_RESERVED = 148;
+/** The bottom row: "Karte" on the left, "Domänen · x/y" on the right. Both
+ *  open a sheet, so neither grows into the map any more — the map panel used
+ *  to unfold upwards from a full-width band of its own, and the "Sichtbar"
+ *  card downwards towards it, and the two had to share the height between. */
+export const PHONE_BOTTOM_ROW = 16;
 
-/** The map control panel's bottom edge, collapsed and expanded alike. It
- *  clears the key pill's row (PHONE_KEY_BOTTOM + the pill) so the two can
- *  sit side by side without touching. */
-export const PHONE_PANEL_BOTTOM = 100;
+/** The map panel's pill sits in the bottom row, beside the domain filter. */
+export const PHONE_PANEL_BOTTOM = PHONE_BOTTOM_ROW;
 
-/** The map key's row, above the "Domänen · x/y" button — which occupies
- *  16…50 from the bottom edge and must not be covered by the key. */
-export const PHONE_KEY_BOTTOM = 58;
-
-/**
- * How tall the map panel's expanded body may be on a phone: whatever the
- * right column leaves. `--ts-map-chrome-top` is the measured top of the stats
- * card (`DashboardLayout` sets it), and the fallback is the column's own top
- * for a map with no next-up card at all.
- *
- * `100vh`, like the panel's desktop cap, is the app's own height — the
- * dashboard is an `AppShell viewport` page (`height: 100vh`, nothing scrolls),
- * so this is the band the chrome sits in, not the browser's largest viewport.
- */
-export function phonePanelMaxHeight(): string {
-  return `calc(100vh - var(--ts-map-chrome-top, ${PHONE_COLUMN_TOP}px) - ${PHONE_COLUMN_RESERVED}px - ${PHONE_PANEL_BOTTOM}px)`;
-}
+/** The map key's pill: right-aligned, one row above "Domänen · x/y". */
+export const PHONE_KEY_BOTTOM = PHONE_BOTTOM_ROW + PHONE_PILL_HEIGHT + ROW_GAP;
 
 /**
  * A bottom offset that keeps its distance on a phone with a home bar. `env()`

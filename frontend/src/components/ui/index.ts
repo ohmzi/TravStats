@@ -27,6 +27,8 @@ export { default as Pill, StatusPill, DomainPill } from "./Pill";
 export { default as Chip } from "./Chip";
 export { default as StatTile, SectionLabel } from "./StatTile";
 export { default as Dialog } from "./Dialog";
+export { default as Sheet, SheetItem } from "./Sheet";
+export { default as ChromePill } from "./ChromePill";
 export { default as Toggletip } from "./Toggletip";
 export { Field, Input, TextArea, Select, Switch } from "./Field";
 export { default as EmptyState, type EmptyStateKind } from "./EmptyState";

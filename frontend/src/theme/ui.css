@@ -412,3 +412,228 @@
     max-height: 90vh;
   }
 }
+
+/* ─── Sheet ─────────────────────────────────────────────────────────────── */
+/*
+ * The phone's one popup (`ui/Sheet.tsx`): the dialog shell above, docked to
+ * the bottom edge at ANY width — a caller only renders it on a phone, and a
+ * sheet that re-centred itself on a tablet in landscape would be a second
+ * shape again. The attribute selectors outrank the plain `.ts-dialog-*` rules
+ * and their media query, so the order of this block does not matter.
+ */
+.ts-dialog-scrim[data-placement="sheet"] {
+  align-items: flex-end;
+  padding: 0;
+}
+
+.ts-dialog-panel[data-layout="sheet"] {
+  max-width: none;
+  max-height: 85vh;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  border-bottom: none;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: var(--ts-shadow-sheet);
+  animation: ts-sheet var(--ts-motion-enter) var(--ts-ease-enter);
+}
+
+@supports (height: 100dvh) {
+  /* A phone's browser bar comes and goes; `dvh` is the height that is
+     actually there, so the sheet's top never slides under the address bar. */
+  .ts-dialog-panel[data-layout="sheet"] {
+    max-height: 85dvh;
+  }
+}
+
+/* The grip and the title row are the drag handle — no browser scroll there. */
+.ts-sheet-head {
+  flex: none;
+  padding: var(--ts-space-sm) var(--ts-space-xl) 0;
+  touch-action: none;
+  cursor: grab;
+}
+
+.ts-sheet-grip {
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 0 auto var(--ts-space-xs);
+  border-radius: var(--ts-radius-pill);
+  background: var(--ts-border-button);
+}
+
+.ts-sheet-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ts-space-lg);
+  min-height: var(--ts-size-touch-min);
+  border-bottom: 1px solid var(--ts-border);
+}
+
+.ts-sheet-title {
+  min-width: 0;
+  font-family: var(--ts-font-ui);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ts-text-bright);
+}
+
+.ts-sheet-done {
+  min-height: var(--ts-size-touch-min);
+  padding: 0 var(--ts-space-sm);
+  margin-right: calc(-1 * var(--ts-space-sm));
+  background: none;
+  border: none;
+  color: var(--ts-accent);
+  font-family: var(--ts-font-ui);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ts-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--ts-space-md) var(--ts-space-xl)
+    calc(var(--ts-space-xl) + env(safe-area-inset-bottom, 0px));
+}
+
+/* A menu row inside a sheet: the full width, a finger high. */
+.ts-sheet-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ts-space-md);
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--ts-space-md);
+  margin: 0 calc(-1 * var(--ts-space-md));
+  box-sizing: content-box;
+  border: none;
+  border-radius: var(--ts-radius-button);
+  background: transparent;
+  color: var(--ts-text);
+  font-family: var(--ts-font-ui);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ts-sheet-item:hover,
+.ts-sheet-item:active {
+  background: var(--ts-row-hover);
+}
+
+.ts-sheet-item[data-active] {
+  background: var(--ts-tile);
+  color: var(--ts-text-bright);
+}
+
+.ts-sheet-item[aria-disabled="true"] {
+  color: var(--ts-muted);
+  cursor: not-allowed;
+}
+
+.ts-sheet-section-label {
+  display: block;
+  padding: var(--ts-space-md) 0 var(--ts-space-xs);
+}
+
+/* ─── Map chrome pill ───────────────────────────────────────────────────── */
+/*
+ * The one trigger shape over the dashboard map (`ui/ChromePill.tsx`): the
+ * Aktivität toggle, "Karte", "Legende", "Sichtbar" and "Domänen" drew five
+ * different cards and pills at four heights. On a coarse pointer the pill is
+ * a finger high (`--ts-size-touch-min`); with a mouse it keeps the compact 34.
+ */
+.ts-chrome-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ts-space-sm);
+  height: 34px;
+  padding: 0 var(--ts-space-lg);
+  border-radius: var(--ts-radius-pill);
+  border: 1px solid var(--ts-border);
+  background: color-mix(in srgb, var(--ts-surface2) 92%, transparent);
+  backdrop-filter: blur(12px);
+  color: var(--ts-text-bright);
+  font-family: var(--ts-font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: var(--ts-shadow-dialog);
+  transition: background var(--ts-motion-fast) var(--ts-ease-standard);
+}
+
+.ts-chrome-pill:hover {
+  background: var(--ts-surface);
+}
+
+.ts-chrome-pill[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--ts-accent) 45%, transparent);
+}
+
+.ts-chrome-pill-count {
+  color: var(--ts-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (pointer: coarse), (max-width: 639px) {
+  .ts-chrome-pill {
+    height: var(--ts-size-touch-min);
+    font-size: 14px;
+  }
+}
+
+/* ─── Toast ─────────────────────────────────────────────────────────────── */
+/*
+ * Bottom-right on a desktop, as the design export draws it; the full width
+ * less the gutters on a phone, above the home bar. At `top-4 right-4 w-full`
+ * a phone pushed the toast's left edge — and its check mark — off the screen.
+ */
+.ts-toast-stack {
+  position: fixed;
+  right: var(--ts-space-xxl);
+  bottom: var(--ts-space-xxl);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--ts-space-sm);
+  width: min(420px, calc(100vw - 2 * var(--ts-space-xxl)));
+  pointer-events: none;
+}
+
+.ts-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ts-space-md);
+  width: 100%;
+  padding: var(--ts-space-md) var(--ts-space-sm) var(--ts-space-md) var(--ts-space-lg);
+  border-radius: var(--ts-radius-tile);
+  box-shadow: var(--ts-shadow-dialog);
+  font-family: var(--ts-font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ts-text-bright);
+  pointer-events: auto;
+  animation: ts-enter var(--ts-motion-enter) var(--ts-ease-enter);
+}
+
+@media (max-width: 639px) {
+  .ts-toast-stack {
+    left: var(--ts-space-lg);
+    right: var(--ts-space-lg);
+    bottom: calc(var(--ts-space-lg) + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    align-items: stretch;
+  }
+}

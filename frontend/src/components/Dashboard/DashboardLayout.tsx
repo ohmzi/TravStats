@@ -12,7 +12,7 @@ import { useRailImportAdapter } from "../import/adapters/railAdapter";
 import { useRentalImportAdapter } from "../import/adapters/rentalAdapter";
 import { useRentalVisible } from "../../hooks/useRentalVisible";
 import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
-import { PHONE_COLUMN_TOP } from "../map/phoneChrome";
+import { PHONE_COLUMN_TOP, PHONE_TOP_ROW_TOP } from "../map/phoneChrome";
 import { useBusVisible } from "../../hooks/useBusVisible";
 import { BusFormModal } from "../bus/BusFormModal";
 import { flightsApi } from "../../lib/api/flights";
@@ -313,7 +313,18 @@ export function DashboardLayout({
             />
           </div>
         )}
-        <div style={{ position: "absolute", top: 16, right: 16, zIndex: 30 }}>
+        {/* On a phone the button starts where the Aktivität pill does
+            (`phoneChrome.ts`, PHONE_TOP_ROW_TOP): both are a finger high
+            there, and at the desktop's 16 the taller button reached into the
+            histogram strip's row. */}
+        <div
+          style={{
+            position: "absolute",
+            top: phone ? PHONE_TOP_ROW_TOP : 16,
+            right: 16,
+            zIndex: 30,
+          }}
+        >
           {tab === "all" ? (
             <AddDomainPicker enabled={addableDomains} onPick={startAdding} />
           ) : (
@@ -331,7 +342,12 @@ export function DashboardLayout({
                 type="button"
                 onClick={() => startAdding(tab)}
                 className="cursor-pointer rounded-lg px-3 py-2 text-[13px] font-semibold shadow-lg transition-opacity hover:opacity-90"
-                style={{ background: "rgb(240,169,71)", color: "#0d1117", border: "none" }}
+                style={{
+                  minHeight: phone ? "var(--ts-size-touch-min)" : undefined,
+                  background: "var(--ts-accent)",
+                  color: "var(--ts-accent-text)",
+                  border: "none",
+                }}
               >
                 + {t(`dashboard:controls.addPerTab.${tab}`)}
               </button>
