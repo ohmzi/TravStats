@@ -4,17 +4,17 @@
   "files": {
     "frontend/src/components/GlobeView.tsx": 1326,
     "backend/src/routes/stats.ts": 1214,
-    "backend/src/routes/flights.ts": 1117,
-    "backend/src/services/schematicRouter.ts": 1112,
-    "frontend/src/components/Cruise/CruiseRouteMap.tsx": 1032,
+    "backend/src/routes/flights.ts": 1115,
+    "backend/src/services/schematicRouter.ts": 1100,
     "backend/src/services/flightLookup.ts": 1020,
+    "frontend/src/components/Cruise/CruiseRouteMap.tsx": 999,
     "frontend/src/components/DeckGLMap.tsx": 996,
     "frontend/src/pages/TripDetailPage.tsx": 969,
     "frontend/src/components/Training/BoardingPassAnnotation.tsx": 963,
     "backend/src/services/flightEnrichmentService.ts": 919,
     "frontend/src/components/FlightCertificate.tsx": 883,
     "backend/src/utils/achievementChecks.ts": 861,
-    "frontend/src/App.tsx": 860,
+    "frontend/src/App.tsx": 858,
     "backend/src/services/tripSummaryService.ts": 844
   }
 }

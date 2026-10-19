@@ -295,6 +295,7 @@
     "bookedOnHint": "The price is converted at this day's rate.",
     "travellers": "Number of travellers",
     "travellersInvalid": "Please enter a whole number from 1 to 50.",
+    "priceInvalid": "Enter a valid price of 0 or more (e.g. 39.90).",
     "forPersons_one": "for {{count}} person",
     "forPersons_other": "for {{count}} people",
     "created": "Booking added",
@@ -695,6 +696,30 @@
   "dawarichStays": {
     "title": "Dawarich stays",
     "description": "Every six hours, your own Dawarich location history is checked for possible stays in the last seven days. These are suggestions only: a visit is recorded after your confirmation. This does not enable Immich scanning or country detection.",
+    "suggestionsPaused": "Paused: stay suggestions are switched off in settings under “Trips”. Your consent and earlier decisions are retained.",
+    "placesPaused": "Paused: Places is switched off. Enable Places in settings to detect new stays. Your consent and existing suggestions are retained.",
+    "disabled": "Automatic detection is switched off. Existing suggestions remain available for review.",
+    "nextScan": "Next automatic scan",
+    "noPoints": "No location points were returned for this period. Stays cannot be inferred from missing data.",
+    "staleData": "The newest returned location data is over 24 hours old. Check your Dawarich sync; a successful request does not mean current points are available.",
+    "markets": {
+      "enable": "Suggest market visits automatically",
+      "privacy": "Area recognition queries approximate regions (roughly 5 km grid cells) from OpenStreetMap/Overpass. Your location sequences, times and point IDs are not sent. Visits are only recorded after your confirmation.",
+      "coverage": "Regions checked: {{tiles}} of {{total}}",
+      "missing": "{{count}} map entries have no usable market boundary. This does not mean you did not visit.",
+      "stale": "Some map data is older. Please check these suggestions carefully.",
+      "counts": "New market suggestions: {{created}} · Already recorded: {{known}}",
+      "venue": "Market visit – the whole venue rather than individual stalls",
+      "source": "View market boundary in OpenStreetMap",
+      "interior": "{{count}} location points inside the market",
+      "status": {
+        "complete": "Market boundaries checked",
+        "partial": "Market boundaries partly unavailable – try completing the scan later",
+        "cancelled": "Market scan paused"
+      }
+    },
+    "lookback": "Scan period",
+    "days": "Last {{count}} days",
     "enable": "Detect stays automatically",
     "ownConnection": "Save your own Dawarich connection first. A shared connection cannot be used for this.",
     "scan": "Scan now",
@@ -730,18 +755,32 @@
     "invalidInterval": "The end must follow the start; a confirmed stay cannot be in the future.",
     "ambiguousTime": "This local time is ambiguous or does not exist because of a clock change. Please correct it.",
     "result": {
+      "paused": "Scan paused",
       "running": "Scanning",
       "succeeded": "Scan completed",
-      "partial": "Only part of the data was returned",
+      "partial": "Scan partly completed – please note the data gaps",
       "failed": "Scan failed",
       "interrupted": "Scan interrupted; please start again"
     },
     "status": {
       "pending": "To review",
       "accepted": "Accepted",
-      "rejected": "Dismissed"
+      "rejected": "Dismissed",
+      "covered": "Already recorded"
+    },
+    "coveredBy": {
+      "visit": "Already recorded as a visit: {{name}}",
+      "lodging": "Already recorded as a stay: {{name}}"
     },
     "uncertainty": {
+      "staleMapData": "Some venue boundaries are older.",
+      "partialMapData": "Current venue boundaries are missing for part of the period.",
+      "visitAmbiguous": "Several existing visits may match. Please check the visit.",
+      "overlappingMarkets": "Venue boundaries overlap. Independent venues remain separate; check which ones you visited.",
+      "boundaryTolerance": "Some points are near the venue boundary (up to 20 m tolerance).",
+      "briefExcursion": "The location track contains a brief excursion outside the venue.",
+      "speedUnknown": "Movement speed is partly unknown.",
+      "tripIncomplete": "This stay is only partly within a trip’s dates. Please choose the trip yourself.",
       "sourceUnknown": "Dawarich does not reliably distinguish recorded GPS from reconstructed photo locations here. These points do not establish an overnight stay.",
       "accuracyUnknown": "Some points have no known accuracy.",
       "signalGaps": "There are gaps between points. Presence during these gaps is not established.",
@@ -750,7 +789,109 @@
       "tripAmbiguous": "Several trips match this window. Please choose the correct one.",
       "placeAmbiguous": "Several saved places are nearby. Please check the place."
     },
-    "existingVisit": "An existing visit was found in this window. Acceptance checks whether this suggestion can be linked to it."
+    "existingVisit": "An existing visit was found in this window. Acceptance checks whether this suggestion can be linked to it.",
+    "venues": {
+      "enable": "Suggest other places as whole venues",
+      "description": "Recognize shopping malls, parks, zoos, theme parks and museums using their OSM boundaries. Parks require at least 15 minutes; other venues require 10 minutes. Independent places within larger grounds remain available for review. Only suggestions are created.",
+      "missing": "{{count}} map entries have no usable venue boundary. This does not mean you did not visit.",
+      "counts": "New area suggestions: {{created}} · Already recorded: {{known}}",
+      "source": "View venue boundary in OpenStreetMap",
+      "interior": "{{count}} location points inside the venue",
+      "status": {
+        "complete": "Venue boundaries evaluated",
+        "partial": "Venue boundaries only partly available — check coverage gaps",
+        "cancelled": "Area evaluation paused"
+      },
+      "types": {
+        "market": "Market grounds",
+        "mall": "Shopping mall — whole venue",
+        "park": "Park visit",
+        "zoo": "Zoo visit",
+        "themePark": "Theme park visit",
+        "museum": "Museum visit — whole venue",
+        "unknown": "Whole venue"
+      }
+    },
+    "identity": {
+      "mapLabel": "Map of the stay location",
+      "loading": "Identifying the place …",
+      "retry": "Try again",
+      "error": {
+        "rateLimited": "Too many place lookups in a short time. Please wait a moment.",
+        "disabled": "Stay suggestions are switched off; the place is not looked up.",
+        "unavailable": "The place could not be identified right now. The coordinates remain valid."
+      },
+      "probable": "Probably",
+      "noProbable": "No place name could be found for this spot.",
+      "source": {
+        "nearbyPlace": "place nearby",
+        "address": "address at the stay location",
+        "photos": "from your Immich photos"
+      },
+      "photoSupported": "confirmed by your photos",
+      "geocoder": {
+        "empty": "No address is known for this spot.",
+        "degraded": "The address lookup is unreachable or overloaded right now – the address is missing for that reason, not because there is none."
+      },
+      "candidates": "Places nearby",
+      "candidatesState": {
+        "empty": "No named places within 250 m.",
+        "degraded": "The place search is unreachable or overloaded right now – nearby places are missing for that reason."
+      },
+      "distance": "{{meters}} m away",
+      "photoCount_one": "{{count}} photo here",
+      "photoCount_other": "{{count}} photos here",
+      "useName": "Use name",
+      "photos": {
+        "count_one": "{{count}} Immich photo during the stay",
+        "count_other": "{{count}} Immich photos during the stay",
+        "cities": "in {{cities}} according to Immich",
+        "none": "No Immich photos from this time at this place.",
+        "truncated": "Immich did not return every photo of the period",
+        "failed": {
+          "unreachable": "Immich is unreachable – evaluated without photos.",
+          "auth": "Immich rejected the API key – evaluated without photos. Check the Immich connection in the settings.",
+          "notFound": "Immich does not know the photo search – evaluated without photos.",
+          "protocol": "Immich answered unexpectedly – evaluated without photos. Is the Immich version current?",
+          "invalidUrl": "The Immich address is invalid – evaluated without photos. Check it in the settings."
+        }
+      },
+      "placeType": {
+        "label": "Place type (AI)",
+        "loading": "Determining the place type …",
+        "viaCloud": "determined via {{host}}",
+        "refused": {
+          "disabled_by_admin": "Place type not determined: the AI is switched off by the administrator.",
+          "shared_demo": "Place type not determined: no AI is available to the shared demo account.",
+          "cloud_not_consented": "Place type not determined: only a cloud provider is set up, and the administrator has not consented to it yet.",
+          "provider_incomplete": "Place type not determined: no AI is fully set up."
+        },
+        "failed": {
+          "timeout": "Place type not determined: the AI did not answer in time.",
+          "unavailable": "Place type not determined: the AI is unreachable.",
+          "unusable": "Place type not determined: the answer of the AI was unusable."
+        },
+        "types": {
+          "restaurant": "Restaurant",
+          "cafe": "Café",
+          "bar": "Bar or pub",
+          "accommodation": "Accommodation",
+          "shop": "Shop",
+          "museum": "Museum",
+          "attraction": "Sight",
+          "park": "Park",
+          "nature": "Nature",
+          "beach": "Beach",
+          "religious": "Religious site",
+          "transport": "Transport hub",
+          "venue": "Event venue",
+          "sport": "Sports ground",
+          "residential": "Residential area",
+          "workplace": "Workplace",
+          "other": "Other place"
+        }
+      }
+    }
   },
   "deleteTripConfirmWithRail": "“{{name}}” will be permanently deleted, along with its photos, stops, companions, journal entries, tours built from its stops with their recorded tracks, and the documents filed here. Flights, cruises, rail journeys, stays and trips are kept, and so are day tours with points of their own — they become standalone tours. The linked Immich album is not touched."
 }

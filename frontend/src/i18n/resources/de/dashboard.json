@@ -200,7 +200,8 @@
       "roadtrip": "Trips",
       "rail": "Bahn",
       "rental": "Mietwagen",
-      "bus": "Bus"
+      "bus": "Bus",
+      "ferry": "Fähren"
     },
     "disabledHint": "Bereich deaktiviert — Einstellungen → Bereiche"
   },
@@ -323,6 +324,7 @@
     "title": "Legende",
     "railTraced": "Bahn · Streckenverlauf (Transitous)",
     "railRouted": "Bahn · Streckenverlauf (OpenRailRouting)",
+    "railManual": "Bahnstrecke (manuell)",
     "railBrouter": "Bahn · Streckenverlauf (BRouter)",
     "railStraight": "Bahn · Luftlinie",
     "tour": "Tour",
@@ -331,7 +333,10 @@
     "rentalOneWay": "Mietwagen · Einweg, keine Fahrstrecke",
     "bus": "Bus",
     "busRoad": "Bus · Straßenverlauf",
-    "busStraight": "Bus · Luftlinie"
+    "busStraight": "Bus · Luftlinie",
+    "ferry": "Fähre",
+    "ferryDrawn": "Fähre (eingezeichnet)",
+    "ferryStraight": "Fähre (Luftlinie)"
   },
   "userMenu": {
     "label": "Konto-Menü"

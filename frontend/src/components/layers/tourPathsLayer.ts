@@ -1,3 +1,4 @@
+import { groupMapData, pathIdentity } from "./routeAggregation";
 import type { TourGeometry } from "../../types/tour";
 import { TOUR_COLOR } from "../../shared/domains";
 
@@ -36,6 +37,8 @@ export interface TourPathDatum {
    */
   routeId: string;
   name: string;
+  memberIds?: string[];
+  count?: number;
   path: Array<[number, number]>;
   color: [number, number, number];
   isPlaceholder: boolean;
@@ -75,5 +78,9 @@ export function buildTourPaths(
       });
     }
   }
-  return out;
+  return groupMapData(
+    out,
+    (p) => JSON.stringify([p.color, p.isRoadtrip, p.isPlaceholder, pathIdentity(p.path)]),
+    (p) => p.legId
+  );
 }

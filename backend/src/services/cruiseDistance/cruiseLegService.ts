@@ -25,8 +25,11 @@ import type { PortPoint } from "./types";
  * Every row carries it as `routerVersion`, which is what the boot backfill
  * (`scripts/backfillCruiseLegs.ts`) compares: a bump recomputes every cruise.
  * 1.1.0 (2026-09-27): sea legs are measured along the drawn route.
+ * 1.2.0 (2026-10-16): a river cruise's legs never go through the sea router,
+ * and the river anchors ship in the image — Nile legs stored before it were
+ * chords because `data/rivers` was missing there.
  */
-export const ORCHESTRATOR_VERSION = "1.1.0";
+export const ORCHESTRATOR_VERSION = "1.2.0";
 
 /** `cruise_legs.method` of a leg measured along a recording (2.7). */
 export const RECORDED_TRACK_METHOD = "recorded_track";
@@ -88,6 +91,7 @@ export async function recomputeLegsForCruise(
     cruise?.arrivalPort ? toPortPoint(cruise.arrivalPort) : null
   );
 
+  // share-exempt: legs recomputed inside the cruise writes, which propagate after it
   await client.cruiseLeg.deleteMany({ where: { cruiseId } });
 
   if (sequence.length < 2) return 0;
@@ -145,7 +149,7 @@ export async function recomputeLegsForCruise(
       continue;
     }
 
-    const computed = await computeLegDistance(from, to);
+    const computed = await computeLegDistance(from, to, { cruiseKind: cruise?.kind });
     rows.push({
       cruiseId,
       ordinal: i - 1,
@@ -163,6 +167,7 @@ export async function recomputeLegsForCruise(
   }
 
   if (rows.length > 0) {
+    // share-exempt: legs recomputed inside the cruise writes, which propagate after it
     await client.cruiseLeg.createMany({ data: rows });
   }
 

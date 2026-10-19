@@ -28,7 +28,7 @@ import { railApi } from "../lib/api/rail";
 import { classifyLoadFailure, type LoadFailure } from "../lib/api/loadFailure";
 import { railDeleteMessage } from "../lib/rail/railDeleteMessage";
 import { navigateAfterSave } from "../components/form";
-import { formatAmount } from "../lib/units";
+import { formatAmount, dateLocaleForLanguage } from "../lib/units";
 import { formatStationTime, railDurationMinutes } from "../lib/railTime";
 import {
   railActualArrival,
@@ -58,7 +58,7 @@ export default function RailDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation(["rail", "common", "trips", "documents"]);
   const viewerZone = useSettingsStore((s) => s.display?.timezone);
-  const locale = i18n.language.startsWith("en") ? "en-GB" : "de-DE";
+  const locale = dateLocaleForLanguage(i18n.language);
   const addToast = useToastStore((s) => s.addToast);
   const [journey, setJourney] = useState<RailJourneyDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -164,7 +164,10 @@ export default function RailDetailPage(): JSX.Element {
     );
   }
 
-  const distanceNoteKey = railDistanceNoteKey(journey.distanceSource, { includeTicket: true });
+  const distanceNoteKey = railDistanceNoteKey(journey.distanceSource, {
+    includeTicket: true,
+    geometrySource: journey.geometrySource,
+  });
   const distanceNote = distanceNoteKey ? t(distanceNoteKey) : null;
   const departure = railDeparture(journey);
   const duration = departure ? railDurationMinutes(departure, railArrival(journey)) : null;

@@ -200,7 +200,8 @@
       "roadtrip": "Trips",
       "rail": "Rail",
       "rental": "Rental cars",
-      "bus": "Bus"
+      "bus": "Bus",
+      "ferry": "Ferries"
     },
     "disabledHint": "Area disabled — Settings → Areas"
   },
@@ -323,6 +324,7 @@
     "title": "Key",
     "railTraced": "Rail · route (Transitous)",
     "railRouted": "Rail · route (OpenRailRouting)",
+    "railManual": "Rail route (manual)",
     "railBrouter": "Rail · route (BRouter)",
     "railStraight": "Rail · straight line",
     "tour": "Tour",
@@ -331,7 +333,10 @@
     "rentalOneWay": "Rental car · one-way, not the route driven",
     "bus": "Bus",
     "busRoad": "Bus · road route",
-    "busStraight": "Bus · straight line"
+    "busStraight": "Bus · straight line",
+    "ferry": "Ferry",
+    "ferryDrawn": "Ferry (drawn)",
+    "ferryStraight": "Ferry (straight line)"
   },
   "userMenu": {
     "label": "Account menu"

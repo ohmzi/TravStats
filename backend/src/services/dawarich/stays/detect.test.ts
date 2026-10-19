@@ -52,3 +52,27 @@ describe("Dawarich stationary evidence", () => {
     expect(detectStays([point(20), point(0), point(0)])).toEqual([]);
   });
 });
+
+it("keeps a stationary cluster at the dateline instead of moving it to Greenwich", () => {
+  const [stay] = detectStays([
+    point(0, { latitude: 0, longitude: 179.9997 }),
+    point(10, { latitude: 0, longitude: -179.9998 }),
+    point(20, { latitude: 0, longitude: 179.9999 }),
+  ]);
+  expect(Math.abs(stay.lon)).toBeGreaterThan(179.999);
+});
+it.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
+  "does not use invalid velocity %s as stationary evidence",
+  (velocity) => {
+    expect(detectStays([point(0), point(10, { velocity }), point(20)])).toEqual([]);
+  }
+);
+
+it("summarises a month-long stay with hundreds of thousands of points", () => {
+  // A phone logging every few seconds at home: spreading every gap into
+  // Math.max threw a RangeError and failed the whole scan.
+  const points = Array.from({ length: 300_000 }, (_, i) => point(i / 10, { id: i }));
+  const [stay] = detectStays(points);
+  expect(stay.pointCount).toBe(300_000);
+  expect(stay.maxGapMinutes).toBeCloseTo(0.1);
+});

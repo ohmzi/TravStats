@@ -190,6 +190,9 @@ function mapAsset(raw: unknown): ImmichAsset | null {
   // it instead — the caller already filters out `null`.
   if (raw.type !== "IMAGE" && raw.type !== "VIDEO") return null;
   const exif = isRecord(raw.exifInfo) ? raw.exifInfo : undefined;
+  const city = nonEmptyString(exif?.city);
+  const state = nonEmptyString(exif?.state);
+  const country = nonEmptyString(exif?.country);
 
   return {
     id: raw.id,
@@ -215,9 +218,11 @@ function mapAsset(raw: unknown): ImmichAsset | null {
     // without an EXIF row, so it is the fallback rather than the source.
     width: asNumberOrNull(exif?.exifImageWidth) ?? asNumberOrNull(raw.width),
     height: asNumberOrNull(exif?.exifImageHeight) ?? asNumberOrNull(raw.height),
-    city: nonEmptyString(exif?.city),
-    state: nonEmptyString(exif?.state),
-    country: nonEmptyString(exif?.country),
+    // A hint the payload does not carry stays absent, not "": a blank or
+    // whitespace-only value is not a place name.
+    ...(city ? { city } : {}),
+    ...(state ? { state } : {}),
+    ...(country ? { country } : {}),
   };
 }
 
@@ -236,7 +241,7 @@ function naiveLocalDateTime(value: unknown): string | null {
 }
 
 function nonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.length > 0 ? value : null;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
 function visibilityOrNull(value: unknown): ImmichVisibility | null {
@@ -270,15 +275,19 @@ export function mapAssetDetail(raw: unknown): ImmichAssetDetail | null {
   if (base === null || !isRecord(raw)) return null;
   if (raw.isTrashed === true) return null;
   const exif = isRecord(raw.exifInfo) ? raw.exifInfo : undefined;
+  const city = nonEmptyString(exif?.city);
+  const state = nonEmptyString(exif?.state);
+  const country = nonEmptyString(exif?.country);
 
   return {
     ...base,
     localDateTime: naiveLocalDateTime(raw.localDateTime),
     timeZone: nonEmptyString(exif?.timeZone),
     fileModifiedAt: offsetInstantOrNull(raw.fileModifiedAt),
-    city: nonEmptyString(exif?.city),
-    state: nonEmptyString(exif?.state),
-    country: nonEmptyString(exif?.country),
+    // The detail shape requires the facts: null says "Immich has none".
+    city,
+    state,
+    country,
     ownerId: nonEmptyString(raw.ownerId),
     visibility: assetVisibility(raw),
     livePhotoVideoId: nonEmptyString(raw.livePhotoVideoId),

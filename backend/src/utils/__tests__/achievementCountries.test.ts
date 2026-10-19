@@ -133,6 +133,7 @@ describe("achievementCountries — the passport's evidence, the gates' visibilit
     await prisma.countryDay.deleteMany({ where: { userId } });
     await prisma.flight.deleteMany({ where: { userId } });
     await prisma.place.deleteMany({ where: { userId } });
+    await prisma.lodging.deleteMany({ where: { userId } });
     // Pinned: the connection test below is about a threshold that excludes a
     // connection, and the instance default is shared suite state.
     await prisma.userSettings.update({
@@ -146,9 +147,9 @@ describe("achievementCountries — the passport's evidence, the gates' visibilit
     await prisma.user.deleteMany({ where: { id: userId } });
   });
 
-  it("counts a country reached only by train", async () => {
+  it("does not infer a visit from a one-way train ride (an open chain)", async () => {
     await ride("DE", "CH", "2025-03-01");
-    expect([...(await achievementCountries(userId, new Set()))].sort()).toEqual(["CH", "DE"]);
+    expect([...(await achievementCountries(userId, new Set()))].sort()).toEqual([]);
   });
 
   it("counts a country reached only on a roadtrip", async () => {
@@ -170,11 +171,11 @@ describe("achievementCountries — the passport's evidence, the gates' visibilit
     expect([...(await achievementCountries(userId, new Set()))]).toEqual(["NO"]);
   });
 
-  it("keeps the union floor: a country the passport never measured still counts", async () => {
+  it("keeps the union floor: abstention is not exclusion", async () => {
     expect([...(await achievementCountries(userId, new Set(["PT"])))]).toEqual(["PT"]);
   });
 
-  it("unlocks a country badge from train rides, and never takes it back", async () => {
+  it("requires recorded visits for a country badge and never takes an unlock back", async () => {
     await ride("DE", "CH", "2025-03-01");
     await ride("CH", "IT", "2025-03-03");
     await ride("IT", "FR", "2025-03-05");
@@ -185,6 +186,16 @@ describe("achievementCountries — the passport's evidence, the gates' visibilit
     expect(hidden.map((a) => a.achievement.code)).not.toContain("COUNTRIES_5");
 
     await updateInstanceSettings({ betaFeaturesEnabled: true });
+    // Train endpoints alone are ground contact. Confirm actual stays before
+    // testing the independent monotonic-unlock contract.
+    await prisma.lodging.createMany({
+      data: ["DE", "CH", "IT", "FR", "BE"].map((isoCountryCode) => ({
+        userId,
+        name: isoCountryCode,
+        isoCountryCode,
+        visited: true,
+      })),
+    });
     const shown = await checkAndUpdateAchievements(userId);
     expect(shown.map((a) => a.achievement.code)).toContain("COUNTRIES_5");
 
@@ -226,10 +237,10 @@ describe("achievementCountries — the passport's evidence, the gates' visibilit
     expect(qaOnPassport).toMatchObject({ tier: "connection", counted: false });
 
     const badges = await achievementCountries(userId, new Set());
-    expect([...badges].sort()).toEqual(["DE", "SG"]);
+    expect([...badges].sort()).toEqual([]);
   });
 
-  it("does not let a place lift a flight connection over a threshold that excludes it", async () => {
+  it("does not earn a badge from a confirmed place: a badge means travel, a place is a pin", async () => {
     await connectThroughDoha();
     await prisma.place.create({
       data: {
@@ -242,13 +253,13 @@ describe("achievementCountries — the passport's evidence, the gates' visibilit
       },
     });
 
-    expect([...(await achievementCountries(userId, new Set()))].sort()).toEqual(["DE", "SG"]);
+    expect([...(await achievementCountries(userId, new Set()))].sort()).toEqual([]);
   });
 
-  it("still counts a country a flight proves", async () => {
+  it("does not infer a visit from an incomplete flight chain", async () => {
     await connectThroughDoha();
     await trackDays("SG", "2024-03-01", "2024-03-02");
 
-    expect([...(await achievementCountries(userId, new Set()))].sort()).toEqual(["DE", "SG"]);
+    expect([...(await achievementCountries(userId, new Set()))].sort()).toEqual([]);
   });
 });

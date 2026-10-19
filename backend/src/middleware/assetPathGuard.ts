@@ -138,6 +138,11 @@ export interface PublicAssetPath {
  */
 export const PUBLIC_ASSET_PATHS: readonly PublicAssetPath[] = [
   {
+    path: "/geo-server/assets/*",
+    reason:
+      "Public basemap tiles, fonts and sprites only; same bytes for every caller. Strict resource allowlist in geoServer router.",
+  },
+  {
     path: "/login-backgrounds/{filename}",
     reason:
       "Public by design: the sign-in page shows these before anyone has a session, and " +

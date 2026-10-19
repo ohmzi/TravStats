@@ -4,6 +4,7 @@ import { receiptUrlValidator } from "./receiptUrl";
 import { LODGING_DATE_PRECISIONS } from "../shared/lodgingTiming";
 import { partialForUpdate } from "./partialUpdate";
 import { legacyDayFieldSchema } from "../shared/time/timeInput";
+import { isLocalDate } from "../shared/time/localDate";
 import { deadlineInputShape } from "./deadlines";
 
 export const LODGING_TYPES = ["hotel", "campsite", "guesthouse", "apartment", "hostel"] as const;
@@ -63,6 +64,7 @@ const stayDay = legacyDayFieldSchema();
 const rating = z.number().min(0.5).max(5).nullable().optional();
 
 const baseLodgingSchema = z.object({
+  countryVisitKind: z.enum(["visit", "transit"]).optional(),
   type: z.enum(LODGING_TYPES).default("hotel"),
   name: z.string().trim().min(1).max(200),
   chainId: z.number().int().positive().nullable().optional(),
@@ -359,7 +361,12 @@ export const lodgingQuerySchema = z.object({
  * An undated stay touches no window, so it appears only when neither bound is
  * given.
  */
-const stayListDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD");
+// The regex alone let "2026-02-30" through to the database, which refused
+// it with a 500 instead of the caller's 400.
+const stayListDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD")
+  .refine((v) => isLocalDate(v), "is not a real day");
 
 export const stayListQuerySchema = z
   .object({

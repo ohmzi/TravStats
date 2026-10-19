@@ -116,8 +116,10 @@ describe("trip countries are derived on the list, not only on the detail", () =>
 
     const trip = res.body.trips.find((t: { id: string }) => t.id === tripId);
     expect(trip).toBeDefined();
-    // Deduplicated (Germany appears at both ends), folded to ISO, sorted.
-    expect(trip.countries).toEqual(["DE", "ES"]);
+    // Folded to ISO and sorted. The country the trip STARTED in does not
+    // count even though the return touches it — the rule `flownCountries`
+    // states, and `flightVisits.test.ts` pins.
+    expect(trip.countries).toEqual(["ES"]);
   });
 
   it("agrees with the detail endpoint — the bug was the two disagreeing", async () => {

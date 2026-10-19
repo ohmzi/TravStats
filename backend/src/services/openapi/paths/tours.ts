@@ -710,11 +710,11 @@ registerSectionPath({
     "its straight chord, same as an individual provider failure would, and " +
     "the response says so honestly via `routedCount` (legs the provider " +
     "routed), `fallbackCount` (legs left a straight chord, with the first " +
-    "cause in `fallbackReason`) and `skippedCount` (legs left alone because " +
-    "their mode is not routable). `autofetch` appears beside those numbers " +
-    "when the first fallback is a wrong-region one and the osrm-autofetch " +
-    "service answered (spec 2026-10-13). This always answers 200: " +
-    "routing that did not produce a route is not a request error.",
+    "cause in `fallbackReason`) and `skippedCount` (legs left alone: ferry/rail, " +
+    "drawn/track/routed lines, or a leg edited while the provider answered). " +
+    "`autofetch` appears beside those numbers when the first fallback is a " +
+    "wrong-region one and the osrm-autofetch service answered (spec 2026-10-13). " +
+    "Always 200: routing that did not produce a route is not a request error.",
   tags: ["Tours"],
   request: { params: routeIdParams },
   responses: {
@@ -733,7 +733,12 @@ registerSectionPath({
             fallbackReason,
             fallbackDetail,
             autofetch,
-            skippedCount: z.number().int().describe("Legs left alone — ferry/rail, not routable"),
+            skippedCount: z
+              .number()
+              .int()
+              .describe(
+                "Legs left alone — ferry/rail, drawn/track/routed, or edited while the provider answered"
+              ),
           }),
         },
       },

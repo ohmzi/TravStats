@@ -200,9 +200,13 @@ describe("controls", () => {
 
   it("holds the button heights the design system names", () => {
     const { rerender } = render(<Button variant="primary">Speichern</Button>);
-    expect(screen.getByRole("button").style.height).toBe("var(--ts-size-button-primary)");
+    expect(screen.getByRole("button").style.height).toBe(
+      "var(--ts-button-height, var(--ts-size-button-primary))"
+    );
     rerender(<Button variant="secondary">Abbrechen</Button>);
-    expect(screen.getByRole("button").style.height).toBe("var(--ts-size-button-secondary)");
+    expect(screen.getByRole("button").style.height).toBe(
+      "var(--ts-button-height, var(--ts-size-button-secondary))"
+    );
   });
 
   it("draws a toolbar-sized primary at the shared row height, keeping its amber skin", () => {
@@ -214,7 +218,7 @@ describe("controls", () => {
     const button = screen.getByRole("button");
     // A row's amber CTA joins the row's height (owner, 2026-10-11: "all these
     // should be same size") — the colour and the label stay exactly as they are.
-    expect(button.style.height).toBe("var(--ts-size-button-secondary)");
+    expect(button.style.height).toBe("var(--ts-button-height, var(--ts-size-button-secondary))");
     expect(button.style.background).toBe("var(--ts-accent)");
     expect(button.style.fontSize).toBe("16px");
   });

@@ -293,7 +293,7 @@ describe("TourLegList", () => {
     const btn = screen.getByRole("button", { name: "trips:tours.routing.routeAll" });
     expect(heading.parentElement!.contains(btn)).toBe(true);
     expect(btn).toHaveAttribute("data-variant", "secondary");
-    expect(btn.style.height).toBe("var(--ts-size-button-secondary)");
+    expect(btn.style.height).toBe("var(--ts-button-height, var(--ts-size-button-secondary))");
   });
 
   it("keeps a leg's clear icon at the row's right edge when the row wraps", () => {

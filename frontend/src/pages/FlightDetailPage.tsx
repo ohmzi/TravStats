@@ -37,9 +37,15 @@ import { useTranslation } from "../hooks/useTranslation";
 import { flightsApi, tripsApi } from "../lib/api";
 import { classifyLoadFailure, type LoadFailure } from "../lib/api/loadFailure";
 import { withDocumentNote } from "../lib/deleteConfirm";
+import { onlineCheckInFact } from "../lib/deadlines";
 import { getFlightDuration } from "../lib/flightDuration";
 import { flightExtractTarget } from "../lib/extractTargets";
-import { convertDistance, formatAmount, getDistanceLabel } from "../lib/units";
+import {
+  convertDistance,
+  formatAmount,
+  getDistanceLabel,
+  dateLocaleForLanguage,
+} from "../lib/units";
 import { useSettingsStore } from "../store/settingsStore";
 import { formatBaggageAllowance } from "../lib/baggageAllowance";
 import { formatDurationWithEstimate } from "../lib/formatters";
@@ -385,6 +391,11 @@ export default function FlightDetailPage(): JSX.Element {
                 value:
                   departure?.zone && arrival?.zone ? `${departure.zone} → ${arrival.zone}` : null,
               },
+              onlineCheckInFact(
+                flight.times?.onlineCheckInOpens,
+                t,
+                dateLocaleForLanguage(i18n.language)
+              ),
             ]}
           />
 

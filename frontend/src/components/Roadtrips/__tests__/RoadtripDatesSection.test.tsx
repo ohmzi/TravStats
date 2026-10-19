@@ -248,8 +248,8 @@ describe("RoadtripDatesSection", () => {
     // recipe is pinned as its tokens.
     const save = screen.getByRole("button", { name: "roadtrips:dates.save" });
     expect(save).toHaveClass("ts-button");
-    expect(save.style.height).toBe("var(--ts-size-button-secondary)");
-    expect(save.style.padding).toBe("0 var(--ts-space-xl)");
+    expect(save.style.height).toBe("var(--ts-button-height, var(--ts-size-button-secondary))");
+    expect(save.style.padding).toBe("var(--ts-button-padding, 0 var(--ts-space-xl))");
     expect(save.style.fontSize).toBe("16px");
   });
 

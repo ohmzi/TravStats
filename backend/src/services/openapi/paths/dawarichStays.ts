@@ -40,8 +40,10 @@ registry.registerPath({
   tags,
   summary: "Own location-history suggestions and retained decisions",
   description:
-    "Conservative stationary clusters; not proof of GPS measurement or overnight accommodation. Original evidence and corrected times remain separate. Up to 200 most recent rows per status.",
-  request: { query: z.object({ status: z.enum(["pending", "accepted", "rejected"]).optional() }) },
+    "Conservative stationary clusters; not proof of GPS measurement or overnight accommodation. Original evidence and corrected times remain separate. Up to 200 most recent rows per status. `covered` lists findings resolved because a recorded place visit or lodging stay already holds them (within 250 m, a visit clock within 2 h or on the same local day); `evidence.coveredBy` names that record. Reading `pending` resolves newly covered findings first. With the account's `staySuggestions.enabled` setting off, `pending` answers an empty list, nothing is resolved, and accept/reject/scan are refused with `STAY_SUGGESTIONS_DISABLED` (409); stored rows are kept.",
+  request: {
+    query: z.object({ status: z.enum(["pending", "accepted", "rejected", "covered"]).optional() }),
+  },
   responses: { 200: response(z.array(stay)) },
 });
 registry.registerPath({
@@ -56,6 +58,14 @@ registry.registerPath({
           ...prismaColumns("DawarichStayScan"),
           times: scanTimes,
           connected: z.boolean(),
+          placesEnabled: z.boolean(),
+          pausedReason: z
+            .enum(["suggestionsDisabled", "disabled", "placesDisabled", "connectionMissing"])
+            .nullable()
+            .describe(
+              "`suggestionsDisabled`: the account switched stay suggestions off (forgejo#306)"
+            ),
+          nextScanAt: z.string().datetime().nullable(),
           result: z.string().nullable(),
         })
         .partial()
@@ -69,7 +79,23 @@ registry.registerPath({
   summary: "Explicit per-account opt-in, separate from Immich and country days",
   request: {
     body: {
-      content: { "application/json": { schema: z.object({ enabled: z.boolean() }).strict() } },
+      content: {
+        "application/json": {
+          schema: z
+            .object({
+              enabled: z.boolean().optional(),
+              marketEnabled: z.boolean().optional(),
+              venueEnabled: z.boolean().optional(),
+            })
+            .strict()
+            .refine(
+              (v) =>
+                v.enabled !== undefined ||
+                v.marketEnabled !== undefined ||
+                v.venueEnabled !== undefined
+            ),
+        },
+      },
     },
   },
   responses: {
@@ -81,9 +107,18 @@ registry.registerPath({
   method: "post",
   path: "/dawarich-stays/scan",
   tags,
-  summary: "Start an asynchronous scan of the last seven days",
+  summary: "Start a bounded asynchronous scan, optionally including opted-in market discovery",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({ lookbackDays: z.number().int().min(1).max(30).default(7) }).strict(),
+        },
+      },
+    },
+  },
   description:
-    "Requires opt-in and the user's own connection. A cross-process lease excludes overlapping scans; errors and partial upstream results remain visible. Scheduled scans run every six hours at :15 UTC.",
+    "Requires opt-in, the Places domain and the user's own connection. Hiding Places pauses scans without deleting consent or findings. A cross-process lease excludes overlapping scans; errors and partial upstream results remain visible. Scheduled scans run every six hours at :15 UTC. Market discovery requires separate consent: approximate grid regions are sent to Overpass, never point sequences, times or ids. Public map data is cached; missing/failed coverage remains visible. Only confirmation creates a visit.",
   responses: {
     202: {
       description: "Poll /jobs/{jobId}",
@@ -98,6 +133,9 @@ registry.registerPath({
   path: "/dawarich-stays/choices",
   tags,
   summary: "Own places and trips for reviewing a finding",
+  description:
+    "At most 2000 places (by name) and 500 trips (newest first); `q` narrows both by name, and `truncated` says when a list was cut.",
+  request: { query: z.object({ q: z.string().max(200).optional() }) },
   responses: {
     200: response(
       z.object({
@@ -105,6 +143,7 @@ registry.registerPath({
           z.object({ id: z.string(), name: z.string(), lat: z.number(), lon: z.number() })
         ),
         trips: z.array(z.object({ id: z.string(), name: z.string() })),
+        truncated: z.object({ places: z.boolean(), trips: z.boolean() }),
       })
     ),
   },

@@ -197,7 +197,7 @@ export default function RoadtripDetailPage(): JSX.Element {
 
   if (loadError) {
     return (
-      <AppShell width="table">
+      <AppShell width="list">
         <EmptyState
           kind="degraded"
           title={t("roadtrips:detailLoadError")}
@@ -212,7 +212,7 @@ export default function RoadtripDetailPage(): JSX.Element {
   }
   if (!detail) {
     return (
-      <AppShell width="table">
+      <AppShell width="list">
         <div
           aria-busy="true"
           aria-label={t("common:loading.default")}
@@ -250,6 +250,9 @@ export default function RoadtripDetailPage(): JSX.Element {
 
   const r = detail.roadtrip;
 
+  // `list`, like rail, ferry, bus and rentals: the page holds no column table
+  // that needs `table`, and the stations-beside-map grid already has to work
+  // at 1024px, narrower than `list` ever makes it (forgejo#307).
   return (
     <AppShell width="table">
       {/* The editor draws no tabs: its Done button is the way back, and a

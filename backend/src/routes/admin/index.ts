@@ -18,6 +18,7 @@ import passwordResetRequestsRouter from "./passwordResetRequests";
 import timeMigrationRouter from "./timeMigration";
 import pushAdminRouter from "./push";
 import routeFetchRouter from "./routeFetch";
+import federationAdminRouter from "./federation";
 
 const router = Router();
 
@@ -59,5 +60,6 @@ router.use("/", passwordResetRequestsRouter);
 router.use("/", timeMigrationRouter);
 router.use("/push", pushAdminRouter);
 router.use("/", routeFetchRouter);
+router.use("/federation", federationAdminRouter);
 
 export default router;

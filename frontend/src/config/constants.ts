@@ -26,6 +26,19 @@ export const API_TIMEOUTS = {
   OPEN_DATA_WEATHER: 20000,
   /** Server: Overpass up to 25 s (nearby) or 20 s plus the OSM API (enrich). */
   OPEN_DATA_OVERPASS: 45000,
+  /**
+   * The leaderboard asks every remote person's server, each bounded at 12 s on the server.
+   * The default 10 s gave up first and showed a failed load instead of an `unreachable` row.
+   */
+  COMPARISON_LEADERBOARD: 20000,
+  /**
+   * A stay card's place identification (forgejo#305): Nominatim queues every
+   * request of the instance at one a second (5 s each), and Immich's search
+   * may take 15 s. The default ten seconds would call a busy geocoder "down".
+   */
+  STAY_IDENTITY: 30000,
+  /** Server: the model gets 20 s, after the identity it reads its names from. */
+  STAY_PLACE_TYPE: 50000,
 } as const;
 
 // ========== CRUISE SEA-ROUTE GEOMETRY ==========

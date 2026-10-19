@@ -33,7 +33,8 @@ export function detectStays(input: readonly DawarichPoint[], truncated = false):
             Number.isFinite(p.timestampMs) &&
             Math.abs(p.latitude) <= 90 &&
             Math.abs(p.longitude) <= 180 &&
-            (p.accuracy === null || (p.accuracy >= 0 && p.accuracy <= 100))
+            (p.accuracy === null || (p.accuracy >= 0 && p.accuracy <= 100)) &&
+            (p.velocity === null || (Number.isFinite(p.velocity) && p.velocity >= 0))
         )
         .map((p) => [p.timestampMs, p])
     ).values(),
@@ -43,14 +44,23 @@ export function detectStays(input: readonly DawarichPoint[], truncated = false):
   let skipped = 0;
   const flush = () => {
     if (group.length >= 3 && group.at(-1)!.timestampMs - group[0].timestampMs >= MIN_DURATION_MS) {
-      const maxGapMinutes = Math.max(
-        ...group.slice(1).map((p, i) => (p.timestampMs - group[i].timestampMs) / 60_000)
-      );
+      // A reduce, not Math.max(...gaps): a month at home logged every few
+      // seconds is several hundred thousand points and overflowed the stack.
+      const maxGapMinutes = group
+        .slice(1)
+        .reduce((max, p, i) => Math.max(max, (p.timestampMs - group[i].timestampMs) / 60_000), 0);
       result.push({
         startAt: new Date(group[0].timestampMs),
         endAt: new Date(group.at(-1)!.timestampMs),
         lat: group.reduce((n, p) => n + p.latitude, 0) / group.length,
-        lon: group.reduce((n, p) => n + p.longitude, 0) / group.length,
+        // Circular mean keeps a cluster spanning +180/-180 at the dateline.
+        lon:
+          (Math.atan2(
+            group.reduce((n, p) => n + Math.sin((p.longitude * Math.PI) / 180), 0),
+            group.reduce((n, p) => n + Math.cos((p.longitude * Math.PI) / 180), 0)
+          ) *
+            180) /
+          Math.PI,
         pointCount: group.length,
         pointIds: group.map((p) => p.id),
         maxGapMinutes,

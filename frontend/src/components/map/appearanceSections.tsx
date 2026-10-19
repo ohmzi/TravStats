@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 /**
  * The per-domain appearance sections of the map control panels.
  *
@@ -22,6 +23,7 @@ import {
   ColorRow,
   SegControl,
   Slider,
+  MUTED_TEXT,
 } from "./controlPanelKit";
 import {
   CRUISE_COLOR_MODES,
@@ -137,10 +139,7 @@ export function FlightAppearanceSection({
             onChange={onRouteShapeChange}
             options={shapeOptions}
           />
-          <div
-            className="mb-2 mt-1 text-[10px] leading-snug"
-            style={{ color: "rgba(241,245,249,0.45)" }}
-          >
+          <div className="mb-2 mt-1 text-[10px] leading-snug" style={{ color: MUTED_TEXT }}>
             {t(`map:globe.panel.routeShape.${routeShape}.hint`)}
           </div>
         </>
@@ -156,7 +155,7 @@ export function FlightAppearanceSection({
         onChange={onColorModeChange}
         options={modeOptions}
       />
-      <div className="mt-1 text-[10px] leading-snug" style={{ color: "rgba(241,245,249,0.45)" }}>
+      <div className="mt-1 text-[10px] leading-snug" style={{ color: MUTED_TEXT }}>
         {t(`map:globe.panel.colorMode.${mode}.hint`)}
       </div>
 
@@ -319,7 +318,7 @@ export function CruiseAppearanceSection({
         onChange={onColorModeChange}
         options={modeOptions}
       />
-      <div className="mt-1 text-[10px] leading-snug" style={{ color: "rgba(241,245,249,0.45)" }}>
+      <div className="mt-1 text-[10px] leading-snug" style={{ color: MUTED_TEXT }}>
         {t(`map:globe.panel.cruiseColorMode.${mode}.hint`)}
       </div>
 
@@ -471,10 +470,7 @@ export function LodgingAppearanceSection({
             onChange={onColorModeChange}
             options={modeOptions}
           />
-          <div
-            className="mt-1 text-[10px] leading-snug"
-            style={{ color: "rgba(241,245,249,0.45)" }}
-          >
+          <div className="mt-1 text-[10px] leading-snug" style={{ color: MUTED_TEXT }}>
             {t(`map:globe.panel.lodgingColorMode.${mode}.hint`)}
           </div>
 

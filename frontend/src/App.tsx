@@ -25,6 +25,8 @@ import DemoBetaNotice from "./components/DemoBetaNotice";
 import SetupIncompleteBanner from "./components/SetupIncompleteBanner";
 import UsageStatsConsentDialog from "./components/UsageStatsConsentDialog";
 
+const ComparisonPage = lazy(() => import("./pages/ComparisonPage"));
+
 // Lazy load pages for code splitting
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
@@ -54,6 +56,7 @@ import { PlacesRouteGuard } from "./components/places/PlacesRouteGuard";
 import NavigationBar from "./components/NavigationBar";
 import { AdminOnlyNotice } from "./components/AdminOnlyNotice";
 import { LOYALTY_SETTINGS_PATH } from "./pages/Settings/settingsModel";
+import { planRoutes } from "./pages/planRoutes";
 const LodgingDetailPage = lazy(() => import("./pages/LodgingDetailPage"));
 const LodgingChainDetailPage = lazy(() => import("./pages/LodgingChainDetailPage"));
 const TripsPage = lazy(() => import("./pages/TripsPage"));
@@ -237,8 +240,12 @@ function AppContent() {
         <Suspense fallback={<LoadingFallback />}>
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
+              {["/compare", "/encrypted-share"].map((path) => (
+                <Route key={path} path={path} element={<ComparisonPage />} />
+              ))}
               {/* Public routes */}
               <Route path="/setup" element={<SetupPage />} />
+              {planRoutes(isAuthenticated)}
               <Route
                 path="/login"
                 element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />}
@@ -265,9 +272,6 @@ function AppContent() {
                 path="/flights"
                 element={
                   isAuthenticated ? (
-                    // Not a boolean guard — see DomainRouteGuard: the domain
-                    // list is unknown for one request on a cold load, and
-                    // deciding then bounced every bookmark and refresh.
                     <DomainRouteGuard domain="flight">
                       <FlightsTablePage />
                     </DomainRouteGuard>
@@ -353,7 +357,6 @@ function AppContent() {
                 path="/rail/connection/:id"
                 element={
                   isAuthenticated ? (
-                    // The same two gates as the logbook, in the same order.
                     <BetaFeatureRouteGuard feature="railDomain" redirectTo="/dashboard">
                       <DomainRouteGuard domain="rail">
                         <RailConnectionPage />
@@ -382,8 +385,6 @@ function AppContent() {
                 path="/rentals"
                 element={
                   isAuthenticated ? (
-                    // Rail's two gates, outer first: the instance beta switch
-                    // (rentalDomain), then the user's own domain choice.
                     <BetaFeatureRouteGuard feature="rentalDomain" redirectTo="/dashboard">
                       <DomainRouteGuard domain="rental">
                         <RentalsPage />
@@ -494,9 +495,6 @@ function AppContent() {
                 path="/places"
                 element={
                   isAuthenticated ? (
-                    // Not a boolean guard: the beta flag is unknown for one
-                    // request on a cold load, and redirecting on "unknown"
-                    // bounced every refresh and bookmark. See PlacesRouteGuard.
                     <PlacesRouteGuard>
                       <PlacesListPage />
                     </PlacesRouteGuard>

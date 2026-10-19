@@ -9,6 +9,7 @@ import { STATION_DTO_SELECT } from "./roadtripSummary";
 import { readRouteAndLegs, ROUTE_SELECT } from "../../routes/trips/tourRoutes";
 import { stationTimeColumns } from "../timeModel/tripColumns";
 import { lockRoute } from "./lockRoute";
+import { propagateWrites, shareSnapshots } from "../sharing/propagate";
 
 export type Station = StationsInput["stations"][number];
 
@@ -17,6 +18,7 @@ export type Station = StationsInput["stations"][number];
  * `TripStop.viaPoint`.
  */
 function nightColumns(station: Station): {
+  countryVisitKind?: string;
   lodgingStayId: string | null;
   overnight: boolean;
   viaPoint: boolean;
@@ -31,7 +33,13 @@ function nightColumns(station: Station): {
         placeId: null,
       };
     case "free":
-      return { lodgingStayId: null, overnight: true, viaPoint: false, placeId: null };
+      return {
+        lodgingStayId: null,
+        overnight: true,
+        viaPoint: false,
+        placeId: null,
+        countryVisitKind: station.night.countryVisitKind,
+      };
     case "pass":
       return {
         lodgingStayId: null,
@@ -256,6 +264,26 @@ export async function replaceStationsInTx(
   // would otherwise collide mid-reorder.
   await tx.tripStop.updateMany({ where: { routeId }, data: { routeOrderIdx: null } });
 
+  // A timeline stop stays one while it is a station: its edits here are the
+  // facts the timeline editor propagates, and released below it is an ordinary
+  // stop of its trip again. The roadtrip's own stations sit on no trip and are
+  // never shared.
+  const timelineIds = [...onTimeline];
+  const before = await shareSnapshots(tx, "stop", timelineIds);
+
+  const stayIds = stations.flatMap((station) =>
+    station.night.kind === "stay" ? [station.night.lodgingStayId] : []
+  );
+  const stayPurposes = new Map(
+    (stayIds.length === 0
+      ? []
+      : await tx.lodgingStay.findMany({
+          where: { userId, id: { in: stayIds } },
+          select: { id: true, lodging: { select: { countryVisitKind: true } } },
+        })
+    ).map((stay) => [stay.id, stay.lodging.countryVisitKind])
+  );
+
   const ordered: StopCoords[] = [];
   for (const [index, station] of stations.entries()) {
     const data = {
@@ -272,6 +300,10 @@ export async function replaceStationsInTx(
       }),
       notes: station.notes ?? null,
       ...nightColumns(station),
+      // Keep the explicit purpose if deleting the linked stay later leaves a free night.
+      ...(station.night.kind === "stay"
+        ? { countryVisitKind: stayPurposes.get(station.night.lodgingStayId) }
+        : {}),
       routeId,
       routeOrderIdx: index,
     };
@@ -302,6 +334,7 @@ export async function replaceStationsInTx(
     },
   });
   await tx.tripStop.deleteMany({ where: { routeId, routeOrderIdx: null } });
+  await propagateWrites(tx, userId, "stop", timelineIds, before);
 
   const createdLegs = await recomputeLegs(tx, routeId, mode, ordered);
   await applyLegModes(tx, routeId, mode, ordered, createdLegs, legModes);

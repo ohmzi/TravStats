@@ -153,6 +153,9 @@ export function createOpenRouteService(
 ): RouteProvider {
   return {
     id: "openrouteservice",
+    cacheIdentity: ORS_BASE_URL,
+    cacheProfile: (req) =>
+      isRoutableMode(req.mode) ? orsProfileFor(req.mode, req.vehicle) : req.mode,
     async route(req: RouteRequest): Promise<RouteResult | RouteFailure | null> {
       if (!isRoutableMode(req.mode)) {
         return null;
@@ -163,6 +166,7 @@ export function createOpenRouteService(
       let response: Response;
       try {
         response = await fetchImpl(url, {
+          signal: AbortSignal.timeout(8_000),
           method: "POST",
           headers: {
             Authorization: apiKey,

@@ -165,8 +165,8 @@ export const createRouteSchema = z.object({
  * `createTourSchema` would otherwise have gone optional too.
  */
 export const createTripRouteSchema = createRouteSchema.extend({
-  /** Blank counts as absent, exactly as omitted does. */
-  name: z.string().trim().max(200).optional(),
+  /** Omitted takes the journey's name; a present but blank name is refused. */
+  name: z.string().trim().min(1).max(200).optional(),
 });
 
 export const updateRouteSchema = z.object({

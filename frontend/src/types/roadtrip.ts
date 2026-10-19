@@ -92,6 +92,7 @@ export interface StationStay {
 }
 
 export interface RoadtripStation {
+  countryVisitKind?: "visit" | "transit";
   id: string;
   title: string;
   lat: number | null;
@@ -189,7 +190,7 @@ export interface RoadtripDetail {
 /** A station's night as the station list accepts it. */
 export type StationNightInput =
   | { kind: "stay"; lodgingStayId: string }
-  | { kind: "free" }
+  | { kind: "free"; countryVisitKind?: "visit" | "transit" }
   /** A pass-through may name one of the user's places. */
   | { kind: "pass"; placeId?: string | null }
   /** A route correction: the route bends through it; no name, no date, no count. */

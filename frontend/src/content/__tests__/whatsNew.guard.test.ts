@@ -29,6 +29,8 @@ const guarded = WHATS_NEW_ENTRIES.filter((e) => compareVersions(e.version, GUARD
 
 /** What a reader would look for on the page, per registry key: [de, en]. */
 const KEYWORDS: Record<keyof typeof BETA_FEATURES, [RegExp, RegExp]> = {
+  comparison: [/Freundesvergleich|Serververgleich/i, /friend comparison|federation/i],
+  encryptedShare: [/verschlüsseltes Teilen/i, /encrypted sharing/i],
   devicePairing: [/koppel/i, /\bpair/i],
   roadtrips: [/Roadtrip|Touren/, /Roadtrip|\btours\b/i],
   lodgingEnrichment: [/Anreicherung/, /enrichment/i],
@@ -37,6 +39,8 @@ const KEYWORDS: Record<keyof typeof BETA_FEATURES, [RegExp, RegExp]> = {
   ferryDomain: [/fähre/i, /ferry/i],
   busDomain: [/Fernbus/, /coach/i],
   cruiseTracks: [/Kreuzfahrt-Spuren/, /cruise tracks/i],
+  travPlan: [/TravPlan/, /TravPlan/],
+  calendarFeed: [/Kalender-Abo/, /calendar subscription/i],
 };
 const keys = Object.keys(KEYWORDS) as (keyof typeof BETA_FEATURES)[];
 

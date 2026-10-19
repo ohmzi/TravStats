@@ -3,7 +3,7 @@ import { Prisma } from "../../prisma";
 import { AppError } from "../../middleware/errorHandler";
 import { resolveCountryCode } from "../../shared/geo/countryCode";
 import { isPlaceCategory } from "../../shared/placeCategories";
-import { classifyVisit } from "../../shared/placeCounting";
+import { visitPromotesPlace } from "../../shared/placeCounting";
 import { resolveTimeField } from "../../shared/time/resolveInput";
 import type { TimeFieldInput } from "../../shared/time/timeInput";
 import { zoneOf } from "../../shared/time/zoneOf";
@@ -185,16 +185,27 @@ export async function acceptVisitFinding(
   const sameDay = found ? await visitOnSameDay(userId, found.id, time.visitedAt) : null;
   // A stop photographed in the past HAPPENED, so the place leaves the wishlist
   // — the rule `POST /places/:id/visits` applies, from the same predicate.
-  const happened = classifyVisit({ visitedAt: time.visitedAt }) === "visited";
+  const happened = visitPromotesPlace(time);
 
   const outcome = await prisma.$transaction(async (tx) => {
+    // The claim comes first and is the only guard: without it two accepts in
+    // flight both made a place and a visit, and a DISMISSED finding could be
+    // accepted through PATCH. A concurrent claim waits on the row lock and
+    // then sees the status it changed.
+    const claimed = await tx.photoJourney.updateMany({
+      where: { id: row.id, userId, kind: "visit", status: "pending" },
+      data: { status: "accepted", resolvedAt: new Date() },
+    });
+    if (claimed.count === 0) {
+      throw new AppError("Photo finding already answered", 409, "VISIT_ALREADY_ANSWERED");
+    }
     const place = toCreate
       ? await tx.place.create({ data: { ...toCreate, visited: happened }, select: { id: true } })
       : found!;
     if (sameDay) {
       await tx.photoJourney.update({
         where: { id: row.id },
-        data: { status: "accepted", createdPlaceVisitId: sameDay, resolvedAt: new Date() },
+        data: { createdPlaceVisitId: sameDay },
       });
       return { placeId: place.id, placeVisitId: sameDay, placeCreated: false, visitCreated: false };
     }
@@ -213,7 +224,7 @@ export async function acceptVisitFinding(
     }
     await tx.photoJourney.update({
       where: { id: row.id },
-      data: { status: "accepted", createdPlaceVisitId: visit.id, resolvedAt: new Date() },
+      data: { createdPlaceVisitId: visit.id },
     });
     return {
       placeId: place.id,

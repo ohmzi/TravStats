@@ -6,7 +6,53 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+- Full data export includes saved TravPlan content and proposals; daily quota counters are explicitly excluded.
+
+### Added
+
+- **Compare with friends is a leaderboard of totals.** `/compare` ranks you and
+  the people who agreed — kilometres, trips, time away, countries, places —
+  per year or overall. Each person decides which figures the other may see,
+  and a pending request shares nothing until it is accepted. Friends on other
+  TravStats servers join through an invitation code; between servers only
+  signed totals travel, never single trips.
+- **Server connections in Admin → Instanz.** The instance's identity and the
+  servers it trusts are managed in one card; the key is generated there and
+  never shown.
+- **Ferry crossings can be shared** with a trip and travel in the
+  `.travstats` file.
+- **A trip shows its travellers with their sharing state** — linked, shares
+  this trip, request open — and offers one action per person. A person who
+  agreed but is not yet on the trip can be added from the share dialog.
+- **One "Teilen" button** in the trip head for a companion's copy or a public
+  link.
+
+### Changed
+
+- The end-to-end encrypted transfer moved to its own page,
+  `/encrypted-share`, behind its own beta switch.
+- A shared trip is copied for each person on their own calendar: a copy's
+  status (planned, under way, done) follows the recipient's time zone.
+- If the recipient already logged the same flight or crossing on another of
+  their trips, sharing moves that entry into the shared trip and links it
+  instead of creating a duplicate; the notice says so and can be undone.
+- A provider change that reaches every member through the shared trip makes
+  one inbox item, not one per person.
+- Ferry edits and deletes accept an optional read version. Conflicting writes
+  return HTTP 409; edits claim the version atomically in their transaction.
+  Older clients can continue to write without a version precondition.
+- Settings expose supported travel domains independently of enabled domains,
+  allowing compatible clients to offer a disabled domain again.
+- TravPlan uses shared theme tokens and the selected application locale for
+  number formatting.
+
 ### Fixed
+
+- Public-link lifetimes are calculated from the server clock, preventing a fast
+  browser clock from rejecting “Until landing (+2 hours)” or “90 days”.
+  Explicit expiry timestamps remain supported for existing API clients.
+- Public-link permission is now under Administration → Instance. Personal
+  settings retain link management and point admins to the instance switch.
 
 - **Editing a journey, a road trip and a flight trip now look like one
   application.** The buttons on those screens had drifted into a second
@@ -46,6 +92,16 @@ logbook. A database restored from before the update is the way back; the
 previous image alone does not know `completed`.
 
 ### Added
+
+- **Dawarich can suggest whole venues beyond markets.** A separate opt-in adds shopping malls, parks, zoos, theme parks and museum grounds. Independent overlapping venues stay reviewable, and visits are recorded only after confirmation.
+
+- **Markets are suggested as whole venues.** With separate consent, Dawarich
+  scans automatically fetch public OpenStreetMap market boundaries for coarse
+  regions along your track. A visit across several stalls stays one suggestion,
+  with original point IDs, boundary sources and visible coverage gaps. Cached
+  maps, bounded requests and remembered decisions avoid repeated work and
+  duplicate visits; only confirmation records a visit. Hidden Places pause
+  scanning, and manual scans can review the last 7, 14 or 30 days.
 
 - **Dawarich can suggest stays.** With your consent, Dawarich location history
   is scanned for places you stayed. Each suggestion is reviewed, edited and

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createCruiseArcsLayer, createCruiseArrowsLayer } from "./cruiseArcsLayer";
+import { buildCruiseArcs, createCruiseArcsLayer, createCruiseArrowsLayer } from "./cruiseArcsLayer";
 import type { Cruise } from "../../types";
 import type { CruiseRouteFeatureCollection } from "../../lib/api/cruise";
 
@@ -623,5 +623,66 @@ describe("cruise arrow icon — rasterised above display resolution (sharp when 
     const svg = decodeURIComponent(icon.url.split(",")[1]);
     expect(svg).toContain(`width="${icon.width}"`);
     expect(svg).toContain(`height="${icon.height}"`);
+  });
+});
+
+it("groups ten repeated cruise legs and highlights a selected member, not only the first cruise", () => {
+  const cruise = makeCruise([
+    makeStop(1, 1, { id: 1, lat: 40, lon: 0 }),
+    makeStop(2, 2, { id: 2, lat: 42, lon: 3 }),
+  ]);
+  const cruises = Array.from({ length: 10 }, (_, i) => ({ ...cruise, id: `c${i}` }));
+  const layer = createCruiseArcsLayer(cruises, new Map(), "c9")!;
+  const props = layer.props as unknown as {
+    data: { memberIds: string[]; count: number }[];
+    getColor: (d: unknown) => number[];
+    getWidth: (d: unknown) => number;
+  };
+  expect(props.data).toHaveLength(1);
+  expect(props.data[0].memberIds).toHaveLength(10);
+  expect(props.data[0].count).toBe(10);
+  expect(props.getColor(props.data[0])).toEqual([253, 224, 71, 220]);
+  expect(props.getWidth(props.data[0])).toBe(3);
+  const arrows = createCruiseArrowsLayer(cruises, new Map(), "c9")!;
+  const single = createCruiseArrowsLayer([cruise])!;
+  expect((arrows.props.data as unknown[]).length).toBe((single.props.data as unknown[]).length);
+});
+
+describe("a night in port is no leg (Nile cruise, prod 2026-10-16)", () => {
+  // Luxor -> Luxor -> Edfu: the ship lies in Luxor overnight. The server sends
+  // no feature for the same-port pair; the chord fallback used to mount a
+  // zero-length path for it anyway.
+  const LUXOR = { id: 10, lat: 25.6872, lon: 32.6396 };
+  const EDFU = { id: 11, lat: 24.9781, lon: 32.8731 };
+  const nile = makeCruise([makeStop(1, 10, LUXOR), makeStop(2, 10, LUXOR), makeStop(3, 11, EDFU)]);
+
+  it("draws only the leg that goes somewhere", () => {
+    const arcs = buildCruiseArcs([nile]);
+    expect(arcs.map((a) => [a.fromPortId, a.toPortId])).toEqual([[10, 11]]);
+  });
+
+  it("still draws a line the server does send for the pair (a recording, a drawing)", () => {
+    const geometry: CruiseRouteFeatureCollection = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [32.6396, 25.6872],
+              [32.66, 25.75],
+              [32.6396, 25.6872],
+            ],
+          },
+          properties: { fromPortId: 10, toPortId: 10, routed: false },
+        },
+      ],
+    };
+    const arcs = buildCruiseArcs([nile], new Map([[nile.id, geometry]]));
+    expect(arcs.map((a) => [a.fromPortId, a.toPortId])).toEqual([
+      [10, 10],
+      [10, 11],
+    ]);
   });
 });

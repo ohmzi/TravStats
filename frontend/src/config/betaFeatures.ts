@@ -52,16 +52,26 @@ export interface BetaFeatureMeta {
 }
 
 /**
- * OWNER DECISION 2026-09-18: everything comes out of the registry EXCEPT the
- * phone app. `tripAiSummary`, `tourRoutes` and `dawarich` are released; the
- * one entry left is `devicePairing`, and it stays for the reason its own text
- * gives — the Companion is a TestFlight build, so offering a Devices section
- * to everybody would mint claim codes for an app they cannot install.
- *
- * That makes the 2.7 goal ("nothing left in the registry") a question about
- * the app, and nothing else.
+ * The entries below are the list — nothing else restates it, because a list in
+ * prose beside a list in code is a list that goes wrong (this comment once
+ * said "the one entry left is devicePairing" while six more had been added).
+ * Each entry carries `why` it is hidden and `returnsWhen` it may come back;
+ * the 2.7 goal is that the map is empty, and an entry leaves only on the
+ * owner's word, never because its `returnsWhen` reads as met.
  */
 export const BETA_FEATURES = Object.freeze({
+  comparison: Object.freeze({
+    reason: "beta",
+    why: "The friend leaderboard was rebuilt on 2026-10-16 from server-side totals under per-person consent (spec docs/superpowers/specs/2026-10-16-comparison-rework-design.md). Across servers the totals travel signed but not end-to-end encrypted, by owner decision; that, and the load of ~9 loaders per friend, wants an RC look first (forgejo#40).",
+    returnsWhen:
+      "The owner accepts the rebuilt leaderboard on the RC — same-instance and one cross-server pair — and the leaderboard load is measured there.",
+  }),
+  encryptedShare: Object.freeze({
+    reason: "beta",
+    why: "The full-record, device-encrypted transfer (protocol v2, docs/FEDERATION_E2E.md) was split off the comparison page on 2026-10-16 and kept, unchanged, until the owner decides to keep or cut it. It has had no independent cryptographic review.",
+    returnsWhen:
+      "The owner decides to keep it AND an independent review of protocol v2 is done; if the owner cuts it, the entry goes with the code.",
+  }),
   /**
    * The "Devices" section in user settings (QR claim-code pairing flow).
    *
@@ -109,17 +119,9 @@ export const BETA_FEATURES = Object.freeze({
   }),
 
   /**
-   * The rail domain — train journeys logged like flights (owner decision
-   * 2026-09-25, spec docs/superpowers/specs/2026-09-25-rail-domain.md).
-   *
-   * Gated in `hooks/useRailVisible.ts`, the rule's one home: the module toggle
-   * and the setup picker ask the flag alone (that is where the domain is
-   * switched on); nav, logbook tabs, colour settings and the route ask the
-   * flag AND the user's own domain choice.
-   */
-  /**
-   * Car rentals (spec 2026-10-01-rental-domain-design). Two conditions, as
-   * rail: this flag AND the user's own domain choice (`useRentalVisible`).
+   * Car rentals (spec 2026-10-01-rental-domain-design). Like every domain
+   * switch here, gated through `config/domainBetaGates.ts`: this flag AND the
+   * user's own domain choice.
    */
   rentalDomain: Object.freeze({
     why: "Car rentals are a new domain (spec 2026-10-01-rental-domain-design), built in packages; the Companion app does not handle rentals yet and no release candidate has carried them.",
@@ -128,6 +130,11 @@ export const BETA_FEATURES = Object.freeze({
     reason: "beta",
   }),
 
+  /**
+   * The rail domain — train journeys logged like flights (owner decision
+   * 2026-09-25, spec docs/superpowers/specs/2026-09-25-rail-domain.md), gated
+   * through `config/domainBetaGates.ts` like the other domain switches.
+   */
   railDomain: Object.freeze({
     why: "The rail domain is complete as phase 2 of its spec describes it — logbook, station catalogue, train lookup with Transitous lines, detail page with documents and connections, trip bounds and timeline, dashboard tab and map layer, statistics, Excel and JSON export, demo seed; since it merged main the spreadsheet also reads rides back, and a roadtrip stored by rail can be taken over as rides. The owner ruled on 2026-09-25 that it stays in beta after phase 2: the Companion app does not handle it yet, and it has not been through a release candidate.",
     returnsWhen:
@@ -148,6 +155,21 @@ export const BETA_FEATURES = Object.freeze({
   }),
 
   /**
+   * TravPlan, the planning mode for a trip that has not happened yet (`/plan*`).
+   *
+   * Gated in `hooks/useTravPlanVisible.ts` (nav entry, trip summary) and by
+   * `BetaFeatureRouteGuard` on the three routes in `App.tsx`. The instance's
+   * own `travel_plan_config.enabled` is a second, server-side condition the
+   * hook also asks — this key decides whether the mode is shown at all.
+   */
+  travPlan: Object.freeze({
+    why: "An alpha experiment (owner, 2026-10-16). The planning mode arrived on 2026-10-14 open to every logged-in user with no gate, drawn with its own theme and its own navigation outside the design system. It is unfinished: its screens were rebuilt on the primitives on 2026-10-16, and nobody has walked the planning flow in a browser since.",
+    returnsWhen:
+      "The owner has walked the planning flow after the UI rework in a browser review and accepts it for release.",
+    reason: "beta",
+  }),
+
+  /**
    * Recorded tracks on a cruise (2.7, board item `cruise-tracks`): a GPS
    * recording replaces a leg's computed sea route on the map and in the
    * statistics. Gated at ONE place, the "Aufgezeichnete Spuren" section of
@@ -158,6 +180,21 @@ export const BETA_FEATURES = Object.freeze({
     why: "Built on 2026-09-25 without a browser acceptance (owner: none that night). Its three thresholds — a port counts as reached within 10 km, a step of more than 20 km between two points is a hole (raised to three times the recording's own median step for a sparse recording since 2026-09-26, after a 41-point GPX was read as all holes), and a leg whose holes exceed a quarter falls back to the sea route — were chosen from reasoning about tender ports and phones at sea, not measured on a real cruise recording. A wrong threshold would silently replace a sea route with a worse line and change the statistics.",
     returnsWhen:
       "The owner has added at least one real cruise recording (a Dawarich pull or a GPX export), checked the per-leg verdicts and the map against what was sailed, and accepts the feature for release.",
+    reason: "beta",
+  }),
+
+  /**
+   * The calendar subscription (forgejo#310): a secret `.ics` URL per user that
+   * calendar apps poll. Gated in the "Reisen" settings section
+   * (`SettingsSectionSwitch`), and on the SERVER as well — unlike most entries
+   * here, `/api/v1/calendar/<token>.ics` answers 404 and no URL is issued while
+   * the switch is off, because a subscription keeps polling long after anybody
+   * looks at the page that hid it.
+   */
+  calendarFeed: Object.freeze({
+    why: "Built on 2026-10-17 and tested against generated calendars only. Nobody has subscribed to a feed from Apple Calendar, Google Calendar or Outlook yet, and those clients differ in how they read all-day events, folding and refresh intervals; Google in particular polls on its own schedule from many addresses, which the per-feed rate limit has not met.",
+    returnsWhen:
+      "The owner has subscribed to the feed on the RC from at least Apple Calendar and Google Calendar, checked that flights, stays and rides land on the right days and hours, and accepts it for release.",
     reason: "beta",
   }),
 } as const satisfies Readonly<Record<string, BetaFeatureMeta>>);

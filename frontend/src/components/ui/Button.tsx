@@ -105,6 +105,9 @@ export default function Button({
     variant === "primary" && size === "default"
       ? "var(--ts-size-button-primary)"
       : TOOLBAR_CONTROL_STYLE.height;
+  // Height, padding and white-space read context hooks, so a surface that must
+  // let long labels wrap (the inbox workspace) sets custom properties on its
+  // root instead of beating these inline styles with `!important`.
 
   return (
     <button
@@ -114,13 +117,14 @@ export default function Button({
       className={`ts-button ${className ?? ""}`.trim()}
       style={{
         ...TOOLBAR_CONTROL_STYLE,
-        height,
+        height: `var(--ts-button-height, ${height})`,
+        padding: "var(--ts-button-padding, 0 var(--ts-space-xl))",
         display: block ? "flex" : "inline-flex",
         width: block ? "100%" : undefined,
         alignItems: "center",
         justifyContent: "center",
         gap: "var(--ts-space-sm)",
-        whiteSpace: "nowrap",
+        whiteSpace: "var(--ts-button-white-space, nowrap)",
         // 0.5 everywhere; the create button's 0.3 belongs to the form-error
         // recipe, not to every disabled button.
         opacity: disabled ? 0.5 : 1,

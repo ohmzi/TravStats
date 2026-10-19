@@ -19,14 +19,22 @@
  */
 
 import { prisma } from "../../db";
+import { buildPassport } from "./passport";
 import { countableFlightWhere } from "../../shared/flightCounting";
 import { buildCountryDetail, type CountryDetail } from "./countryDetail";
-import { loadAirportCountries, loadHomeIatas, passportAirportCodes } from "./passportLoader";
+import {
+  loadAirportCountries,
+  loadHomeCountries,
+  loadHomeIatas,
+  passportAirportCodes,
+  placeVisitAt,
+} from "./passportLoader";
 import { countableCruiseWhere } from "../../shared/cruiseCounting";
 import { classifyVisit } from "../../shared/placeCounting";
 import { loadRoadtripStations } from "./roadtripEvidenceLoader";
 import { loadRailEnds } from "./railEvidenceLoader";
 import { loadBusEnds } from "./busEvidence";
+import { loadFerryEnds } from "./ferryEvidence";
 import { loadVisibleDomains } from "../domainVisibility";
 import { FLIGHT_CLOCK_SELECT, withDepartureClock } from "./departureClock";
 import { departureDayOf } from "../../utils/stats/departureClock";
@@ -43,7 +51,37 @@ export async function loadCountryDetail(
   userId: string,
   code: string
 ): Promise<CountryDetail | null> {
-  return buildCountryDetail(code, ...(await loadCountryDetailInputs(userId)));
+  const inputs = await loadCountryDetailInputs(userId);
+  const detail = buildCountryDetail(code, ...inputs);
+  if (!detail) return null;
+  const [flights, airports, home, ports, places, lodgings, , , stations, rail, bus, ferry] = inputs;
+  const homeCountries = await loadHomeCountries(userId, new Date().toISOString().slice(0, 10));
+  // Reuse the same fold and loaded records. No second database scan or local rule.
+  const passport = buildPassport(
+    flights,
+    airports,
+    [...(home ?? [])],
+    new Date(),
+    ports,
+    places,
+    lodgings,
+    undefined,
+    [],
+    stations,
+    rail,
+    undefined,
+    bus,
+    homeCountries,
+    ferry
+  );
+  const row = passport.countries.find((country) => country.code === detail.code);
+  return {
+    ...detail,
+    groundPresence: row?.groundPresence ?? false,
+    visited: row?.visited ?? false,
+    visitUncertain: row?.visitUncertain ?? true,
+    visitUncertainReasons: row?.visitUncertainReasons ?? [],
+  };
 }
 
 /**
@@ -95,6 +133,7 @@ export async function loadCountryDetailInputs(userId: string): Promise<CountryDe
     stations,
     rail,
     bus,
+    ferry,
   ] = await Promise.all([
     loadAirportCountries(passportAirportCodes(flights)),
     prisma.cruiseStop.findMany({
@@ -115,6 +154,7 @@ export async function loadCountryDetailInputs(userId: string): Promise<CountryDe
         id: true,
         name: true,
         isoCountryCode: true,
+        countryVisitKind: true,
         visits: { select: { visitedAt: true, visitedAtUtc: true, visitedZone: true } },
       },
     }),
@@ -130,6 +170,7 @@ export async function loadCountryDetailInputs(userId: string): Promise<CountryDe
         id: true,
         name: true,
         isoCountryCode: true,
+        countryVisitKind: true,
         // datePrecision + nights: a MONTH placeholder spans a whole month while
         // attesting a few nights, and must not be walked into exact days.
         stays: {
@@ -163,6 +204,10 @@ export async function loadCountryDetailInputs(userId: string): Promise<CountryDe
     loadVisibleDomains(userId).then((visible) =>
       visible.includes("bus") ? loadBusEnds(userId) : []
     ),
+    // The ninth: ferry port ends, only while ferry is visible.
+    loadVisibleDomains(userId).then((visible) =>
+      visible.includes("ferry") ? loadFerryEnds(userId) : []
+    ),
   ]);
 
   return [
@@ -178,8 +223,8 @@ export async function loadCountryDetailInputs(userId: string): Promise<CountryDe
     // Only visits that have HAPPENED. A booking for 2099 is not evidence of
     // ever having been in a country, and passing it made the detail page agree
     // with a passport that had already gone wrong the same way (AUD-085). A
-    // place whose visits are all still ahead falls back to undated evidence,
-    // which is what `visited: true` on its own proves.
+    // place explicitly marked visited keeps its undated confirmation when only
+    // future dates are recorded; those future dates never date the evidence.
     places.flatMap((place) => {
       const happened = place.visits.filter((v) => classifyVisit(v, now) === "visited");
       return happened.length > 0
@@ -187,13 +232,15 @@ export async function loadCountryDetailInputs(userId: string): Promise<CountryDe
             placeId: place.id,
             name: place.name,
             isoCountryCode: place.isoCountryCode,
-            at: v.visitedAt,
+            countryVisitKind: place.countryVisitKind,
+            at: placeVisitAt(v),
           }))
         : [
             {
               placeId: place.id,
               name: place.name,
               isoCountryCode: place.isoCountryCode,
+              countryVisitKind: place.countryVisitKind,
               at: null,
             },
           ];
@@ -202,6 +249,7 @@ export async function loadCountryDetailInputs(userId: string): Promise<CountryDe
       lodgingId: lodging.id,
       name: lodging.name,
       isoCountryCode: lodging.isoCountryCode,
+      countryVisitKind: lodging.countryVisitKind,
       stays: lodging.stays,
     })),
     countryDays.map((row) => ({
@@ -213,5 +261,6 @@ export async function loadCountryDetailInputs(userId: string): Promise<CountryDe
     stations,
     rail,
     bus,
+    ferry,
   ];
 }

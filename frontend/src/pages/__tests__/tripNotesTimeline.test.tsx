@@ -18,9 +18,12 @@ const getByIdMock = vi.fn();
 // read the sharing API on mount; answered empty so no request escapes.
 vi.mock("@/lib/api/sharing", () => ({
   sharingApi: {
-    tripSharing: vi
-      .fn()
-      .mockResolvedValue({ groupId: null, members: [], candidates: [], bookingTotals: [] }),
+    tripSharing: vi.fn().mockResolvedValue({
+      groupId: null,
+      people: [],
+      linkableUsers: [],
+      bookingTotals: [],
+    }),
     listConsents: vi.fn().mockResolvedValue({ incoming: [], outgoing: [] }),
     listCompanions: vi.fn().mockResolvedValue({ companions: [], linkableUsers: [] }),
     listNotices: vi.fn().mockResolvedValue([]),
@@ -29,6 +32,11 @@ vi.mock("@/lib/api/sharing", () => ({
 }));
 
 vi.mock("../../hooks/useHasLlm", () => ({ useHasLlm: () => true }));
+
+// The summary requests a plan on mount; this suite exercises standalone notes.
+vi.mock("../../lib/api/travplan", () => ({
+  travplanApi: { get: vi.fn().mockResolvedValue(null) },
+}));
 
 // The documents section fetches its entry's kept originals on mount. It has
 // its own suite, and `__tests__/documentsMountPoints.test.tsx` checks that

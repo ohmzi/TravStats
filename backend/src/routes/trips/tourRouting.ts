@@ -6,7 +6,11 @@ import { AppError } from "../../middleware/errorHandler";
 import { LEG_MODES, LegMode } from "../../services/tour/tourDistance";
 import { resolveRouteProvider } from "../../services/tour/routing/resolveProvider";
 import { routeLegGeometry } from "../../services/tour/routing/routeLeg";
-import { applyRoutedLeg } from "../../services/tour/routing/autoRouteLegs";
+import { providerCallGate } from "../../services/tour/routing/providerBudget";
+import {
+  applyRoutedLeg,
+  applyRoutedLegIfStillStraight,
+} from "../../services/tour/routing/autoRouteLegs";
 import {
   maybeAutoFetch,
   readAutoFetchUrl,
@@ -131,12 +135,11 @@ router.post(
       const mode = requireLegMode(leg.mode);
 
       const vehicle = await routeVehicle(routeId);
-      const routed = await routeLegGeometry(provider, {
-        from: fromCoord,
-        to: toCoord,
-        mode,
-        vehicle,
-      });
+      const routed = await routeLegGeometry(
+        provider,
+        { from: fromCoord, to: toCoord, mode, vehicle },
+        providerCallGate(userId)
+      );
       // A fallback replaces only a straight line. A drawn, adopted or earlier
       // routed line is closer to the road than the chord a failed attempt
       // would write over it, and nobody asked for it to go.
@@ -205,6 +208,10 @@ router.post(
  *   `osrm-autofetch` service once — with the FIRST fallback leg's own points —
  *   and carries its answer as `autofetch` beside those numbers, so the
  *   message and the download always describe one leg (spec 2026-10-13 §2.4).
+ * - Only `straight` legs are routed. Drawn, track and routed legs are left as
+ *   they are and counted in `skippedCount`, and the write is conditional on
+ *   the leg being unchanged since it was read, so an edit made while the
+ *   provider answered is not overwritten (it, too, counts as skipped).
  *
  * Each leg is routed and persisted sequentially rather than in one
  * transaction: a provider call is a network round trip, and holding a
@@ -243,21 +250,26 @@ router.post(
 
       for (const leg of legs) {
         const mode = requireLegMode(leg.mode);
-        if (!isRoutableMode(mode)) {
+        // Only a straight chord is the bulk action's to replace: a drawn line
+        // or an adopted GPS track is the user's own geometry, and a routed
+        // leg is already routed. Routing a single leg stays the way to redo one.
+        if (!isRoutableMode(mode) || leg.source !== "straight") {
           skippedCount++;
           continue;
         }
 
         const fromCoord = requireCoords(leg.fromStop, "from");
         const toCoord = requireCoords(leg.toStop, "to");
-        const routed = await routeLegGeometry(provider, {
-          from: fromCoord,
-          to: toCoord,
-          mode,
-          vehicle,
-        });
-        await applyRoutedLeg(leg.id, routed);
-        if (routed.fallbackReason === null) {
+        const routed = await routeLegGeometry(
+          provider,
+          { from: fromCoord, to: toCoord, mode, vehicle },
+          providerCallGate(userId)
+        );
+        const written = await applyRoutedLegIfStillStraight(leg.id, leg.updatedAt, routed);
+        if (!written) {
+          // Edited while the provider answered — the edit wins.
+          skippedCount++;
+        } else if (routed.fallbackReason === null) {
           routedCount++;
         } else {
           fallbackCount++;

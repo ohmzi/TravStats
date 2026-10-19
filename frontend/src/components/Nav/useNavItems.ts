@@ -1,12 +1,10 @@
+import { useBetaFeatures } from "../../hooks/useBetaFeatures";
 import { useMemo } from "react";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useAuthStore } from "../../store/authStore";
 import { useEnabledDomains } from "../../hooks/useEnabledDomains";
 import { usePlacesVisible } from "../../hooks/usePlacesVisible";
-import { useRailVisible } from "../../hooks/useRailVisible";
-import { useRentalVisible } from "../../hooks/useRentalVisible";
-import { useFerryVisible } from "../../hooks/useFerryVisible";
-import { useBusVisible } from "../../hooks/useBusVisible";
+import { useTravPlanVisible } from "../../hooks/useTravPlanVisible";
 import { AVAILABLE_DOMAINS, DOMAINS } from "../../shared/domains";
 import type { IconName } from "../ui/Icon";
 
@@ -59,7 +57,8 @@ function collapseSingleChild(group: NavGroup): NavNode {
  *
  * Four primary destinations — Dashboard, Logbuch, Reisen, Statistik — and
  * everything else in "Mehr", in two sections: Sammlungen (Erfolge, Reisepass,
- * Ortslisten) and Werkzeuge (Parser, while an admin's beta switch is on).
+ * Ortslisten, Vergleich) and Werkzeuge (Parser for admins; the encrypted share
+ * while the beta switch is on).
  * Settings, Admin and logout live behind the avatar (`UserMenu`); Posteingang
  * is the header's own icon (`NavigationBar`), with its own badge. The old
  * header carried seven top-level entries plus Support and System chips, and
@@ -86,31 +85,24 @@ export function useNavItems(): {
     "dataQuality",
     "stats",
     "notes",
+    "comparison",
+    "encryptedShare",
+    "travplan",
   ]);
   const user = useAuthStore((s) => s.user);
   const { isEnabled } = useEnabledDomains();
   const placesVisible = usePlacesVisible();
-  const railVisible = useRailVisible();
-  const rentalVisible = useRentalVisible();
-  const busVisible = useBusVisible();
-  const ferryVisible = useFerryVisible();
   const isAdmin = user?.isAdmin ?? false;
+  const { isFeatureVisible } = useBetaFeatures();
+  const comparisonVisible = isFeatureVisible("comparison");
+  const encryptedShareVisible = isFeatureVisible("encryptedShare");
+  const travPlanVisible = useTravPlanVisible();
 
   return useMemo(() => {
-    // `poi` asks through `usePlacesVisible`, the one home of the places rule.
-    // `rail`, `rental` and `bus` ask their own hooks: the beta gate AND the domain choice.
+    // `poi` asks through `usePlacesVisible`, the one home of the places rule;
+    // every other domain's beta switch is already applied by `isEnabled`.
     const domainChildren: NavLeaf[] = AVAILABLE_DOMAINS.filter((key) =>
-      key === "poi"
-        ? placesVisible
-        : key === "rail"
-          ? railVisible
-          : key === "rental"
-            ? rentalVisible
-            : key === "bus"
-              ? busVisible
-              : key === "ferry"
-                ? ferryVisible
-                : isEnabled(key)
+      key === "poi" ? placesVisible : isEnabled(key)
     ).map((key) => ({
       kind: "leaf",
       id: `domain-${key}`,
@@ -183,6 +175,19 @@ export function useNavItems(): {
             },
           ]
         : []),
+      // Friends' totals beside the year in review: the other "how am I doing" page. Its own
+      // icon — the trophy belongs to the achievements (rework 2026-10-16).
+      ...(comparisonVisible
+        ? [
+            {
+              kind: "leaf" as const,
+              id: "comparison",
+              path: "/compare",
+              label: t("comparison:title"),
+              icon: "users" as const,
+            },
+          ]
+        : []),
       ...(placesVisible
         ? [
             {
@@ -215,13 +220,50 @@ export function useNavItems(): {
             },
           ]
         : []),
+      ...(encryptedShareVisible
+        ? [
+            {
+              kind: "leaf" as const,
+              id: "encrypted-share",
+              path: "/encrypted-share",
+              label: t("encryptedShare:nav"),
+              icon: "key-round" as const,
+            },
+          ]
+        : []),
     ];
+
+    // TravPlan used to swap this whole model for its own eight sections on
+    // `/plan*`, so a planner lost the way back to the rest of the app. It is
+    // one destination here instead; its sections live on its own page.
+    const planning: NavLeaf[] = travPlanVisible
+      ? [
+          {
+            kind: "leaf",
+            id: "travplan",
+            path: "/plan",
+            label: t("travplan:title"),
+            icon: "calendar",
+          },
+        ]
+      : [];
 
     const more: NavSection[] = [
       { id: "collections", label: t("dashboard:nav.collections"), items: collections },
       { id: "tools", label: t("dashboard:nav.tools"), items: tools },
+      ...(planning.length > 0
+        ? [{ id: "planning", label: t("travplan:title"), items: planning }]
+        : []),
     ];
 
     return { primary, more };
-  }, [t, isEnabled, placesVisible, railVisible, rentalVisible, busVisible, ferryVisible, isAdmin]);
+  }, [
+    t,
+    isEnabled,
+    placesVisible,
+    isAdmin,
+    comparisonVisible,
+    encryptedShareVisible,
+    travPlanVisible,
+  ]);
 }

@@ -51,8 +51,12 @@ describe("NewRoadtripDialog", () => {
     renderDialog();
     await screen.findByText("Herbst in Norwegen");
     const dismiss = screen.getByRole("button", { name: "common:buttons.cancel" });
+    // Both resolve to the row height: the shell's dismiss draws the token
+    // directly, the Button through its context-variable fallback.
     expect(dismiss.style.height).toBe("var(--ts-size-button-secondary)");
-    expect(submitButton().style.height).toBe(dismiss.style.height);
+    expect(submitButton().style.height).toBe(
+      "var(--ts-button-height, var(--ts-size-button-secondary))"
+    );
   });
 
   it("needs only a name, and sends what was filled in", async () => {

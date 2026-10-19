@@ -134,7 +134,7 @@ describe("ConfirmModal", () => {
     render(<ConfirmModal {...base} destructive />);
     for (const name of ["Endgültig löschen", "Abbrechen"]) {
       expect(screen.getByRole("button", { name }).style.height).toBe(
-        "var(--ts-size-button-secondary)"
+        "var(--ts-button-height, var(--ts-size-button-secondary))"
       );
     }
   });

@@ -28,9 +28,21 @@ datasource db {
 }
 
 model User {
+  comparisonDevices ComparisonDevice[]
+  comparisonPublications ComparisonPublication[]
+  comparisonLinks ComparisonLink[]
+  comparisonAudits ComparisonAudit[]
+  comparisonInvites ComparisonInvite[]
+  comparisonCircles ComparisonCircle[]
+  leaderboardConsentsOwned  LeaderboardConsent[] @relation("LeaderboardConsentOwner")
+  leaderboardConsentsViewed LeaderboardConsent[] @relation("LeaderboardConsentViewer")
+  leaderboardRemotes        LeaderboardRemote[]
+  leaderboardInvites        LeaderboardInvite[]
+  leaderboardBoards         LeaderboardBoard[]
   id                     String                   @id @default(uuid())
   devicePushes           DevicePush[]
   clientWriteRefs        ClientWriteRef[]
+  travelPlanUsage        TravelPlanUsage[]
   username               String                   @unique
   passwordHash           String                   @map("password_hash")
   // Real name, shown wherever the person is addressed rather than identified
@@ -141,6 +153,7 @@ model User {
   notes     Note[]
 
   passwordResetRequest PasswordResetRequest?
+  calendarFeed         CalendarFeed?
 
   @@map("users")
 }
@@ -321,6 +334,26 @@ model PairingCode {
   @@map("pairing_codes")
 }
 
+/// A personal calendar subscription (forgejo#310): `GET /api/v1/calendar/<token>.ics`
+/// answers the user's upcoming entries to any calendar app that holds the URL.
+/// One per user — regenerating replaces the row, revoking deletes it, and the
+/// old URL answers 404 from then on. Only the SHA-256 of the token is stored,
+/// as for share links and pairing codes: the URL is shown once, when it is made.
+/// Deleted with the user and on every backup restore (a dump taken before a
+/// revoke must not bring the revoked URL back).
+model CalendarFeed {
+  id         String    @id @default(uuid())
+  userId     String    @unique @map("user_id")
+  tokenHash  String    @unique @map("token_hash")
+  /// When a calendar app last read the feed — so the owner can tell a URL in use from a forgotten one.
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("calendar_feeds")
+}
+
 /// A public, read-only share link (forgejo#281, owner decision D7; design
 /// `docs/superpowers/specs/2026-10-10-share-links-design.md`). Anyone holding
 /// the URL reads what the owner chose in `fields` — nothing else. Only the
@@ -341,7 +374,14 @@ model PublicShareLink {
   /// The photos the owner saw in the preview, in order; the public proxy is keyed by index into this.
   photoIds     String[]  @default([]) @map("photo_ids")
   tokenHash    String    @unique @map("token_hash")
+  /// The owner's chosen end, as they set it.
   expiresAt    DateTime  @map("expires_at")
+  /// When the link really ends: the owner's end, capped at a flight's
+  /// landing-plus-grace when the link was made, and only ever LOWERED after
+  /// that (a flight moved earlier). Stored, because a value recomputed from the
+  /// flight's current times brought an ended link back when the flight was
+  /// moved later, and kept it in the active count while hiding it from the list.
+  effectiveExpiresAt DateTime @map("effective_expires_at")
   viewCount    Int       @default(0) @map("view_count")
   lastViewedAt DateTime? @map("last_viewed_at")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -831,6 +871,21 @@ model UserSettings {
   // button is already the user asking for trips.
   autoCreateTrips Boolean @default(true) @map("auto_create_trips")
 
+  // Inbox suggestion switches (forgejo#306). Off stops the work, not just the
+  // display: no trip engine run, no Dawarich stay scan. Stored decisions
+  // (TripSuggestionDecision, rejected stays) survive a switch-off, so switching
+  // back on resumes where the user left. Flat columns like `autoCreateTrips`;
+  // the API nests them as `tripSuggestions.enabled` / `staySuggestions.*`.
+  tripSuggestionsEnabled                Boolean @default(true) @map("trip_suggestions_enabled")
+  staySuggestionsEnabled                Boolean @default(true) @map("stay_suggestions_enabled")
+  /// Immich photos as evidence for which place a stay was at. Read by the stay
+  /// place identification of forgejo#305; it only ever applies where the
+  /// account has an Immich connection.
+  staySuggestionsImmichEvidence         Boolean @default(true) @map("stay_suggestions_immich_evidence")
+  /// An LLM classifies a stay's place (forgejo#305). Off by default; a cloud
+  /// provider additionally needs the instance's own consent for that slot.
+  staySuggestionsLlmPlaceClassification Boolean @default(false) @map("stay_suggestions_llm_place_classification")
+
   // Auto-update settings
   autoUpdateEnabled           Boolean   @default(false) @map("auto_update_enabled")
   /// Opt-in: scan the user's Immich for photo journeys every night (forgejo#94).
@@ -1188,6 +1243,13 @@ model AdminSettings {
   /// default: a link hands a person's travel data to anyone holding the URL.
   /// Switching it off deletes every existing link.
   shareLinksEnabled Boolean @default(false) @map("share_links_enabled")
+  /// Server-to-server connections (comparison rework 2026-10-16). Until then the identity came
+  /// only from FEDERATION_* env vars; those still win when FEDERATION_ENABLED=1 (identity.ts).
+  federationEnabled    Boolean @default(false) @map("federation_enabled")
+  /// This server's public https origin, as peers address it.
+  federationOrigin     String? @map("federation_origin")
+  /// Ed25519 private key, PKCS#8 PEM, encrypted at application level like the push secret.
+  federationPrivateKey String? @map("federation_private_key")
 
   /// The instance's STARTING POINT for "a country counts as visited from …" —
   /// one of `COUNTRY_TIERS` (shared/countryEvidence.ts). Spec §3.2: a fresh
@@ -1358,7 +1420,7 @@ model PendingFlightUpdate {
   id               String    @id @default(uuid())
   flightId         String    @map("flight_id")
   userId           String    @map("user_id")
-  status           String    @default("pending") // "pending" | "applied" | "rejected" | "expired" | "edited"
+  status           String    @default("pending") // "pending" | "applied" | "rejected" | "expired" | "edited" | "superseded" (a shared trip's propagated change brought every proposed field — services/sharing/pendingSupersede.ts)
   originalData     Json      @map("original_data")
   proposedData     Json      @map("proposed_data")
   editedData       Json?     @map("edited_data")
@@ -1592,6 +1654,11 @@ model DawarichSweepState {
   /// incomplete day. Null on every healthy instance; a value here is the
   /// pointer to the `partial_window` rows.
   lastTruncatedAt DateTime? @map("last_truncated_at")
+  /// The `COUNTRY_DAY_REDUCER_VERSION` this account's rows were made with
+  /// (`services/dawarich/countryDaySweep.ts`). Lower than the running one =
+  /// the rows follow older rules, and the next sweep re-walks the whole
+  /// history and replaces them. 0 = before versioning (forgejo#299 fix).
+  reducerVersion  Int       @default(0) @map("reducer_version")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1746,9 +1813,11 @@ model Trip {
   immichAlbums     TripImmichAlbum[]
   companionLinks   TripCompanion[]
   photoJourneys    PhotoJourney[]
+  dawarichStays    DawarichStay[]
   publicShareLinks PublicShareLink[]
 
   documents Document[]
+  travelPlan TravelPlan?
 
   @@index([userId])
   @@index([userId, status])
@@ -1839,6 +1908,7 @@ model ImmichImportJob {
 }
 
 model TripStop {
+  countryVisitKind String @default("visit") @map("country_visit_kind")
   id            String    @id @default(uuid())
   /// The trip this stop sits on, or NULL for a stop that exists only as a
   /// vertex of a standalone tour. A stop always has one or the other —
@@ -1902,6 +1972,9 @@ model TripStop {
   /// has no user column, so the key is unique per TRIP — which is per user,
   /// since a trip has exactly one owner.
   shareKey      String?   @map("share_key")
+  /// The import that wrote this stop (Takeout "trip stop" rows), so undoing
+  /// the import takes it back. Null for every stop typed or planned by hand.
+  importBatchId String?   @map("import_batch_id")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
@@ -1927,6 +2000,7 @@ model TripStop {
   legsTo          TripRouteLeg[] @relation("LegTo")
   lodgingStay     LodgingStay?   @relation(fields: [lodgingStayId], references: [id], onDelete: SetNull)
   place           Place?         @relation(fields: [placeId], references: [id], onDelete: SetNull)
+  importBatch     ImportBatch?   @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
   /// Tours that started from this station ("Preikestolen, from Mosvangen").
   anchoredTours   TripRoute[]    @relation("TourAnchor")
   /// Trip photos filed at this station (forgejo#139).
@@ -1942,6 +2016,7 @@ model TripStop {
   @@index([routeId])
   @@index([lodgingStayId])
   @@index([placeId])
+  @@index([importBatchId])
   @@map("trip_stops")
 }
 
@@ -2677,6 +2752,9 @@ model Port {
 }
 
 model Lodging {
+  /// Explicit transit-only location; an airport hotel name alone is not proof.
+  countryVisitKind String @default("visit") @map("country_visit_kind")
+
   id                 String    @id @default(uuid())
   userId             String    @map("user_id")
   type               String    @default("hotel") // hotel | campsite | guesthouse | apartment | hostel
@@ -3003,6 +3081,9 @@ model LodgingMembershipLodging {
 /// is nobody else's business. Curated checklist targets live in their own
 /// global tables and only become a Place once the user ticks them off.
 model Place {
+  /// Explicit transit-only location; an airport hotel name alone is not proof.
+  countryVisitKind String @default("visit") @map("country_visit_kind")
+
   id     String @id @default(uuid())
   userId String @map("user_id")
 
@@ -3072,6 +3153,7 @@ model Place {
   roadtripStations   TripStop[]
   listEntries        PlaceListEntry[]
   photoJourneys      PhotoJourney[]
+  dawarichStays      DawarichStay[]
   /// References this place answers to besides `externalRef` — what a merge
   /// left of the place folded into it (forgejo#232).
   externalRefAliases PlaceExternalRef[]
@@ -3449,6 +3531,7 @@ model ImportBatch {
   ferry      FerryJourney[]
   rentals  RentalBooking[]
   places   Place[]
+  tripStops TripStop[]
 
   @@index([userId])
   @@index([userId, domain])
@@ -3654,6 +3737,7 @@ model PhotoJourney {
   @@unique([userId, fingerprint])
   @@index([userId, status])
   @@index([startDate])
+  @@index([tripId])
   @@map("photo_journeys")
 }
 
@@ -4416,7 +4500,7 @@ model ShareConsent {
   id          String    @id @default(uuid())
   requesterId String    @map("requester_id")
   targetId    String    @map("target_id")
-  /// pending | accepted | declined | withdrawn
+  /// pending | accepted | declined | withdrawn — CHECK share_consents_status_check, schemas/sharing.ts
   status      String    @default("pending")
   createdAt   DateTime  @default(now()) @map("created_at")
   decidedAt   DateTime? @map("decided_at")
@@ -4455,9 +4539,9 @@ model ShareNotice {
   userId     String    @map("user_id")
   groupId    String?   @map("group_id")
   actorId    String?   @map("actor_id")
-  /// shared | created | updated | deleted | left
+  /// shared | created | updated | deleted | left — CHECK share_notices_kind_check, schemas/sharing.ts
   kind       String
-  /// trip | flight | lodgingStay | cruise | rail | rental | stop
+  /// trip | flight | lodgingStay | cruise | rail | bus | ferry | rental | stop — services/sharing/shareTypes.ts; CHECK share_notices_entity_type_check
   entityType String?   @map("entity_type")
   /// The entry's shareKey; for `trip` the RECIPIENT's own trip id.
   entityKey  String?   @map("entity_key")
@@ -4536,11 +4620,18 @@ model Note {
 model FerryJourney {
   roadtripLegId String? @unique @map("roadtrip_leg_id")
   roadtripLeg TripRouteLeg? @relation(fields: [roadtripLegId], references: [id], onDelete: SetNull)
+  /// The linked leg's routing as it was before linking (mode, source,
+  /// confidence, waypoints, drivingMinutes, distanceKm). Linking makes the leg
+  /// a straight ferry leg; unlinking or relinking restores it from here.
+  roadtripLegBefore Json? @map("roadtrip_leg_before")
   id     String @id @default(uuid())
   userId String @map("user_id")
 
   operator String?
   vesselName String? @map("vessel_name")
+  /// The MMSI the live position reads (9 digits). Bound on the first answered
+  /// lookup so a crossing is not a free AIS proxy for any vessel.
+  vesselMmsi String? @map("vessel_mmsi")
   vehicleType String? @map("vehicle_type")
   vehicleRegistration String? @map("vehicle_registration")
   vehicleLengthM Float? @map("vehicle_length_m")
@@ -4636,6 +4727,9 @@ model FerryJourneyCompanion {
 
 /// Explicitly opted-in location-history suggestions, separate from Immich and country days.
 model DawarichStayScan {
+  marketEnabled Boolean @default(false) @map("market_enabled")
+  venueEnabled Boolean @default(false) @map("venue_enabled")
+  marketResult Json? @map("market_result")
   userId String @id @map("user_id")
   enabled Boolean @default(false)
   startedAt DateTime? @map("started_at")
@@ -4676,8 +4770,305 @@ model DawarichStay {
   resolvedAt DateTime? @map("resolved_at")
   user User @relation(fields:[userId], references:[id], onDelete:Cascade)
   visit PlaceVisit? @relation(fields:[visitId], references:[id], onDelete:SetNull)
+  /// A finding outlives the place or trip it named: it keeps its evidence and
+  /// loses only the link (a merge repoints it first, `placeMerge.ts`).
+  place Place? @relation(fields:[placeId], references:[id], onDelete:SetNull)
+  trip Trip? @relation(fields:[tripId], references:[id], onDelete:SetNull)
   @@unique([userId, fingerprint])
   @@index([userId, status, startAt])
   @@index([visitId])
+  @@index([placeId])
+  @@index([tripId])
   @@map("dawarich_stays")
+}
+
+
+/// Public OSM geometry cache. Contains no user ids, timestamps or location tracks.
+model MarketCatalogTile {
+  key String @id
+  payload Json
+  fetchedAt DateTime @map("fetched_at")
+  @@index([fetchedAt])
+  @@map("market_catalog_tiles")
+}
+
+/// Cross-process budget/lease for public catalog queries across all accounts.
+model MarketCatalogState {
+  id String @id
+  day DateTime @db.Date
+  requests Int @default(0)
+  bytes Int @default(0)
+  leaseUntil DateTime? @map("lease_until")
+  backoffUntil DateTime? @map("backoff_until")
+  @@map("market_catalog_state")
+}
+
+model ComparisonPeer {
+  origin String @id
+  publicKey String @map("public_key")
+  enabled Boolean @default(true)
+  verifiedAt DateTime? @map("verified_at")
+  /// Leaderboard snapshot versions the peer advertised in its last ping; [] = predates them.
+  leaderboardVersions Int[] @default([]) @map("leaderboard_versions")
+  @@map("comparison_peers")
+}
+model ComparisonInvite {
+  hash String @id
+  userId String @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  usedAt DateTime? @map("used_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@map("comparison_invites")
+}
+model ComparisonLink {
+  id String @id @default(uuid())
+  channel String
+  userId String @map("user_id")
+  origin String
+  label String
+  confirmed Boolean @default(false)
+  remoteConfirmed Boolean @default(false) @map("remote_confirmed")
+  revoked Boolean @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grants ComparisonGrant[]
+  publications ComparisonPublication[]
+  @@unique([userId, channel])
+  @@index([channel, origin])
+  @@map("comparison_links")
+}
+model ComparisonGrant {
+  id String @id @default(uuid())
+  linkId String @map("link_id")
+  audience String @default("")
+  scope Json
+  revision Int @default(1)
+  active Boolean @default(true)
+  expiresAt DateTime? @map("expires_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  link ComparisonLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  @@unique([linkId, audience])
+  @@map("comparison_grants")
+}
+model ComparisonAudit {
+  id String @id @default(uuid())
+  ownerId String @map("owner_id")
+  channel String
+  audience String
+  revision Int
+  operation String
+  createdAt DateTime @default(now()) @map("created_at")
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  @@index([ownerId, createdAt])
+  @@map("comparison_audit")
+}
+model ComparisonNonce {
+  id String @id
+  expiresAt DateTime @map("expires_at")
+  @@index([expiresAt])
+  @@map("comparison_nonces")
+}
+
+
+/// Shared comparison audience hosted by one explicitly trusted instance.
+model ComparisonCircle {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  name String
+  version Int @default(1)
+  members Json
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@map("comparison_circles")
+}
+
+/// Public device identity only. Private keys live in browser storage, never on the server.
+model ComparisonDevice {
+ id String @id
+ userId String @map("user_id")
+ name String
+ encryption String
+ signing String
+ fingerprint String @unique
+ revoked Boolean @default(false)
+ createdAt DateTime @default(now()) @map("created_at")
+ user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ @@index([userId])
+ @@map("comparison_devices")
+}
+model ComparisonPublication {
+ id String @id
+ userId String @map("user_id")
+ linkId String @map("link_id")
+ audience String
+ revision Int
+ sender String
+ context Json
+ manifest Json?
+ ready Boolean @default(false)
+ bytes Int @default(0)
+ expiresAt DateTime @map("expires_at")
+ createdAt DateTime @default(now()) @map("created_at")
+ user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ link ComparisonLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+ chunks ComparisonChunk[]
+ @@index([userId, audience, ready])
+ @@index([linkId])
+ @@map("comparison_publications")
+}
+model ComparisonChunk {
+ publicationId String @map("publication_id")
+ part Int
+ bytes String
+ digest String
+ publication ComparisonPublication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+ @@id([publicationId, part])
+ @@map("comparison_chunks")
+}
+
+/// One direction: the owner's totals may be seen by ONE viewer — a local account or a remote
+/// friend. pending | accepted | declined | withdrawn. Comparison rework 2026-10-16.
+/// Only `accepted` is ever read. pending + decidedAt null = a question to the owner;
+/// pending + decidedAt set = the owner's held-back offer, invisible to every reader until the
+/// other side accepts (services/comparison/consents.ts).
+model LeaderboardConsent {
+  id        String    @id @default(uuid())
+  ownerId   String    @map("owner_id")
+  viewerId  String?   @map("viewer_id")
+  remoteId  String?   @map("remote_id")
+  status    String    @default("pending")
+  /// LeaderboardScope (schemas/comparison.ts); set on accepted rows and on offers.
+  scope     Json?
+  createdAt DateTime  @default(now()) @map("created_at")
+  decidedAt DateTime? @map("decided_at")
+  owner   User   @relation("LeaderboardConsentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  viewer  User?  @relation("LeaderboardConsentViewer", fields: [viewerId], references: [id], onDelete: Cascade)
+  remote  LeaderboardRemote? @relation(fields: [remoteId], references: [id], onDelete: Cascade)
+  boardMembers LeaderboardBoardMember[]
+  @@unique([ownerId, viewerId])
+  @@unique([ownerId, remoteId])
+  @@index([viewerId, status])
+  @@map("leaderboard_consents")
+}
+
+/// A person on another instance, as one local user knows them. Both servers hold one row
+/// with the same random channel.
+model LeaderboardRemote {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  origin      String
+  channel     String
+  username    String
+  displayName String   @map("display_name")
+  createdAt   DateTime @default(now()) @map("created_at")
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consents LeaderboardConsent[]
+  boardMembers LeaderboardBoardMember[]
+  @@unique([origin, channel])
+  @@index([userId])
+  @@map("leaderboard_remotes")
+}
+
+model LeaderboardInvite {
+  hash      String    @id
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@map("leaderboard_invites")
+}
+
+model LeaderboardBoard {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  user    User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  members LeaderboardBoardMember[]
+  @@index([userId])
+  @@map("leaderboard_boards")
+}
+
+/// A board member is a person the board owner can SEE: a local consent where the owner is the
+/// viewer, or one of the owner's remote friends.
+model LeaderboardBoardMember {
+  id        String  @id @default(uuid())
+  boardId   String  @map("board_id")
+  consentId String? @map("consent_id")
+  remoteId  String? @map("remote_id")
+  board   LeaderboardBoard    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  consent LeaderboardConsent? @relation(fields: [consentId], references: [id], onDelete: Cascade)
+  remote  LeaderboardRemote?  @relation(fields: [remoteId], references: [id], onDelete: Cascade)
+  @@unique([boardId, consentId])
+  @@unique([boardId, remoteId])
+  @@map("leaderboard_board_members")
+}
+
+// Plans are separate from travel evidence. Dates never promote an intention.
+model TravelPlan {
+  id String @id @default(uuid())
+  createRef String @unique @map("create_ref")
+  tripId String @unique @map("trip_id")
+  revision Int @default(1)
+  state Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  mutations TravelPlanMutation[]
+  proposals TravelPlanProposal[]
+  @@map("travel_plans")
+}
+
+model TravelPlanMutation {
+  id String @id @default(uuid())
+  planId String @map("plan_id")
+  clientRef String @map("client_ref")
+  payloadHash String @map("payload_hash")
+  baseRevision Int @map("base_revision")
+  revision Int
+  before Json
+  result Json
+  createdAt DateTime @default(now()) @map("created_at")
+  plan TravelPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  @@unique([planId, clientRef])
+  @@index([planId, createdAt])
+  @@map("travel_plan_mutations")
+}
+
+model TravelPlanProposal {
+  id String @id @default(uuid())
+  planId String @map("plan_id")
+  baseRevision Int @map("base_revision")
+  inputHash String @map("input_hash")
+  status String @default("pending")
+  provider String
+  model String
+  content Json
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  plan TravelPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  @@index([planId, createdAt])
+  @@map("travel_plan_proposals")
+}
+
+model TravelPlanConfig {
+  id String @id @default("default")
+  enabled Boolean @default(false)
+  aiDailyLimit Int @default(10) @map("ai_daily_limit")
+  weatherDailyLimit Int @default(20) @map("weather_daily_limit")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("travel_plan_config")
+}
+
+model TravelPlanUsage {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  day DateTime @db.Date
+  kind String
+  count Int @default(0)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, day, kind])
+  @@map("travel_plan_usage")
 }

@@ -1,4 +1,5 @@
 import { saveErrorKey } from "../../lib/saveErrorMessage";
+import type { TripPerson } from "../../types/sharing";
 
 /**
  * The sentence a failed sharing action shows: the server's codes first, then
@@ -13,6 +14,7 @@ export function sharingErrorKey(err: unknown, fallbackKey: string): string {
     SHARE_CONSENT_NOT_FOUND: "sharing:errors.consentNotFound",
     SHARE_CONSENT_NOT_PENDING: "sharing:errors.notPending",
     SHARE_CONSENT_REQUIRED: "sharing:errors.consentRequired",
+    SHARE_GROUP_CONSENT_REQUIRED: "sharing:errors.groupConsentRequired",
     COMPANION_NOT_FOUND: "sharing:errors.companionNotFound",
     SHARE_COMPANION_ALREADY_LINKED: "sharing:errors.alreadyLinked",
     SHARE_COMPANION_NOT_LINKED: "sharing:errors.notLinked",
@@ -34,4 +36,17 @@ export function staleUndoFields(err: unknown): string[] {
     ?.response?.data;
   if (data?.code !== "SHARE_UNDO_STALE" || typeof data.fields !== "string") return [];
   return data.fields.split(",").filter(Boolean);
+}
+
+/**
+ * The copy key for why sharing with a person is not possible yet. The server
+ * says `consentMissing` for every request that is not open or accepted; the
+ * person's consent state tells a request never sent from one that was declined
+ * or withdrawn — "has not agreed yet" is false for the last two.
+ */
+export function shareBlockKey(p: Pick<TripPerson, "shareBlockedBy" | "consent">): string | null {
+  if (p.shareBlockedBy !== "consentMissing") return p.shareBlockedBy;
+  if (p.consent === "declined") return "consentDeclined";
+  if (p.consent === "withdrawn") return "consentWithdrawn";
+  return "consentMissing";
 }

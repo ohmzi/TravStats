@@ -48,7 +48,12 @@ vi.mock("../../../../hooks/useDashboardRoute", () => ({
 }));
 
 vi.mock("../../../../hooks/useEnabledDomains", () => ({
-  useEnabledDomains: () => ({ enabled: ["flight", "cruise", "lodging"], isEnabled: () => true }),
+  // The transport domains are off: their overlays fetch on mount, and this
+  // suite is about the flight and roadtrip cards, not those layers.
+  useEnabledDomains: () => ({
+    enabled: ["flight", "cruise", "lodging", "roadtrip"],
+    isEnabled: (key: string) => ["flight", "cruise", "lodging", "roadtrip"].includes(key),
+  }),
 }));
 
 vi.mock("../../../../hooks/useFlightLookup", () => ({

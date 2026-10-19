@@ -248,9 +248,9 @@ describe("the scan", () => {
     // The two controls sit side by side, so they are one size (owner, 2026-10-11).
     expect(
       screen.getByRole("button", { name: "tripBuilder:review.expired.scanAgain" }).style.height
-    ).toBe("var(--ts-size-button-secondary)");
+    ).toBe("var(--ts-button-height, var(--ts-size-button-secondary))");
     expect(screen.getByRole("button", { name: "tripBuilder:review.back" }).style.height).toBe(
-      "var(--ts-size-button-secondary)"
+      "var(--ts-button-height, var(--ts-size-button-secondary))"
     );
     fireEvent.click(screen.getByRole("button", { name: "tripBuilder:review.expired.scanAgain" }));
     await waitFor(() => expect(where()).toBe(`/trips/builder?job=${NEXT_JOB}`));
@@ -394,7 +394,7 @@ describe("the review", () => {
 
   it("draws the header's Back, Reset and Create at one size", async () => {
     await renderDraft();
-    const height = "var(--ts-size-button-secondary)";
+    const height = "var(--ts-button-height, var(--ts-size-button-secondary))";
     // An edit, so the third control (Reset) is drawn. The owner's screenshot
     // (2026-10-11): the amber CTA stood a size taller than Back and Reset.
     fireEvent.click(screen.getByRole("switch", { name: "ZZ202 ZSB→ZNV" }));
@@ -879,7 +879,7 @@ describe("a window with nothing in it", () => {
 
   it("draws the empty window's three ways on at one size", async () => {
     await renderDraft(nothing(3));
-    const height = "var(--ts-size-button-secondary)";
+    const height = "var(--ts-button-height, var(--ts-size-button-secondary))";
     expect(
       screen.getByRole("button", { name: "tripBuilder:review.empty.changeDates" }).style.height
     ).toBe(height);

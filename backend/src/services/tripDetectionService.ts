@@ -423,6 +423,8 @@ export async function attachFlightsToJourneys(
     if (spanning.length === 0) continue;
     if (spanning.length > 1 && spanOfTrip(spanning[0]) === spanOfTrip(spanning[1])) continue;
 
+    // share-exempt: assigning a detected flight to its journey is membership,
+    // not an edit of a shared entry.
     await prisma.flight.update({ where: { id: flight.id }, data: { tripId: spanning[0].id } });
     logger.info({
       operation: "flight.attach_to_journey",
@@ -715,6 +717,7 @@ async function commitProposals(
         // a single-flight "trip" is noise, and the bookkeeping done above
         // (trip + optional booking) gets rolled back via finalize cleanup
         // (orphan delete) and the booking cascade in the schema.
+        // share-exempt: files unfiled flights into a trip it just created — never shared
         const result = await tx.flight.updateMany({
           where: { id: { in: p.flightIds }, userId, tripId: null },
           data: { tripId: trip.id, bookingId },

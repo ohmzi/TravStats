@@ -25,8 +25,40 @@ export interface ApiError extends Error {
  * `error` field rather than in `code`.
  */
 export type ApiErrorCode =
+  | "LLM_REQUEST_POLICY"
+  | "PLAN_EXECUTION_FUTURE"
+  | "PLAN_EXECUTION_LINK"
+  | "PLAN_EXECUTION_DETAILS"
+  | "PLAN_ANCHOR_STALE"
+  | "PLAN_AI_CONSENT"
+  | "PLAN_AI_INVALID"
+  | "PLAN_AI_NO_ITEMS"
+  | "PLAN_AI_UNAVAILABLE"
+  | "PLAN_DAILY_LIMIT"
+  | "PLAN_DISABLED"
+  | "PLAN_DOCUMENT_NOT_FOUND"
+  | "PLAN_EXECUTION_DATE"
+  | "PLAN_EXECUTION_EDITED"
+  | "PLAN_IDEMPOTENCY_CONFLICT"
+  | "PLAN_ITEM_NOT_FOUND"
+  | "PLAN_NOT_FOUND"
+  | "PLAN_PROPOSAL_CONFLICT"
+  | "PLAN_PROPOSAL_NOT_FOUND"
+  | "PLAN_PROPOSAL_STALE"
+  | "PLAN_PROTECTED"
+  | "PLAN_REVISION_CONFLICT"
+  | "PLAN_TOO_LARGE"
+  | "PLAN_UNDO_STALE"
+  | "PLAN_WEATHER_HORIZON"
+  | "PLAN_WEATHER_INVALID"
+  | "PLAN_WEATHER_LOCATION"
+  | "PLAN_WEATHER_PAST"
+  | "PLAN_WEATHER_UNAVAILABLE"
   | "DAWARICH_OWN_CONNECTION_REQUIRED"
   | "DAWARICH_SCAN_UNAVAILABLE"
+  | "DAWARICH_PLACES_DISABLED"
+  /** The account switched stay suggestions off (forgejo#306): no scan, no review. */
+  | "STAY_SUGGESTIONS_DISABLED"
   | "DAWARICH_STAY_SCAN_FAILED"
   | "DAWARICH_ALREADY_RESOLVED"
   | "DAWARICH_INVALID_INTERVAL"
@@ -61,6 +93,9 @@ export type ApiErrorCode =
    *  (forgejo#211, the batch review's "correct the place"): gone since the
    *  list was read, or never theirs. */
   | "VISIT_PLACE_NOT_FOUND"
+  /** A `visit` finding was accepted after it had been answered — dismissed, or
+   *  accepted by a request that won the race. Nothing is written. */
+  | "VISIT_ALREADY_ANSWERED"
   /** A training annotation whose offsets do not cut their own value out of
    *  the text being saved. The two used to be allowed to disagree, which
    *  corrupted every derivation built on it in silence. */
@@ -93,6 +128,9 @@ export type ApiErrorCode =
   /** The archive was taken while a migration had failed on its database
    *  (Prisma's P3009 state); its schema is no version's (forgejo#157). */
   | "RESTORE_ARCHIVE_FAILED_MIGRATION"
+  /** A backup's remote copy has no recorded target, or the target changed
+   *  since the upload: the object to delete cannot be named safely. */
+  | "REMOTE_TARGET_UNKNOWN"
   /** A rail write body failed validation; `field` names the first field. */
   | "RAIL_INVALID_INPUT"
   /** A rail arrival instant before its departure — usually a night train
@@ -147,6 +185,8 @@ export type ApiErrorCode =
   /** An accepted trip suggestion named members it does not hold, none at all,
    *  or an end before its start. */
   | "TRIP_SUGGESTION_SELECTION_INVALID"
+  /** The account switched trip suggestions off (forgejo#306): nothing to answer. */
+  | "TRIP_SUGGESTIONS_DISABLED"
   /** Package import (plan 2026-10-09 P3): the document holds no package
    *  reading — it was parsed as something else, or not at all. */
   | "PACKAGE_READING_MISSING"
@@ -388,6 +428,7 @@ export type ApiErrorCode =
   /** Linking or sharing needs an accepted consent the other account gave to
    *  the caller (403). */
   | "SHARE_CONSENT_REQUIRED"
+  | "SHARE_GROUP_CONSENT_REQUIRED"
   /** No companion of this caller under that id (404). */
   | "COMPANION_NOT_FOUND"
   /** Another of the caller's companions is already linked to that account (409). */
@@ -411,6 +452,11 @@ export type ApiErrorCode =
   | "SHARE_LINK_LIMIT"
   /** An expiry in the past or beyond the maximum (400). */
   | "SHARE_LINK_EXPIRY_INVALID"
+  /** Calendar feed (forgejo#310): every public failure — malformed, unknown,
+   *  revoked, beta switch off — is this one 404, as for share links. */
+  | "CALENDAR_FEED_NOT_FOUND"
+  /** No calendar URL is issued while the instance's beta switch is off (409). */
+  | "CALENDAR_FEED_DISABLED"
   /** Undo refused: the copy changed since the notice; `extra.fields` names
    *  the facts that differ (409). */
   | "SHARE_UNDO_STALE"
@@ -419,6 +465,35 @@ export type ApiErrorCode =
   | "SHARE_UNDO_UNAVAILABLE"
   /** The caller's own copy of the entry is gone (deleted or moved away) (409). */
   | "SHARE_COPY_NOT_FOUND"
+  /** Comparison (leaderboard) — rework 2026-10-16. The beta switch is off. */
+  | "COMPARISON_DISABLED"
+  /** A personal access token: the comparison is a browser-session feature. */
+  | "COMPARISON_TOKEN_REFUSED"
+  | "COMPARISON_USER_NOT_FOUND"
+  | "COMPARISON_SELF"
+  /** The caller already shares with that person. */
+  | "COMPARISON_DUPLICATE"
+  | "COMPARISON_NOT_FOUND"
+  | "COMPARISON_NOT_PENDING"
+  /** An invitation code that is malformed, unknown, used or expired. */
+  | "COMPARISON_INVITE_INVALID"
+  | "COMPARISON_INVITE_LIMIT"
+  /** This server has no federation identity. */
+  | "COMPARISON_FEDERATION_OFF"
+  /** The identity is set by environment variables and cannot be changed in the UI. */
+  | "COMPARISON_FEDERATION_ENV"
+  /** The admin has not pinned and verified that server. */
+  | "COMPARISON_PEER_UNKNOWN"
+  | "COMPARISON_PEER_UNREACHABLE"
+  /** The other server predates the leaderboard protocol. */
+  | "COMPARISON_PEER_OUTDATED"
+  | "COMPARISON_PEER_KEY_INVALID"
+  | "COMPARISON_BOARD_NOT_FOUND"
+  | "COMPARISON_BOARD_MEMBER_INVALID"
+  | "COMPARISON_BOARD_LIMIT"
+  /** The user already holds the maximum number of friendships with people on other servers. */
+  | "COMPARISON_REMOTE_LIMIT"
+  | "COMPARISON_YEAR_NOT_SHARED"
   /** A rental evidence category on a document not filed with a rental (forgejo#239). */
   | "DOCUMENT_CATEGORY_NOT_RENTAL"
   /** Merging two places (forgejo#232, `services/places/placeMerge.ts`): a

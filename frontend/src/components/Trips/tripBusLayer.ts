@@ -1,3 +1,4 @@
+import { groupMapData, pathIdentity } from "../layers/routeAggregation";
 import { PathLayer } from "@deck.gl/layers";
 import type { Layer } from "@deck.gl/core";
 import type { TripBusJourney } from "../../types/bus";
@@ -5,9 +6,26 @@ import { hexToRgb } from "../../lib/domainColor";
 
 export interface BusPathDatum {
   id: string;
+  memberIds?: string[];
+  count?: number;
   path: [number, number][];
   /** Whether the line follows the road or is only the chord between the terminals. */
   routed: boolean;
+}
+
+/**
+ * What `busPaths` reads of a ride — a bus ride, or a ferry crossing, whose two
+ * ports carry the same columns and whose stored line (a hand-drawn one) means
+ * the same: drawn where it exists, else the chord.
+ */
+export interface TerminalRideLine {
+  id: string;
+  status: string;
+  depLat: number;
+  depLon: number;
+  arrLat: number;
+  arrLon: number;
+  geometry: [number, number][] | null;
 }
 
 /**
@@ -16,9 +34,10 @@ export interface BusPathDatum {
  * terminals — drawn thinner and fainter then, so a chord does not pass for the
  * road the coach took. A ride whose terminals have no coordinates is left out.
  */
-export function busPaths(rides: readonly TripBusJourney[]): BusPathDatum[] {
+export function busPaths(rides: readonly TerminalRideLine[]): BusPathDatum[] {
   const out: BusPathDatum[] = [];
   for (const ride of rides) {
+    if (ride.status === "cancelled") continue;
     const coords = [ride.depLat, ride.depLon, ride.arrLat, ride.arrLon];
     if (coords.some((v) => typeof v !== "number" || !Number.isFinite(v))) continue;
     const routed = Array.isArray(ride.geometry) && ride.geometry.length >= 2;
@@ -33,7 +52,11 @@ export function busPaths(rides: readonly TripBusJourney[]): BusPathDatum[] {
       routed,
     });
   }
-  return out;
+  return groupMapData(
+    out,
+    (p) => `${p.routed}:${pathIdentity(p.path)}`,
+    (p) => p.id
+  );
 }
 
 /**

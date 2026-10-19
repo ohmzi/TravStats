@@ -159,6 +159,9 @@ export interface RouteProbe {
  */
 export interface RouteProvider {
   readonly id: RoutingProviderId;
+  /** Stable provider/configuration identity; never include credentials. */
+  readonly cacheIdentity?: string;
+  cacheProfile?(req: RouteRequest): string;
   route(req: RouteRequest): Promise<RouteResult | RouteFailure | null>;
   /**
    * How far the road router thinks `a` → `b` is, and how much of that is

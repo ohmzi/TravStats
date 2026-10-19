@@ -17,9 +17,12 @@ const toasts = vi.hoisted(() => ({ addToast: vi.fn() }));
 // read the sharing API on mount; answered empty so no request escapes.
 vi.mock("@/lib/api/sharing", () => ({
   sharingApi: {
-    tripSharing: vi
-      .fn()
-      .mockResolvedValue({ groupId: null, members: [], candidates: [], bookingTotals: [] }),
+    tripSharing: vi.fn().mockResolvedValue({
+      groupId: null,
+      people: [],
+      linkableUsers: [],
+      bookingTotals: [],
+    }),
     listConsents: vi.fn().mockResolvedValue({ incoming: [], outgoing: [] }),
     listCompanions: vi.fn().mockResolvedValue({ companions: [], linkableUsers: [] }),
     listNotices: vi.fn().mockResolvedValue([]),
@@ -199,3 +202,8 @@ describe("the trip page opens a journal entry's editor from a link", () => {
     expect(screen.queryByTestId("journal-editor")).not.toBeInTheDocument();
   });
 });
+
+// The trip summary loads its plan independently of the timeline feature under test.
+vi.mock("../../lib/api/travplan", () => ({
+  travplanApi: { get: vi.fn().mockResolvedValue(null) },
+}));

@@ -215,9 +215,12 @@ const RULES = [
       "is meaningless. Take the value from `theme/tokens.css`; if the token you need " +
       "is missing, it belongs in design/tokens.json first.",
     pattern: new RegExp(
+      // `dark:` is a variant only when a utility follows it (`dark:bg-slate-800`).
+      // The map style catalogues key an object `dark:` — a style id, not a class —
+      // and matching that bare form froze three of them for a rule they broke.
       `\\b(?:${TAILWIND_PALETTE_PROPERTIES.join("|")})-(?:${TAILWIND_PALETTE_FAMILIES.join(
         "|"
-      )})-\\d{2,3}\\b|\\bdark:`,
+      )})-\\d{2,3}\\b|\\bdark:[a-z]`,
       "g"
     ),
     excluded: (path) => path.startsWith(DESIGN_SYSTEM_HOME),

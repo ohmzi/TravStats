@@ -85,6 +85,8 @@ describe("ChangeDatesDialog", () => {
     expect(screen.getByText("tripBuilder:review.dates.cancel").style.height).toBe(
       "var(--ts-size-button-secondary)"
     );
-    expect(scanAgain().style.height).toBe("var(--ts-size-button-secondary)");
+    expect(scanAgain().style.height).toBe(
+      "var(--ts-button-height, var(--ts-size-button-secondary))"
+    );
   });
 });

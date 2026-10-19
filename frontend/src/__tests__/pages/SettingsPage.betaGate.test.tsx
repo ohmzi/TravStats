@@ -13,9 +13,12 @@ import { useSettingsStore } from "../../store/settingsStore";
 // read the sharing API on mount; answered empty so no request escapes.
 vi.mock("@/lib/api/sharing", () => ({
   sharingApi: {
-    tripSharing: vi
-      .fn()
-      .mockResolvedValue({ groupId: null, members: [], candidates: [], bookingTotals: [] }),
+    tripSharing: vi.fn().mockResolvedValue({
+      groupId: null,
+      people: [],
+      linkableUsers: [],
+      bookingTotals: [],
+    }),
     listConsents: vi.fn().mockResolvedValue({ incoming: [], outgoing: [] }),
     listCompanions: vi.fn().mockResolvedValue({ companions: [], linkableUsers: [] }),
     listNotices: vi.fn().mockResolvedValue([]),
@@ -51,6 +54,20 @@ vi.mock("@/lib/api/tokens", async (importOriginal) => {
     apiTokensApi: { ...actual.apiTokensApi, list: vi.fn().mockResolvedValue([]) },
   };
 });
+// The calendar subscription card (forgejo#310) sits in the trips section, on
+// the same general page, and loads its state on mount.
+vi.mock("@/lib/api/calendarFeed", () => ({
+  calendarFeedApi: {
+    status: vi.fn().mockResolvedValue({
+      enabled: true,
+      active: false,
+      createdAt: null,
+      lastUsedAt: null,
+    }),
+    issue: vi.fn(),
+    revoke: vi.fn(),
+  },
+}));
 vi.mock("@/lib/api/notifications", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api/notifications")>();
   return {

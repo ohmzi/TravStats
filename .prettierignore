@@ -32,6 +32,9 @@ frontend/src/theme/tokens.ts
 
 # Written back at runtime by the template registry, with JSON.stringify.
 backend/src/services/parsers/templates/**/*.json
+# The workshop's own cache, gitignored: a machine that has opened it has files
+# CI never sees, and formatting them would be undone on the next run.
+backend/.template-cache/
 
 # Vendored data: datasets taken as published, not source we write.
 backend/data/
