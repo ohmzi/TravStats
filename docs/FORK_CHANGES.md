@@ -2,7 +2,7 @@
 
 This is a personal fork of [TravStats](https://github.com/Abrechen2/TravStats). It is
 kept close to upstream — the changes below are additions, and everything else is
-upstream's own work, rebased on each release.
+upstream's own work, merged on each release.
 
 ## Why
 

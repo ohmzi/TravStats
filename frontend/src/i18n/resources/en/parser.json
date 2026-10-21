@@ -9,12 +9,18 @@
   },
   "annotate": {
     "title": "Annotate file",
-    "description": "Upload an email or boarding pass and mark the fields. TravStats automatically derives a regex template.",
+    "description": "Upload an email, a boarding pass or a screenshot and mark the fields. TravStats derives a template from it.",
     "emailButton": "Upload email",
     "emailFormats": ".eml, .msg, .txt",
     "boardingPassButton": "Upload boarding pass",
     "boardingPassFormats": ".png, .jpg, .jpeg",
-    "uploadError": "Could not upload file."
+    "uploadError": "Could not upload file.",
+    "screenshotButton": "Upload screenshot",
+    "screenshotFormats": ".png, .jpg, .webp — text is read by OCR",
+    "uploadErrors": {
+      "TRAINING_IMAGE_UNREADABLE": "This file could not be read as an image. A PNG, JPEG or WebP screenshot usually works.",
+      "TRAINING_IMAGE_NO_TEXT": "Almost no text was recognised on this screenshot, so nothing was saved. A sharper screenshot of the whole screen usually helps."
+    }
   },
   "myTemplates": {
     "empty": "No custom templates yet",
@@ -44,7 +50,22 @@
       "syncing": "Refreshing …",
       "addTemplate": "Add a template →",
       "loaded": "{{count}} templates loaded · daily auto-update from GitHub",
-      "adminOnly": "Only an admin can refresh. The daily auto-update still runs."
+      "adminOnly": "Only an admin can refresh. The daily auto-update still runs.",
+      "loadFailed": "The template status could not be loaded.",
+      "syncFailed": "The refresh failed. The templates loaded last are still in use."
+    },
+    "sync": {
+      "indexUnreachable": "The template index was unreachable at the last sync ({{date}}). The templates loaded last are still in use ({{count}}).",
+      "indexUnreachableNoDate": "The template index was unreachable at the last sync. The templates loaded last are still in use ({{count}}).",
+      "rejectedTitle": "At the last sync ({{date}}), {{count}} templates could not be loaded:",
+      "rejectedTitleNoDate": "At the last sync, {{count}} templates could not be loaded:",
+      "refusedUpdate": "{{id}}: a newer version was refused; v{{version}} is still in use.",
+      "reasons": {
+        "fetch_failed": "could not be fetched",
+        "invalid": "invalid",
+        "tests_failed": "failed its own tests",
+        "needs_newer_app": "needs a newer TravStats version"
+      }
     }
   },
   "domains": {
@@ -52,7 +73,11 @@
     "lodging": "Stay",
     "cruise": "Cruise",
     "place": "Place",
-    "package": "Package tour"
+    "package": "Package tour",
+    "rail": "Rail journey",
+    "rental": "Rental car",
+    "bus": "Coach ride",
+    "ferry": "Ferry crossing"
   },
   "labelGroups": {
     "flight": "Flight",
@@ -69,7 +94,13 @@
     "itinerary": "Itinerary",
     "packageTrip": "Trip",
     "flightRow": "Flight row",
-    "stayRow": "Hotel row"
+    "stayRow": "Hotel row",
+    "railLeg": "Leg",
+    "rentalPickup": "Pickup",
+    "rentalReturn": "Return",
+    "vehicle": "Vehicle",
+    "busRide": "Ride",
+    "ferryCrossing": "Crossing"
   },
   "labels": {
     "flight": {
@@ -153,6 +184,60 @@
       "stayCity": "Hotel city",
       "stayCheckIn": "Check-in",
       "stayCheckOut": "Check-out"
+    },
+    "rail": {
+      "bookingReference": "Booking reference",
+      "operator": "Rail operator",
+      "travelClass": "Class",
+      "tariff": "Fare",
+      "price": "Total price",
+      "currency": "Currency",
+      "depStation": "Departure station",
+      "arrStation": "Arrival station",
+      "departureDate": "Travel day",
+      "departureTime": "Departure time",
+      "arrivalDate": "Arrival day",
+      "arrivalTime": "Arrival time",
+      "train": "Train"
+    },
+    "rental": {
+      "provider": "Rental company",
+      "confirmationNumber": "Reservation number",
+      "pickupStation": "Pickup station",
+      "pickupDate": "Pickup date",
+      "pickupTime": "Pickup time",
+      "returnStation": "Return station",
+      "returnDate": "Return date",
+      "returnTime": "Return time",
+      "vehicleClass": "Vehicle class",
+      "price": "Total price",
+      "currency": "Currency"
+    },
+    "bus": {
+      "bookingReference": "Booking reference",
+      "operator": "Coach operator",
+      "price": "Total price",
+      "currency": "Currency",
+      "depStop": "Departure stop",
+      "arrStop": "Arrival stop",
+      "departureDate": "Travel day",
+      "departureTime": "Departure time",
+      "arrivalDate": "Arrival day",
+      "arrivalTime": "Arrival time",
+      "line": "Line"
+    },
+    "ferry": {
+      "bookingReference": "Booking reference",
+      "operator": "Ferry line",
+      "price": "Total price",
+      "currency": "Currency",
+      "depPort": "Departure port",
+      "arrPort": "Arrival port",
+      "departureDate": "Crossing day",
+      "departureTime": "Departure time",
+      "arrivalDate": "Arrival day",
+      "arrivalTime": "Arrival time",
+      "vessel": "Vessel"
     }
   },
   "workshop": {
@@ -167,7 +252,11 @@
     "domainHints": {
       "cruise": "Mark the header details (ship, booking reference, price …) and ONE row of the itinerary: its date and its port. The template reads the whole port list from that row.",
       "place": "Mark at least the place’s name, and address, category and visit date if you like. Places read this way land in the import preview under Settings → Import.",
-      "package": "Mark the booking reference and issue date, optionally trip name, dates and price — plus ONE flight row (flight number, date, departure and arrival) and/or ONE hotel row (hotel, check-in and check-out). Each marked row becomes the rule for every row like it."
+      "package": "Mark the booking reference and issue date, optionally trip name, dates and price — plus ONE flight row (flight number, date, departure and arrival) and/or ONE hotel row (hotel, check-in and check-out). Each marked row becomes the rule for every row like it.",
+      "rail": "Mark the booking reference, class and price if you like — plus ONE leg: departure station, departure time, arrival station, and optionally arrival time and train. Mark the travel day where it is printed: on the row or in the heading above it.",
+      "rental": "Mark the rental company, the reservation number and, for pickup and return, the station and the date — and the time where it is printed. Without a time the end stays a day; no time is invented.",
+      "bus": "Mark the booking reference and price if you like — plus ONE ride: departure stop, departure time, arrival stop, and optionally arrival time and line. Mark the travel day where it is printed: on the row or in the heading above it.",
+      "ferry": "Mark the booking reference and price if you like — plus ONE crossing: departure port, departure time, arrival port, and optionally arrival time. Mark the day on the row or in the heading above it; the vessel on the row, or once wherever the ticket prints it."
     }
   },
   "derivation": {
@@ -187,7 +276,18 @@
       "packageFlightRowIncomplete": "The flight row is incomplete: mark flight number, flight date, departure (code or city) and arrival (code or city).",
       "packageStayRowIncomplete": "The hotel row is incomplete: mark hotel, check-in and check-out.",
       "packageRowTooFarApart": "The values of a row must be on the same line or on two consecutive lines (blank lines between are fine).",
-      "packageRowNotUnderstood": "No rule can be built from the marked row that reads its own values back. Mark the values precisely."
+      "packageRowNotUnderstood": "No rule can be built from the marked row that reads its own values back. Mark the values precisely.",
+      "railNeedsLegRow": "A rail journey needs one marked leg: mark the departure station, departure time and arrival station on ONE row (arrival time and train if you like). The template reads every leg from that row.",
+      "railNeedsDate": "The travel day is missing: mark the date — on the leg's row or in the heading above it (e.g. “Outbound on 14.11.2027”). Without a day every departure time would be a guess.",
+      "railRowTooFarApart": "The values of one leg must sit on the same line or on two consecutive lines (blank lines in between are fine).",
+      "railRowNotUnderstood": "No rule can be built from the marked leg that reads its own values back. Mark the station names and times exactly.",
+      "rentalNeedsProvider": "The rental company is missing: mark its name. It is named as the issuer of every proposal this template makes.",
+      "rentalNeedsBookingFields": "A rental needs more: mark the reservation number, pickup station, pickup date, return station and return date (the times if you like).",
+      "rentalEndsAmbiguous": "Pickup and return carry the same label in this mail (e.g. “Station:” twice), so the template would read the same value for both ends. The workshop cannot learn such layouts yet.",
+      "rideNeedsRow": "One marked ride is needed: mark the departure stop or port, the departure time and the arrival stop or port on ONE row. The template reads every ride from that row.",
+      "rideNeedsDate": "The travel day is missing: mark the date — on the row or in the heading above it. Without a day every departure time would be a guess.",
+      "rideRowTooFarApart": "The values of one ride must sit on the same line or on two consecutive lines (blank lines in between are fine).",
+      "rideRowNotUnderstood": "No rule can be built from the marked ride that reads its own values back. Mark the names and times exactly."
     }
   },
   "preview": {
@@ -200,5 +300,29 @@
     "cannotActivate": "The template does not even read its own sample. Activating it would achieve nothing.",
     "requiredFirst": "Run the preview first — a template is not activated before it has read something once.",
     "failed": "Could not run the preview."
+  },
+  "communityExport": {
+    "action": "Export for the community",
+    "explain": "Downloads this template as a file for the public template repository, without your document and without the values you marked in it; on GitHub you propose it, and the repository owner reviews every contribution before it reaches anyone.",
+    "download": "Download file",
+    "working": "Preparing …",
+    "downloaded": "{{filename}} was downloaded. Open GitHub's new-file page and paste or upload its content there.",
+    "removed_one": "{{count}} line that held your own data was taken out.",
+    "removed_other": "{{count}} lines that held your own data were taken out.",
+    "testCases": "The file carries no test document — yours stays here. The owner adds an invented one when reviewing.",
+    "openGithub": "Open on GitHub",
+    "failed": "The file could not be prepared. Please try again.",
+    "found": "Found: {{what}}.",
+    "refused": {
+      "TEMPLATE_EXPORT_PERSONAL_DATA": "This template reads with values from your own document, so it cannot be shared as it is. Derive it again from another document of the same sender, where your details do not sit beside a marked value.",
+      "TEMPLATE_EXPORT_NOT_ACTIVE": "Only an active template can be shared: run its preview and activate it first.",
+      "TEMPLATE_EXPORT_UNSUPPORTED": "Flight and stay templates are stored in an older format the repository does not take yet.",
+      "TEMPLATE_EXPORT_SOURCE_MISSING": "The document this template was derived from has been deleted. Without its marks there is no way to check the template for your details, so it cannot be shared. Derive it again from a document of the same sender."
+    },
+    "kind": {
+      "identity": "your name or address",
+      "email": "an e-mail address",
+      "number": "a long number"
+    }
   }
 }

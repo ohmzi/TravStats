@@ -105,7 +105,9 @@ export interface Flight {
     | "historical_enrichment"
     | "live_update"
     | "api_lookup"
-    | "bulk_import";
+    | "bulk_import"
+    // List imports (imported_fr24, imported_jetlog, …) — the server stores them too.
+    | `imported_${string}`;
   lastModifiedBy?: "user" | "auto_update" | "historical_enrichment" | "api";
   enrichmentHistory?: Array<{
     type: string;
@@ -605,6 +607,8 @@ export interface GeoJSONFeature {
     co2Kg?: number;
     seatClass?: string;
     durationMinutes?: number;
+    /** Recorded stretches (forgejo#312), merged in by `useRecordedFlightPaths`; absent = great circle. */
+    recordedPaths?: Array<Array<[number, number]>>;
   };
   geometry: {
     type: "LineString";

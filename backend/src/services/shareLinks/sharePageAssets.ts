@@ -1,3 +1,5 @@
+import { SHARE_PAGE_ITINERARY_COPY, SHARE_PAGE_ITINERARY_JS } from "./sharePageItinerary";
+
 /**
  * The public share page (forgejo#281) — a shell, a stylesheet and one script,
  * served by Express under `/share` (design §4: not a route of the private SPA,
@@ -53,6 +55,11 @@ ul{margin:0;padding-left:1.2rem}
 .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(9rem,1fr));gap:.5rem}
 .photos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:var(--line)}
 .note{color:var(--muted)}
+.plan{list-style:none;padding:0;margin:0}
+.plan li{border-left:3px solid var(--line);padding:.25rem 0 .5rem .75rem;margin:0 0 .5rem}
+.plan li.now{border-left-color:var(--accent)}
+.plan .when{color:var(--muted);font-size:.9rem;margin:0}
+.badge{display:inline-block;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border:1px solid var(--accent);color:var(--accent);border-radius:4px;padding:0 .3rem;margin-right:.4rem}
 .foot{text-align:center;color:var(--muted);font-size:.8rem;padding:1rem}
 a{color:var(--accent)}
 `;
@@ -67,18 +74,25 @@ a{color:var(--accent)}
  * on 1 September in Auckland too (ADR 0002: display `local` as it is). An
  * instant that belongs to no place (the link's end, the time a position was
  * sent) is shown on the visitor's own clock, which is what "until when" means
- * to them.
+ * to them. A value known only to the month or the year is written as such: its
+ * stored day is a placeholder, and printing it would name a day nobody knows.
  */
 export const SHARE_PAGE_FORMAT_JS = `function shareFormat(locale) {
   var dayFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
   var clockFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" });
   var instantFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  var monthFmt = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" });
+  var yearFmt = new Intl.DateTimeFormat(locale, { year: "numeric", timeZone: "UTC" });
   function utcOf(local) { return new Date(local.slice(0, 19) + (local.length > 10 ? "" : "T00:00:00") + "Z"); }
+  function day(ymd, precision) {
+    var f = precision === "month" ? monthFmt : precision === "year" ? yearFmt : dayFmt;
+    return f.format(utcOf(ymd.slice(0, 10)));
+  }
   return {
-    day: function (ymd) { return dayFmt.format(utcOf(ymd.slice(0, 10))); },
+    day: day,
     clock: function (tv) {
       if (!tv) return null;
-      return tv.precision === "minute" ? clockFmt.format(utcOf(tv.local)) : dayFmt.format(utcOf(tv.local.slice(0, 10)));
+      return tv.precision === "minute" ? clockFmt.format(utcOf(tv.local)) : day(tv.local, tv.precision);
     },
     instant: function (iso) { return instantFmt.format(new Date(iso)); }
   };
@@ -87,6 +101,7 @@ export const SHARE_PAGE_FORMAT_JS = `function shareFormat(locale) {
 
 export const SHARE_PAGE_JS = `"use strict";
 ${SHARE_PAGE_FORMAT_JS}
+${SHARE_PAGE_ITINERARY_JS}
 (function () {
   var de = (navigator.language || "de").toLowerCase().indexOf("de") === 0;
   var T = de
@@ -116,6 +131,8 @@ ${SHARE_PAGE_FORMAT_JS}
         distance: "km", earth: "× around the Earth", newCountries: "new countries", topAirline: "Most-flown airline", topRoute: "Most-flown route",
         sharedBy: "Shared by"
       };
+  var TI = ${JSON.stringify(SHARE_PAGE_ITINERARY_COPY)}[de ? "de" : "en"];
+  Object.keys(TI).forEach(function (k) { T[k] = TI[k]; });
   document.documentElement.lang = de ? "de" : "en";
   var root = document.getElementById("share");
   var token = decodeURIComponent((location.hash || "").slice(1));
@@ -247,6 +264,24 @@ ${SHARE_PAGE_FORMAT_JS}
       if (t.notes.truncated) nc.appendChild(el("p", "note", T.moreNotes));
       root.appendChild(nc);
     }
+    if (t.itinerary) renderItinerary(t.itinerary);
+  }
+
+  function renderItinerary(it) {
+    var card = el("div", "card"); card.appendChild(el("p", "big", T.itinerary));
+    var entries = itineraryEntries(it, fmt, T);
+    if (!entries.length) card.appendChild(el("p", "note", T.noEntries));
+    var list = el("ol", "plan");
+    entries.forEach(function (e) {
+      var li = el("li", e.now ? "now" : null);
+      var title = el("p", null);
+      if (e.now) { title.appendChild(el("span", "badge", e.now)); li.setAttribute("aria-current", "step"); }
+      title.appendChild(el("strong", null, e.title));
+      li.appendChild(title);
+      e.lines.forEach(function (line) { li.appendChild(el("p", "when", line)); });
+      list.appendChild(li);
+    });
+    card.appendChild(list); root.appendChild(card);
   }
 
   function loadPhoto(grid, index) {
@@ -301,6 +336,8 @@ ${SHARE_PAGE_FORMAT_JS}
         if (!body) return;
         var kind = render(body.data);
         if (kind === "flight" && !timer) timer = setInterval(function () { load(false); }, 60000);
+        // An itinerary's "now" moves with the clock: read it again every five minutes.
+        if (kind === "trip" && body.data.view.trip.itinerary && !timer) timer = setInterval(function () { load(false); }, 300000);
       })
       .catch(function () {
         if (first) message(T.offline);

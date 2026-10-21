@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { parserTemplatesApi, type UserTemplateItem } from "../../lib/api";
 import type { TemplatePreviewResult } from "../../lib/api/types";
 import TemplatePreviewPanel from "./TemplatePreviewPanel";
+import CommunityExportPanel, { SHAREABLE_DOMAINS } from "./CommunityExportPanel";
 import { logger } from "../../lib/logger";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useToastStore } from "../../store/toastStore";
@@ -20,6 +21,8 @@ export default function MyTemplates(): JSX.Element {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   /** The preview of each template the user has run, by template id. */
   const [previews, setPreviews] = useState<Record<string, TemplatePreviewResult>>({});
+  /** The template whose community export is open (forgejo#309). */
+  const [sharing, setSharing] = useState<string | null>(null);
   const addToast = useToastStore((state) => state.addToast);
 
   useEffect(() => {
@@ -91,13 +94,13 @@ export default function MyTemplates(): JSX.Element {
   };
 
   const statusBadge = (status: UserTemplateItem["status"]): JSX.Element => {
-    // Status badges use brand state tokens (--success / --warning / muted
+    // Status badges use brand state tokens (--ts-good / --ts-warn / muted
     // surface) instead of light-mode tailwind variants. Per BRAND.md state
     // colours are global tokens, not light-mode-only paint.
     const styles: Record<UserTemplateItem["status"], { bg: string; fg: string }> = {
-      active: { bg: "rgba(63,185,80,0.15)", fg: "var(--success)" },
-      pending: { bg: "rgba(210,153,34,0.15)", fg: "var(--warning)" },
-      disabled: { bg: "var(--bg-elevated)", fg: "var(--text-muted)" },
+      active: { bg: "rgba(63,185,80,0.15)", fg: "var(--ts-good)" },
+      pending: { bg: "rgba(210,153,34,0.15)", fg: "var(--ts-warn)" },
+      disabled: { bg: "var(--ts-surface)", fg: "var(--ts-muted)" },
     };
     const s = styles[status];
     return (
@@ -120,7 +123,7 @@ export default function MyTemplates(): JSX.Element {
 
   if (error) {
     return (
-      <div className="text-center py-16 text-(--danger)">
+      <div className="text-center py-16 text-(--ts-bad)">
         <p className="text-lg font-medium">{t(error)}</p>
       </div>
     );
@@ -128,7 +131,7 @@ export default function MyTemplates(): JSX.Element {
 
   if (templates.length === 0) {
     return (
-      <div className="text-center py-16 text-(--text-muted)">
+      <div className="text-center py-16 text-(--ts-muted)">
         <div className="text-4xl mb-4">🧩</div>
         <p className="text-lg font-medium">{t("parser:myTemplates.empty")}</p>
         <p className="text-sm mt-1">{t("parser:myTemplates.emptyHint")}</p>
@@ -142,21 +145,21 @@ export default function MyTemplates(): JSX.Element {
         <div
           key={tmpl.id}
           className="rounded-lg px-5 py-4"
-          style={{ background: "var(--bg-elevated)", border: "1px solid var(--color-border)" }}
+          style={{ background: "var(--ts-surface)", border: "1px solid var(--ts-border)" }}
         >
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-medium text-(--text-primary) truncate">{tmpl.name}</span>
+                <span className="font-medium text-(--ts-text) truncate">{tmpl.name}</span>
                 {statusBadge(tmpl.status)}
                 {/* Which parser may use it at all. A lodging template is never
                   tried on a flight mail, and the badge is where that stops
                   being invisible (forgejo#124 phase 6). */}
-                <span className="text-xs text-(--text-muted)">
+                <span className="text-xs text-(--ts-muted)">
                   {t(`parser:domains.${tmpl.domain ?? "flight"}`)}
                 </span>
               </div>
-              <div className="text-xs text-(--text-muted) flex gap-4">
+              <div className="text-xs text-(--ts-muted) flex gap-4">
                 {tmpl.stats && (
                   <>
                     <span>
@@ -181,7 +184,7 @@ export default function MyTemplates(): JSX.Element {
                     onClick={() => void handlePreview(tmpl.id)}
                     disabled={actionLoading === tmpl.id}
                     className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
-                    style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}
+                    style={{ background: "var(--ts-bg)", color: "var(--ts-text)" }}
                   >
                     {t("parser:preview.run")}
                   </button>
@@ -192,7 +195,8 @@ export default function MyTemplates(): JSX.Element {
                     // passed; disabling the button says so before the click
                     // rather than answering it with an error.
                     disabled={actionLoading === tmpl.id || previews[tmpl.id]?.canActivate !== true}
-                    className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50"
+                    className="rounded-lg text-xs px-3 py-1.5 disabled:opacity-50"
+                    style={{ background: "var(--ts-accent)", color: "var(--ts-accent-text)" }}
                   >
                     {t("parser:myTemplates.activate")}
                   </button>
@@ -203,9 +207,20 @@ export default function MyTemplates(): JSX.Element {
                   onClick={() => handleSetStatus(tmpl.id, "disabled")}
                   disabled={actionLoading === tmpl.id}
                   className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
-                  style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}
+                  style={{ background: "var(--ts-surface)", color: "var(--ts-muted)" }}
                 >
                   {t("parser:myTemplates.disable")}
+                </button>
+              )}
+              {tmpl.status === "active" && SHAREABLE_DOMAINS.has(tmpl.domain ?? "flight") && (
+                <button
+                  data-testid={`share-${tmpl.id}`}
+                  onClick={() => setSharing((open) => (open === tmpl.id ? null : tmpl.id))}
+                  aria-expanded={sharing === tmpl.id}
+                  className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+                  style={{ background: "var(--ts-bg)", color: "var(--ts-text)" }}
+                >
+                  {t("parser:communityExport.action")}
                 </button>
               )}
               <button
@@ -213,13 +228,16 @@ export default function MyTemplates(): JSX.Element {
                 onClick={() => handleDelete(tmpl.id)}
                 disabled={actionLoading === tmpl.id}
                 className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
-                style={{ background: "rgba(248,81,73,0.12)", color: "var(--danger)" }}
+                style={{ background: "rgba(248,81,73,0.12)", color: "var(--ts-bad)" }}
               >
                 {t("common:buttons.delete")}
               </button>
             </div>
           </div>
           {previews[tmpl.id] && <TemplatePreviewPanel preview={previews[tmpl.id]} />}
+          {sharing === tmpl.id && (
+            <CommunityExportPanel templateId={tmpl.id} domain={tmpl.domain ?? "flight"} />
+          )}
         </div>
       ))}
       {confirmDialog}

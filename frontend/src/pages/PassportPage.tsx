@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AppShell from "../components/ui/AppShell";
 
 import UnconfirmedCountries from "../components/Passport/UnconfirmedCountries";
+import ExcludedCountries from "../components/Passport/ExcludedCountries";
+import CountryOverrideDialog, {
+  type CountryOverrideTarget,
+} from "../components/Passport/CountryOverrideDialog";
 import CountryTable from "../components/Passport/CountryTable";
 import EvidenceSummary from "../components/Passport/EvidenceSummary";
 import { countryName } from "../components/Passport/countryName";
@@ -12,7 +16,7 @@ import { useDismissedNotice } from "../hooks/useDismissedNotice";
 import { useAuthStore } from "../store/authStore";
 import { useEnabledDomains } from "../hooks/useEnabledDomains";
 import { logger } from "../lib/logger";
-import type { Passport, PassportContinentGroup } from "../types/passport";
+import type { Passport, PassportContinentGroup, PassportCountry } from "../types/passport";
 
 /**
  * The passport.
@@ -56,6 +60,22 @@ export default function PassportPage(): JSX.Element {
   const [passport, setPassport] = useState<Passport | null>(null);
   const [loading, setLoading] = useState(true);
   const [failure, setFailure] = useState<LoadFailure | null>(null);
+  // The correction dialog (forgejo#308): closed, adding (null target) or correcting.
+  const [dialog, setDialog] = useState<{ target: CountryOverrideTarget | null } | null>(null);
+
+  /**
+   * Reload after an override write. It THROWS on failure rather than setting
+   * the page's own failure state: the write did happen, so the page keeps
+   * what it shows and the dialog says the reload failed.
+   */
+  const reloadPassport = useCallback(async (): Promise<void> => {
+    setPassport(await statsApi.getPassport());
+  }, []);
+  const correct = useCallback(
+    (row: PassportCountry) =>
+      setDialog({ target: { code: row.code, override: row.override ?? null } }),
+    []
+  );
 
   // The page left the beta gate on 2026-09-05 (its own condition, "or 2.7.0
   // opens", had come true). The one remaining precondition is the flights
@@ -109,7 +129,7 @@ export default function PassportPage(): JSX.Element {
     return (
       <AppShell width="reading">
         <h1 className="t-screen-title mb-2">{t("passport:title")}</h1>
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+        <p className="text-sm" style={{ color: "var(--ts-muted)" }}>
           {t("passport:needsFlights")}
         </p>
       </AppShell>
@@ -122,21 +142,33 @@ export default function PassportPage(): JSX.Element {
         {/* T3 (2026-09-17 tester feedback): the "Zurück zu Statistiken" link
             duplicated the header's own navigation and led nowhere else in the
             app — removed rather than kept as a second way back. */}
-        {passport && passport.summary.countriesTotal > 0 && (
-          <div className="flex justify-end mb-4 print:hidden">
+        {passport && (
+          <div className="flex flex-wrap justify-end gap-2 mb-4 print:hidden">
+            {/* forgejo#308: offered on an empty passport too — a visit no
+                record shows is exactly what a manual entry is for. */}
             <button
               type="button"
-              onClick={(): void => window.print()}
+              onClick={(): void => setDialog({ target: null })}
               className="text-sm px-3 py-1.5 rounded-lg border"
-              style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+              style={{ borderColor: "var(--border)", color: "var(--ts-muted)" }}
             >
-              {t("passport:print")}
+              {t("passport:overrides.add")}
             </button>
+            {passport.summary.countriesTotal > 0 && (
+              <button
+                type="button"
+                onClick={(): void => window.print()}
+                className="text-sm px-3 py-1.5 rounded-lg border"
+                style={{ borderColor: "var(--border)", color: "var(--ts-muted)" }}
+              >
+                {t("passport:print")}
+              </button>
+            )}
           </div>
         )}
 
         {loading && (
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+          <p className="text-sm" style={{ color: "var(--ts-muted)" }}>
             {t("common:loading.default")}
           </p>
         )}
@@ -146,7 +178,7 @@ export default function PassportPage(): JSX.Element {
         {!loading && failure !== null && (
           <div
             className="rounded-xl p-6"
-            style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)" }}
+            style={{ background: "var(--ts-surface)", color: "var(--ts-muted)" }}
           >
             <p className="text-sm mb-3">{t("passport:loadError")}</p>
             <button
@@ -171,10 +203,10 @@ export default function PassportPage(): JSX.Element {
               {passport.summary.countriesTotal === 0 ? (
                 <div
                   className="rounded-xl p-8 text-center"
-                  style={{ background: "var(--bg-elevated)" }}
+                  style={{ background: "var(--ts-surface)" }}
                 >
                   <h1 className="t-screen-title mb-2">{t("passport:title")}</h1>
-                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  <p className="text-sm" style={{ color: "var(--ts-muted)" }}>
                     {t("passport:empty")}
                   </p>
                 </div>
@@ -184,7 +216,7 @@ export default function PassportPage(): JSX.Element {
                   <section
                     className="rounded-xl p-4 sm:p-6 mb-6 border"
                     style={{
-                      background: "var(--bg-elevated)",
+                      background: "var(--ts-surface)",
                       borderColor: "var(--border)",
                     }}
                     aria-labelledby="passport-heading"
@@ -196,7 +228,7 @@ export default function PassportPage(): JSX.Element {
                       {passport.summary.firstStampYear !== null && (
                         <span
                           className="text-xs uppercase tracking-widest"
-                          style={{ color: "var(--text-muted)" }}
+                          style={{ color: "var(--ts-muted)" }}
                         >
                           {t("passport:since", { year: passport.summary.firstStampYear })}
                         </span>
@@ -211,7 +243,7 @@ export default function PassportPage(): JSX.Element {
                       <div>
                         <dt
                           className="text-[11px] uppercase tracking-wider"
-                          style={{ color: "var(--text-muted)" }}
+                          style={{ color: "var(--ts-muted)" }}
                         >
                           {t("passport:summary.countries")}
                         </dt>
@@ -223,7 +255,7 @@ export default function PassportPage(): JSX.Element {
                         </dd>
                         <dt
                           className="text-[11px] uppercase tracking-wider mt-2"
-                          style={{ color: "var(--text-muted)" }}
+                          style={{ color: "var(--ts-muted)" }}
                         >
                           {t("passport:summary.groundCountries")}
                         </dt>
@@ -238,7 +270,7 @@ export default function PassportPage(): JSX.Element {
                         {(passport.summary.unclearCountries ?? 0) > 0 && (
                           <p
                             className="text-xs mt-1"
-                            style={{ color: "var(--text-muted)" }}
+                            style={{ color: "var(--ts-muted)" }}
                             data-testid="passport-unclear-count"
                           >
                             {t("passport:summary.unclearCountries")}:{" "}
@@ -253,7 +285,7 @@ export default function PassportPage(): JSX.Element {
                         <div key={key as string}>
                           <dt
                             className="text-[11px] uppercase tracking-wider"
-                            style={{ color: "var(--text-muted)" }}
+                            style={{ color: "var(--ts-muted)" }}
                           >
                             {t(`passport:summary.${key as string}`)}
                           </dt>
@@ -268,7 +300,7 @@ export default function PassportPage(): JSX.Element {
                       <div>
                         <dt
                           className="text-[11px] uppercase tracking-wider"
-                          style={{ color: "var(--text-muted)" }}
+                          style={{ color: "var(--ts-muted)" }}
                         >
                           {t("passport:summary.continents")}
                         </dt>
@@ -277,7 +309,7 @@ export default function PassportPage(): JSX.Element {
                           style={{ fontVariantNumeric: "tabular-nums" }}
                         >
                           {passport.summary.continentsVisited}
-                          <span className="text-base" style={{ color: "var(--text-muted)" }}>
+                          <span className="text-base" style={{ color: "var(--ts-muted)" }}>
                             {" / "}
                             {passport.summary.continentsTotal}
                           </span>
@@ -294,9 +326,9 @@ export default function PassportPage(): JSX.Element {
                         <p
                           className="mb-6 rounded-md px-3 py-2 text-xs"
                           style={{
-                            background: "var(--bg-elevated)",
-                            border: "1px solid var(--color-border)",
-                            color: "var(--text-primary)",
+                            background: "var(--ts-surface)",
+                            border: "1px solid var(--ts-border)",
+                            color: "var(--ts-text)",
                           }}
                         >
                           <span>
@@ -314,7 +346,7 @@ export default function PassportPage(): JSX.Element {
                             type="button"
                             onClick={countingNotice.dismiss}
                             className="ml-3 underline"
-                            style={{ color: "var(--text-muted)" }}
+                            style={{ color: "var(--ts-muted)" }}
                           >
                             {t("passport:countingChanged.dismiss")}
                           </button>
@@ -328,7 +360,7 @@ export default function PassportPage(): JSX.Element {
 
                     <h2
                       className="text-[11px] uppercase tracking-wider mb-2"
-                      style={{ color: "var(--text-muted)" }}
+                      style={{ color: "var(--ts-muted)" }}
                     >
                       {t("passport:stamps")}
                     </h2>
@@ -343,10 +375,7 @@ export default function PassportPage(): JSX.Element {
                           <span className="block text-sm font-semibold tracking-wider">
                             {stamp.iata}
                           </span>
-                          <span
-                            className="block text-[10px]"
-                            style={{ color: "var(--text-muted)" }}
-                          >
+                          <span className="block text-[10px]" style={{ color: "var(--ts-muted)" }}>
                             {monthStamp(stamp.date, locale)}
                           </span>
                         </li>
@@ -357,7 +386,7 @@ export default function PassportPage(): JSX.Element {
                   {/* ── the continent band ─────────────────────────────── */}
                   <section
                     className="rounded-xl p-4 sm:p-6 mb-6 border"
-                    style={{ background: "var(--bg-elevated)", borderColor: "var(--border)" }}
+                    style={{ background: "var(--ts-surface)", borderColor: "var(--border)" }}
                     aria-labelledby="continents-heading"
                   >
                     <h2 id="continents-heading" className="text-sm font-semibold mb-1">
@@ -365,7 +394,7 @@ export default function PassportPage(): JSX.Element {
                     </h2>
                     {/* The denominator is named, because an unnamed one is a
                         made-up number sitting next to a real one. */}
-                    <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+                    <p className="text-xs mb-4" style={{ color: "var(--ts-muted)" }}>
                       {t("passport:continents.denominator")}
                     </p>
                     <ul className="space-y-2.5">
@@ -376,20 +405,20 @@ export default function PassportPage(): JSX.Element {
                           </span>
                           <span
                             className="flex-1 h-2 rounded-full overflow-hidden"
-                            style={{ background: "var(--bg-base)" }}
+                            style={{ background: "var(--ts-bg)" }}
                           >
                             <span
                               className="block h-full rounded-full"
                               style={{
                                 width: `${row.total > 0 ? (row.visited / row.total) * 100 : 0}%`,
-                                background: "var(--accent)",
+                                background: "var(--ts-accent)",
                               }}
                             />
                           </span>
                           <span
                             className="w-16 text-right text-xs"
                             style={{
-                              color: "var(--text-muted)",
+                              color: "var(--ts-muted)",
                               fontVariantNumeric: "tabular-nums",
                             }}
                           >
@@ -403,9 +432,18 @@ export default function PassportPage(): JSX.Element {
                   {/* ── the full table, which is what a desktop adds ──────
                       Every country with any evidence, including the ones the
                       headline does not count: those are greyed, never dropped. */}
-                  <CountryTable countries={passport.countries} locale={locale} />
+                  <CountryTable
+                    countries={passport.countries}
+                    locale={locale}
+                    onCorrect={correct}
+                  />
                 </>
               )}
+              <ExcludedCountries
+                countries={passport.excludedCountries ?? []}
+                locale={locale}
+                onChanged={reloadPassport}
+              />
               <UnconfirmedCountries
                 countries={passport.unconfirmedCountries ?? []}
                 locale={locale}
@@ -414,6 +452,13 @@ export default function PassportPage(): JSX.Element {
           </>
         )}
       </div>
+      <CountryOverrideDialog
+        open={dialog !== null}
+        target={dialog?.target ?? null}
+        locale={locale}
+        onClose={(): void => setDialog(null)}
+        onChanged={reloadPassport}
+      />
     </AppShell>
   );
 }
