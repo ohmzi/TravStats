@@ -36,6 +36,7 @@
     "calendarFeedPublic.ts",
     "companions.ts",
     "comparisonPeer.ts",
+    "tripSharePeer.ts",
     "countryFlags.ts",
     "cruises/include.ts",
     "cruises/queryFilters.ts",
