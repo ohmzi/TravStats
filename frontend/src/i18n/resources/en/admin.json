@@ -197,6 +197,10 @@
           "calendarFeed": {
             "name": "Calendar subscription",
             "what": "A secret link under Settings → Trips that any calendar app can subscribe to: the account's upcoming flights, stays, rides, cruises and trips. With the switch off, no link is issued and none is answered."
+          },
+          "federatedTripSharing": {
+            "name": "Trip sharing across servers",
+            "what": "Connect with companions on other TravStats servers by invitation code, under Settings → Trips; it has its own switch under server connections as well. No trip crosses yet. With the switch off, this server does not answer other servers for it at all."
           }
         }
       },
@@ -1104,6 +1108,8 @@
     "originHint": "https, no port or path — the way other servers reach it.",
     "generateKey": "Generate key",
     "rotateWarning": "A new key replaces the old one. Connected servers have to pin it again.",
+    "tripSharing": "Share trips with other servers",
+    "tripSharingSub": "People on trusted servers can share trips with accounts on this server. The facts of a shared trip travel signed over TLS to the companion's server; private fields never do. Takes effect only with a key and beta features switched on.",
     "fingerprint": "Fingerprint — give it to the other server's admin through a second channel (e.g. a phone call):",
     "peers": "Trusted servers",
     "verifiedAt": "verified on {{date}}",
@@ -1160,6 +1166,7 @@
       "httpsRequired": "Plain http is allowed only to a host on your own network. Use https.",
       "credentialsInUrl": "The URL must not contain a user name or password — it is stored and shown in plain text.",
       "unreachable": "The repository could not be reached, or it has no index.json at that address.",
+      "tooLarge": "A server answers at that address, but its index.json is larger than 2 MB — that is not a template index.",
       "notAnIndex": "There is a file at that address, but it is not a version-2 template index."
     },
     "synced_one": "Saved and synced: {{count}} template is active.",
@@ -1169,5 +1176,69 @@
     "loadFailed": "The template repository setting could not be loaded.",
     "testFailed": "The test could not be run. Please try again.",
     "saveFailed": "The template repository could not be saved."
+  },
+  "pages": {
+    "instance": "Instance",
+    "users": "Users",
+    "invitations": "Invitations",
+    "externalServices": "External services",
+    "parsers": "Import & parser",
+    "smtp": "Email delivery",
+    "backups": "Backups",
+    "timeModel": "Time model",
+    "logging": "Logging",
+    "system": "System information",
+    "airlinesMasterData": "Airlines",
+    "aircraftMasterData": "Aircraft",
+    "airportsMasterData": "Airports",
+    "shipsMasterData": "Ships",
+    "portsMasterData": "Ports"
+  },
+  "menu": {
+    "manage": "Administration",
+    "operations": "Services & operations",
+    "masterFlight": "Master data · Flight",
+    "masterCruise": "Master data · Cruise"
+  },
+  "search": {
+    "keywords": {
+      "instance": "Instance name, name, address, public address, URL, home network, registration, maximum accounts, beta, beta features, sign-in background",
+      "shareLinks": "Public links, share, sharing",
+      "importMode": "Import mode, import",
+      "usageStats": "Usage statistics, statistics, telemetry, anonymous",
+      "about": "Version, licence, data sources, attribution, about, imprint, documentation",
+      "geocoder": "Geocoder, address, coordinates, Nominatim, Photon, place search",
+      "federation": "Server connections, federation, other instance, server",
+      "push": "Push, notifications, relay, push relay",
+      "users": "Users, accounts, lock account, reset two-factor, password",
+      "invitations": "Invitation, invite, invitation link, registration",
+      "externalServices": "API keys, global keys, AirLabs, Aviationstack, AeroDataBox, OpenSky, Logostream, Google Places, Immich, routing, OpenRouteService, rail, open data, operator logos, Wikidata, Wikimedia",
+      "parsers": "Parser, AI, LLM, Ollama, OpenAI, Claude, read bookings",
+      "templateRepo": "Templates, template repository, repository",
+      "smtp": "Email, SMTP, mail server, delivery",
+      "backups": "Backup, restore, schedule",
+      "webdav": "WebDAV, sync, Nextcloud",
+      "timeModel": "Time model, time zone, local time",
+      "logging": "Log, logging, debug, diagnostics",
+      "system": "System, system information, version, export, statistics",
+      "airlinesMasterData": "Airlines, master data, logo",
+      "aircraftMasterData": "Aircraft, aircraft types, master data",
+      "airportsMasterData": "Airports, master data, IATA",
+      "shipsMasterData": "Ships, master data, IMO",
+      "portsMasterData": "Ports, master data, UN/LOCODE"
+    },
+    "expertKeywords": {
+      "instance": "Home network address, LAN, passkey, rpId, origins, beta switch",
+      "parsers": "Ollama URL, pull model, model, quota, exchange-rate source",
+      "externalServices": "allow own keys, permissions"
+    }
+  },
+  "operatorLogos": {
+    "title": "Open data for operator logos",
+    "description": "Logos of rail operators, coach companies, ferry lines and rental companies on the map cards come from Wikidata and Wikimedia Commons – freely licensed files only, with their authors credited. The server asks, never the browser, and sends only the company's name. Switched off, the cards show monograms.",
+    "switch": "Load operator logos from open data",
+    "switchSub": "Applies to the whole instance. No account, no key.",
+    "loadFailed": "The setting could not be loaded.",
+    "saveFailed": "The setting could not be saved."
   }
 }

@@ -12,6 +12,13 @@
 // Widening a field here is therefore not free: it has to stay something the
 // globe layer datum already carries.
 
+import type {
+  JourneyRouteCardDatum,
+  JourneyStopCardDatum,
+  TourCardDatum,
+  TripStopCardDatum,
+} from "./journeys/journeyTypes";
+
 /** One end of a route — whatever identity the renderer could resolve. */
 export interface CardEndpoint {
   iata?: string;

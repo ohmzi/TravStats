@@ -7,6 +7,8 @@ import { TOUR_RGB, type TourPathDatum } from "../../layers/tourPathsLayer";
 import type { MapPinned } from "../../map/cards/pinnedTypes";
 import { LEG_MODES, type LegMode } from "../../../types/tour";
 import { useOverlayAppearance } from "../../../store/overlayAppearanceStore";
+import type { TourSummary } from "../../../lib/api/tourIndex";
+import { withTourCards } from "../../map/cards/journeys/tourLayerCards";
 
 // Split out of AllTab.tsx purely to keep that file under its 800-line
 // ceiling — everything here is dashboard-wide-tour-specific (tour sections
@@ -257,6 +259,9 @@ function pathMidpoint(datum: TourPathDatum): [number, number] {
  * The tour layer with the user's width sliders applied — the hook both the
  * "Alle" map and the tour/roadtrip tab call, so the two cannot read the store
  * differently. Lifted on the globe (`TOUR_PATH_GLOBE_ALTITUDE_M`).
+ *
+ * `tours` are the summaries the lines were fetched for; with them every leg
+ * opens its tour's map card (forgejo#323).
  */
 export function useTourDeckLayers(
   pathData: readonly TourPathDatum[],
@@ -275,6 +280,8 @@ export function useTourDeckLayers(
     [pathData, onGlobe, tourLineWidth, roadtripLineWidth, onPick]
   );
 }
+
+const NO_TOURS: readonly TourSummary[] = [];
 
 export interface TourStatusOverlayProps {
   loading: boolean;

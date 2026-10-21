@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useIsDemoAccount } from "../../hooks/useIsDemoAccount";
 import { failureKey, immichApi, immichFailureKind } from "../../lib/api/immich";
@@ -51,7 +51,12 @@ function CapabilityLine({ capabilities }: { capabilities: ImmichKeyCapabilities 
  * an empty key field means "leave the stored key alone" and the explicit
  * "remove key" action sends `null`.
  */
-export default function ImmichConnectionCard(): JSX.Element {
+export default function ImmichConnectionCard({
+  onStatus,
+}: {
+  /** Told what the server answered, for the services summary (forgejo#321). */
+  onStatus?: (status: ImmichConnectionStatus) => void;
+} = {}): JSX.Element {
   const { t } = useTranslation("immich");
   const isDemo = useIsDemoAccount();
 
@@ -64,8 +69,11 @@ export default function ImmichConnectionCard(): JSX.Element {
   const [testResult, setTestResult] = useState<ImmichTestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const onStatusRef = useRef(onStatus);
+  onStatusRef.current = onStatus;
   const apply = useCallback((next: ImmichConnectionStatus) => {
     setStatus(next);
+    onStatusRef.current?.(next);
     setBaseUrl(next.baseUrl ?? "");
     setDefaultMode(next.defaultMode);
   }, []);
@@ -144,7 +152,7 @@ export default function ImmichConnectionCard(): JSX.Element {
   return (
     <SectionCard>
       <SectionTitle
-        title={t("title")}
+        title={t("immich:title")}
         description={t("subtitle")}
         whenUnreachable={t("settings:unreachable.immich")}
         badge={status?.isShared ? <Pill color={token("accent")}>{t("shared")}</Pill> : undefined}

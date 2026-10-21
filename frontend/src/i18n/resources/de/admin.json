@@ -197,6 +197,10 @@
           "calendarFeed": {
             "name": "Kalender-Abo",
             "what": "Ein geheimer Link unter Einstellungen → Reisen, den jede Kalender-App abonnieren kann: kommende Flüge, Aufenthalte, Fahrten, Kreuzfahrten und Reisen des eigenen Kontos. Mit ausgeschaltetem Schalter wird kein Link ausgegeben und keiner beantwortet."
+          },
+          "federatedTripSharing": {
+            "name": "Reisen über Server teilen",
+            "what": "Mitreisende auf anderen TravStats-Servern per Einladungscode verbinden, unter Einstellungen → Reisen; dazu kommt ein eigener Schalter unter Server-Verbindungen. Noch geht keine Reise über die Leitung. Mit ausgeschaltetem Schalter antwortet dieser Server anderen Servern dafür gar nicht."
           }
         }
       },
@@ -1104,6 +1108,8 @@
     "originHint": "https, ohne Port und Pfad – so, wie andere Server ihn erreichen.",
     "generateKey": "Schlüssel erzeugen",
     "rotateWarning": "Ein neuer Schlüssel ersetzt den alten. Verbundene Server müssen ihn neu hinterlegen.",
+    "tripSharing": "Reisen mit anderen Servern teilen",
+    "tripSharingSub": "Leute auf vertrauten Servern können Reisen mit Konten auf diesem Server teilen. Die Fakten einer geteilten Reise gehen signiert über TLS zum Server des Mitreisenden; private Angaben nie. Wirkt nur mit einem Schlüssel und eingeschalteten Beta-Funktionen.",
     "fingerprint": "Fingerabdruck – gib ihn dem Admin des anderen Servers auf einem zweiten Weg (z. B. am Telefon):",
     "peers": "Vertraute Server",
     "verifiedAt": "geprüft am {{date}}",
@@ -1160,6 +1166,7 @@
       "httpsRequired": "Unverschlüsseltes http ist nur zu einem Rechner in deinem eigenen Netz erlaubt. Bitte https verwenden.",
       "credentialsInUrl": "Die URL darf keinen Benutzernamen und kein Passwort enthalten — sie wird im Klartext gespeichert und angezeigt.",
       "unreachable": "Das Repository war nicht erreichbar, oder unter dieser Adresse liegt keine index.json.",
+      "tooLarge": "Unter dieser Adresse antwortet ein Server, aber die index.json ist größer als 2 MB – das ist kein Vorlagen-Index.",
       "notAnIndex": "Unter dieser Adresse liegt eine Datei, aber kein Vorlagen-Index der Version 2."
     },
     "synced_one": "Gespeichert und synchronisiert: {{count}} Vorlage ist aktiv.",
@@ -1169,5 +1176,69 @@
     "loadFailed": "Die Einstellung zum Vorlagen-Repository konnte nicht geladen werden.",
     "testFailed": "Der Test konnte nicht ausgeführt werden. Bitte erneut versuchen.",
     "saveFailed": "Das Vorlagen-Repository konnte nicht gespeichert werden."
+  },
+  "pages": {
+    "instance": "Instanz",
+    "users": "Benutzer",
+    "invitations": "Einladungen",
+    "externalServices": "Externe Dienste",
+    "parsers": "Import & Parser",
+    "smtp": "E-Mail-Versand",
+    "backups": "Sicherungen",
+    "timeModel": "Zeitmodell",
+    "logging": "Protokollierung",
+    "system": "Systeminformationen",
+    "airlinesMasterData": "Fluggesellschaften",
+    "aircraftMasterData": "Flugzeuge",
+    "airportsMasterData": "Flughäfen",
+    "shipsMasterData": "Schiffe",
+    "portsMasterData": "Häfen"
+  },
+  "menu": {
+    "manage": "Verwaltung",
+    "operations": "Dienste & Betrieb",
+    "masterFlight": "Stammdaten · Flug",
+    "masterCruise": "Stammdaten · Kreuzfahrt"
+  },
+  "search": {
+    "keywords": {
+      "instance": "Instanzname, Name, Adresse, öffentliche Adresse, URL, Heimnetz, Registrierung, Höchstzahl Konten, Beta, Beta-Funktionen, Anmeldehintergrund",
+      "shareLinks": "Öffentliche Links, Freigabe, teilen",
+      "importMode": "Import-Modus, Import",
+      "usageStats": "Nutzungsstatistik, Statistik, Telemetrie, anonym",
+      "about": "Version, Lizenz, Datenquellen, Attribution, Über, Impressum, Dokumentation",
+      "geocoder": "Geocoder, Adresse, Koordinaten, Nominatim, Photon, Ortssuche",
+      "federation": "Serververbindungen, Föderation, andere Instanz, Server",
+      "push": "Push, Benachrichtigungen, Relay, Push-Relay",
+      "users": "Benutzer, Konten, Konto sperren, Zwei-Faktor zurücksetzen, Passwort",
+      "invitations": "Einladung, einladen, Einladungslink, Registrierung",
+      "externalServices": "API-Schlüssel, globale Schlüssel, AirLabs, Aviationstack, AeroDataBox, OpenSky, Logostream, Google Places, Immich, Routing, OpenRouteService, Bahn, Offene Daten, Betreiber-Logos, Wikidata, Wikimedia",
+      "parsers": "Parser, KI, LLM, Ollama, OpenAI, Claude, Buchungen lesen",
+      "templateRepo": "Vorlagen, Vorlagen-Repository, Templates, Repository",
+      "smtp": "E-Mail, SMTP, Mailserver, Versand",
+      "backups": "Backup, Sicherung, Wiederherstellen, Zeitplan",
+      "webdav": "WebDAV, Abgleich, Sync, Nextcloud",
+      "timeModel": "Zeitmodell, Zeitzone, Ortszeit",
+      "logging": "Protokoll, Log, Logging, Debug, Diagnose",
+      "system": "System, Systeminformationen, Version, Export, Statistik",
+      "airlinesMasterData": "Fluggesellschaften, Airlines, Stammdaten, Logo",
+      "aircraftMasterData": "Flugzeuge, Flugzeugtypen, Stammdaten",
+      "airportsMasterData": "Flughäfen, Airports, Stammdaten, IATA",
+      "shipsMasterData": "Schiffe, Stammdaten, IMO",
+      "portsMasterData": "Häfen, Stammdaten, UN/LOCODE"
+    },
+    "expertKeywords": {
+      "instance": "Heimnetz-Adresse, LAN, Passkey, rpId, Origins, Beta-Schalter",
+      "parsers": "Ollama-URL, Modell laden, Modell, Kontingent, Wechselkurs-Quelle",
+      "externalServices": "eigene Schlüssel erlauben, Berechtigungen"
+    }
+  },
+  "operatorLogos": {
+    "title": "Offene Daten für Betreiber-Logos",
+    "description": "Logos von Bahnbetreibern, Busunternehmen, Reedereien und Vermietern auf den Kartenkarten kommen aus Wikidata und Wikimedia Commons – nur frei lizenzierte Dateien, mit Nennung der Urheber. Der Server fragt dort nach, nie der Browser, und schickt nur den Namen des Unternehmens. Ausgeschaltet zeigen die Karten Monogramme.",
+    "switch": "Betreiber-Logos aus offenen Daten laden",
+    "switchSub": "Gilt für die ganze Instanz. Kein Konto, kein Schlüssel.",
+    "loadFailed": "Die Einstellung konnte nicht geladen werden.",
+    "saveFailed": "Die Einstellung konnte nicht gespeichert werden."
   }
 }
