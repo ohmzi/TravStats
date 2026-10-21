@@ -40,6 +40,7 @@ export type ApiErrorCode =
   | "PLAN_EXECUTION_DATE"
   | "PLAN_EXECUTION_EDITED"
   | "PLAN_IDEMPOTENCY_CONFLICT"
+  | "PLAN_INVALID_NIGHT"
   | "PLAN_ITEM_NOT_FOUND"
   | "PLAN_NOT_FOUND"
   | "PLAN_PROPOSAL_CONFLICT"
@@ -47,8 +48,11 @@ export type ApiErrorCode =
   | "PLAN_PROPOSAL_STALE"
   | "PLAN_PROTECTED"
   | "PLAN_REVISION_CONFLICT"
+  | "PLAN_SHAPE_IN_USE"
+  | "PLAN_STAGE_CHANGED"
   | "PLAN_TOO_LARGE"
   | "PLAN_UNDO_STALE"
+  | "PLAN_VARIANT_LIMIT"
   | "PLAN_WEATHER_HORIZON"
   | "PLAN_WEATHER_INVALID"
   | "PLAN_WEATHER_LOCATION"
@@ -100,6 +104,10 @@ export type ApiErrorCode =
    *  the text being saved. The two used to be allowed to disagree, which
    *  corrupted every derivation built on it in silence. */
   | "ANNOTATION_TEXT_MISMATCH"
+  /** A workshop screenshot that is no image the OCR can read (forgejo#309). */
+  | "TRAINING_IMAGE_UNREADABLE"
+  /** A workshop screenshot the OCR read almost no text from — no sample is kept. */
+  | "TRAINING_IMAGE_NO_TEXT"
   /** The requested username is reserved by the system — see
    *  `schemas/auth.ts` `RESERVED_USERNAMES`. The register form turns this
    *  into its own sentence, in the reader's language. */
@@ -207,11 +215,18 @@ export type ApiErrorCode =
   | "TRIP_FILE_UNSAFE_PATH"
   /** A trip, booking or flight id the request named is not the caller's. */
   | "TRIP_NOT_FOUND"
+  /** Trip recording (forgejo#316): the trip was merged away; `extra.mergedIntoTripId`
+   *  names the caller's trip that now holds it (404). */
+  | "TRIP_MERGED"
   | "BOOKING_NOT_FOUND"
   | "FLIGHT_NOT_FOUND"
   /** A stay or cruise a booking was asked to cover is not the caller's (#356). */
   | "STAY_NOT_FOUND"
   | "CRUISE_NOT_FOUND"
+  /** Passport overrides (forgejo#308): a code that names no country this server knows. */
+  | "COUNTRY_UNKNOWN"
+  /** There is no override for that country to delete. */
+  | "COUNTRY_OVERRIDE_NOT_FOUND"
   /** A request body failed its schema. Sent on every ZodError answer, so a
    *  form shows its own sentence instead of zod's JSON issue dump. */
   | "VALIDATION_FAILED"
@@ -228,8 +243,11 @@ export type ApiErrorCode =
   | "PHOTO_CONVERSION_UNAVAILABLE"
   /** Tour track upload: the file is over the size limit. */
   | "TRACK_FILE_TOO_LARGE"
-  /** Tour track upload: not readable as GPX, TCX or FIT. */
+  /** Tour track upload: not readable as GPX, TCX or FIT (a flight's file
+   *  upload also takes KML, forgejo#312). */
   | "TRACK_FILE_UNREADABLE"
+  /** Flight track file upload (forgejo#312): the multipart request carried no file. */
+  | "TRACK_FILE_MISSING"
   /** Tour track upload: a recording without timestamps cannot be placed in time. */
   | "TRACK_NO_TIMESTAMPS"
   /** Tour track upload: this recording is already on the tour. */
@@ -268,6 +286,14 @@ export type ApiErrorCode =
   /** Flight recording: its time span is nowhere near the flight's schedule —
    *  a recording filed under the wrong flight (422). */
   | "TRACK_OUTSIDE_FLIGHT"
+  /** Trip recording (forgejo#316): the account switch is off — nothing stored (409). */
+  | "TRIP_RECORDING_DISABLED"
+  /** Trip recording: a point with a coordinate outside lat ±90 / lon ±180 (400). */
+  | "RECORDING_INVALID_POINT"
+  /** Trip recording: the trip has no first or last day to bound the points by (422). */
+  | "TRIP_RECORDING_NO_SPAN"
+  /** Trip recording: this uploadId is already stored under another trip (409). */
+  | "RECORDING_UPLOAD_ID_REUSED"
   /** Observed takeoff/landing (forgejo#194): a time in the future (400). */
   | "OBSERVED_TIME_IN_FUTURE"
   /** Observed takeoff/landing: more than 12 h from the schedule (422). */
@@ -368,6 +394,20 @@ export type ApiErrorCode =
    *  network (`llm/llmEndpoint.ts`). */
   | "LLM_BASE_URL_INVALID"
   | "LLM_BASE_URL_HTTPS_REQUIRED"
+  /** The admin's template repository URL (forgejo#309, `routes/admin/templateRepo.ts`):
+   *  malformed / not http(s) / carrying credentials, or plain http to a host
+   *  outside the local network — the `llm/llmEndpoint.ts` rule. */
+  | "TEMPLATE_REPO_URL_INVALID"
+  | "TEMPLATE_REPO_URL_HTTPS_REQUIRED"
+  /** Exporting a workshop template for the community (forgejo#309,
+   *  `parserTemplates.ts`): it holds a value of the user's own document where
+   *  it cannot be blanked (422, `extra.kinds`), it is not active yet (409), or
+   *  its kind is stored in a format the repository does not take (422), or
+   *  the sample whose marks the scan needs was deleted (422). */
+  | "TEMPLATE_EXPORT_PERSONAL_DATA"
+  | "TEMPLATE_EXPORT_NOT_ACTIVE"
+  | "TEMPLATE_EXPORT_UNSUPPORTED"
+  | "TEMPLATE_EXPORT_SOURCE_MISSING"
   /** The admin log area (`routes/admin/logging.ts`): a name that fails the
    *  traversal guard (400), a file that is not there (404), a file that could
    *  not be read or decompressed (500). */
@@ -448,6 +488,8 @@ export type ApiErrorCode =
   | "SHARE_LINKS_DISABLED"
   /** A flight link for a flight that has already landed (409). */
   | "SHARE_LINK_FLIGHT_LANDED"
+  /** A trip link with the itinerary for a trip whose last day is over (409, forgejo#302). */
+  | "SHARE_LINK_TRIP_ENDED"
   /** The account already holds the maximum of active links (409). */
   | "SHARE_LINK_LIMIT"
   /** An expiry in the past or beyond the maximum (400). */

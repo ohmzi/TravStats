@@ -26,6 +26,7 @@ import passkeyRoutes from "./auth/passkeys";
 import flightRoutes from "./flights";
 import flightEntrySuggestionRoutes from "./flights/entrySuggestions";
 import flightTrackRoutes from "./flights/track";
+import flightTrackLineRoutes from "./flights/trackLines";
 import flightObservedTimesRoutes from "./flights/observedTimes";
 import flightBookingRoutes from "./flights/booking";
 import flightBulkEditRoutes from "./flights/bulkEdit";
@@ -83,6 +84,7 @@ import tourPointRoutes from "./trips/tourPoints";
 import tourKindRoutes from "./trips/tourKind";
 import roadtripRoutes from "./roadtrips";
 import tripExpenseRoutes from "./trips/tripExpenses";
+import tripRecordingRoutes from "./trips/tripRecording";
 import stravaRoutes from "./integrations/strava";
 import openDataRoutes from "./openData";
 import immichTripRoutes from "./immich/tripAlbums";
@@ -142,6 +144,7 @@ import companionRoutes from "./companions";
 import noteRoutes from "./notes";
 import sharingRoutes from "./sharing";
 import shareLinkRoutes from "./shareLinks";
+import passportOverrideRoutes from "./passportOverrides";
 import publicShareLinkRoutes from "./publicShareLinks";
 import calendarFeedRoutes from "./calendarFeed";
 import calendarFeedPublicRoutes from "./calendarFeedPublic";
@@ -224,6 +227,8 @@ export const apiMounts: ApiMount[] = [
   // Trip, tags and companions over a selection (forgejo#217) — before
   // `flights` too, for the same reason.
   { id: "flights.bulkEdit", base: "/api/v1/flights", router: flightBulkEditRoutes },
+  // Recorded lines for the map (forgejo#312) — before `flights`, same reason.
+  { id: "flights.trackLines", base: "/api/v1/flights", router: flightTrackLineRoutes },
   { id: "flights", base: "/api/v1/flights", router: flightRoutes },
   // What a paired phone sends about a flight (forgejo#193/#194) — satellites
   // at the same prefix, the `cruises.tracks` pattern: flights.ts is frozen.
@@ -269,6 +274,8 @@ export const apiMounts: ApiMount[] = [
     router: statsDomainRecordsRoutes,
   },
   { id: "stats", base: "/api/v1/stats", router: statsRoutes },
+  // The user's own verdicts on passport countries (forgejo#308).
+  { id: "passportOverrides", base: "/api/v1/passport/overrides", router: passportOverrideRoutes },
   { id: "airports", base: "/api/v1/airports", router: airportRoutes },
   { id: "airlineLogos", base: "/api/v1/airline-logos", router: airlineLogoRoutes },
   { id: "countryFlags", base: "/api/v1/country-flags", router: countryFlagRoutes },
@@ -317,6 +324,8 @@ export const apiMounts: ApiMount[] = [
   // meets these routes in exactly the order it did when they lived in trips.ts.
   { id: "tripStops", base: "/api/v1", router: tripStopRoutes },
   { id: "tripPhotos", base: "/api/v1", router: tripPhotoRoutes },
+  // The Companion's trip recording (forgejo#316): private, never shared.
+  { id: "tripRecording", base: "/api/v1", router: tripRecordingRoutes },
   // Tour route sections — same-prefix satellite router, same pattern as
   // cruises.routeOverride above — split out of trips.ts once that file
   // crossed the 800-line max. Mounted right after `trips` so `/trips/:id`

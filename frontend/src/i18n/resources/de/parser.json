@@ -9,12 +9,18 @@
   },
   "annotate": {
     "title": "Datei annotieren",
-    "description": "Lade eine E-Mail oder einen Boarding Pass hoch und markiere die Felder. TravStats leitet automatisch ein Regex-Template ab.",
+    "description": "Lade eine E-Mail, einen Boarding Pass oder einen Screenshot hoch und markiere die Felder. TravStats leitet daraus ein Template ab.",
     "emailButton": "E-Mail hochladen",
     "emailFormats": ".eml, .msg, .txt",
     "boardingPassButton": "Boarding Pass hochladen",
     "boardingPassFormats": ".png, .jpg, .jpeg",
-    "uploadError": "Datei konnte nicht hochgeladen werden."
+    "uploadError": "Datei konnte nicht hochgeladen werden.",
+    "screenshotButton": "Screenshot hochladen",
+    "screenshotFormats": ".png, .jpg, .webp — Text wird per Texterkennung gelesen",
+    "uploadErrors": {
+      "TRAINING_IMAGE_UNREADABLE": "Diese Datei ließ sich nicht als Bild lesen. Ein PNG-, JPEG- oder WebP-Screenshot funktioniert in der Regel.",
+      "TRAINING_IMAGE_NO_TEXT": "Auf diesem Screenshot wurde fast kein Text erkannt, deshalb wurde nichts gespeichert. Ein schärferer Screenshot des ganzen Bildschirms hilft meistens."
+    }
   },
   "myTemplates": {
     "empty": "Noch keine eigenen Templates",
@@ -44,7 +50,22 @@
       "syncing": "Aktualisiere …",
       "addTemplate": "Template hinzufügen →",
       "loaded": "{{count}} Templates geladen · tägliches Auto-Update aus GitHub",
-      "adminOnly": "Aktualisieren kann nur ein Admin. Der tägliche Auto-Update läuft trotzdem."
+      "adminOnly": "Aktualisieren kann nur ein Admin. Der tägliche Auto-Update läuft trotzdem.",
+      "loadFailed": "Der Stand der Templates konnte nicht geladen werden.",
+      "syncFailed": "Die Aktualisierung ist fehlgeschlagen. Es gelten weiter die zuletzt geladenen Templates."
+    },
+    "sync": {
+      "indexUnreachable": "Das Template-Verzeichnis war beim letzten Abgleich ({{date}}) nicht erreichbar. Es gelten weiter die zuletzt geladenen Templates ({{count}}).",
+      "indexUnreachableNoDate": "Das Template-Verzeichnis war beim letzten Abgleich nicht erreichbar. Es gelten weiter die zuletzt geladenen Templates ({{count}}).",
+      "rejectedTitle": "Beim letzten Abgleich ({{date}}) konnten {{count}} Templates nicht geladen werden:",
+      "rejectedTitleNoDate": "Beim letzten Abgleich konnten {{count}} Templates nicht geladen werden:",
+      "refusedUpdate": "{{id}}: eine neuere Fassung wurde abgelehnt, weiter in Gebrauch ist v{{version}}.",
+      "reasons": {
+        "fetch_failed": "nicht abrufbar",
+        "invalid": "fehlerhaft",
+        "tests_failed": "eigene Tests nicht bestanden",
+        "needs_newer_app": "braucht eine neuere TravStats-Version"
+      }
     }
   },
   "domains": {
@@ -52,7 +73,11 @@
     "lodging": "Unterkunft",
     "cruise": "Kreuzfahrt",
     "place": "Ort",
-    "package": "Pauschalreise"
+    "package": "Pauschalreise",
+    "rail": "Bahnfahrt",
+    "rental": "Mietwagen",
+    "bus": "Fernbusfahrt",
+    "ferry": "Fährüberfahrt"
   },
   "labelGroups": {
     "flight": "Flug",
@@ -69,7 +94,13 @@
     "itinerary": "Reiseverlauf",
     "packageTrip": "Reise",
     "flightRow": "Flugzeile",
-    "stayRow": "Hotelzeile"
+    "stayRow": "Hotelzeile",
+    "railLeg": "Fahrtabschnitt",
+    "rentalPickup": "Abholung",
+    "rentalReturn": "Rückgabe",
+    "vehicle": "Fahrzeug",
+    "busRide": "Fahrt",
+    "ferryCrossing": "Überfahrt"
   },
   "labels": {
     "flight": {
@@ -153,6 +184,60 @@
       "stayCity": "Hotelort",
       "stayCheckIn": "Anreise",
       "stayCheckOut": "Abreise"
+    },
+    "rail": {
+      "bookingReference": "Auftragsnummer",
+      "operator": "Bahngesellschaft",
+      "travelClass": "Klasse",
+      "tariff": "Tarif",
+      "price": "Gesamtpreis",
+      "currency": "Währung",
+      "depStation": "Abfahrtsbahnhof",
+      "arrStation": "Ankunftsbahnhof",
+      "departureDate": "Reisetag",
+      "departureTime": "Abfahrtszeit",
+      "arrivalDate": "Ankunftstag",
+      "arrivalTime": "Ankunftszeit",
+      "train": "Zug"
+    },
+    "rental": {
+      "provider": "Vermieter",
+      "confirmationNumber": "Reservierungsnummer",
+      "pickupStation": "Abholstation",
+      "pickupDate": "Abholdatum",
+      "pickupTime": "Abholzeit",
+      "returnStation": "Rückgabestation",
+      "returnDate": "Rückgabedatum",
+      "returnTime": "Rückgabezeit",
+      "vehicleClass": "Fahrzeugklasse",
+      "price": "Gesamtpreis",
+      "currency": "Währung"
+    },
+    "bus": {
+      "bookingReference": "Buchungsnummer",
+      "operator": "Busunternehmen",
+      "price": "Gesamtpreis",
+      "currency": "Währung",
+      "depStop": "Abfahrtshaltestelle",
+      "arrStop": "Ankunftshaltestelle",
+      "departureDate": "Reisetag",
+      "departureTime": "Abfahrtszeit",
+      "arrivalDate": "Ankunftstag",
+      "arrivalTime": "Ankunftszeit",
+      "line": "Linie"
+    },
+    "ferry": {
+      "bookingReference": "Buchungsnummer",
+      "operator": "Reederei",
+      "price": "Gesamtpreis",
+      "currency": "Währung",
+      "depPort": "Abfahrtshafen",
+      "arrPort": "Ankunftshafen",
+      "departureDate": "Tag der Überfahrt",
+      "departureTime": "Abfahrtszeit",
+      "arrivalDate": "Ankunftstag",
+      "arrivalTime": "Ankunftszeit",
+      "vessel": "Schiff"
     }
   },
   "workshop": {
@@ -167,7 +252,11 @@
     "domainHints": {
       "cruise": "Markiere die Kopfdaten (Schiff, Buchungsnummer, Preis …) und dazu EINE Zeile des Reiseverlaufs: ihr Datum und ihren Hafen. Aus dieser Zeile liest das Template die ganze Hafenliste.",
       "place": "Markiere mindestens den Namen des Ortes, dazu nach Wunsch Adresse, Kategorie und Besuchsdatum. Gelesene Orte landen in der Import-Vorschau unter Einstellungen → Import.",
-      "package": "Markiere Buchungsnummer und Ausstellungsdatum, nach Wunsch Reisename, Daten und Preis — dazu EINE Flugzeile (Flugnummer, Datum, Abflug und Ziel) und/oder EINE Hotelzeile (Hotel, An- und Abreise). Aus jeder markierten Zeile wird die Regel für alle Zeilen dieser Art."
+      "package": "Markiere Buchungsnummer und Ausstellungsdatum, nach Wunsch Reisename, Daten und Preis — dazu EINE Flugzeile (Flugnummer, Datum, Abflug und Ziel) und/oder EINE Hotelzeile (Hotel, An- und Abreise). Aus jeder markierten Zeile wird die Regel für alle Zeilen dieser Art.",
+      "rail": "Markiere nach Wunsch Auftragsnummer, Klasse und Preis — dazu EINEN Fahrtabschnitt: Abfahrtsbahnhof, Abfahrtszeit, Ankunftsbahnhof, nach Wunsch Ankunftszeit und Zug. Den Reisetag markierst du dort, wo er steht: in der Zeile oder in der Überschrift darüber.",
+      "rental": "Markiere den Vermieter, die Reservierungsnummer und für Abholung und Rückgabe jeweils Station und Datum — die Uhrzeit, wenn sie dasteht. Ohne Uhrzeit bleibt das Ende ein Tag, es wird keine Zeit erfunden.",
+      "bus": "Markiere nach Wunsch Buchungsnummer und Preis — dazu EINE Fahrt: Abfahrtshaltestelle, Abfahrtszeit, Ankunftshaltestelle und optional Ankunftszeit und Linie. Den Reisetag markierst du dort, wo er steht: in der Zeile oder in der Überschrift darüber.",
+      "ferry": "Markiere nach Wunsch Buchungsnummer und Preis — dazu EINE Überfahrt: Abfahrtshafen, Abfahrtszeit, Ankunftshafen und optional Ankunftszeit. Den Tag in der Zeile oder in der Überschrift darüber; das Schiff in der Zeile oder einmal dort, wo das Ticket es nennt."
     }
   },
   "derivation": {
@@ -187,7 +276,18 @@
       "packageFlightRowIncomplete": "Die Flugzeile ist unvollständig: markiere Flugnummer, Flugdatum, Abflug (Code oder Ort) und Ziel (Code oder Ort).",
       "packageStayRowIncomplete": "Die Hotelzeile ist unvollständig: markiere Hotel, Anreise und Abreise.",
       "packageRowTooFarApart": "Die Werte einer Zeile müssen in derselben oder in zwei aufeinanderfolgenden Zeilen stehen (Leerzeilen dazwischen sind in Ordnung).",
-      "packageRowNotUnderstood": "Aus der markierten Zeile lässt sich keine Regel bilden, die ihre eigenen Werte wieder liest. Markiere die Werte genau."
+      "packageRowNotUnderstood": "Aus der markierten Zeile lässt sich keine Regel bilden, die ihre eigenen Werte wieder liest. Markiere die Werte genau.",
+      "railNeedsLegRow": "Für eine Bahnfahrt fehlt ein markierter Fahrtabschnitt: markiere in EINER Zeile Abfahrtsbahnhof, Abfahrtszeit und Ankunftsbahnhof (nach Wunsch Ankunftszeit und Zug). Aus dieser Zeile liest das Template alle Abschnitte.",
+      "railNeedsDate": "Der Reisetag fehlt: markiere das Datum — in der Zeile des Abschnitts oder in der Überschrift darüber (z. B. „Hinfahrt am 14.11.2027“). Ohne Tag wäre jede Abfahrtszeit geraten.",
+      "railRowTooFarApart": "Die Werte eines Fahrtabschnitts müssen in derselben oder in zwei aufeinanderfolgenden Zeilen stehen (Leerzeilen dazwischen sind in Ordnung).",
+      "railRowNotUnderstood": "Aus dem markierten Fahrtabschnitt lässt sich keine Regel bilden, die seine eigenen Werte wieder liest. Markiere die Bahnhofsnamen und Zeiten genau.",
+      "rentalNeedsProvider": "Der Vermieter fehlt: markiere, wie der Vermieter heißt. Er steht als Absender in jedem Vorschlag dieses Templates.",
+      "rentalNeedsBookingFields": "Für eine Anmietung fehlen Pflichtangaben: markiere Reservierungsnummer, Abholstation, Abholdatum, Rückgabestation und Rückgabedatum (die Uhrzeiten nach Wunsch).",
+      "rentalEndsAmbiguous": "Abholung und Rückgabe sind in dieser Mail gleich beschriftet (z. B. zweimal „Station:“), deshalb würde das Template für beide Enden denselben Wert lesen. Solche Layouts kann die Werkstatt noch nicht lernen.",
+      "rideNeedsRow": "Es braucht eine markierte Fahrt: Markiere Abfahrtshaltestelle oder -hafen, Abfahrtszeit und Ankunftshaltestelle oder -hafen in EINER Zeile. Die Vorlage liest jede Fahrt nach dieser Zeile.",
+      "rideNeedsDate": "Der Reisetag fehlt: Markiere das Datum — in der Zeile oder in der Überschrift darüber. Ohne Tag wäre jede Abfahrtszeit geraten.",
+      "rideRowTooFarApart": "Die Werte einer Fahrt müssen in derselben Zeile oder in zwei aufeinanderfolgenden Zeilen stehen (Leerzeilen dazwischen sind in Ordnung).",
+      "rideRowNotUnderstood": "Aus der markierten Fahrt lässt sich keine Regel bauen, die ihre eigenen Werte zurückliest. Markiere Namen und Zeiten genau."
     }
   },
   "preview": {
@@ -200,5 +300,29 @@
     "cannotActivate": "Das Template liest nicht einmal sein eigenes Beispiel. Aktivieren würde nichts bringen.",
     "requiredFirst": "Erst die Vorschau laufen lassen — ein Template wird nicht aktiviert, bevor es einmal gelesen hat.",
     "failed": "Vorschau konnte nicht ausgeführt werden."
+  },
+  "communityExport": {
+    "action": "Für die Community exportieren",
+    "explain": "Lädt diese Vorlage als Datei für das öffentliche Vorlagen-Repository herunter, ohne dein Dokument und ohne die Werte, die du darin markiert hast; auf GitHub schlägst du sie vor, und der Owner des Repositorys prüft jeden Beitrag, bevor er bei anderen ankommt.",
+    "download": "Datei herunterladen",
+    "working": "Wird vorbereitet …",
+    "downloaded": "{{filename}} wurde heruntergeladen. Öffne die Seite für eine neue Datei auf GitHub und füge den Inhalt dort ein oder lade die Datei hoch.",
+    "removed_one": "{{count}} Zeile mit deinen eigenen Daten wurde entfernt.",
+    "removed_other": "{{count}} Zeilen mit deinen eigenen Daten wurden entfernt.",
+    "testCases": "Die Datei enthält kein Testdokument — deines bleibt hier. Der Owner ergänzt bei der Prüfung ein erfundenes.",
+    "openGithub": "Auf GitHub öffnen",
+    "failed": "Die Datei konnte nicht vorbereitet werden. Bitte erneut versuchen.",
+    "found": "Gefunden: {{what}}.",
+    "refused": {
+      "TEMPLATE_EXPORT_PERSONAL_DATA": "Diese Vorlage liest mit Werten aus deinem eigenen Dokument und kann so nicht geteilt werden. Leite sie aus einem anderen Dokument desselben Absenders neu ab, in dem deine Angaben nicht neben einem markierten Wert stehen.",
+      "TEMPLATE_EXPORT_NOT_ACTIVE": "Nur eine aktive Vorlage kann geteilt werden: Führe zuerst die Vorschau aus und aktiviere sie.",
+      "TEMPLATE_EXPORT_UNSUPPORTED": "Flug- und Unterkunftsvorlagen liegen in einem älteren Format vor, das das Repository noch nicht annimmt.",
+      "TEMPLATE_EXPORT_SOURCE_MISSING": "Das Dokument, aus dem diese Vorlage abgeleitet wurde, ist gelöscht. Ohne seine Markierungen lässt sich nicht prüfen, ob die Vorlage deine Angaben enthält, daher kann sie nicht geteilt werden. Leite sie aus einem Dokument desselben Absenders neu ab."
+    },
+    "kind": {
+      "identity": "dein Name oder deine Adresse",
+      "email": "eine E-Mail-Adresse",
+      "number": "eine lange Nummer"
+    }
   }
 }

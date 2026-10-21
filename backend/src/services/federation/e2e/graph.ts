@@ -212,4 +212,14 @@ export const NON_TRAVEL_RELATIONS = [
   "passwordResetRequest",
   // The calendar subscription's token hash (forgejo#310): a credential.
   "calendarFeed",
+  // The user's verdicts on passport countries (forgejo#308). Their effect leaves
+  // with the passport snapshot, which is built through `loadPassport`; the
+  // free-text note behind each verdict is private and does not travel.
+  "countryOverrides",
+  // The positions the Companion recorded during a trip (forgejo#316): private
+  // to their owner, never part of a comparison or a federation publication.
+  "tripRecordingBatches",
+  // Where a merged-away trip went (forgejo#316): server bookkeeping for the
+  // Companion's uploads, not travel data.
+  "mergedTripRedirects",
 ] as const;

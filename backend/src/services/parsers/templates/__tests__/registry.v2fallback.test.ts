@@ -83,7 +83,11 @@ describe("TemplateRegistry — v2 beside the v1 airline path", () => {
       "https://raw.githubusercontent.com/Abrechen2/travstats-templates/main/templates/XX.json",
     ]);
     expect(fs.existsSync(path.join(tmp, "cache", "XX.json"))).toBe(true);
-    expect(registry.getV2Status()).toEqual({ index: "unavailable", templates: [] });
+    expect(registry.getV2Status()).toEqual({
+      index: "unavailable",
+      ranAt: expect.any(String),
+      templates: [],
+    });
     expect(registry.getActiveV2()).toEqual([]);
   });
 
@@ -139,5 +143,34 @@ describe("TemplateRegistry — v2 beside the v1 airline path", () => {
       "lodging:spainchain",
     ]);
     expect(registry.getActiveV2({ homeCountry: null }).map((x) => x.id)).toEqual(unordered);
+  });
+
+  it("syncs from the repository the admin set, and a failing one keeps the last good set (forgejo#309)", async () => {
+    const t = validTemplate();
+    const { fn, calls } = fakeFetch({
+      ...v1Routes,
+      [V2_INDEX]: {
+        version: 2,
+        templates: [
+          { id: t.id, domain: t.domain, version: t.version, path: "lodging/examplechain.json" },
+        ],
+      },
+      [`${BASE}/lodging/examplechain.json`]: t,
+    });
+    const registry = makeRegistry(fn);
+    await registry.syncNow();
+    expect(registry.getActiveV2().map((x) => x.id)).toEqual(["lodging:examplechain"]);
+
+    const mirror = "https://mirror.example.org/templates/main";
+    expect(registry.useRepository(`${mirror}/`)).toEqual({ url: mirror, origin: "admin" });
+    calls.length = 0;
+    await registry.syncNow();
+
+    // Every request went to the new repository — and it answered nothing.
+    expect(calls).toContain(`${mirror}/index.json`);
+    expect(calls.every((url) => url.startsWith(mirror))).toBe(true);
+    expect(registry.getV2Status().index).toBe("unavailable");
+    expect(registry.getActiveV2().map((x) => x.id)).toEqual(["lodging:examplechain"]);
+    expect(registry.getTemplate("XX")).toEqual(airline);
   });
 });

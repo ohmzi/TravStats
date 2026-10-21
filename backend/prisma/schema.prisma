@@ -154,6 +154,9 @@ model User {
 
   passwordResetRequest PasswordResetRequest?
   calendarFeed         CalendarFeed?
+  countryOverrides     CountryOverride[]
+  tripRecordingBatches TripRecordingBatch[]
+  mergedTripRedirects  MergedTripRedirect[]
 
   @@map("users")
 }
@@ -352,6 +355,30 @@ model CalendarFeed {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("calendar_feeds")
+}
+
+/// The user's own verdict on one country of the passport (forgejo#308): a
+/// visit the records do not show, a visit they show wrongly, or a country they
+/// should not count at all. One per user and country; applied after the
+/// automatic fold in `services/stats/countryOverrides.ts`, so every figure
+/// built on the passport sees it. `verdict` is `visited | ground | excluded`
+/// (Zod-enforced in `schemas/countryOverride.ts`), `note` says why, and `day` is
+/// a day the user remembers — never invented, so it stays null when not given.
+model CountryOverride {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  /// ISO 3166-1 alpha-2, upper case.
+  countryCode String    @map("country_code")
+  verdict     String
+  note        String
+  day         DateTime? @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, countryCode])
+  @@map("country_overrides")
 }
 
 /// A public, read-only share link (forgejo#281, owner decision D7; design
@@ -597,7 +624,7 @@ model Flight {
   routeSource          String?   @map("route_source") // 'live_tracking', 'historical_aggregation', 'estimated'
   hasLiveTracking      Boolean   @default(false) @map("has_live_tracking")
   // Data source tracking
-  dataSource           String?   @map("data_source") // 'manual', 'email_import', 'boarding_pass_scan', 'historical_enrichment', 'live_update', 'api_lookup', 'bulk_import', 'imported_fr24', 'imported_generic_csv', 'imported_roundtrip'
+  dataSource           String?   @map("data_source") // 'manual', 'email_import', 'boarding_pass_scan', 'historical_enrichment', 'live_update', 'api_lookup', 'bulk_import', 'imported_fr24', 'imported_generic_csv', 'imported_roundtrip', 'imported_<tracker>' (openflights, airtrail, jetlog, flighty, app_in_the_air)
   // Time-storage semantics for departureTime / arrivalTime.
   // 'UTC' = canonical real UTC instant (current writes always use this).
   // 'LEGACY_FAKE_UTC' = wall-clock encoded as fake-UTC; needs depTz/arrTz to
@@ -885,6 +912,10 @@ model UserSettings {
   /// An LLM classifies a stay's place (forgejo#305). Off by default; a cloud
   /// provider additionally needs the instance's own consent for that slot.
   staySuggestionsLlmPlaceClassification Boolean @default(false) @map("stay_suggestions_llm_place_classification")
+  /// Whether the server stores the positions the Companion records during a
+  /// trip (forgejo#316). Off: an upload is refused with 409
+  /// TRIP_RECORDING_DISABLED and nothing is stored; what is stored stays.
+  tripRecordingEnabled                  Boolean @default(true) @map("trip_recording_enabled")
 
   // Auto-update settings
   autoUpdateEnabled           Boolean   @default(false) @map("auto_update_enabled")
@@ -1003,6 +1034,12 @@ model Invitation {
 
 model AdminSettings {
   id Int @id @default(autoincrement())
+
+  /// The template repository's raw-file root, set by the admin (forgejo#309).
+  /// Wins over the `TEMPLATE_REPO_BASE_URL` env var; null = env, then the
+  /// official repository. https, or plain http to a local/LAN host only
+  /// (`llm/llmEndpoint.ts` — the one endpoint rule).
+  templateRepoBaseUrl String? @map("template_repo_base_url")
 
   // Global API keys (encrypted at application level)
   globalOpenaiApiKey String? @map("global_openai_api_key")
@@ -1319,6 +1356,15 @@ model AdminSettings {
   // derived from IP, hostname, MAC, or paths.
   usageStatsConsent   String  @default("unset") @map("usage_stats_consent")
   usageStatsInstallId String? @map("usage_stats_install_id")
+
+  // === IMPORT MODE (forgejo#304) ===
+  // Lifts the upload and import rate limits until this instant, so a first
+  // import of a travel history with its originals is not throttled for hours.
+  // Time-boxed on purpose: it can never be left open by forgetting it.
+  importModeUntil  DateTime? @map("import_mode_until")
+  // The one account it applies to; null = every account (never the shared demo).
+  // No foreign key: a deleted account simply matches nobody until the end.
+  importModeUserId String?   @map("import_mode_user_id")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1815,6 +1861,8 @@ model Trip {
   photoJourneys    PhotoJourney[]
   dawarichStays    DawarichStay[]
   publicShareLinks PublicShareLink[]
+  recordingBatches TripRecordingBatch[]
+  mergedFrom       MergedTripRedirect[]
 
   documents Document[]
   travelPlan TravelPlan?
@@ -2626,6 +2674,8 @@ model CruiseTrack {
 /// forgejo#193). A table of its own and never `Flight.actualRoute`: a provider
 /// lookup overwrites that column, and a recording is the one line no provider
 /// can supply again (owner decision D5, 2026-10-01).
+/// A GPX/KML/TCX/FIT file uploaded on the flight page lands in the same row,
+/// under the same rules (forgejo#312).
 ///
 /// ONE per flight — a second recording of the same flight replaces this one
 /// only when the client asks for it explicitly. The columns are `CruiseTrack`'s
@@ -2634,10 +2684,13 @@ model CruiseTrack {
 model FlightTrack {
   id            String   @id @default(uuid())
   flightId      String   @unique @map("flight_id")
-  /// companion
+  /// companion | gpx | kml | tcx | fit — the phone, or a file uploaded on the
+  /// flight page (forgejo#312, `FLIGHT_TRACK_SOURCES`)
   source        String
   /// The client's id for this upload. A retry from the phone's outbox sends
   /// the same id and is answered with the stored row instead of a second one.
+  /// A file is stored under `file:` + its SHA-256, so the same bytes twice are
+  /// that same replay.
   uploadId      String   @map("upload_id")
   /// The paired device that sent it (`ApiToken.deviceId`); null from a browser.
   deviceId      String?  @map("device_id")
@@ -2661,6 +2714,60 @@ model FlightTrack {
   flight Flight @relation(fields: [flightId], references: [id], onDelete: Cascade)
 
   @@map("flight_tracks")
+}
+
+/// One upload of the positions the Companion recorded during a trip
+/// (forgejo#316): coarse fixes, every few minutes. Raw points, kept like the
+/// rest of the logbook until the user deletes them. Private to its owner —
+/// never copied into a shared trip, a `.travstats` file, a public link, a
+/// comparison or a federation publication.
+model TripRecordingBatch {
+  id                 String   @id @default(uuid())
+  userId             String   @map("user_id")
+  tripId             String   @map("trip_id")
+  /// The paired device that sent it (`ApiToken.deviceId`); null from a browser.
+  deviceId           String?  @map("device_id")
+  /// The client's id for this upload. A retry sends the same id and is
+  /// answered with this row instead of a second one.
+  uploadId           String   @map("upload_id")
+  startedAt          DateTime @map("started_at")
+  endedAt            DateTime @map("ended_at")
+  /// `[tMs, lat, lon, accuracyM | null]`, sorted by time.
+  points             Json
+  pointCount         Int      @map("point_count")
+  /// Points of the upload that lay outside the trip's days, not stored.
+  skippedOutsideTrip Int      @default(0) @map("skipped_outside_trip")
+  /// Points inside a flight's recorder window, not stored (the flight
+  /// recording has them).
+  skippedInFlight    Int      @default(0) @map("skipped_in_flight")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, uploadId])
+  @@index([tripId, startedAt])
+  @@map("trip_recording_batches")
+}
+
+/// A trip that was merged into another and no longer exists (forgejo#316):
+/// the Companion may still hold its id and upload to it. The recording route
+/// answers such an id with `TRIP_MERGED` and the surviving trip, so the phone
+/// can follow instead of losing the points. Owner-scoped: only the user who
+/// merged learns where it went. A later merge of the survivor re-points the
+/// row; deleting the survivor deletes the row, and the id is simply gone.
+model MergedTripRedirect {
+  /// The merged-away trip's id. No foreign key: that trip row is deleted.
+  sourceTripId     String   @id @map("source_trip_id")
+  userId           String   @map("user_id")
+  mergedIntoTripId String   @map("merged_into_trip_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mergedInto Trip @relation(fields: [mergedIntoTripId], references: [id], onDelete: Cascade)
+
+  @@index([mergedIntoTripId])
+  @@map("merged_trip_redirects")
 }
 
 model CruiseStop {

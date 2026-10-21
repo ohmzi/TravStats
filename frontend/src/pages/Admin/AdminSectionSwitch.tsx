@@ -1,6 +1,8 @@
 import type { JSX } from "react";
 import BackupManagement from "../../components/Admin/BackupManagement";
 import ShareLinksSettings from "../../components/Admin/ShareLinksSettings";
+import ImportModeSettings from "../../components/Admin/ImportModeSettings";
+import TemplateRepoSettings from "../../components/Admin/TemplateRepoSettings";
 import FederationSettings from "../../components/Admin/FederationSettings";
 import InstanceSettings from "../../components/Admin/InstanceSettings";
 import UsageStatsSettings from "../../components/Admin/UsageStatsSettings";
@@ -231,14 +233,18 @@ export default function AdminSectionSwitch(props: AdminSectionSwitchProps): JSX.
 
     case "parsers":
       return props.parserSettings ? (
-        <ParserSettingsTab
-          parserSettings={props.parserSettings}
-          savingParsers={props.savingParsers}
-          onSave={props.onSaveParserSettings}
-          onParserSettingsChange={props.onParserSettingsChange}
-          onTestOllama={props.onTestOllama}
-          ollamaTestState={props.ollamaTestState}
-        />
+        <div className="space-y-6">
+          <ParserSettingsTab
+            parserSettings={props.parserSettings}
+            savingParsers={props.savingParsers}
+            onSave={props.onSaveParserSettings}
+            onParserSettingsChange={props.onParserSettingsChange}
+            onTestOllama={props.onTestOllama}
+            ollamaTestState={props.ollamaTestState}
+          />
+          {/* Where the templates come from (forgejo#309) — loads its own data. */}
+          <TemplateRepoSettings />
+        </div>
       ) : null;
 
     case "logging":
@@ -270,6 +276,7 @@ export default function AdminSectionSwitch(props: AdminSectionSwitchProps): JSX.
             <InstanceSettings />
           </div>
           <ShareLinksSettings />
+          <ImportModeSettings />
           <FederationSettings />
           <div
             style={{
