@@ -129,7 +129,7 @@ export default function PassportPage(): JSX.Element {
     return (
       <AppShell width="reading">
         <h1 className="t-screen-title mb-2">{t("passport:title")}</h1>
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+        <p className="text-sm" style={{ color: "var(--ts-muted)" }}>
           {t("passport:needsFlights")}
         </p>
       </AppShell>
@@ -150,7 +150,7 @@ export default function PassportPage(): JSX.Element {
               type="button"
               onClick={(): void => setDialog({ target: null })}
               className="text-sm px-3 py-1.5 rounded-lg border"
-              style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+              style={{ borderColor: "var(--border)", color: "var(--ts-muted)" }}
             >
               {t("passport:overrides.add")}
             </button>
@@ -159,7 +159,7 @@ export default function PassportPage(): JSX.Element {
                 type="button"
                 onClick={(): void => window.print()}
                 className="text-sm px-3 py-1.5 rounded-lg border"
-                style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+                style={{ borderColor: "var(--border)", color: "var(--ts-muted)" }}
               >
                 {t("passport:print")}
               </button>
@@ -168,7 +168,7 @@ export default function PassportPage(): JSX.Element {
         )}
 
         {loading && (
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+          <p className="text-sm" style={{ color: "var(--ts-muted)" }}>
             {t("common:loading.default")}
           </p>
         )}
@@ -178,7 +178,7 @@ export default function PassportPage(): JSX.Element {
         {!loading && failure !== null && (
           <div
             className="rounded-xl p-6"
-            style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)" }}
+            style={{ background: "var(--ts-surface)", color: "var(--ts-muted)" }}
           >
             <p className="text-sm mb-3">{t("passport:loadError")}</p>
             <button
@@ -203,10 +203,10 @@ export default function PassportPage(): JSX.Element {
               {passport.summary.countriesTotal === 0 ? (
                 <div
                   className="rounded-xl p-8 text-center"
-                  style={{ background: "var(--bg-elevated)" }}
+                  style={{ background: "var(--ts-surface)" }}
                 >
                   <h1 className="t-screen-title mb-2">{t("passport:title")}</h1>
-                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  <p className="text-sm" style={{ color: "var(--ts-muted)" }}>
                     {t("passport:empty")}
                   </p>
                 </div>
@@ -216,7 +216,7 @@ export default function PassportPage(): JSX.Element {
                   <section
                     className="rounded-xl p-4 sm:p-6 mb-6 border"
                     style={{
-                      background: "var(--bg-elevated)",
+                      background: "var(--ts-surface)",
                       borderColor: "var(--border)",
                     }}
                     aria-labelledby="passport-heading"
@@ -228,7 +228,7 @@ export default function PassportPage(): JSX.Element {
                       {passport.summary.firstStampYear !== null && (
                         <span
                           className="text-xs uppercase tracking-widest"
-                          style={{ color: "var(--text-muted)" }}
+                          style={{ color: "var(--ts-muted)" }}
                         >
                           {t("passport:since", { year: passport.summary.firstStampYear })}
                         </span>
@@ -243,7 +243,7 @@ export default function PassportPage(): JSX.Element {
                       <div>
                         <dt
                           className="text-[11px] uppercase tracking-wider"
-                          style={{ color: "var(--text-muted)" }}
+                          style={{ color: "var(--ts-muted)" }}
                         >
                           {t("passport:summary.countries")}
                         </dt>
@@ -255,7 +255,7 @@ export default function PassportPage(): JSX.Element {
                         </dd>
                         <dt
                           className="text-[11px] uppercase tracking-wider mt-2"
-                          style={{ color: "var(--text-muted)" }}
+                          style={{ color: "var(--ts-muted)" }}
                         >
                           {t("passport:summary.groundCountries")}
                         </dt>
@@ -270,7 +270,7 @@ export default function PassportPage(): JSX.Element {
                         {(passport.summary.unclearCountries ?? 0) > 0 && (
                           <p
                             className="text-xs mt-1"
-                            style={{ color: "var(--text-muted)" }}
+                            style={{ color: "var(--ts-muted)" }}
                             data-testid="passport-unclear-count"
                           >
                             {t("passport:summary.unclearCountries")}:{" "}
@@ -285,7 +285,7 @@ export default function PassportPage(): JSX.Element {
                         <div key={key as string}>
                           <dt
                             className="text-[11px] uppercase tracking-wider"
-                            style={{ color: "var(--text-muted)" }}
+                            style={{ color: "var(--ts-muted)" }}
                           >
                             {t(`passport:summary.${key as string}`)}
                           </dt>
@@ -300,7 +300,7 @@ export default function PassportPage(): JSX.Element {
                       <div>
                         <dt
                           className="text-[11px] uppercase tracking-wider"
-                          style={{ color: "var(--text-muted)" }}
+                          style={{ color: "var(--ts-muted)" }}
                         >
                           {t("passport:summary.continents")}
                         </dt>
@@ -309,7 +309,7 @@ export default function PassportPage(): JSX.Element {
                           style={{ fontVariantNumeric: "tabular-nums" }}
                         >
                           {passport.summary.continentsVisited}
-                          <span className="text-base" style={{ color: "var(--text-muted)" }}>
+                          <span className="text-base" style={{ color: "var(--ts-muted)" }}>
                             {" / "}
                             {passport.summary.continentsTotal}
                           </span>
@@ -326,9 +326,9 @@ export default function PassportPage(): JSX.Element {
                         <p
                           className="mb-6 rounded-md px-3 py-2 text-xs"
                           style={{
-                            background: "var(--bg-elevated)",
-                            border: "1px solid var(--color-border)",
-                            color: "var(--text-primary)",
+                            background: "var(--ts-surface)",
+                            border: "1px solid var(--ts-border)",
+                            color: "var(--ts-text)",
                           }}
                         >
                           <span>
@@ -346,7 +346,7 @@ export default function PassportPage(): JSX.Element {
                             type="button"
                             onClick={countingNotice.dismiss}
                             className="ml-3 underline"
-                            style={{ color: "var(--text-muted)" }}
+                            style={{ color: "var(--ts-muted)" }}
                           >
                             {t("passport:countingChanged.dismiss")}
                           </button>
@@ -360,7 +360,7 @@ export default function PassportPage(): JSX.Element {
 
                     <h2
                       className="text-[11px] uppercase tracking-wider mb-2"
-                      style={{ color: "var(--text-muted)" }}
+                      style={{ color: "var(--ts-muted)" }}
                     >
                       {t("passport:stamps")}
                     </h2>
@@ -375,10 +375,7 @@ export default function PassportPage(): JSX.Element {
                           <span className="block text-sm font-semibold tracking-wider">
                             {stamp.iata}
                           </span>
-                          <span
-                            className="block text-[10px]"
-                            style={{ color: "var(--text-muted)" }}
-                          >
+                          <span className="block text-[10px]" style={{ color: "var(--ts-muted)" }}>
                             {monthStamp(stamp.date, locale)}
                           </span>
                         </li>
@@ -389,7 +386,7 @@ export default function PassportPage(): JSX.Element {
                   {/* ── the continent band ─────────────────────────────── */}
                   <section
                     className="rounded-xl p-4 sm:p-6 mb-6 border"
-                    style={{ background: "var(--bg-elevated)", borderColor: "var(--border)" }}
+                    style={{ background: "var(--ts-surface)", borderColor: "var(--border)" }}
                     aria-labelledby="continents-heading"
                   >
                     <h2 id="continents-heading" className="text-sm font-semibold mb-1">
@@ -397,7 +394,7 @@ export default function PassportPage(): JSX.Element {
                     </h2>
                     {/* The denominator is named, because an unnamed one is a
                         made-up number sitting next to a real one. */}
-                    <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+                    <p className="text-xs mb-4" style={{ color: "var(--ts-muted)" }}>
                       {t("passport:continents.denominator")}
                     </p>
                     <ul className="space-y-2.5">
@@ -408,20 +405,20 @@ export default function PassportPage(): JSX.Element {
                           </span>
                           <span
                             className="flex-1 h-2 rounded-full overflow-hidden"
-                            style={{ background: "var(--bg-base)" }}
+                            style={{ background: "var(--ts-bg)" }}
                           >
                             <span
                               className="block h-full rounded-full"
                               style={{
                                 width: `${row.total > 0 ? (row.visited / row.total) * 100 : 0}%`,
-                                background: "var(--accent)",
+                                background: "var(--ts-accent)",
                               }}
                             />
                           </span>
                           <span
                             className="w-16 text-right text-xs"
                             style={{
-                              color: "var(--text-muted)",
+                              color: "var(--ts-muted)",
                               fontVariantNumeric: "tabular-nums",
                             }}
                           >

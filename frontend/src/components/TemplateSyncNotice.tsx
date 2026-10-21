@@ -24,7 +24,7 @@ export default function TemplateSyncNotice({ v2 }: { v2: V2TemplateStatus }): JS
 
   const active = v2.templates.filter((tpl) => tpl.state === "active").length;
   return (
-    <div role="alert" className="text-sm flex flex-col gap-1" style={{ color: "var(--warning)" }}>
+    <div role="alert" className="text-sm flex flex-col gap-1" style={{ color: "var(--ts-warn)" }}>
       {unreachable && (
         <p>
           {date

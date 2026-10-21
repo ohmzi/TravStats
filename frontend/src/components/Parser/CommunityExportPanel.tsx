@@ -98,12 +98,12 @@ export default function CommunityExportPanel({
         onClick={() => void run()}
         disabled={busy}
         className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
-        style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}
+        style={{ background: "var(--ts-bg)", color: "var(--ts-text)" }}
       >
         {t(busy ? "parser:communityExport.working" : "parser:communityExport.download")}
       </button>
       {refusal && (
-        <p role="alert" style={{ color: "var(--danger)" }}>
+        <p role="alert" style={{ color: "var(--ts-bad)" }}>
           {t(refusal)}
           {found.length > 0 &&
             ` ${t("parser:communityExport.found", { what: found.map(kindLabel).join(", ") })}`}
@@ -122,7 +122,8 @@ export default function CommunityExportPanel({
             href={file.githubUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-primary inline-block text-xs px-3 py-1.5"
+            className="inline-block rounded-lg text-xs px-3 py-1.5"
+            style={{ background: "var(--ts-accent)", color: "var(--ts-accent-text)" }}
           >
             {t("parser:communityExport.openGithub")}
           </a>

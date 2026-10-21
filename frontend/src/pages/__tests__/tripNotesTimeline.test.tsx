@@ -61,6 +61,19 @@ vi.mock("../../lib/api/places", () => ({
   listPlaces: () => Promise.resolve([]),
 }));
 
+// The map tab reads the Companion's trip recording on mount (forgejo#316).
+// This suite is about notes; an empty recording keeps the request local.
+vi.mock("../../lib/api/tripRecording", () => ({
+  tripRecordingApi: {
+    get: vi.fn().mockResolvedValue({
+      summary: { pointCount: 0, firstAt: null, lastAt: null, devices: [], days: [] },
+      segments: [],
+    }),
+    downloadGpx: vi.fn(),
+    remove: vi.fn(),
+  },
+}));
+
 vi.mock("../../hooks/useEnabledDomains", () => ({
   useEnabledDomains: () => ({ enabled: ["flight", "cruise", "lodging"], isEnabled: () => true }),
 }));

@@ -110,7 +110,7 @@ export function BusTicketImport({
           <label className="block text-sm">
             {t("bus:import.text")}
             <textarea
-              className="mt-1 w-full rounded-md border border-border bg-(--bg-surface) p-3"
+              className="mt-1 w-full rounded-md border border-border bg-(--ts-surface) p-3"
               rows={4}
               maxLength={60000}
               value={text}
@@ -127,7 +127,7 @@ export function BusTicketImport({
         </Button>
         {documentId && <p className="t-caption">{t("bus:import.retained")}</p>}
         {error && (
-          <p role="alert" className="text-sm text-(--danger)">
+          <p role="alert" className="text-sm text-(--ts-bad)">
             {t("bus:import.error")}
           </p>
         )}
@@ -146,7 +146,7 @@ export function BusTicketImport({
                 {t("bus:import.ride")}
                 <select
                   value={index}
-                  className="mt-1 w-full rounded-md border border-border bg-(--bg-surface) p-3"
+                  className="mt-1 w-full rounded-md border border-border bg-(--ts-surface) p-3"
                   onChange={(e) => {
                     const i = Number(e.target.value);
                     setIndex(i);

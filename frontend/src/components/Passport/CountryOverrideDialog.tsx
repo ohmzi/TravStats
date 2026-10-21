@@ -225,7 +225,7 @@ export default function CountryOverrideDialog({
               />
               <span>
                 <span className="font-medium">{t(`passport:overrides.verdict.${v}`)}</span>
-                <span className="block text-xs" style={{ color: "var(--text-muted)" }}>
+                <span className="block text-xs" style={{ color: "var(--ts-muted)" }}>
                   {t(`passport:overrides.verdict.${v}Hint`)}
                 </span>
               </span>

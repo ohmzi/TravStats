@@ -89,7 +89,7 @@ export default function FerryDetailPage() {
   if (!ride)
     return (
       <AppShell width="list">
-        <Link to="/ferry" className="ts-back-link text-sm text-(--text-muted)">
+        <Link to="/ferry" className="ts-back-link text-sm text-(--ts-muted)">
           {t("ferry:title")}
         </Link>
         {error ? (
@@ -99,7 +99,7 @@ export default function FerryDetailPage() {
             log={null}
           />
         ) : (
-          <p role="status" className="text-(--text-muted)">
+          <p role="status" className="text-(--ts-muted)">
             {t("common:loading.default")}
           </p>
         )}
@@ -160,7 +160,7 @@ export default function FerryDetailPage() {
         }
       />
       {error && (
-        <p role="alert" className="mb-4 text-sm text-(--danger)">
+        <p role="alert" className="mb-4 text-sm text-(--ts-bad)">
           {t("ferry:error")}
         </p>
       )}
@@ -173,7 +173,7 @@ export default function FerryDetailPage() {
               {t(routing ? "ferry:routing.busy" : "ferry:routing.button")}
             </Button>
           )}
-          <p role="status" className="text-sm text-(--text-muted)">
+          <p role="status" className="text-sm text-(--ts-muted)">
             {routeMessage ??
               (ride.geometrySource === "sea_route"
                 ? t("ferry:routing.estimated")

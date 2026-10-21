@@ -51,12 +51,12 @@ export default function ExcludedCountries({
     <section
       aria-labelledby="excluded-countries-heading"
       className="mt-6 rounded-xl border p-4 sm:p-6"
-      style={{ background: "var(--bg-elevated)", borderColor: "var(--border)" }}
+      style={{ background: "var(--ts-surface)", borderColor: "var(--border)" }}
     >
       <h2 id="excluded-countries-heading" className="text-sm font-semibold mb-2">
         {t("passport:overrides.excludedTitle")}
       </h2>
-      <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+      <p className="text-sm mb-4" style={{ color: "var(--ts-muted)" }}>
         {t("passport:overrides.excludedExplanation")}
       </p>
       <ul className="space-y-3">
@@ -65,7 +65,7 @@ export default function ExcludedCountries({
             <div className="text-sm">
               <span className="font-mono text-xs mr-2 opacity-70">{country.code}</span>
               <span className="font-medium">{countryName(country.code, locale)}</span>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              <p className="text-xs" style={{ color: "var(--ts-muted)" }}>
                 {t("passport:overrides.provenanceNote", { note: country.note })}
                 {country.day &&
                   ` · ${t("passport:overrides.provenanceDay", { day: formatDate(country.day) })}`}

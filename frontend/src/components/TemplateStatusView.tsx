@@ -89,7 +89,7 @@ export default function TemplateStatusView(): JSX.Element {
         </div>
       </div>
       {failure && (
-        <p role="alert" className="text-sm" style={{ color: "var(--warning)" }}>
+        <p role="alert" className="text-sm" style={{ color: "var(--ts-warn)" }}>
           {t(`parser:communityTemplates.status.${failure}`)}
         </p>
       )}

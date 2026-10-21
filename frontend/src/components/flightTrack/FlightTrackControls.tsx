@@ -3,7 +3,6 @@ import type { JSX } from "react";
 import ConfirmModal from "../Training/ConfirmModal";
 import { useTranslation } from "../../hooks/useTranslation";
 import { flightsApi } from "../../lib/api";
-import { DELETE_BUTTON_CLASS } from "../../lib/deleteConfirm";
 import { saveErrorMessage } from "../../lib/saveErrorMessage";
 import { useToastStore } from "../../store/toastStore";
 
@@ -25,7 +24,7 @@ export const FLIGHT_TRACK_ERROR_KEYS: Readonly<Record<string, string>> = {
 const ACCEPTED_FILES = ".gpx,.kml,.tcx,.fit";
 
 const CONTROL =
-  "rounded-sm border border-(--color-border) px-3 py-1.5 text-xs hover:bg-(--bg-surface) disabled:opacity-40";
+  "rounded-sm border border-(--ts-border) px-3 py-1.5 text-xs hover:bg-(--ts-surface) disabled:opacity-40";
 
 interface Props {
   flightId: string;
@@ -123,7 +122,7 @@ export default function FlightTrackControls({ flightId, hasTrack, onChanged }: P
         <span className="t-caption">{t("flights:track.formats")}</span>
       </div>
       {error && (
-        <p role="alert" className="text-sm text-(--danger)">
+        <p role="alert" className="text-sm text-(--ts-bad)">
           {error}
         </p>
       )}
@@ -145,7 +144,7 @@ export default function FlightTrackControls({ flightId, hasTrack, onChanged }: P
           confirmText={t(
             pending.kind === "replace" ? "flights:track.replace" : "flights:track.remove"
           )}
-          confirmButtonClass={DELETE_BUTTON_CLASS}
+          destructive
         />
       )}
     </div>

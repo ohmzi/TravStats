@@ -2,13 +2,12 @@ import { useState, type JSX } from "react";
 import ConfirmModal from "../../Training/ConfirmModal";
 import { useTranslation } from "../../../hooks/useTranslation";
 import { tripRecordingApi, type TripRecordingView } from "../../../lib/api/tripRecording";
-import { DELETE_BUTTON_CLASS } from "../../../lib/deleteConfirm";
 import { downloadBlob } from "../../../lib/export";
 import { formatDayLong } from "../../../shared/time/calendar";
 import { formatTimeValue } from "../../../shared/time/wire";
 
 const CONTROL =
-  "rounded-sm border border-(--color-border) px-3 py-1.5 text-xs hover:bg-(--bg-surface) disabled:opacity-40";
+  "rounded-sm border border-(--ts-border) px-3 py-1.5 text-xs hover:bg-(--ts-surface) disabled:opacity-40";
 
 const DAY_OPTIONS: Intl.DateTimeFormatOptions = {
   weekday: "short",
@@ -48,7 +47,7 @@ export default function TripRecordingPanel({
 
   if (failed) {
     return (
-      <p role="status" className="mb-2 text-sm text-(--text-muted)">
+      <p role="status" className="mb-2 text-sm text-(--ts-muted)">
         {t("trips:recording.loadError")}
       </p>
     );
@@ -104,7 +103,7 @@ export default function TripRecordingPanel({
           aria-label={t("trips:recording.dayFilter")}
           value={day ?? ""}
           onChange={(e) => onDayChange(e.target.value || null)}
-          className="rounded-sm border border-(--color-border) bg-transparent px-2 py-1 text-sm"
+          className="rounded-sm border border-(--ts-border) bg-transparent px-2 py-1 text-sm"
         >
           <option value="">{t("trips:recording.allDays")}</option>
           {summary.days.map((d) => (
@@ -135,7 +134,7 @@ export default function TripRecordingPanel({
           .join(" · ")}
       </p>
       {error && (
-        <p role="alert" className="text-sm text-(--danger)">
+        <p role="alert" className="text-sm text-(--ts-bad)">
           {error}
         </p>
       )}
@@ -146,7 +145,7 @@ export default function TripRecordingPanel({
         title={t("trips:recording.deleteConfirmTitle")}
         message={t("trips:recording.deleteConfirmMessage")}
         confirmText={t("trips:recording.delete")}
-        confirmButtonClass={DELETE_BUTTON_CLASS}
+        destructive
       />
     </section>
   );
