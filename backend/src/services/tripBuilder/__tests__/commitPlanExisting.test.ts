@@ -735,30 +735,29 @@ describe("extendPlanForExisting", () => {
     const day = toDbDate("2031-05-04");
     return {
       key: STOPOVER_KEY,
-      roadtrip: {
-        name: "Northvale loop · Northvale",
-        vehicle: "car",
-        stations: [
-          {
-            title: "ZZA Airport",
-            lat: FX.northvale.lat,
-            lon: FX.northvale.lon,
-            startDate: day,
-            endDate: day,
-            notes: null,
-            night: { kind: "pass" },
-          },
-          {
-            title: "Northvale",
-            lat: FX.southbridge.lat,
-            lon: FX.southbridge.lon,
-            startDate: day,
-            endDate: day,
-            notes: null,
-            night: { kind: "pass" },
-          },
-        ],
-      },
+      name: "Northvale loop · Northvale",
+      day: "2031-05-04",
+      stations: [
+        {
+          title: "ZZA Airport",
+          lat: FX.northvale.lat,
+          lon: FX.northvale.lon,
+          startDate: day,
+          endDate: day,
+          notes: null,
+          night: { kind: "pass" },
+        },
+        {
+          title: "Northvale",
+          lat: FX.southbridge.lat,
+          lon: FX.southbridge.lon,
+          startDate: day,
+          endDate: day,
+          notes: null,
+          night: { kind: "pass" },
+        },
+      ],
+      legModes: ["road"],
       album,
     };
   };
@@ -1221,6 +1220,7 @@ describe("extendPlanForExisting: timeline stops", () => {
         removeNotSeen: [],
       },
     ],
+    stopovers: [],
     photoJourneyIds: [],
     stops: { keep: [], remove: [fx.stop.harbour] },
     album: { create: false, name: "x" },
@@ -1681,6 +1681,8 @@ describe("extendPlanForExisting: a pitstop that supersedes a stored stop", () =>
         stations: [bodyStation(anchor()), bodyStation(library())],
         legModes: ["road"],
         album: true,
+        keepNotSeen: [],
+        removeNotSeen: [],
       },
     ],
     stopovers: [],

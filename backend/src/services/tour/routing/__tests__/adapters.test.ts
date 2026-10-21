@@ -488,7 +488,9 @@ describe("createCustomOsrm probe", () => {
   }
 
   it("asks for the steps of the car route and not for its geometry", async () => {
-    const fetchImpl = jest.fn(async () => jsonResponse(200, stepsFixture));
+    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>(async () =>
+      jsonResponse(200, stepsFixture)
+    );
 
     await customWith(fetchImpl, "http://osrm.local:5000/").probe?.(NORTHVALE, PORT_CARROW);
 
@@ -500,7 +502,9 @@ describe("createCustomOsrm probe", () => {
   });
 
   it("keeps a base URL's own path and query string beside its parameters", async () => {
-    const fetchImpl = jest.fn(async () => jsonResponse(200, stepsFixture));
+    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>(async () =>
+      jsonResponse(200, stepsFixture)
+    );
 
     await customWith(fetchImpl, "http://osrm.local:5000/proxy?token=abc123").probe?.(
       NORTHVALE,
@@ -514,7 +518,9 @@ describe("createCustomOsrm probe", () => {
   });
 
   it("reports the route's distance and the kilometres its ferry steps cover", async () => {
-    const fetchImpl = jest.fn(async () => jsonResponse(200, stepsFixture));
+    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>(async () =>
+      jsonResponse(200, stepsFixture)
+    );
 
     const probe = await customWith(fetchImpl).probe?.(NORTHVALE, PORT_CARROW);
 
@@ -581,7 +587,9 @@ describe("createCustomOsrm snap", () => {
   }
 
   it("asks for the single nearest point of the car network", async () => {
-    const fetchImpl = jest.fn(async () => jsonResponse(200, nearestFixture));
+    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>(async () =>
+      jsonResponse(200, nearestFixture)
+    );
 
     await customWith(fetchImpl, "http://osrm.local:5000/").snap?.(QUAY);
 
@@ -591,7 +599,9 @@ describe("createCustomOsrm snap", () => {
   });
 
   it("keeps a base URL's own path and query string beside its parameters", async () => {
-    const fetchImpl = jest.fn(async () => jsonResponse(200, nearestFixture));
+    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>(async () =>
+      jsonResponse(200, nearestFixture)
+    );
 
     await customWith(fetchImpl, "http://osrm.local:5000/proxy?token=abc123").snap?.(QUAY);
 
@@ -602,7 +612,9 @@ describe("createCustomOsrm snap", () => {
   });
 
   it("returns the road point as latitude and longitude, not as OSRM's [lon, lat]", async () => {
-    const fetchImpl = jest.fn(async () => jsonResponse(200, nearestFixture));
+    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>(async () =>
+      jsonResponse(200, nearestFixture)
+    );
 
     expect(await customWith(fetchImpl).snap?.(QUAY)).toEqual({ lat: -45.0511, lon: 168.7123 });
   });

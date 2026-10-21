@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
+import type { ButtonHTMLAttributes, CSSProperties, JSX, ReactNode } from "react";
 import { alpha } from "./tokens";
 
 export type ButtonVariant = "primary" | "secondary" | "danger";

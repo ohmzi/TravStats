@@ -6,6 +6,10 @@
  */
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import axios from "axios";
+import type { AxiosResponse } from "axios";
+
+/** The tests care about `data`; axios's response type also carries status, headers and config. */
+const response = <T>(data: T): AxiosResponse<T> => ({ data }) as AxiosResponse<T>;
 
 jest.mock("axios");
 const mockedAxios = axios as jest.Mocked<typeof axios>;
@@ -267,9 +271,10 @@ describe("addAssetsToAlbum", () => {
   });
 
   it("sends at most 1000 ids a request and adds the answers up", async () => {
-    mockedAxios.put.mockImplementation(async (_url: string, body: unknown) => ({
-      data: (body as { ids: string[] }).ids.map((id) => ({ id, success: true })),
-    }));
+    mockedAxios.put.mockImplementation((async (_url: string, body: unknown) =>
+      response(
+        (body as { ids: string[] }).ids.map((id) => ({ id, success: true }))
+      )) as unknown as typeof axios.put);
 
     const result = await createImmichClient(CONN).addAssetsToAlbum(ALBUM_ID, ids(2500));
 

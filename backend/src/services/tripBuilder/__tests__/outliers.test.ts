@@ -103,7 +103,9 @@ describe("dropFarOutliers", () => {
   it("keeps a small cluster just inside the distance threshold", () => {
     const bulk = photosAt("home", NORTHVALE, 98);
     const near = photosAt("near", northOf(OUTLIER_MIN_KM - 0.2), 2);
-    expect(distanceKm(NORTHVALE, near[0])).toBeLessThan(OUTLIER_MIN_KM);
+    expect(
+      distanceKm(NORTHVALE, near[0] as PhotoPoint & { lat: number; lon: number })
+    ).toBeLessThan(OUTLIER_MIN_KM);
 
     const { kept, dropped } = run([...bulk, ...near]);
 
@@ -114,7 +116,9 @@ describe("dropFarOutliers", () => {
   it("drops a small cluster just beyond the distance threshold", () => {
     const bulk = photosAt("home", NORTHVALE, 98);
     const far = photosAt("far", northOf(OUTLIER_MIN_KM + 0.2), 2);
-    expect(distanceKm(NORTHVALE, far[0])).toBeGreaterThan(OUTLIER_MIN_KM);
+    expect(
+      distanceKm(NORTHVALE, far[0] as PhotoPoint & { lat: number; lon: number })
+    ).toBeGreaterThan(OUTLIER_MIN_KM);
 
     const { kept, dropped } = run([...bulk, ...far]);
 

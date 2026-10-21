@@ -90,6 +90,10 @@ describe("spanOf with a trip's own days", () => {
           datePrecision: "day",
           nights: null,
           status: "confirmed",
+          freeCancellationUntil: null,
+          freeCancellationOn: null,
+          freeCancellationZone: null,
+          paymentDueOn: null,
           lodging: {
             id: "l-1",
             name: "Kelmore Camp",

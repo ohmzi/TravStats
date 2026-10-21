@@ -47,9 +47,17 @@ function fakeClient(init: {
     return album;
   };
   return {
-    findOwnedAlbumByName: jest.fn(
-      async (name: string) => albums.find((album) => album.albumName === name) ?? null
-    ),
+    findOwnedAlbumByName: jest.fn(async (name: string) => {
+      const album = albums.find((candidate) => candidate.albumName === name) ?? null;
+      return album === null
+        ? null
+        : {
+            id: album.id,
+            albumName: album.albumName,
+            assetCount: (members[album.id] ?? []).length,
+            thumbnailAssetId: null,
+          };
+    }),
     getAlbumInfo: jest.fn(async (id: string) => {
       const album = albumOf(id);
       return {
@@ -84,7 +92,11 @@ function fakeClient(init: {
       held.push(...added);
       return { added: added.length, duplicate: ids.length - added.length, refused: [] };
     }),
-    removeAssetsFromAlbum: jest.fn(async () => ({ removed: 0 })),
+    removeAssetsFromAlbum: jest.fn(async () => ({
+      removed: 0,
+      notInAlbum: 0,
+      refused: [],
+    })),
     setAlbumDescription: jest.fn(async (id: string, description: string) => {
       albumOf(id).description = description;
     }),

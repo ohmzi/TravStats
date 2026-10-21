@@ -1,4 +1,9 @@
-import { entrySpanDays, journeySpanDays, withJourneySpan } from "../journeySpan";
+import {
+  entrySpanDays,
+  journeySpanDays,
+  withJourneySpan,
+  type JourneyFlightRow,
+} from "../journeySpan";
 
 /**
  * A journey's effective span (owner 2026-10-13): the stored `startDay`/
@@ -18,7 +23,7 @@ import { entrySpanDays, journeySpanDays, withJourneySpan } from "../journeySpan"
 const d = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
 /** A flight row, as narrow selects and full rows both carry it. */
-const flight = (over: Partial<Parameters<typeof entrySpanDays>[0]["flights"] & object> = {}) => ({
+const flight = (over: Partial<JourneyFlightRow> = {}) => ({
   departureTime: null as Date | null,
   arrivalTime: null as Date | null,
   depTimeSemantics: "UTC",

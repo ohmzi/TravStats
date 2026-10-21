@@ -46,6 +46,8 @@ function reviewBody(dto: TripBuilderDraft): CommitBody {
     })),
     legModes: area.legs.map((leg) => leg.mode),
     album: area.pitstop !== undefined,
+    keepNotSeen: [],
+    removeNotSeen: [],
   }));
   return {
     commitKey: COMMIT_KEY,
@@ -56,7 +58,9 @@ function reviewBody(dto: TripBuilderDraft): CommitBody {
       Object.entries(dto.nights).map(([day, entry]) => [day, entry.assign])
     ),
     areas,
+    stopovers: [],
     photoJourneyIds: dto.photoJourneys.filter((j) => j.defaultTick).map((j) => j.id),
+    stops: { keep: [], remove: [] },
     album: { create: false, name: dto.tripName },
   };
 }

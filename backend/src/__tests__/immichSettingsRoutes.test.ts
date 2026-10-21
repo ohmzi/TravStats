@@ -64,7 +64,8 @@ const getImmichConnection =
   jest.fn<typeof import("../services/immich/immichResolver").getImmichConnection>();
 jest.mock("../services/immich/immichResolver", () => ({ getImmichConnection }));
 
-const albumCapability = jest.fn();
+const albumCapability =
+  jest.fn<typeof import("../services/immich/immichCapabilities").albumCapability>();
 jest.mock("../services/immich/immichCapabilities", () => ({ albumCapability }));
 
 const FULL_KEY = { canCreateAlbums: true, canView: true, missingScopes: [] };
@@ -468,7 +469,7 @@ describe("POST /settings/immich/test reports what the tested key may do with alb
   const shared = {
     baseUrl: "https://immich.lan",
     apiKey: "instance-wide-secret",
-    source: "global",
+    source: "global" as const,
   };
 
   it("asks about the key the caller typed, at the normalised address that was tested", async () => {
@@ -500,7 +501,7 @@ describe("POST /settings/immich/test reports what the tested key may do with alb
     expect(albumCapability).toHaveBeenCalledWith("https://immich.lan", "k");
   });
 
-  it.each(["global", "env"])(
+  it.each(["global", "env"] as const)(
     "never asks a %s key what it may do, and never hands its permissions out",
     async (source) => {
       getImmichConnection.mockResolvedValue({ ...shared, source });
@@ -543,7 +544,11 @@ describe("POST /settings/immich/test reports what the tested key may do with alb
   });
 
   it("adds nothing, and asks nothing, when the connection test failed", async () => {
-    const failure = { success: false, kind: "auth", message: "Immich rejected the API key" };
+    const failure = {
+      success: false,
+      kind: "auth" as const,
+      message: "Immich rejected the API key",
+    };
     testImmichConnection.mockResolvedValue(failure);
 
     const res = await request(makeApp(immichSettingsRouter)).post("/immich/test").send({});

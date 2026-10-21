@@ -31,7 +31,7 @@ describe("admin route-fetch status (/api/v1/admin/route-fetch)", () => {
   let adminUser: { id: string };
   let cookie: string;
   let rowId: number;
-  let fetchSpy: jest.SpyInstance;
+  let fetchSpy: jest.SpiedFunction<typeof fetch>;
 
   beforeAll(async () => {
     adminUser = await prisma.user.create({

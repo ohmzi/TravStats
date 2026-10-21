@@ -338,9 +338,9 @@ describe("a route-scoped commit", () => {
   });
 
   it("refuses a body that names another route than the one scanned", async () => {
-    await expect(
-      planFor({ target: { ...body().target, routeId: otherRouteId } })
-    ).rejects.toMatchObject({
+    const target = body().target;
+    if (target.kind !== "existing") throw new Error("the fixture body targets an existing trip");
+    await expect(planFor({ target: { ...target, routeId: otherRouteId } })).rejects.toMatchObject({
       statusCode: 400,
       code: "DRAFT_MISMATCH",
     });

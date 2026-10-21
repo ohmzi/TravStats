@@ -255,7 +255,9 @@ describe("resyncTripAlbum", () => {
 
   it("reports a refused removal as skipped, not as a failed re-sync", async () => {
     const { client } = fakeClient({ members: [asset("m1"), asset("o1")] });
-    (client.removeAssetsFromAlbum as jest.Mock).mockRejectedValueOnce(
+    (
+      client.removeAssetsFromAlbum as jest.MockedFunction<ResyncClient["removeAssetsFromAlbum"]>
+    ).mockRejectedValueOnce(
       new ImmichError("auth", "Immich rejected the API key", 403, {
         missingScope: "albumAsset.delete",
       })
@@ -298,9 +300,9 @@ describe("resyncTripAlbum", () => {
 
   it("carries on when the description cannot be refreshed", async () => {
     const { client } = fakeClient({ members: [asset("m1")], description: "TravStats trip · old" });
-    (client.setAlbumDescription as jest.Mock).mockRejectedValueOnce(
-      new ImmichError("auth", "no", 403, { missingScope: "album.update" })
-    );
+    (
+      client.setAlbumDescription as jest.MockedFunction<ResyncClient["setAlbumDescription"]>
+    ).mockRejectedValueOnce(new ImmichError("auth", "no", 403, { missingScope: "album.update" }));
     const outcome = await resyncTripAlbum(input(client, { assetIds: ["m1"] }));
     expect(outcome.status).toBe("linked");
   });
@@ -352,9 +354,9 @@ describe("resyncTripAlbum", () => {
 
   it("never throws: an Immich failure is the outcome", async () => {
     const { client } = fakeClient({ members: [] });
-    (client.listAlbumAssets as jest.Mock).mockRejectedValueOnce(
-      new ImmichError("unreachable", "down")
-    );
+    (
+      client.listAlbumAssets as jest.MockedFunction<ResyncClient["listAlbumAssets"]>
+    ).mockRejectedValueOnce(new ImmichError("unreachable", "down"));
     const outcome = await resyncTripAlbum(input(client));
     expect(outcome).toEqual({ status: "failed", error: { kind: "unreachable" } });
   });
@@ -363,9 +365,9 @@ describe("resyncTripAlbum", () => {
     "leaves a '%s' failure in the log with its kind and status, and nothing that names an asset",
     async (kind) => {
       const { client } = fakeClient({ members: [] });
-      (client.listAlbumAssets as jest.Mock).mockRejectedValueOnce(
-        new ImmichError(kind, "Immich refused m1 with the key", 502)
-      );
+      (
+        client.listAlbumAssets as jest.MockedFunction<ResyncClient["listAlbumAssets"]>
+      ).mockRejectedValueOnce(new ImmichError(kind, "Immich refused m1 with the key", 502));
       expect(await resyncTripAlbum(input(client))).toMatchObject({
         status: "failed",
         error: { kind },
@@ -380,7 +382,9 @@ describe("resyncTripAlbum", () => {
 
   it("reports anything else as an internal failure, logged as an error", async () => {
     const { client } = fakeClient({ members: [] });
-    (client.listAlbumAssets as jest.Mock).mockRejectedValueOnce(new Error("boom"));
+    (
+      client.listAlbumAssets as jest.MockedFunction<ResyncClient["listAlbumAssets"]>
+    ).mockRejectedValueOnce(new Error("boom"));
     expect(await resyncTripAlbum(input(client))).toEqual({
       status: "failed",
       error: { kind: "internal" },

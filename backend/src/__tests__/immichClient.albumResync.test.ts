@@ -6,6 +6,10 @@
  */
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import axios from "axios";
+import type { AxiosResponse } from "axios";
+
+/** The tests care about `data`; axios's response type also carries status, headers and config. */
+const response = <T>(data: T): AxiosResponse<T> => ({ data }) as AxiosResponse<T>;
 
 jest.mock("axios");
 const mockedAxios = axios as jest.Mocked<typeof axios>;
@@ -61,9 +65,10 @@ describe("removeAssetsFromAlbum", () => {
 
   it("sends 1000 ids per call", async () => {
     const ids = Array.from({ length: 2500 }, (_, i) => `id-${i}`);
-    mockedAxios.delete.mockImplementation(async (_url, config) => ({
-      data: (config?.data as { ids: string[] }).ids.map((id) => ({ id, success: true })),
-    }));
+    mockedAxios.delete.mockImplementation((async (_url: string, config?: { data?: unknown }) =>
+      response(
+        (config?.data as { ids: string[] }).ids.map((id) => ({ id, success: true }))
+      )) as unknown as typeof axios.delete);
     const result = await createImmichClient(CONN).removeAssetsFromAlbum(ALBUM, ids);
     expect(result.removed).toBe(2500);
     expect(mockedAxios.delete).toHaveBeenCalledTimes(3);

@@ -7,6 +7,10 @@
  */
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import axios from "axios";
+import type { AxiosResponse } from "axios";
+
+/** The tests care about `data`; axios's response type also carries status, headers and config. */
+const response = <T>(data: T): AxiosResponse<T> => ({ data }) as AxiosResponse<T>;
 
 jest.mock("axios");
 const mockedAxios = axios as jest.Mocked<typeof axios>;
@@ -158,10 +162,10 @@ describe("searchWindowAssets", () => {
 
   it("stops at 50 pages, says it was cut short and logs it", async () => {
     let calls = 0;
-    mockedAxios.post.mockImplementation(async () => {
+    mockedAxios.post.mockImplementation((async () => {
       calls += 1;
-      return page([asset(`p${calls}`)], "more");
-    });
+      return response(page([asset(`p${calls}`)], "more").data);
+    }) as unknown as typeof axios.post);
     const onPage = jest.fn();
 
     const result = await createImmichClient(CONN).searchWindowAssets(RANGE, onPage);
@@ -180,10 +184,10 @@ describe("searchWindowAssets", () => {
 
   it("is not truncated when the 50th page is the last one", async () => {
     let calls = 0;
-    mockedAxios.post.mockImplementation(async () => {
+    mockedAxios.post.mockImplementation((async () => {
       calls += 1;
-      return page([asset(`p${calls}`)], calls < 50 ? "more" : null);
-    });
+      return response(page([asset(`p${calls}`)], calls < 50 ? "more" : null).data);
+    }) as unknown as typeof axios.post);
 
     const result = await createImmichClient(CONN).searchWindowAssets(RANGE);
 

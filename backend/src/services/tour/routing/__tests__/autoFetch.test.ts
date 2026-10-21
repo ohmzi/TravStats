@@ -205,7 +205,11 @@ describe("shouldAutoFetch", () => {
     // the former is worth a download.
     expect(shouldAutoFetch({ kind: "anchors", headOffKm: 671.3, tailOffKm: 517.9 })).toBe(true);
     expect(shouldAutoFetch({ kind: "anchors", headOffKm: 1.3, tailOffKm: 0.4 })).toBe(false);
-    expect(shouldAutoFetch({ kind: "distance", distanceKm: 500, chordKm: 5 })).toBe(false);
+    // A distance refusal carries no wrong-region signal. The variable keeps the
+    // refusal's other fields in the fixture without making them part of the
+    // predicate's narrow input type.
+    const distanceRefusal = { kind: "distance", distanceKm: 500, chordKm: 5 };
+    expect(shouldAutoFetch(distanceRefusal)).toBe(false);
     expect(shouldAutoFetch(null)).toBe(false);
   });
 
