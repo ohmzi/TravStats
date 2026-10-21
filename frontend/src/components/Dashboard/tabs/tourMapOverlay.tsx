@@ -7,8 +7,6 @@ import { TOUR_RGB, type TourPathDatum } from "../../layers/tourPathsLayer";
 import type { MapPinned } from "../../map/cards/pinnedTypes";
 import { LEG_MODES, type LegMode } from "../../../types/tour";
 import { useOverlayAppearance } from "../../../store/overlayAppearanceStore";
-import type { TourSummary } from "../../../lib/api/tourIndex";
-import { withTourCards } from "../../map/cards/journeys/tourLayerCards";
 
 // Split out of AllTab.tsx purely to keep that file under its 800-line
 // ceiling — everything here is dashboard-wide-tour-specific (tour sections
@@ -280,8 +278,6 @@ export function useTourDeckLayers(
     [pathData, onGlobe, tourLineWidth, roadtripLineWidth, onPick]
   );
 }
-
-const NO_TOURS: readonly TourSummary[] = [];
 
 export interface TourStatusOverlayProps {
   loading: boolean;

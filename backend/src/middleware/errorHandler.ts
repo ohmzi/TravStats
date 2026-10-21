@@ -1,4 +1,3 @@
-import type { RemoteShareApiErrorCode } from "./remoteShareErrorCodes";
 import { Request, Response, NextFunction } from "express";
 import { MulterError } from "multer";
 import { ZodError } from "zod";

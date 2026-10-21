@@ -26,6 +26,7 @@ import { usePlaceColorStore } from "../store/placeColorStore";
 import { useMapCameraStore } from "../store/mapCameraStore";
 import { useMapLabelsModeStore } from "../store/mapLabelsModeStore";
 import { appendWithLabelObstacles } from "./map/labelObstacles";
+import { FloatingCard } from "./map/cards/FloatingCard";
 import { FLAT_BASEMAPS, type FlatStyleId } from "./map/basemapStyles";
 import { useResilientStyle } from "./map/basemapFallback";
 import type { Layer, MapViewState, PickingInfo } from "@deck.gl/core";
@@ -690,14 +691,10 @@ export function DeckGLMap({
         labelSource: placeLabelSource,
       }) ?? [];
 
-    return [
-      ...cruisePathsBelow,
-      ...base,
-      ...cruisePortsAbove,
-      ...lodgingLayers,
-      ...placeLayers,
-      ...guardedExtraLayers,
-    ];
+    return appendWithLabelObstacles(
+      [...cruisePathsBelow, ...base, ...cruisePortsAbove, ...lodgingLayers, ...placeLayers],
+      guardedExtraLayers
+    );
   }, [
     visMode,
     flights,

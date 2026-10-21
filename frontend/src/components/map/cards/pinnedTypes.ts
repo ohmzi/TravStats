@@ -183,7 +183,12 @@ export type MapPinned =
   | { kind: "specialFlight"; data: SpecialFlightCardDatum; anchorLngLat: [number, number] }
   | { kind: "lodging"; data: LodgingCardDatum; anchorLngLat: [number, number] }
   | { kind: "place"; data: PlaceCardDatum; anchorLngLat: [number, number] }
-  | { kind: "roadtrip"; data: RoadtripCardDatum; anchorLngLat: [number, number] };
+  | { kind: "roadtrip"; data: RoadtripCardDatum; anchorLngLat: [number, number] }
+  // forgejo#323: every other travel domain's line and its two ends.
+  | { kind: "journeyRoute"; data: JourneyRouteCardDatum; anchorLngLat: [number, number] }
+  | { kind: "journeyStop"; data: JourneyStopCardDatum; anchorLngLat: [number, number] }
+  | { kind: "tour"; data: TourCardDatum; anchorLngLat: [number, number] }
+  | { kind: "tripStop"; data: TripStopCardDatum; anchorLngLat: [number, number] };
 
 /**
  * What the hover tooltip draws: pre-rendered HTML plus the screen point it

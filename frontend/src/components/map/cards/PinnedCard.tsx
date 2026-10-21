@@ -133,6 +133,7 @@ export function PinnedCard({
         </button>
       </div>
 
+      {isJourneyPinned(pinned) && <JourneyBody pinned={pinned} locale={locale} t={t} />}
       {pinned.kind === "airport" && (
         <AirportBody data={pinned.data} flights={flights} locale={locale} t={t} />
       )}

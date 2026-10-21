@@ -1,3 +1,5 @@
+import type { RemoteShareApiErrorCode } from "./remoteShareErrorCodes";
+
 /**
  * Every machine-readable cause an `/api` error body may carry in `code`.
  *
@@ -538,4 +540,5 @@ export type ApiErrorCode =
   | "CLIENT_REF_REUSED"
   /** A repeat create whose key made a row that has been deleted since (410):
    *  nothing is re-created. `extra.kind`, `extra.entityId` name it. */
-  | "CLIENT_REF_TARGET_GONE";
+  | "CLIENT_REF_TARGET_GONE"
+  | RemoteShareApiErrorCode; // trip sharing across servers (spec 2026-10-20 §7)

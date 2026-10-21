@@ -16,6 +16,8 @@ import CreateEmailInviteModal from "../../components/Admin/CreateEmailInviteModa
 import InviteSuccessModal from "../../components/Admin/InviteSuccessModal";
 import GlobalApiKeysManager from "../../components/Admin/GlobalApiKeysManager";
 import ImmichGlobalSettings from "../../components/Admin/ImmichGlobalSettings";
+import AboutSection from "../../components/Settings/AboutSection";
+import GeocoderSettingsCard from "../../components/Settings/GeocoderSettingsCard";
 import { InstanceRoutingProviderCard } from "../../components/Settings/RoutingProviderSection";
 import RouteFetchProgressPanel from "../../components/Settings/RouteFetchProgressPanel";
 import ParserSettingsTab from "../../components/Admin/ParserSettings";

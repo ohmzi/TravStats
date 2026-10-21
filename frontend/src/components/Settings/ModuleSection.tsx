@@ -11,6 +11,7 @@ import { useCoarsePointer } from "../../hooks/useCoarsePointer";
 import { isBrandDefault, needsOutline } from "../../lib/domainColor";
 import { Switch } from "../ui/Field";
 import { SettingRows } from "../ui/SettingRow";
+import Button from "../ui/Button";
 
 /**
  * "Bereiche & Farben": one row per domain — the switch that turns it on and
@@ -110,9 +111,15 @@ export default function ModuleSection(): JSX.Element {
       )}
       <p className="t-caption">{t("settings:domainColors.mapNote")}</p>
       {!isBrandDefault(colors) && (
-        <button type="button" onClick={resetToBrand} className="btn-secondary self-start">
+        <Button
+          type="button"
+          variant="secondary"
+          size="toolbar"
+          onClick={resetToBrand}
+          className="self-start"
+        >
           {t("settings:domainColors.reset")}
-        </button>
+        </Button>
       )}
     </SectionCard>
   );
