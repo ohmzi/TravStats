@@ -2,6 +2,7 @@ import mapConfigRoutes from "./mapConfig";
 import encryptedShareRoutes from "./encryptedShare";
 import comparisonRoutes from "./comparison";
 import comparisonPeerRoutes from "./comparisonPeer";
+import tripSharePeerRoutes from "./tripSharePeer";
 /**
  * The API mount table — the single source of truth for what is served
  * under /api/v1 and in which order.
@@ -99,6 +100,7 @@ import aircraftRoutes from "./aircraft";
 import cruisesRouter from "./cruises";
 import cruiseRouteOverrideRoutes from "./cruises/routeOverride";
 import railOperatorRouter from "./rail/operators";
+import operatorMarksRouter from "./operators";
 import railRouter from "./rail";
 import railStationsRouter from "./rail/stations";
 import railEntrySuggestionsRouter from "./rail/entrySuggestions";
@@ -143,6 +145,7 @@ import importBatchRoutes from "./importBatches";
 import companionRoutes from "./companions";
 import noteRoutes from "./notes";
 import sharingRoutes from "./sharing";
+import sharingRemoteRoutes from "./sharingRemote";
 import shareLinkRoutes from "./shareLinks";
 import passportOverrideRoutes from "./passportOverrides";
 import publicShareLinkRoutes from "./publicShareLinks";
@@ -183,6 +186,8 @@ export const apiMounts: ApiMount[] = [
   { id: "encrypted-share", base: "/api/v1/encrypted-share", router: encryptedShareRoutes },
   { id: "comparison", base: "/api/v1/comparison", router: comparisonRoutes },
   { id: "comparison-peer", base: "/api/v1/comparison-peer", router: comparisonPeerRoutes },
+  // Trip sharing across servers (spec 2026-10-20): signed server-to-server messages, 404 when off.
+  { id: "trip-share-peer", base: "/api/v1/trip-share-peer", router: tripSharePeerRoutes },
   { id: "travplan", base: "/api/v1", router: travplanRoutes },
   // OpenAPI spec + Swagger UI mounted FIRST so /api/v1/docs and
   // /api/v1/openapi.json don't fall through into authenticated routers.
@@ -390,6 +395,8 @@ export const apiMounts: ApiMount[] = [
   // The catalogue typeahead and the train lookup mount FIRST on the same
   // prefix: the journey router's '/:id' would otherwise answer them as a 404.
   { id: "rail.operators", base: "/api/v1/rail/operators", router: railOperatorRouter },
+  // Operator logos for the map cards, every journey domain (forgejo#323).
+  { id: "operators", base: "/api/v1/operators", router: operatorMarksRouter },
   { id: "rail.stations", base: "/api/v1/rail/stations", router: railStationsRouter },
   { id: "rail.lookup", base: "/api/v1/rail/lookup", router: railLookupRouter },
   { id: "rail.shareLink", base: "/api/v1/rail/share-link", router: railShareLinkRouter },
@@ -485,6 +492,9 @@ export const apiMounts: ApiMount[] = [
   // Standalone notes (forgejo#137).
   { id: "notes", base: "/api/v1/notes", router: noteRoutes },
   // Shared trips (design 2026-10-09): consent, companion link, share, leave.
+  // People on other servers (spec 2026-10-20 F-S4b). BEFORE `/sharing`, whose router would
+  // otherwise authenticate the request first and then fall through to this one.
+  { id: "sharingRemote", base: "/api/v1/sharing/remote", router: sharingRemoteRoutes },
   { id: "sharing", base: "/api/v1/sharing", router: sharingRoutes },
   // Public share links (forgejo#281): the owner's list/preview/create/revoke,
   // and the unauthenticated side a link's page asks with its token.

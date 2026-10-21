@@ -8,6 +8,7 @@ import ConfirmModal from "../Training/ConfirmModal";
 import { formatInProfileZone } from "../../lib/profileInstant";
 import type { TourTrackMeta } from "../../types/tour";
 import Toggletip from "../ui/Toggletip";
+import { JitterNote } from "../tracks/JitterNote";
 
 interface Props {
   /** The section heading — drawn here, on the same line as the Add recording menu. */
@@ -214,6 +215,10 @@ export default function TourTrackList({
                 {t("trips:tours.tracks.pointCount", { count: track.pointCount })}
               </span>
               <span className="text-(--text-muted)">{formatDistanceKm(track.distanceKm)} km</span>
+              <JitterNote
+                jitterDropped={track.jitterDropped}
+                className="t-caption basis-full order-last"
+              />
               {track.ascentM !== null && (
                 <span className="text-(--text-muted)">↑ {Math.round(track.ascentM)} m</span>
               )}

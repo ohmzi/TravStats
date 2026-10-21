@@ -27,7 +27,17 @@ const routed = () => ({
 });
 const post = (id: string, as = cookie) =>
   request(app).post(`/api/v1/ferry/${id}/route`).set("Cookie", as).send({});
+/** A crossing that is still the straight line: since forgejo#323 a new crossing
+ *  is routed on save, and this suite is about routing one that was not — the
+ *  router found no way then, or failed. */
 async function create(extra: Record<string, unknown> = {}) {
+  jest.mocked(computeSchematicRoute).mockResolvedValueOnce({
+    waypoints: [line[0], line[line.length - 1]],
+    protectedPrefixCount: 0,
+    protectedSuffixCount: 0,
+    routed: false,
+    method: "direct" as const,
+  });
   const r = await request(app)
     .post("/api/v1/ferry")
     .set("Cookie", cookie)
@@ -39,6 +49,8 @@ async function create(extra: Record<string, unknown> = {}) {
       ...extra,
     });
   expect(r.status).toBe(201);
+  // Count only the routing the test itself asks for.
+  jest.mocked(computeSchematicRoute).mockClear();
   return r.body.data.id as string;
 }
 async function link(id: string) {
@@ -221,6 +233,29 @@ it("rolls back the crossing when the linked sea leg has incompatible terminals",
   expect((await post(id)).status).toBe(409);
   expect(await prisma.ferryJourney.findUnique({ where: { id } })).toMatchObject({
     geometrySource: "straight",
+  });
+});
+it("edits a crossing whose linked leg stops are towns, not its piers, and keeps that leg", async () => {
+  // Linking accepts a leg whose stops are >1 km from the terminals
+  // (onMismatch: "keep"); a later notes-only edit must not refuse it.
+  const id = await create();
+  expect((await post(id)).body.data.outcome).toBe("routed");
+  const leg = await link(id);
+  await prisma.tripStop.update({ where: { id: leg.fromStopId }, data: { lat: dep.lat + 0.1 } });
+  const kept = await prisma.tripRouteLeg.findUniqueOrThrow({ where: { id: leg.id } });
+  const edit = await request(app)
+    .patch(`/api/v1/ferry/${id}`)
+    .set("Cookie", cookie)
+    .send({ notes: "Price and notes only" });
+  expect(edit.status).toBe(200);
+  expect(edit.body.data).toMatchObject({
+    notes: "Price and notes only",
+    geometrySource: "sea_route",
+  });
+  expect(await prisma.tripRouteLeg.findUnique({ where: { id: leg.id } })).toMatchObject({
+    source: kept.source,
+    distanceKm: kept.distanceKm,
+    updatedAt: kept.updatedAt,
   });
 });
 it("invalidates an unlinked sea line when a terminal moves", async () => {

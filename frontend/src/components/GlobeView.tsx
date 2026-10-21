@@ -22,13 +22,13 @@ import {
 } from "./Globe/buildGlobeLayers";
 import { type AppearanceDomain } from "./map/controlPanelKit";
 import { useResilientStyle } from "./map/basemapFallback";
-import type { LabelsMode } from "./map/labelPriority";
 import { loadMapAppearance, saveMapAppearance } from "./map/mapAppearance";
 import { loadGlobeChrome, saveGlobeChrome } from "./map/globeChrome";
 import { useFlightColorStore } from "../store/flightColorStore";
 import { useLodgingColorStore } from "../store/lodgingColorStore";
 import { usePlaceColorStore } from "../store/placeColorStore";
 import { useMapCameraStore } from "../store/mapCameraStore";
+import { useMapLabelsModeStore } from "../store/mapLabelsModeStore";
 
 // Base marker radius (px) a size preset scales. off → 0 (hidden).
 const GLOBE_MARKER_BASE_PX = 5;
@@ -49,7 +49,7 @@ import { GlobeDeckOverlay } from "./Globe/GlobeDeckOverlay";
 import { applyMapOverlays } from "./Globe/mapOverlays";
 import { buildAirportPoints, buildPortPoints } from "./Globe/globePointData";
 import { buildGlobeArcData } from "./Globe/globeArcData";
-import { lodgingLabelPoints, placeLabelPoints } from "./Globe/globePinLabels";
+import { lodgingLabelPoints, placeLabelPoints, stationLabelPoints } from "./Globe/globePinLabels";
 import { createMarkerTooltip } from "./map/markerTooltip";
 import { GlobeControlPanel, type StyleId, type LiteMode } from "./Globe/GlobeControlPanel";
 import { GlobePanelDock } from "./Globe/GlobePanelDock";
@@ -249,9 +249,7 @@ export default function GlobeView({
   }, [autoRotate, showNight]);
   // Marker-label reveal: off / key markers only (greedy screen-space
   // collision, the default) / all (ignore overlap). Persisted.
-  const [labelsMode, setLabelsMode] = useState<LabelsMode>(
-    () => loadMapAppearance().labelsMode ?? "important"
-  );
+  const { mode: labelsMode, setMode: setLabelsMode } = useMapLabelsModeStore();
   // Map-appearance customisation (the panel's "Anpassung" section) plus
   // the style-level overlays, all persisted to localStorage so a user's
   // look survives reloads.
@@ -324,7 +322,6 @@ export default function GlobeView({
       cruiseMarkerSize,
       showTerrain,
       showPlaceLabels,
-      labelsMode,
       placeLabelSource,
     });
   }, [
@@ -337,7 +334,6 @@ export default function GlobeView({
     cruiseMarkerSize,
     showTerrain,
     showPlaceLabels,
-    labelsMode,
     placeLabelSource,
   ]);
 
@@ -1038,11 +1034,10 @@ export default function GlobeView({
     [markerTooltip]
   );
 
-  // Pin labels for the HTML overlay. deck.gl billboard text does not render
-  // under the globe projection at all (see GlobeLabelsOverlay), so this is the
-  // only route a hotel or place name has onto the sphere.
+  // Pin + station labels: the HTML overlay is their only route onto the globe (GlobeLabelsOverlay).
   const pinLabels = useMemo(
     () => [
+      ...stationLabelPoints(extraLayers),
       ...lodgingLabelPoints(lodgings, lodgingColorConfig),
       ...placeLabelPoints(
         places,
@@ -1060,6 +1055,7 @@ export default function GlobeView({
       placeListColors,
       placeListLabels,
       placeLabelSource,
+      extraLayers,
     ]
   );
 
@@ -1101,11 +1097,10 @@ export default function GlobeView({
         showNight,
       }),
       // Appended, never merged into buildGlobeLayers itself -- these are the
-      // caller's own layers (e.g. dashboard-wide tour paths), not part of
-      // what this component knows how to build. They DO get the occlusion
-      // extension every globe-built layer carries, or a tour on the far side
-      // of the sphere draws straight through it.
-      ...occludeExtraLayers(extraLayers, occlusionExt, occlusionProps),
+      // caller's own layers (e.g. dashboard-wide tour paths). They DO get the
+      // occlusion extension every globe-built layer carries, or a tour on the
+      // far side of the sphere draws through it — and the shared tooltip.
+      ...occludeExtraLayers(extraLayers, occlusionExt, occlusionProps, onPinHover),
     ],
     [
       arcsData,

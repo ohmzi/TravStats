@@ -16,6 +16,8 @@ import CreateEmailInviteModal from "../../components/Admin/CreateEmailInviteModa
 import InviteSuccessModal from "../../components/Admin/InviteSuccessModal";
 import GlobalApiKeysManager from "../../components/Admin/GlobalApiKeysManager";
 import ImmichGlobalSettings from "../../components/Admin/ImmichGlobalSettings";
+import AboutSection from "../../components/Settings/AboutSection";
+import GeocoderSettingsCard from "../../components/Settings/GeocoderSettingsCard";
 import { InstanceRoutingProviderCard } from "../../components/Settings/RoutingProviderSection";
 import RouteFetchProgressPanel from "../../components/Settings/RouteFetchProgressPanel";
 import ParserSettingsTab from "../../components/Admin/ParserSettings";
@@ -120,9 +122,41 @@ export interface AdminSectionSwitchProps {
 }
 
 /**
+ * How each section is framed (see `SectionFrame`): `own` sections draw their
+ * heading and card themselves (`SectionCard` + `SectionTitle`); `card`
+ * sections render only their body, and the frame draws both.
+ */
+export const ADMIN_SECTION_FRAME: Record<ActiveSection, "own" | "card"> = {
+  instance: "card",
+  shareLinks: "own",
+  importMode: "own",
+  usageStats: "card",
+  about: "own",
+  geocoder: "own",
+  federation: "own",
+  push: "card",
+  users: "card",
+  invitations: "card",
+  externalServices: "own",
+  parsers: "card",
+  templateRepo: "own",
+  smtp: "card",
+  backups: "card",
+  webdav: "card",
+  timeModel: "card",
+  logging: "card",
+  system: "card",
+  airlinesMasterData: "card",
+  aircraftMasterData: "card",
+  airportsMasterData: "card",
+  shipsMasterData: "card",
+  portsMasterData: "card",
+};
+
+/**
  * Renders one admin section's content. Kept apart from the page so the page
  * is about navigation and data loading, and this file is about wiring the
- * ~14 sections up — see SettingsSectionSwitch for the pattern this copies.
+ * sections up — see SettingsSectionSwitch for the pattern this copies.
  */
 export default function AdminSectionSwitch(props: AdminSectionSwitchProps): JSX.Element | null {
   switch (props.section) {
@@ -205,6 +239,8 @@ export default function AdminSectionSwitch(props: AdminSectionSwitchProps): JSX.
       );
 
     case "externalServices":
+      // Grouped by domain, as accordions (forgejo#321): the instance's keys,
+      // the routing provider, the shared Immich connection, the rail providers.
       return (
         <>
           <GlobalApiKeysManager
@@ -233,19 +269,19 @@ export default function AdminSectionSwitch(props: AdminSectionSwitchProps): JSX.
 
     case "parsers":
       return props.parserSettings ? (
-        <div className="space-y-6">
-          <ParserSettingsTab
-            parserSettings={props.parserSettings}
-            savingParsers={props.savingParsers}
-            onSave={props.onSaveParserSettings}
-            onParserSettingsChange={props.onParserSettingsChange}
-            onTestOllama={props.onTestOllama}
-            ollamaTestState={props.ollamaTestState}
-          />
-          {/* Where the templates come from (forgejo#309) — loads its own data. */}
-          <TemplateRepoSettings />
-        </div>
+        <ParserSettingsTab
+          parserSettings={props.parserSettings}
+          savingParsers={props.savingParsers}
+          onSave={props.onSaveParserSettings}
+          onParserSettingsChange={props.onParserSettingsChange}
+          onTestOllama={props.onTestOllama}
+          ollamaTestState={props.ollamaTestState}
+        />
       ) : null;
+
+    case "templateRepo":
+      // Where the templates come from (forgejo#309) — loads its own data.
+      return <TemplateRepoSettings />;
 
     case "logging":
       return props.loggingConfig ? (
@@ -264,73 +300,36 @@ export default function AdminSectionSwitch(props: AdminSectionSwitchProps): JSX.
       ) : null;
 
     case "instance":
-      return (
-        <div className="space-y-6">
-          <div
-            style={{
-              background: "var(--ts-surface)",
-              border: "1px solid var(--ts-border)",
-              borderRadius: "var(--ts-radius-card)",
-            }}
-          >
-            <InstanceSettings />
-          </div>
-          <ShareLinksSettings />
-          <ImportModeSettings />
-          <FederationSettings />
-          <div
-            style={{
-              background: "var(--ts-surface)",
-              border: "1px solid var(--ts-border)",
-              borderRadius: "var(--ts-radius-card)",
-            }}
-          >
-            <UsageStatsSettings />
-          </div>
-          <div
-            style={{
-              background: "var(--ts-surface)",
-              border: "1px solid var(--ts-border)",
-              borderRadius: "var(--ts-radius-card)",
-            }}
-          >
-            <PushSettings />
-          </div>
-        </div>
-      );
+      return <InstanceSettings />;
+    case "shareLinks":
+      return <ShareLinksSettings />;
+    case "importMode":
+      return <ImportModeSettings />;
+    case "usageStats":
+      return <UsageStatsSettings />;
+    case "about":
+      // Moved here from personal settings › Darstellung (tester, 2026-10-20);
+      // every account still sees the version under the settings menu.
+      return <AboutSection />;
+    case "geocoder":
+      // Moved here from personal settings › Unterkünfte, where only an admin
+      // ever saw it: it configures the instance, not the account.
+      return <GeocoderSettingsCard isAdmin />;
+    case "federation":
+      return <FederationSettings />;
+    case "push":
+      return <PushSettings />;
 
     case "backups":
-      return (
-        <div className="space-y-6">
-          <BackupManagement />
-          <div
-            style={{
-              background: "var(--ts-surface)",
-              border: "1px solid var(--ts-border)",
-              borderRadius: "var(--ts-radius-card)",
-            }}
-          >
-            <WebDAVSettings />
-          </div>
-        </div>
-      );
+      return <BackupManagement />;
+    case "webdav":
+      return <WebDAVSettings />;
 
     case "timeModel":
       return <TimeModelSection users={props.users} />;
 
     case "smtp":
-      return (
-        <div
-          style={{
-            background: "var(--ts-surface)",
-            border: "1px solid var(--ts-border)",
-            borderRadius: "var(--ts-radius-card)",
-            padding: 24,
-          }}
-        >
-          <SmtpManager />
-        </div>
-      );
+      return <SmtpManager />;
 
     default:
       return null;

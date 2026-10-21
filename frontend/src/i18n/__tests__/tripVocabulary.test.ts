@@ -62,6 +62,8 @@ const KEPT: Record<string, "*" | readonly string[]> = {
     "review.area.kinds.roadtrip",
     "review.stopovers.roadtrip",
   ],
+  "map.json": ["journey.openRoadtrip", "journey.tourKind.roadtrip"],
+  "settings.json": ["search.keywords.domains"],
 };
 
 function collectedHits(): Record<string, string[]> {

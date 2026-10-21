@@ -17,7 +17,6 @@ import { useTranslation } from "../hooks/useTranslation";
 import { applyMapOverlays } from "./Globe/mapOverlays";
 import { FlatMapControlPanel } from "./map/FlatMapControlPanel";
 import { type AppearanceDomain } from "./map/controlPanelKit";
-import type { LabelsMode } from "./map/labelPriority";
 import { loadFlightRouteShape, loadMapAppearance, saveMapAppearance } from "./map/mapAppearance";
 import type { FlightRouteShape } from "../lib/flightRouteShape";
 import { useFlightColorStore } from "../store/flightColorStore";
@@ -25,6 +24,9 @@ import { resolveFlightTipColor } from "../lib/flightColor";
 import { useLodgingColorStore } from "../store/lodgingColorStore";
 import { usePlaceColorStore } from "../store/placeColorStore";
 import { useMapCameraStore } from "../store/mapCameraStore";
+import { useMapLabelsModeStore } from "../store/mapLabelsModeStore";
+import { appendWithLabelObstacles } from "./map/labelObstacles";
+import { FloatingCard } from "./map/cards/FloatingCard";
 import { FLAT_BASEMAPS, type FlatStyleId } from "./map/basemapStyles";
 import { useResilientStyle } from "./map/basemapFallback";
 import type { Layer, MapViewState, PickingInfo } from "@deck.gl/core";
@@ -119,8 +121,8 @@ interface DeckGLMapProps {
    * Lodging places (hotels/campsites) to render as pins + name labels.
    * Built into a ScatterplotLayer + TextLayer HERE (not by the caller, via
    * `buildLodgingPins`) — unlike the marker-size value above, the pin layer
-   * itself needs `zoom` and `labelsMode`, both of which are private state
-   * that only exists inside this component (mirrors exactly how
+   * itself needs `zoom`, which is private state that only exists inside
+   * this component (mirrors exactly how
    * `createCruisePortsLayer` is built here rather than by MapContainer3D).
    * Undefined/empty means "no lodging layer at all".
    */
@@ -135,8 +137,8 @@ interface DeckGLMapProps {
   onLodgingClick?: (lodgingId: string) => void;
   /**
    * Places to render as pins + name labels. Built HERE rather than by the
-   * caller for the same reason `lodgingsOverride` is: the layer needs `zoom`
-   * and `labelsMode`, which are private to this component.
+   * caller for the same reason `lodgingsOverride` is: the layer needs `zoom`,
+   * which is private to this component.
    *
    * Until 2026-08-28 both PoiTab and AllTab called `buildPlacePins` themselves
    * and passed it into `extraLayers`, which is why places were the one domain
@@ -285,9 +287,7 @@ export function DeckGLMap({
   const [showPlaceLabels, setShowPlaceLabels] = useState<boolean>(
     () => loadMapAppearance().showPlaceLabels ?? true
   );
-  const [labelsMode, setLabelsMode] = useState<LabelsMode>(
-    () => loadMapAppearance().labelsMode ?? "important"
-  );
+  const { mode: labelsMode, setMode: setLabelsMode } = useMapLabelsModeStore();
   // Absent means "as each list says" — see the field's note in mapAppearance.
   const [placeLabelSource, setPlaceLabelSource] = useState<PlaceLabelSource>(
     () => loadMapAppearance().placeLabelSource ?? "list"
@@ -305,7 +305,6 @@ export function DeckGLMap({
       cruiseArrowScale,
       showTerrain,
       showPlaceLabels,
-      labelsMode,
       placeLabelSource,
     });
   }, [
@@ -320,7 +319,6 @@ export function DeckGLMap({
     cruiseArrowScale,
     showTerrain,
     showPlaceLabels,
-    labelsMode,
     placeLabelSource,
   ]);
   // Apply the style-level overlays (relief hillshade + basemap place
@@ -357,21 +355,21 @@ export function DeckGLMap({
       map.off("style.load", reapply);
     };
   }, [mapLoaded]);
-  // Zoom is read from MapGL viewState on every move so layers can hide
-  // labels / decimate symbols at low zoom. Updated via the move handler
-  // to avoid an extra render path.
+  // Zoom from the move handler, so layers can hide labels at low zoom.
   const [zoom, setZoom] = useState<number>(initialViewState.zoom ?? 2);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [playing, setPlaying] = useState<boolean>(false);
   const deckClickedRef = useRef(false);
+  // A layer the tabs hand in (forgejo#323) cannot set the guard itself.
+  const markDeckClick = useCallback((info: PickingInfo): void => {
+    if (info.object) deckClickedRef.current = true;
+  }, []);
 
   // Real sea-route geometry per cruise, fetched lazily after mount; the arcs
   // layer draws a straight chord until an entry lands here.
   const cruiseGeometry = useCruiseGeometry(cruises);
 
-  // Per-field selectors. Bare `useFlightSelectionStore()` would re-render
-  // the map on every field change in the store; with selectors we only
-  // re-render when the specific field this component reads changes.
+  // Per-field selectors, so only a change to a field read here re-renders.
   const selectedIds = useFlightSelectionStore((s) => s.selectedIds);
   const selectedFlights = useFlightSelectionStore((s) => s.selectedFlights);
   const clearSelection = useFlightSelectionStore((s) => s.clearSelection);
@@ -693,14 +691,10 @@ export function DeckGLMap({
         labelSource: placeLabelSource,
       }) ?? [];
 
-    return [
-      ...cruisePathsBelow,
-      ...base,
-      ...cruisePortsAbove,
-      ...lodgingLayers,
-      ...placeLayers,
-      ...guardedExtraLayers,
-    ];
+    return appendWithLabelObstacles(
+      [...cruisePathsBelow, ...base, ...cruisePortsAbove, ...lodgingLayers, ...placeLayers],
+      guardedExtraLayers
+    );
   }, [
     visMode,
     flights,
@@ -742,8 +736,7 @@ export function DeckGLMap({
     handlePlaceClick,
   ]);
 
-  // No 3D modes remain — lighting effect is unused but kept as empty array for
-  // the DeckGLOverlay API.
+  // No 3D modes remain — an empty effect list for the DeckGLOverlay API.
   const effects: LightingEffect[] = [];
 
   // deck.gl's own `getTooltip` is no longer wired: it can only be styled
@@ -840,6 +833,7 @@ export function DeckGLMap({
             layers={[...layers, ...pulseLayers, ...planeLayers]}
             effects={effects}
             onHover={handleDeckHover}
+            onClick={markDeckClick}
           />
         )}
         {!webgl2Available && visMode === "routes" && (
@@ -943,14 +937,7 @@ export function DeckGLMap({
           reprojects on every move, the way the globe's does; the five cards
           it replaced each had their own anchoring scheme. */}
       {pinned && pinnedPos && (
-        <div
-          className="absolute z-30 pointer-events-auto"
-          style={{
-            left: pinnedPos.x,
-            top: pinnedPos.y,
-            transform: "translate(-50%, calc(-100% - 14px))",
-          }}
-        >
+        <FloatingCard anchor={pinnedPos}>
           <PinnedCardBoundary>
             <PinnedCard
               pinned={pinned}
@@ -971,7 +958,7 @@ export function DeckGLMap({
               }}
             />
           </PinnedCardBoundary>
-        </div>
+        </FloatingCard>
       )}
 
       {/* Hover tooltip — the globe's leaf component, fed imperatively. The

@@ -257,6 +257,9 @@ function pathMidpoint(datum: TourPathDatum): [number, number] {
  * The tour layer with the user's width sliders applied — the hook both the
  * "Alle" map and the tour/roadtrip tab call, so the two cannot read the store
  * differently. Lifted on the globe (`TOUR_PATH_GLOBE_ALTITUDE_M`).
+ *
+ * `tours` are the summaries the lines were fetched for; with them every leg
+ * opens its tour's map card (forgejo#323).
  */
 export function useTourDeckLayers(
   pathData: readonly TourPathDatum[],

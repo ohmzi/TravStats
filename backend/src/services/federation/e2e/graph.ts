@@ -202,6 +202,11 @@ export const NON_TRAVEL_RELATIONS = [
   "linkedAsCompanion",
   "shareConsentsAsked",
   "shareConsentsGiven",
+  // Federated trip sharing (spec 2026-10-20 F-S4b): pairings and single-use codes.
+  "remoteShareAccounts",
+  "tripShareInvites",
+  // F-S4e: a member's yes or no to a person on another server on a shared trip.
+  "tripShareRosterConsents",
   "shareGroupsCreated",
   "shareNotices",
   "shareNoticesActed",
@@ -219,6 +224,9 @@ export const NON_TRAVEL_RELATIONS = [
   // The positions the Companion recorded during a trip (forgejo#316): private
   // to their owner, never part of a comparison or a federation publication.
   "tripRecordingBatches",
+  // The jitter re-measure job's bookkeeping (forgejo#319): outcomes, retry
+  // times and the measurement a re-measure replaced. Server housekeeping.
+  "trackJitterRemeasures",
   // Where a merged-away trip went (forgejo#316): server bookkeeping for the
   // Companion's uploads, not travel data.
   "mergedTripRedirects",
