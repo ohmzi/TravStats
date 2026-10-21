@@ -146,6 +146,7 @@ backend/data/.cache/
 .superpowers/
 screenshots/
 !ClaudeDesign/screenshots/
+!docs/fork/screenshots/
 
 # Loose screenshots / lab renders / demo PNGs that accumulate at the
 # repo root during sessions. Tracked PNGs (docs/images/, frontend/public/,

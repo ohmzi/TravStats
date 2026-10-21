@@ -1,5 +1,41 @@
 <div align="center">
 
+## This fork, in short
+
+This is Omar's heavily modified fork of [Abrechen2/TravStats](https://github.com/Abrechen2/TravStats). Upstream is a travel logbook; this fork adds a photo-driven trip builder, journey pages, real-geometry maps, admin-approved self sign-up, and a data API, and upstream releases are merged into this line rather than rebased onto it.
+
+- **Photo-driven trip builder** — point it at the Immich photos taken during a trip's dates and it drafts the itinerary: where each day was spent, where each night was slept, and one roadtrip per ground area, with your logged flights as the spine.
+- **Review, diff and a phased commit** — rename, merge, split or delete draft stops on the review page; a re-sync shows what changed, what is new and what is not in your photos, then a single transaction writes the trip, flights, stops and roadtrips. A failed album step is reported and retried on its own.
+- **Journey pages** — every logged journey has its own page with its figures band, a route view and the logbook table, opened from its card.
+- **Real-geometry maps** — trip and journey maps draw the actual road, and the routing guard refuses an answer from a region the road graph does not cover, optionally asking a host service to download that region.
+- **Admin-approved self sign-up** — public registration can be enabled, but every new account starts pending until an admin approves it.
+- **Data API** — journeys, their legs and their media are reachable through the API in a shape other tools can digest.
+
+Upstream releases are merged into this fork's line, not rebased onto it. The per-change record — what each change does, why, and which files or subsystems it touches — is in [`docs/FORK_CHANGES.md`](docs/FORK_CHANGES.md).
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/fork/screenshots/trip-page.png" alt="A trip page showing its title, date span, figures band and tabs for overview, timeline, map, gallery and logbook" /></td>
+    <td width="50%"><img src="docs/fork/screenshots/trips-list.png" alt="The trips list with summary cards and a trip card showing its flight route and totals" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>A trip page: figures band, tabs and the journey detail</sub></td>
+    <td align="center"><sub>Trips list — route, flights, countries and cost at a glance</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/fork/screenshots/csv-import-mapping.png" alt="CSV import column mapping dialog on a phone, matching the file's columns to TravStats fields" width="280" /></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>CSV import — map the file's columns onto TravStats fields</sub></td>
+  </tr>
+</table>
+
+</div>
+
+---
+
+<div align="center">
+
 <img src="docs/images/logo.svg" alt="TravStats" width="140" />
 
 # TravStats
@@ -79,105 +115,6 @@ import of everything, because a lot of travel history is typed in or
 imported from files you supply.
 
 ---
-
-## This fork
-
-This is a personal fork of TravStats, developed against one household's real
-logbook. It tracks upstream — the 2.7.0-rc.13 line is merged — and carries a
-set of features on top. Upstream releases are **merged** into the fork's line
-rather than rebased onto, so the features below stay put across an upstream
-pull and none of them is upstream's own work. Everything else in this README
-is upstream's and still applies. The per-change record — what each does, why,
-and which files or subsystems it touches — is in
-[`docs/FORK_CHANGES.md`](docs/FORK_CHANGES.md).
-
-### Build a trip from your Immich photos
-
-The Create Trip form can read the photos taken inside a trip's dates from a
-self-hosted Immich library and draft the whole trip from them. Two switches,
-**Inspect Immich** and **Create album in Immich**, start a read-only scan: the
-server fetches the window's photos, gives each one an instant and a timezone,
-keeps your own, and cuts the ground movement at every flight already in your
-logbook. From that it drafts a day-by-day itinerary — where each day was spent,
-how the logged flights divide the ground travel into stretches, and where each
-night was slept — and proposes a roadtrip per ground area with **native
-roadtrip stations**. A single ground area takes the trip's own name; where there
-are several, each is named `<trip> · <main city>`. Photos taken while airborne
-are kept in the album but never become stops, and a night spent in the air is a
-flight, not a place.
-
-**Nothing is written until you confirm.** The draft is held in memory and
-reviewed on its own page, where you can rename, merge, split and delete stops,
-answer an open night, choose what each area becomes, and see the photos the scan
-left out and the warnings it raised — all before pressing the button. Only then
-does a single transaction write the trip, its flights, its stops and its
-roadtrips, with the album following. A **re-sync** updates an existing trip
-instead: it re-scans the trip's saved dates, shows a diff (changed, new,
-unchanged, "not in your photos") and writes only what changed. A re-sync can
-also be **scoped to one roadtrip** from that trip's own page, so correcting one
-trip never rewrites the rest of the journey.
-
-**Albums are made and changed only through your own Immich key**, never the
-operator's, and the only step that removes photos — a date change — is doubly
-gated: a photo leaves an album only when TravStats made that album (its
-description carries a marker written at creation) and the key grants the
-album-delete scope. A shared connection or a missing scope saves the trip
-without the album rather than failing it.
-
-### One flag on the journey band
-
-The band at the top of a journey card shows a **single country flag: the country
-the journey spent the most days in**. The journey's own stations decide it —
-each contributes the distinct calendar days it covers, a day two stations share
-counting once — with the country most landed-in by its flights as the fallback
-when no station resolves a country. When nothing resolves, the band keeps the
-trip's own colour gradient rather than inventing a flag. (An earlier rule
-painted the travel-order destination flags and dropped home only by an ordering
-accident; a later ruling replaced the whole rule with the one country most
-spent.)
-
-### The figures band is navigation
-
-The figures row on the journey, trip and flight-trip pages is no longer a wall
-of read-only sums. A figure that names a surface is a link to it: the day count
-and the places open the timeline, the countries and the route distance open the
-map, the trip count opens the trips, the album opens the gallery, and the flown
-distance and the flight distances open the flight journey's own route view. A
-cell with no sensible target stays a plain figure rather than linking to
-nowhere.
-
-### On-demand map downloading, and its progress panel
-
-Routing runs on a self-hosted OSRM graph that may not cover every region a trip
-visits. When the router's answer snaps far from a leg's two stops — the sign
-that the graph has no data there — the app refuses it and, when an operator has
-configured the fetch service's URL, asks that service to download the covering
-region and rebuild the graph while the old one keeps serving. The refusal
-message tells the truth about it: it says the map for the region is downloading
-and roughly how long it takes, and the next attempt routes.
-
-The same routing guard now accepts the router's own **nearest-road snap when a
-pin sits within 25 km of a road** — a photo taken on a beach or a hike routes
-from the nearest road — while still refusing, with the map fetch, beyond that
-bound. So a missing map region heals itself, and a pin that is merely off-road
-no longer fails.
-
-An admin **Settings** page carries a **map-download panel** showing the
-service's own phase, region and elapsed time (and an ETA when the service
-supplies one). The downloading alert links there — for admins only, on both the
-toast and the leg dialog — so neither surface silently lacks the way to watch a
-download in progress.
-
-### Timeline and clustering rules
-
-Two ordering rules keep a journey's timeline honest. On the journey timeline,
-the flight that **brought** the traveller to a place sorts **before** that
-place's time-less entries, and the flight that **took** them away from it sorts
-**after** them; which it is, is decided by which of the flight's two airports is
-nearer the place. And within a stay, the places a cluster carries **stand
-apart**: each named place becomes its own station even when the places sit
-within the clustering distance of one another, so a compact island or a
-multi-district city shows its places rather than collapsing into one.
 
 ## Outside this repository
 
