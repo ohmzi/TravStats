@@ -28,6 +28,12 @@ Upstream releases are merged into this fork's line, not rebased onto it. The per
   <tr>
     <td colspan="2" align="center"><sub>CSV import — map the file's columns onto TravStats fields</sub></td>
   </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/fork/screenshots/mobile.webp" alt="TravStats on a phone: the Journeys list, road trips drawn on their routes, and the Passport page with country and airport stamps" /></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>On a phone — Journeys, road trips and the Passport, from the live demo at <a href="https://travstat-demo.ohmz.cloud">travstat-demo.ohmz.cloud</a> (made-up traveller, any login works)</sub></td>
+  </tr>
 </table>
 
 </div>
